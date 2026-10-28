@@ -1,0 +1,192 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://scripts/main.gd" id="1_main"]
+[ext_resource type="PackedScene" path="res://scenes/player.tscn" id="2_player"]
+[ext_resource type="PackedScene" path="res://scenes/zombie.tscn" id="3_zombie"]
+[ext_resource type="PackedScene" path="res://scenes/ui/hud.tscn" id="4_hud"]
+[ext_resource type="PackedScene" path="res://scenes/ui/retro_screen.tscn" id="5_retro"]
+[ext_resource type="PackedScene" path="res://scenes/props/crate.tscn" id="6_crate"]
+[ext_resource type="PackedScene" path="res://scenes/props/pickup_item.tscn" id="7_pickup"]
+[ext_resource type="Material" path="res://materials/asfalto.tres" id="m_asfalto"]
+[ext_resource type="Material" path="res://materials/concreto.tres" id="m_concreto"]
+[ext_resource type="Material" path="res://materials/tijolo.tres" id="m_tijolo"]
+[ext_resource type="Material" path="res://materials/madeira.tres" id="m_madeira"]
+[ext_resource type="Material" path="res://materials/metal.tres" id="m_metal"]
+
+[sub_resource type="ProceduralSkyMaterial" id="SkyMaterial_dusk"]
+sky_top_color = Color(0.16, 0.18, 0.26, 1)
+sky_horizon_color = Color(0.62, 0.42, 0.3, 1)
+ground_bottom_color = Color(0.08, 0.07, 0.07, 1)
+ground_horizon_color = Color(0.62, 0.42, 0.3, 1)
+
+[sub_resource type="Sky" id="Sky_dusk"]
+sky_material = SubResource("SkyMaterial_dusk")
+
+[sub_resource type="Environment" id="Environment_dusk"]
+background_mode = 2
+sky = SubResource("Sky_dusk")
+ambient_light_source = 3
+ambient_light_energy = 0.6
+tonemap_mode = 2
+fog_enabled = true
+fog_light_color = Color(0.42, 0.34, 0.3, 1)
+fog_density = 0.03
+
+[node name="Main" type="Node3D"]
+script = ExtResource("1_main")
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+environment = SubResource("Environment_dusk")
+
+[node name="Sun" type="DirectionalLight3D" parent="."]
+rotation = Vector3(-0.35, 0.9, 0)
+light_color = Color(1, 0.78, 0.6, 1)
+light_energy = 1.2
+shadow_enabled = true
+
+[node name="Level" type="Node3D" parent="."]
+
+[node name="Chao" type="CSGBox3D" parent="Level"]
+position = Vector3(0, -0.5, 0)
+use_collision = true
+size = Vector3(70, 1, 70)
+material = ExtResource("m_asfalto")
+
+[node name="Calcada_N" type="CSGBox3D" parent="Level"]
+position = Vector3(0, 0.1, -20)
+use_collision = true
+size = Vector3(70, 0.2, 6)
+material = ExtResource("m_concreto")
+
+[node name="Calcada_S" type="CSGBox3D" parent="Level"]
+position = Vector3(0, 0.1, 20)
+use_collision = true
+size = Vector3(70, 0.2, 6)
+material = ExtResource("m_concreto")
+
+[node name="Predio_1" type="CSGBox3D" parent="Level"]
+position = Vector3(-14, 4, -28)
+use_collision = true
+size = Vector3(16, 8, 10)
+material = ExtResource("m_tijolo")
+
+[node name="Predio_2" type="CSGBox3D" parent="Level"]
+position = Vector3(6, 6, -29)
+use_collision = true
+size = Vector3(14, 12, 8)
+material = ExtResource("m_concreto")
+
+[node name="Predio_3" type="CSGBox3D" parent="Level"]
+position = Vector3(20, 3.5, -27)
+use_collision = true
+size = Vector3(10, 7, 12)
+material = ExtResource("m_tijolo")
+
+[node name="Predio_4" type="CSGBox3D" parent="Level"]
+position = Vector3(-18, 5, 28)
+use_collision = true
+size = Vector3(14, 10, 10)
+material = ExtResource("m_concreto")
+
+[node name="Predio_5" type="CSGBox3D" parent="Level"]
+position = Vector3(14, 4, 28)
+use_collision = true
+size = Vector3(18, 8, 10)
+material = ExtResource("m_tijolo")
+
+[node name="Muro_1" type="CSGBox3D" parent="Level"]
+position = Vector3(-8, 0.6, -6)
+use_collision = true
+size = Vector3(5, 1.2, 0.3)
+material = ExtResource("m_concreto")
+
+[node name="Muro_2" type="CSGBox3D" parent="Level"]
+position = Vector3(9, 0.6, 2)
+use_collision = true
+size = Vector3(0.3, 1.2, 6)
+material = ExtResource("m_concreto")
+
+[node name="Carro_1" type="CSGBox3D" parent="Level"]
+position = Vector3(-3, 0.7, -12)
+use_collision = true
+size = Vector3(1.9, 1.4, 4.2)
+material = ExtResource("m_metal")
+
+[node name="Carro_2" type="CSGBox3D" parent="Level"]
+position = Vector3(12, 0.7, -9)
+use_collision = true
+size = Vector3(4.2, 1.4, 1.9)
+material = ExtResource("m_metal")
+
+[node name="Plataforma" type="CSGBox3D" parent="Level"]
+position = Vector3(-14, 0.75, 8)
+use_collision = true
+size = Vector3(6, 1.5, 6)
+material = ExtResource("m_concreto")
+
+[node name="Rampa" type="CSGBox3D" parent="Level"]
+position = Vector3(-14, 0.7, 3.5)
+rotation = Vector3(0.33, 0, 0)
+use_collision = true
+size = Vector3(3, 0.3, 4.4)
+material = ExtResource("m_concreto")
+
+[node name="Props" type="Node3D" parent="."]
+
+[node name="Crate1" parent="Props" instance=ExtResource("6_crate")]
+position = Vector3(3, 0.4, -3)
+
+[node name="Crate2" parent="Props" instance=ExtResource("6_crate")]
+position = Vector3(3.1, 1.2, -3.05)
+
+[node name="Crate3" parent="Props" instance=ExtResource("6_crate")]
+position = Vector3(4, 0.4, -3.2)
+
+[node name="Crate4" parent="Props" instance=ExtResource("6_crate")]
+position = Vector3(-6, 0.4, 2)
+
+[node name="Crate5" parent="Props" instance=ExtResource("6_crate")]
+position = Vector3(-13, 1.9, 9)
+
+[node name="Crate6" parent="Props" instance=ExtResource("6_crate")]
+position = Vector3(10, 0.4, -4)
+
+[node name="Item1" parent="Props" instance=ExtResource("7_pickup")]
+position = Vector3(-2, 0.2, 4)
+item_id = &"sucata"
+display_name = "Sucata"
+amount = 2
+
+[node name="Item2" parent="Props" instance=ExtResource("7_pickup")]
+position = Vector3(-13, 1.6, 7)
+item_id = &"pano"
+display_name = "Pano"
+amount = 1
+
+[node name="Item3" parent="Props" instance=ExtResource("7_pickup")]
+position = Vector3(6, 0.2, 0)
+item_id = &"fita"
+display_name = "Fita adesiva"
+amount = 1
+
+[node name="Player" parent="." instance=ExtResource("2_player")]
+position = Vector3(0, 0, 10)
+
+[node name="Enemies" type="Node3D" parent="."]
+
+[node name="Zombie1" parent="Enemies" instance=ExtResource("3_zombie")]
+position = Vector3(0, 0, -8)
+
+[node name="Zombie2" parent="Enemies" instance=ExtResource("3_zombie")]
+position = Vector3(5, 0, -14)
+
+[node name="Zombie3" parent="Enemies" instance=ExtResource("3_zombie")]
+position = Vector3(-6, 0, -15)
+
+[node name="Zombie4" parent="Enemies" instance=ExtResource("3_zombie")]
+position = Vector3(10, 0, -2)
+
+[node name="RetroScreen" parent="." instance=ExtResource("5_retro")]
+
+[node name="HUD" parent="." instance=ExtResource("4_hud")]
+player_path = NodePath("../Player")

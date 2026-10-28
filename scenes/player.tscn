@@ -1,0 +1,67 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://scripts/player/player.gd" id="1_player"]
+[ext_resource type="Material" path="res://materials/metal.tres" id="2_metal"]
+
+[sub_resource type="CapsuleShape3D" id="CapsuleShape3D_player"]
+radius = 0.35
+height = 1.8
+
+[sub_resource type="CylinderMesh" id="CylinderMesh_pipe"]
+top_radius = 0.025
+bottom_radius = 0.025
+height = 0.75
+radial_segments = 8
+rings = 1
+
+[sub_resource type="CylinderMesh" id="CylinderMesh_grip"]
+top_radius = 0.032
+bottom_radius = 0.032
+height = 0.2
+radial_segments = 8
+rings = 1
+
+[sub_resource type="StandardMaterial3D" id="Material_tape"]
+albedo_color = Color(0.12, 0.12, 0.12, 1)
+
+[sub_resource type="BoxMesh" id="BoxMesh_foot"]
+size = Vector3(0.14, 0.12, 0.32)
+
+[sub_resource type="StandardMaterial3D" id="Material_boot"]
+albedo_color = Color(0.2, 0.15, 0.1, 1)
+
+[node name="Player" type="CharacterBody3D" groups=["player"]]
+collision_layer = 2
+collision_mask = 5
+script = ExtResource("1_player")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.9, 0)
+shape = SubResource("CapsuleShape3D_player")
+
+[node name="Head" type="Node3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.6, 0)
+
+[node name="Camera3D" type="Camera3D" parent="Head"]
+near = 0.03
+fov = 75.0
+
+[node name="Weapon" type="Node3D" parent="Head/Camera3D"]
+position = Vector3(0.32, -0.28, -0.45)
+rotation = Vector3(-1.0, 0.2, -0.25)
+
+[node name="Pipe" type="MeshInstance3D" parent="Head/Camera3D/Weapon"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.3, 0)
+mesh = SubResource("CylinderMesh_pipe")
+surface_material_override/0 = ExtResource("2_metal")
+
+[node name="Grip" type="MeshInstance3D" parent="Head/Camera3D/Weapon"]
+mesh = SubResource("CylinderMesh_grip")
+surface_material_override/0 = SubResource("Material_tape")
+
+[node name="Foot" type="Node3D" parent="Head/Camera3D"]
+position = Vector3(0.05, -0.9, -0.2)
+
+[node name="Boot" type="MeshInstance3D" parent="Head/Camera3D/Foot"]
+mesh = SubResource("BoxMesh_foot")
+surface_material_override/0 = SubResource("Material_boot")

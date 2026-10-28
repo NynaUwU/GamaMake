@@ -1,0 +1,82 @@
+# Zumbi FPS — protótipo (Godot 4.7.2)
+
+Primeira pessoa, combate corpo a corpo, zumbis com animação procedural,
+reação física a golpes e ragdoll (estilo Dying Light), visual de PC dos anos 2000 em 800x600.
+
+## Como abrir
+1. Godot 4.7.2 → **Importar** → selecione `project.godot`.
+2. **F5** para rodar.
+
+## Controles
+| Tecla | Ação |
+|---|---|
+| WASD / Shift / Espaço | mover / correr / pular |
+| Clique esquerdo | golpe com o cano (cabeça = dano x2.5) |
+| F | chute (derruba o zumbi em ragdoll) |
+| E | pegar item (gancho para o inventário) |
+| Z | cria um zumbi na sua frente (teste) |
+| R | recomeça · Esc solta o mouse |
+
+## Estrutura
+```
+scenes/
+  main.tscn            fase em CSG (blockout, editável no editor)
+  player.tscn          CharacterBody3D + câmera + arma
+  zombie.tscn          CharacterBody3D + Skeleton3D com os módulos abaixo
+  ui/hud.tscn          vida, stamina, mira, avisos (CanvasLayer 2)
+  ui/retro_screen.tscn pós-processamento (CanvasLayer 1, não afeta o HUD)
+scripts/enemies/
+  zombie.gd            IA, vida, dano por osso, estados (andar, atacar, cambalear, cair, levantar, morrer)
+  humanoid_rig.gd      monta o boneco de teste (ossos, visual, hitboxes, ossos físicos)
+  zombie_locomotion.gd animação procedural (andar mancando, braços esticados, ataque)
+  hit_reaction.gd      SkeletonModifier3D: osso atingido tomba e volta como mola
+  ragdoll.gd           PhysicalBoneSimulator3D: liga/desliga física, impulsos, blend para levantar
+scripts/player/player.gd
+shaders/retro_screen.gdshader
+tests/                 testes headless (ragdoll, juntas, jogo)
+```
+
+## Camadas de colisão
+| # | Nome | Quem usa |
+|---|---|---|
+| 1 | mundo | chão, paredes, caixas |
+| 2 | player | player |
+| 3 | inimigo | cápsula do zumbi (de pé) |
+| 4 | ragdoll | ossos físicos (só quando caído/morto) |
+| 5 | hitbox | Area3D por osso (só de pé) |
+| 6 | interagivel | itens que dá para pegar |
+
+## Como funciona o combate
+1. O golpe dispara 5 raios em leque a partir da câmera (não precisa de mira perfeita).
+2. O raio acerta a **hitbox** de um osso → `Zombie.take_hit(dano, osso, ponto, direção, força)`.
+3. Dependendo do golpe:
+   - **Golpe normal** → `HitReaction` tomba o osso (e os pais) na direção do golpe + o zumbi cambaleia.
+   - **Chute** ou golpe na perna (35% de chance) → ragdoll com impulso no osso atingido; depois de ~2s levanta (blend de `influence` 1 → 0).
+   - **Morte** → ragdoll permanente; continua dando para bater/chutar o corpo.
+4. O *hitstop* (jogo quase para por 50–70 ms) e o tremor de câmera dão peso ao impacto.
+
+## Trocar o boneco por um modelo real (Mixamo, Blender…)
+1. Importe o `.glb`/`.fbx` com esqueleto e animações.
+2. Em `zombie.tscn`, troque o `Skeleton3D` (e remova `humanoid_rig.gd` e `Locomotion`).
+3. Selecione o Skeleton3D do modelo → menu **Skeleton3D → Create Physical Skeleton**.
+4. Coloque `ragdoll.gd` no `PhysicalBoneSimulator3D` gerado e ajuste os limites das juntas.
+5. Adicione um `HitReaction` (filho do Skeleton3D, **antes** do simulador).
+6. Para as hitboxes: `BoneAttachment3D` + `Area3D` (camada 5) com metadados `enemy` e `bone`.
+7. Troque `locomotion.speed/attack/swing` em `zombie.gd` por parâmetros de um `AnimationTree`.
+8. Atualize `BONE_DAMAGE` / `LEG_BONES` com os nomes de ossos do modelo.
+
+## Visual 800x600
+- `display/window/stretch/mode = viewport` → tudo (3D e UI) é renderizado em 800x600 e ampliado.
+- Para widescreen: mude `stretch/aspect` de `keep` para `expand`.
+- Texturas com filtro *Nearest + mipmaps*; o shader reduz para 32 níveis por canal com dithering.
+- Ajuste as cores/intensidade no material de `ui/retro_screen.tscn`.
+
+## Inventário / crafting (próximo passo)
+- O player já emite `item_picked_up(item_id, amount)` e reserva a ação `inventory` (Tab).
+- Sugestão: um autoload `Inventory` com `Dictionary` de itens + `Resource` para receitas;
+  a UI entra como outra `CanvasLayer` (layer 3), já em 800x600, legível.
+
+## Testes headless
+```bash
+godot --headless -s res://tests/test_game.gd
+```

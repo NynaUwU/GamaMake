@@ -1,0 +1,20 @@
+[gd_scene format=3]
+
+[ext_resource type="Material" path="res://materials/madeira.tres" id="1_wood"]
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_crate"]
+size = Vector3(0.8, 0.8, 0.8)
+
+[sub_resource type="BoxMesh" id="BoxMesh_crate"]
+size = Vector3(0.8, 0.8, 0.8)
+
+[node name="Crate" type="RigidBody3D"]
+collision_mask = 15
+mass = 12.0
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="."]
+shape = SubResource("BoxShape3D_crate")
+
+[node name="Mesh" type="MeshInstance3D" parent="."]
+mesh = SubResource("BoxMesh_crate")
+surface_material_override/0 = ExtResource("1_wood")
