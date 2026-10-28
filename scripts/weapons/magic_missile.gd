@@ -13,6 +13,7 @@ const MASK := 1 | (1 << 2) | (1 << 3) | (1 << 4) # mundo, inimigo, ragdoll, hitb
 @export var explosion_radius := 3.5
 @export var explosion_damage := 70.0
 @export var explosion_force := 450.0
+@export var explosion_kill_radius := 1.3 ## morte instantânea perto do impacto
 
 var velocity := Vector3.ZERO
 var shooter: CollisionObject3D
@@ -90,5 +91,5 @@ func _explode(at: Vector3) -> void:
 	var explosion := Explosion.new()
 	get_parent().add_child(explosion)
 	explosion.global_position = at
-	explosion.detonate(explosion_radius, explosion_damage, explosion_force)
+	explosion.detonate(explosion_radius, explosion_damage, explosion_force, explosion_kill_radius)
 	queue_free()

@@ -75,6 +75,16 @@ enum SwingPhase { NONE, WINDUP, SLASH, RECOVER }
 @export var bat_force := 58.0 ## força alta: desequilibra e empurra bem mais que a espada
 @export var bat_speed := 0.8 ## multiplicador de velocidade do golpe (mais pesado)
 
+@export_group("Empalar")
+## Correndo com a espada, segure o ataque: a lâmina vai para frente e espeta
+## quem estiver no caminho (até max_impaled). Parou de correr ou soltou o
+## botão: chuta todos para fora da lâmina.
+@export var impale_damage := 25.0
+@export var impale_range := 1.6
+@export var max_impaled := 3
+@export var impale_release_force := 160.0
+@export var impale_slowdown := 0.12 ## cada zumbi espetado tira 12% da velocidade
+
 @export_group("Chute")
 @export var kick_damage := 6.0
 @export var kick_force := 140.0
@@ -151,6 +161,14 @@ var _fire_timer := 0.0
 var _reload_timer := 0.0
 var _pistol_kick := 0.0
 
+var _fp_arm: MeshInstance3D # antebraço em primeira pessoa (do ombro até a mão)
+var _fp_hand: MeshInstance3D
+const FP_SHOULDER := Vector3(0.34, -0.55, 0.22) ## de onde o braço sai (fora da tela)
+
+var _charging := false # correndo com a espada para frente
+var _charge_time := 0.0
+var _impaled: Array = []
+
 
 func _ready() -> void:
 	health = max_health
@@ -166,6 +184,7 @@ func _ready() -> void:
 	foot.visible = false
 	muzzle_flash.visible = false
 	_setup_trail()
+	_setup_fp_arm()
 	_show_weapon(_weapon_type)
 	health_changed.emit(health, max_health)
 	stamina_changed.emit(stamina, max_stamina)
@@ -183,7 +202,10 @@ func _unhandled_input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 	elif health > 0.0:
 		if event.is_action_pressed("attack"):
-			if _is_melee():
+			if _weapon_type == WeaponType.SWORD and _is_sprinting() and _swing_phase == SwingPhase.NONE and not _busy:
+				_charging = true
+				_charge_time = 0.0
+			elif _is_melee():
 				_melee_attack()
 			elif _weapon_type == WeaponType.PISTOL:
 				_fire_pistol()
@@ -202,8 +224,11 @@ func _unhandled_input(event: InputEvent) -> void:
 			_switch_weapon(WEAPON_ORDER[next])
 		elif event.is_action_pressed("kick"):
 			_kick()
-		elif event.is_action_pressed("interact") and _interact_target:
+		elif event.is_action_pressed("interact") and is_instance_valid(_interact_target):
 			_interact_target.interact(self)
+			# O item some ao ser pego: limpa o aviso na hora.
+			_interact_target = null
+			interact_prompt_changed.emit("")
 
 
 func _physics_process(delta: float) -> void:
@@ -216,8 +241,10 @@ func _physics_process(delta: float) -> void:
 
 	var input := Input.get_vector("move_left", "move_right", "move_forward", "move_back")
 	var direction := (global_basis * Vector3(input.x, 0, input.y)).normalized()
-	var sprinting := Input.is_action_pressed("sprint") and input.y < 0.0 and stamina > 1.0
-	var target := direction * (sprint_speed if sprinting else walk_speed)
+	var sprinting := _is_sprinting()
+	var speed := sprint_speed if sprinting else walk_speed
+	speed *= 1.0 - impale_slowdown * _impaled.size()
+	var target := direction * speed
 	var accel := acceleration if is_on_floor() else acceleration * air_control
 	var t := 1.0 - exp(-accel * delta)
 	velocity.x = lerpf(velocity.x, target.x, t)
@@ -232,6 +259,63 @@ func _physics_process(delta: float) -> void:
 	_update_camera_shake(delta)
 	if _swing_phase == SwingPhase.SLASH:
 		_sweep_blade()
+	_update_charge(delta)
+
+
+func _is_sprinting() -> bool:
+	var input := Input.get_vector("move_left", "move_right", "move_forward", "move_back")
+	return Input.is_action_pressed("sprint") and input.y < 0.0 and stamina > 1.0
+
+
+# Empalar ----------------------------------------------------------------------
+
+func _update_charge(delta: float) -> void:
+	if not _charging:
+		return
+	_charge_time += delta
+	_impaled = _impaled.filter(func(z): return is_instance_valid(z) and z.state == Zombie.State.IMPALED)
+	var holding := Input.is_action_pressed("attack") and _weapon_type == WeaponType.SWORD and health > 0.0
+	if not holding or not _is_sprinting():
+		_charging = false
+		if not _impaled.is_empty():
+			_kick_animation(_release_impaled)
+		elif not holding and _charge_time < 0.25:
+			_melee_attack() # foi só um clique: golpe normal
+		return
+	var forward := -camera.global_basis.z
+	forward.y = 0.0
+	forward = forward.normalized()
+	# Segura cada zumbi num ponto da lâmina (um atrás do outro).
+	for i in _impaled.size():
+		var point := camera.global_position + forward * (1.05 + i * 0.45) + Vector3.DOWN * 0.35
+		_impaled[i].hold_impaled(point, Vector3(velocity.x, 0, velocity.z))
+	if _impaled.size() >= max_impaled:
+		return
+	for enemy in get_tree().get_nodes_in_group("enemy"):
+		if enemy in _impaled or not enemy.has_method("can_be_impaled") or not enemy.can_be_impaled():
+			continue
+		var to_enemy: Vector3 = (enemy.global_position + Vector3.UP * 1.2) - camera.global_position
+		var flat := Vector3(to_enemy.x, 0, to_enemy.z)
+		if flat.length() > impale_range + _impaled.size() * 0.45 or forward.dot(flat.normalized()) < 0.75:
+			continue
+		enemy.impale(impale_damage, enemy.global_position + Vector3.UP * 1.2, forward)
+		_impaled.append(enemy)
+		_hitstop(0.06)
+		_shake = 0.15
+		if _impaled.size() >= max_impaled:
+			break
+
+
+func _release_impaled() -> void:
+	var forward := -global_basis.z
+	forward.y = 0.0
+	forward = forward.normalized()
+	for z in _impaled:
+		if is_instance_valid(z):
+			z.release_impaled((forward + Vector3.UP * 0.35).normalized() * impale_release_force)
+	_impaled.clear()
+	_hitstop(0.08)
+	_shake = 0.2
 
 
 func _process(delta: float) -> void:
@@ -241,12 +325,58 @@ func _process(delta: float) -> void:
 	_update_swing(delta)
 	_update_staff(delta)
 	_update_pistol(delta)
+	_update_fp_arm()
+
+
+# Braço em primeira pessoa -----------------------------------------------------
+
+func _setup_fp_arm() -> void:
+	var sleeve := StandardMaterial3D.new()
+	sleeve.albedo_color = Color(0.22, 0.3, 0.2)
+	sleeve.roughness = 0.9
+	var skin := StandardMaterial3D.new()
+	skin.albedo_color = Color(0.85, 0.66, 0.52)
+	skin.roughness = 0.8
+	_fp_arm = MeshInstance3D.new()
+	var arm_mesh := BoxMesh.new()
+	arm_mesh.size = Vector3(0.085, 0.085, 1.0)
+	_fp_arm.mesh = arm_mesh
+	_fp_arm.material_override = sleeve
+	_fp_arm.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	camera.add_child(_fp_arm)
+	_fp_hand = MeshInstance3D.new()
+	var hand_mesh := BoxMesh.new()
+	hand_mesh.size = Vector3(0.075, 0.07, 0.1)
+	_fp_hand.mesh = hand_mesh
+	_fp_hand.material_override = skin
+	_fp_hand.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	camera.add_child(_fp_hand)
+
+
+## A mão fica na empunhadura da arma atual; o antebraço liga o ombro até ela.
+func _update_fp_arm() -> void:
+	var grip: Transform3D
+	match _weapon_type:
+		WeaponType.SWORD:
+			grip = weapon.transform.translated_local(Vector3(0, 0, 0.04))
+		WeaponType.BAT:
+			grip = bat.transform.translated_local(Vector3(0, 0, -0.05))
+		WeaponType.STAFF:
+			grip = staff.transform.translated_local(Vector3(0, -0.12, 0))
+		WeaponType.PISTOL:
+			grip = pistol.transform.translated_local(Vector3(0, -0.05, 0.03))
+	_fp_hand.transform = grip
+	var to_hand := grip.origin - FP_SHOULDER
+	if to_hand.length() < 0.05:
+		return
+	var basis := Basis.looking_at(to_hand) * Basis.from_scale(Vector3(1, 1, to_hand.length()))
+	_fp_arm.transform = Transform3D(basis, FP_SHOULDER + to_hand * 0.5)
 
 
 # Troca de arma ----------------------------------------------------------------
 
 func _switch_weapon(type: WeaponType) -> void:
-	if type == _weapon_type or _swing_phase != SwingPhase.NONE or _busy:
+	if type == _weapon_type or _swing_phase != SwingPhase.NONE or _busy or _charging:
 		return
 	_weapon_type = type
 	_equip = 0.0
@@ -317,6 +447,12 @@ func _update_swing(delta: float) -> void:
 		return
 	var stats: Dictionary = _melee[_weapon_type]
 	var node: Node3D = stats.node
+	if _swing_phase == SwingPhase.NONE and _charging:
+		# Lâmina apontada para frente, na altura da cintura (para espetar).
+		var thrust := Transform3D(_blade_basis(Vector3(0.0, 0.06, -1.0), Vector3(1, 0, 0)), Vector3(0.14, -0.3, -0.38))
+		node.transform = node.transform.interpolate_with(thrust.translated(_bob_offset(0.6)), 1.0 - exp(-14.0 * delta))
+		_roll = 0.0
+		return
 	if _swing_phase == SwingPhase.NONE:
 		node.transform = _guard_pose().translated(_bob_offset(1.0) + _equip_offset())
 		_roll = 0.0
@@ -576,15 +712,20 @@ func _flash_muzzle() -> void:
 # Chute ------------------------------------------------------------------------
 
 func _kick() -> void:
-	if _busy or _swing_phase != SwingPhase.NONE:
+	if _busy or _swing_phase != SwingPhase.NONE or _charging:
 		return
+	_kick_animation(_do_kick)
+
+
+## Perna sobe, "on_hit" roda no momento do impacto, perna volta.
+func _kick_animation(on_hit: Callable) -> void:
 	_busy = true
 	foot.visible = true
 	foot.transform = _foot_rest
 	var out := _foot_rest.translated_local(Vector3(0, 0.25, -0.6))
 	var tween := create_tween()
 	tween.tween_property(foot, "transform", out, 0.12).set_ease(Tween.EASE_OUT)
-	tween.tween_callback(_do_kick)
+	tween.tween_callback(on_hit)
 	tween.tween_property(foot, "transform", _foot_rest, 0.25)
 	tween.tween_callback(func():
 		foot.visible = false
@@ -666,8 +807,10 @@ func _update_interact() -> void:
 	var query := PhysicsRayQueryParameters3D.create(origin, origin - camera.global_basis.z * interact_range, MASK_INTERACT, [get_rid()])
 	var hit := get_world_3d().direct_space_state.intersect_ray(query)
 	var found: Node = null
-	if hit and hit.collider.is_in_group("interactable"):
+	if hit and hit.collider.is_in_group("interactable") and not hit.collider.is_queued_for_deletion():
 		found = hit.collider
+	if not is_instance_valid(_interact_target):
+		_interact_target = null
 	if found != _interact_target:
 		_interact_target = found
 		interact_prompt_changed.emit(found.get_interact_text() if found else "")

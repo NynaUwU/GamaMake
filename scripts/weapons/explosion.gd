@@ -8,26 +8,37 @@ const COLOR_CORE := Color(1.0, 0.85, 1.0)
 const COLOR_GLOW := Color(0.65, 0.3, 1.0)
 
 
-func detonate(radius: float, damage: float, force: float) -> void:
-	_hit_enemies(radius, damage, force)
+## kill_radius: quem estiver a essa distância do impacto morre na hora (e despedaça).
+func detonate(radius: float, damage: float, force: float, kill_radius := 1.3) -> void:
+	_hit_enemies(radius, damage, force, kill_radius)
 	_push_props(radius, force)
 	_feedback_player(radius)
 	_spawn_visuals(radius)
 	get_tree().create_timer(1.5).timeout.connect(queue_free)
 
 
-func _hit_enemies(radius: float, damage: float, force: float) -> void:
+func _hit_enemies(radius: float, damage: float, force: float, kill_radius: float) -> void:
 	for enemy in get_tree().get_nodes_in_group("enemy"):
 		if not enemy.has_method("take_explosion"):
 			continue
-		var body_point: Vector3 = enemy.global_position + Vector3.UP
-		if enemy.ragdoll.is_ragdolling():
-			body_point = enemy.ragdoll.get_root_position()
-		var distance := global_position.distance_to(body_point)
+		var distance := _distance_to_body(enemy)
 		if distance > radius:
 			continue
 		var falloff := 1.0 - distance / radius
-		enemy.take_explosion(global_position, damage * falloff, force * (0.4 + 0.6 * falloff))
+		var hit_damage := damage * falloff
+		if distance <= kill_radius:
+			hit_damage = INF # pegou em cheio
+		enemy.take_explosion(global_position, hit_damage, force * (0.4 + 0.6 * falloff))
+
+
+## Distância até o ponto mais próximo do corpo (segmento dos pés à cabeça,
+## ou o quadril se estiver caído): explosão no pé conta como acerto em cheio.
+func _distance_to_body(enemy: Node3D) -> float:
+	if enemy.ragdoll.is_ragdolling():
+		return global_position.distance_to(enemy.ragdoll.get_root_position())
+	var feet: Vector3 = enemy.global_position
+	var height := clampf(global_position.y - feet.y, 0.0, 1.7)
+	return global_position.distance_to(feet + Vector3.UP * height)
 
 
 func _push_props(radius: float, force: float) -> void:

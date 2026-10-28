@@ -20,4 +20,7 @@ func get_interact_text() -> String:
 func interact(player: Node) -> void:
 	if player.has_method("pick_up"):
 		player.pick_up(item_id, display_name, amount)
+	# Sai da física na hora (o queue_free só remove no fim do frame).
+	collision_layer = 0
+	remove_from_group("interactable")
 	queue_free()

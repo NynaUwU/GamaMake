@@ -12,6 +12,7 @@ reação física a golpes e ragdoll (estilo Dying Light), visual de PC dos anos 
 |---|---|
 | WASD / Shift / Espaço | mover / correr / pular |
 | Clique esquerdo (espada/taco) | combo: direita→esquerda, esquerda→direita, de cima para baixo (x1.5) |
+| Shift + segurar clique (espada) | **empalar**: corre com a lâmina para frente espetando até 3 zumbis; parou de correr ou soltou → chuta todos para fora |
 | Clique esquerdo (pistola) | tiro (12 balas; R recarrega; cabeça mata com um tiro) |
 | Clique esquerdo (cajado) | míssil mágico explosivo — segure para disparar sem parar |
 | 1 / 2 / 3 / 4 | espada / taco / cajado / pistola (Q ou roda do mouse alterna) |
@@ -92,10 +93,20 @@ tests/                 testes headless (ragdoll, juntas, jogo)
    - **Morte** → ragdoll permanente; continua dando para bater/chutar o corpo.
 5. O *hitstop* (jogo quase para por 50–70 ms) e o tremor de câmera dão peso ao impacto.
 
+## Modelo do player
+- `scenes/player.tscn` → `Body/Skeleton3D`: o mesmo boneco em blocos dos zumbis (`HumanoidRig`,
+  sem hitboxes), animado por `scripts/player/player_body.gd` (pernas andam/correm na direção do
+  movimento, pulo dobra os joelhos).
+- Olhando para baixo você vê as pernas; cabeça, tronco e braços do corpo só projetam **sombra**
+  (`shadow_only_bones`) para não tapar a câmera.
+- Braço em primeira pessoa (`_update_fp_arm` em `player.gd`): a mão segue a empunhadura da arma
+  atual e o antebraço liga o ombro (fora da tela) até ela.
+
 ## Cajado e míssil mágico
 - `scripts/weapons/magic_missile.gd`: voa a 24 m/s, curva de leve atrás do zumbi mais próximo
   à frente (`homing_turn`, `homing_cone`) e explode ao tocar em qualquer coisa.
-- `scripts/weapons/explosion.gd`: raio 3.5 m, dano com queda pela distância, joga os zumbis em
+- `scripts/weapons/explosion.gd`: **morte instantânea** até 1.3 m do impacto (medido até o
+  ponto mais próximo do corpo — explosão no pé conta); até 3.5 m, dano com queda pela distância, joga os zumbis em
   ragdoll (força espalhada por todos os ossos), empurra caixas e treme a tela do player.
 - Cadência em `cast_cooldown` (player). Sem mana por enquanto.
 

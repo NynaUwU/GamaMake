@@ -10,6 +10,7 @@ extends CharacterBody3D
 ##   STUMBLE   -> perdeu o equilíbrio: cambaleia como bêbado, quase cai
 ##   DOWN      -> caído em ragdoll (perdeu o equilíbrio de vez, perna, explosão)
 ##   GETTING_UP-> levanta em etapas (ou volta a rastejar)
+##   IMPALED   -> espetado na espada do player (ragdoll preso pelo peito)
 ##   DEAD      -> ragdoll permanente
 ##
 ## Membros (cabeça, braços, pernas) têm vida própria. Quando a vida do membro
@@ -19,7 +20,7 @@ extends CharacterBody3D
 
 signal died(zombie: Zombie)
 
-enum State { IDLE, CHASE, ATTACK, STAGGER, STUMBLE, DOWN, GETTING_UP, DEAD }
+enum State { IDLE, CHASE, ATTACK, STAGGER, STUMBLE, DOWN, GETTING_UP, DEAD, IMPALED }
 enum LimbState { OK, BROKEN, CUT }
 
 const LAYER_HITBOX := 1 << 4
@@ -140,7 +141,7 @@ func _physics_process(delta: float) -> void:
 			_update_down()
 		State.GETTING_UP:
 			_update_getting_up(delta)
-		State.DEAD:
+		State.DEAD, State.IMPALED:
 			pass
 	if state in [State.IDLE, State.CHASE, State.ATTACK, State.STAGGER, State.STUMBLE]:
 		if not is_on_floor():
@@ -235,6 +236,11 @@ func take_hit(hit: HitInfo) -> void:
 	if hit.bone in _cut_bones:
 		return
 	var limb := _limb_of(hit.bone)
+	if state == State.IMPALED:
+		# Espetado: apanha, mas continua na lâmina até o player soltar.
+		_hurt(hit.damage * BONE_DAMAGE.get(hit.bone, 1.0))
+		ragdoll.apply_hit(hit.bone, hit.direction * hit.force, hit.point)
+		return
 	if state == State.DEAD:
 		if hit.type == HitInfo.Type.CUT and limb != &"":
 			_damage_limb(limb, hit) # dá para arrancar pedaços do corpo caído
@@ -286,6 +292,8 @@ func _balance_loss(hit: HitInfo) -> float:
 
 ## Explosão: joga o zumbi longe (ragdoll). Se matar, despedaça o corpo inteiro.
 func take_explosion(center: Vector3, damage: float, force: float) -> void:
+	if state == State.IMPALED and _impale_died:
+		_set_state(State.DEAD)
 	if state != State.DEAD:
 		health -= damage
 		_end_attack()
@@ -345,6 +353,53 @@ func _enter_ragdoll() -> void:
 		locomotion.mode = ZombieLocomotion.Mode.CRAWL if crawler else ZombieLocomotion.Mode.WALK
 	collision.set_deferred("disabled", true)
 	_set_hitboxes_enabled(false)
+
+
+# --- Empalado --------------------------------------------------------------
+
+var _impale_died := false
+
+
+func can_be_impaled() -> bool:
+	return state not in [State.IMPALED, State.DEAD, State.DOWN, State.GETTING_UP]
+
+
+## A espada atravessou o zumbi: vira ragdoll preso pela lâmina.
+func impale(damage: float, point: Vector3, direction: Vector3) -> void:
+	_end_attack()
+	_enter_ragdoll()
+	_set_state(State.IMPALED)
+	_impale_died = false
+	_hurt(damage)
+	ImpactFX.burst(get_parent(), point, -direction + Vector3.UP * 0.5, ImpactFX.BLOOD, 24, 3.0)
+
+
+## Chamado a cada frame de física pelo player: puxa o peito até a lâmina.
+func hold_impaled(target_point: Vector3, carrier_velocity: Vector3) -> void:
+	var chest := ragdoll.get_bone_body(&"Chest")
+	if chest == null:
+		return
+	var pull := (target_point - chest.global_position) * 18.0
+	chest.linear_velocity = (pull + carrier_velocity).limit_length(14.0)
+	chest.angular_velocity *= 0.8
+
+
+## Chutado para fora da lâmina.
+func release_impaled(impulse: Vector3) -> void:
+	if state != State.IMPALED:
+		return
+	_set_state(State.DEAD if _impale_died else State.DOWN)
+	var chest := ragdoll.get_bone_body(&"Chest")
+	ragdoll.apply_hit(&"Chest", impulse, chest.global_position if chest else global_position)
+
+
+func _hurt(amount: float) -> void:
+	if _impale_died:
+		return
+	health -= amount
+	if health <= 0.0:
+		_impale_died = true
+		died.emit(self)
 
 
 # --- Levantar --------------------------------------------------------------

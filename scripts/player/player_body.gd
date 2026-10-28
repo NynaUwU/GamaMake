@@ -1,0 +1,60 @@
+class_name PlayerBody
+extends Node
+## Anima o corpo do player (visto ao olhar para baixo e na sombra):
+## pernas andam/correm na direção do movimento, tronco inclina ao correr,
+## braços seguram uma pose de "segurando arma" (aparecem só na sombra).
+
+@export var player_path: NodePath = ^"../../.."
+
+var _player: CharacterBody3D
+var _skeleton: Skeleton3D
+var _b := {}
+var _phase := 0.0
+var _move := Vector2.ZERO # suavizado, espaço local (x = lado, y = frente(-)/trás(+))
+
+
+func _ready() -> void:
+	_skeleton = get_parent() as Skeleton3D
+	_player = get_node(player_path) as CharacterBody3D
+	for bone_name in ["Hips", "Spine", "Chest", "Head", "UpperArm.L", "LowerArm.L",
+			"UpperArm.R", "LowerArm.R", "UpperLeg.L", "LowerLeg.L", "UpperLeg.R", "LowerLeg.R"]:
+		_b[bone_name] = _skeleton.find_bone(bone_name)
+
+
+func _process(delta: float) -> void:
+	var local := _player.global_basis.inverse() * _player.velocity
+	_move = _move.lerp(Vector2(local.x, local.z), 1.0 - exp(-10.0 * delta))
+	var speed := _move.length()
+	var amount := clampf(speed / 4.0, 0.0, 1.5)
+	var airborne := not _player.is_on_floor()
+	_phase += delta * (2.0 + speed * 2.2)
+	var s := sin(_phase)
+	var dir := _move.normalized() if speed > 0.1 else Vector2(0, -1)
+
+	var hips_rest := _skeleton.get_bone_rest(_b["Hips"]).origin
+	_skeleton.set_bone_pose_position(_b["Hips"], hips_rest + Vector3(0, -absf(s) * 0.04 * amount - 0.02, 0))
+	_set_rot("Hips", Vector3(0, s * 0.1 * amount, 0))
+	# Corre inclinado para frente (lean negativo em X).
+	_set_rot("Spine", Vector3(-0.15 * amount, 0, 0))
+	_set_rot("Chest", Vector3(-0.05 * amount, -s * 0.12 * amount, 0))
+	_set_rot("Head", Vector3.ZERO)
+
+	for side in ["L", "R"]:
+		var p := _phase if side == "L" else _phase + PI
+		var step := sin(p) * 0.6 * amount
+		var knee := maxf(0.0, cos(p)) * 1.0 * amount + 0.05
+		if airborne:
+			step = 0.4 if side == "L" else -0.2
+			knee = 0.9
+		_set_rot("UpperLeg." + side, Vector3(-dir.y * step, 0, dir.x * step * 0.5))
+		_set_rot("LowerLeg." + side, Vector3(-knee, 0, 0))
+
+	# Braços (só sombra): direito estendido segurando a arma, esquerdo balançando.
+	_set_rot("UpperArm.R", Vector3(1.1, 0, 0.1))
+	_set_rot("LowerArm.R", Vector3(0.5, 0, 0))
+	_set_rot("UpperArm.L", Vector3(-sin(_phase) * 0.5 * amount + 0.1, 0, -0.1))
+	_set_rot("LowerArm.L", Vector3(0.4, 0, 0))
+
+
+func _set_rot(bone_name: String, euler: Vector3) -> void:
+	_skeleton.set_bone_pose_rotation(_b[bone_name], Quaternion.from_euler(euler))

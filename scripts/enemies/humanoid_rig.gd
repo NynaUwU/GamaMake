@@ -13,6 +13,10 @@ const LAYER_HITBOX := 1 << 4
 @export var skin_color := Color(0.45, 0.52, 0.4)
 @export var shirt_color := Color(0.3, 0.25, 0.22)
 @export var pants_color := Color(0.18, 0.2, 0.26)
+@export var build_hitboxes := true ## false no player (as armas não podem acertar o próprio corpo)
+@export var glowing_eyes := true
+## Ossos que só projetam sombra (no player: cabeça e braços, para não tapar a câmera).
+@export var shadow_only_bones: Array[StringName] = []
 
 # nome, pai, posição relativa ao pai, comprimento, direção (+1 cima / -1 baixo),
 # largura, profundidade, massa, parte (define cor e multiplicador de dano)
@@ -79,10 +83,14 @@ func _build_bone_visual(def: Array, enemy: Node) -> void:
 	mesh.mesh = box
 	mesh.material_override = _materials[def[8]]
 	mesh.position = center
+	if StringName(bone_name) in shadow_only_bones:
+		mesh.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_SHADOWS_ONLY
 	attachment.add_child(mesh)
 
-	if bone_name == "Head":
+	if bone_name == "Head" and glowing_eyes:
 		_add_eyes(attachment, center, size)
+	if not build_hitboxes:
+		return
 
 	# Hitbox: é o que o golpe do player acerta enquanto o zumbi está de pé.
 	var hitbox := Area3D.new()
