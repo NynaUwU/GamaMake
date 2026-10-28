@@ -80,12 +80,13 @@ anchor_right = 1.0
 offset_left = -250.0
 offset_top = 12.0
 offset_right = -16.0
-offset_bottom = 120.0
+offset_bottom = 140.0
 grow_horizontal = 0
 theme_override_colors/font_color = Color(1, 1, 1, 0.55)
 theme_override_font_sizes/font_size = 12
 text = "WASD mover  Shift correr  Espaço pular
 Clique esq. golpe   F chute
+1 espada   2 cajado   Q trocar arma
 E pegar   Z novo zumbi   R recomeçar
 Esc soltar o mouse"
 horizontal_alignment = 2
@@ -119,3 +120,23 @@ theme_override_styles/background = SubResource("Style_bg")
 theme_override_styles/fill = SubResource("Style_stamina")
 value = 100.0
 show_percentage = false
+
+[node name="WeaponLabel" type="Label" parent="Root"]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 3
+anchor_left = 1.0
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -216.0
+offset_top = -40.0
+offset_right = -16.0
+offset_bottom = -16.0
+grow_horizontal = 0
+grow_vertical = 0
+theme_override_colors/font_color = Color(0.9, 0.85, 1, 1)
+theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
+theme_override_constants/outline_size = 4
+text = "Espada"
+horizontal_alignment = 2

@@ -2,6 +2,8 @@ class_name Player
 extends CharacterBody3D
 ## Player em primeira pessoa: movimento, golpe corpo a corpo, chute e interação.
 ## Sem ragdoll — a física dele é só a do CharacterBody3D.
+## Armas: espada (combo corpo a corpo) e cajado (mísseis mágicos explosivos).
+## Atacar não gasta stamina; stamina é só para correr.
 
 signal health_changed(current: float, maximum: float)
 signal stamina_changed(current: float, maximum: float)
@@ -9,6 +11,13 @@ signal interact_prompt_changed(text: String) ## "" = nada para interagir
 signal notify(text: String) ## mensagens curtas no HUD
 signal item_picked_up(item_id: StringName, amount: int) ## gancho para o inventário futuro
 signal died
+signal weapon_changed(weapon_name: String)
+
+enum WeaponType { SWORD, STAFF }
+const WEAPON_NAMES := {WeaponType.SWORD: "Espada", WeaponType.STAFF: "Cajado"}
+const MISSILE_SCENE := preload("res://scenes/weapons/magic_missile.tscn")
+const MASK_AIM := 1 | (1 << 2) | (1 << 4) # mundo, inimigo, hitbox
+const STAFF_REST := Vector3(0.34, -0.5, -0.55)
 
 const MASK_HIT := 1 | (1 << 3) | (1 << 4) # mundo, ragdoll, hitbox
 const MASK_INTERACT := 1 | (1 << 5) # mundo, interagível
@@ -44,7 +53,6 @@ enum SwingPhase { NONE, WINDUP, SLASH, RECOVER }
 @export var melee_damage := 34.0
 @export var melee_force := 30.0
 @export var melee_range := 2.4
-@export var melee_cost := 10.0
 @export var windup_time := 0.12 ## preparação: a lâmina vai para trás
 @export var slash_time := 0.13 ## o corte em si (é quando acerta)
 @export var recover_time := 0.22 ## volta para a guarda
@@ -53,7 +61,10 @@ enum SwingPhase { NONE, WINDUP, SLASH, RECOVER }
 @export var kick_damage := 6.0
 @export var kick_force := 95.0
 @export var kick_range := 1.9
-@export var kick_cost := 22.0
+
+@export_group("Cajado")
+@export var cast_cooldown := 0.4 ## segure o clique para disparar sem parar
+@export var equip_time := 0.25
 
 @export_group("Status")
 @export var max_health := 100.0
@@ -75,6 +86,9 @@ var _gravity: float = ProjectSettings.get_setting("physics/3d/default_gravity")
 @onready var head: Node3D = $Head
 @onready var camera: Camera3D = $Head/Camera3D
 @onready var weapon: Node3D = $Head/Camera3D/Weapon
+@onready var staff: Node3D = $Head/Camera3D/Staff
+@onready var staff_tip: Node3D = $Head/Camera3D/Staff/Tip
+@onready var staff_light: OmniLight3D = $Head/Camera3D/Staff/Tip/Light
 @onready var foot: Node3D = $Head/Camera3D/Foot
 @onready var _foot_rest := foot.transform
 
@@ -91,6 +105,10 @@ var _roll := 0.0
 var _bob := 0.0
 var _trail_points: Array = [] # [base, ponta, idade] no espaço da câmera
 var _trail_mesh := ImmediateMesh.new()
+var _weapon_type := WeaponType.SWORD
+var _equip := 1.0 # 0 = arma abaixada (trocando), 1 = pronta
+var _cast_timer := 0.0
+var _staff_kick := 0.0 # recuo do cajado ao disparar
 
 
 func _ready() -> void:
@@ -100,6 +118,8 @@ func _ready() -> void:
 	foot.visible = false
 	weapon.transform = _guard_pose()
 	_setup_trail()
+	staff.visible = false
+	weapon_changed.emit.call_deferred(WEAPON_NAMES[_weapon_type])
 	health_changed.emit(health, max_health)
 	stamina_changed.emit(stamina, max_stamina)
 
@@ -115,8 +135,14 @@ func _unhandled_input(event: InputEvent) -> void:
 		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 		get_viewport().set_input_as_handled()
 	elif health > 0.0:
-		if event.is_action_pressed("attack"):
+		if event.is_action_pressed("attack") and _weapon_type == WeaponType.SWORD:
 			_melee()
+		elif event.is_action_pressed("weapon_1"):
+			_switch_weapon(WeaponType.SWORD)
+		elif event.is_action_pressed("weapon_2"):
+			_switch_weapon(WeaponType.STAFF)
+		elif event.is_action_pressed("weapon_next"):
+			_switch_weapon(WeaponType.STAFF if _weapon_type == WeaponType.SWORD else WeaponType.SWORD)
 		elif event.is_action_pressed("kick"):
 			_kick()
 		elif event.is_action_pressed("interact") and _interact_target:
@@ -152,7 +178,75 @@ func _physics_process(delta: float) -> void:
 
 
 func _process(delta: float) -> void:
+	_equip = minf(_equip + delta / equip_time, 1.0)
 	_update_swing(delta)
+	_update_staff(delta)
+
+
+# Troca de arma ----------------------------------------------------------------
+
+func _switch_weapon(type: WeaponType) -> void:
+	if type == _weapon_type or _swing_phase != SwingPhase.NONE or _busy:
+		return
+	_weapon_type = type
+	_equip = 0.0
+	weapon.visible = type == WeaponType.SWORD
+	staff.visible = type == WeaponType.STAFF
+	weapon_changed.emit(WEAPON_NAMES[type])
+
+
+## Arma "sobe" da parte de baixo da tela ao ser equipada.
+func _equip_offset() -> Vector3:
+	return Vector3(0, -0.45, 0.1) * (1.0 - ease(_equip, 0.4))
+
+
+# Cajado -----------------------------------------------------------------------
+
+func _update_staff(delta: float) -> void:
+	_cast_timer -= delta
+	_staff_kick = move_toward(_staff_kick, 0.0, delta * 5.0)
+	staff_light.light_energy = lerpf(staff_light.light_energy, 1.2, 1.0 - exp(-8.0 * delta))
+	if _weapon_type != WeaponType.STAFF:
+		return
+	var moving := Vector2(velocity.x, velocity.z).length() / walk_speed
+	var bob := Vector3(cos(_bob) * 0.012, absf(sin(_bob)) * 0.02, 0) * (0.3 + moving)
+	_bob += delta * (2.0 + moving * 7.0)
+	staff.position = STAFF_REST + bob + _equip_offset() + Vector3(0, 0.03, -0.18) * _staff_kick
+	staff.rotation = Vector3(-0.35 - 0.25 * _staff_kick, 0.0, 0.12)
+	if health > 0.0 and _equip >= 1.0 and _cast_timer <= 0.0 and Input.is_action_pressed("attack") \
+			and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
+		_cast_missile()
+
+
+func _cast_missile() -> void:
+	_cast_timer = cast_cooldown
+	_staff_kick = 1.0
+	staff_light.light_energy = 6.0
+	_shake = maxf(_shake, 0.04)
+	# Mira: o que estiver no centro da tela; o míssil sai da ponta do cajado.
+	var origin := camera.global_position
+	var forward := -camera.global_basis.z
+	var query := PhysicsRayQueryParameters3D.create(origin, origin + forward * 100.0, MASK_AIM, [get_rid()])
+	query.collide_with_areas = true
+	var hit := get_world_3d().direct_space_state.intersect_ray(query)
+	var aim_point: Vector3 = hit.position if hit else origin + forward * 100.0
+	var start := staff_tip.global_position
+	# Se a ponta estiver dentro de uma parede (encostado), dispara da câmera.
+	if start.distance_to(aim_point) < 0.6:
+		start = origin
+	var missile: MagicMissile = MISSILE_SCENE.instantiate()
+	get_parent().add_child(missile)
+	missile.global_position = start
+	missile.launch(aim_point - start, self)
+
+
+## Chamado pela explosão: treme a tela e empurra se estiver perto.
+func explosion_feedback(center: Vector3, radius: float) -> void:
+	var distance := global_position.distance_to(center)
+	_shake = maxf(_shake, clampf(0.35 - distance * 0.02, 0.05, 0.35))
+	if distance < radius:
+		var away := (global_position - center).normalized()
+		velocity += (away + Vector3.UP * 0.3) * 6.0 * (1.0 - distance / radius)
 
 
 # --- Combate ---------------------------------------------------------------
@@ -160,7 +254,7 @@ func _process(delta: float) -> void:
 # Golpe de espada ------------------------------------------------------------
 
 func _melee() -> void:
-	if _busy:
+	if _busy or _equip < 1.0:
 		return
 	match _swing_phase:
 		SwingPhase.WINDUP, SwingPhase.SLASH:
@@ -172,9 +266,6 @@ func _melee() -> void:
 
 
 func _start_swing(index: int) -> void:
-	if stamina < melee_cost:
-		return
-	_use_stamina(melee_cost)
 	_swing_index = index % SWINGS.size()
 	_swing_phase = SwingPhase.WINDUP
 	_swing_time = 0.0
@@ -189,11 +280,13 @@ func _update_swing(delta: float) -> void:
 	_since_swing += delta
 	_update_trail(delta)
 	if _swing_phase == SwingPhase.NONE:
+		if _weapon_type != WeaponType.SWORD:
+			return
 		# Balanço leve da arma enquanto anda.
 		var moving := Vector2(velocity.x, velocity.z).length() / walk_speed
 		_bob += delta * (2.0 + moving * 7.0)
 		var bob := Vector3(cos(_bob) * 0.01, absf(sin(_bob)) * 0.015, 0) * (0.3 + moving)
-		weapon.transform = _guard_pose().translated(bob)
+		weapon.transform = _guard_pose().translated(bob + _equip_offset())
 		_roll = 0.0
 		return
 
@@ -325,10 +418,9 @@ func _apply_swing_hit(hit: Dictionary, direction: Vector3, swing: Dictionary) ->
 
 
 func _kick() -> void:
-	if _busy or _swing_phase != SwingPhase.NONE or stamina < kick_cost:
+	if _busy or _swing_phase != SwingPhase.NONE:
 		return
 	_busy = true
-	_use_stamina(kick_cost)
 	foot.visible = true
 	foot.transform = _foot_rest
 	var out := _foot_rest.translated_local(Vector3(0, 0.25, -0.6))

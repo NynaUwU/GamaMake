@@ -1,5 +1,5 @@
 extends CanvasLayer
-## HUD simples em 960x540: vida, stamina, mira, aviso de interação e mensagens.
+## HUD simples em 960x540: vida, stamina (corrida), arma atual, mira, aviso de interação e mensagens.
 ## Tudo em Control nodes, então dá para crescer para inventário/crafting
 ## na mesma camada sem mexer no 3D.
 
@@ -9,6 +9,7 @@ extends CanvasLayer
 @onready var stamina_bar: ProgressBar = %StaminaBar
 @onready var prompt_label: Label = %PromptLabel
 @onready var message_label: Label = %MessageLabel
+@onready var weapon_label: Label = %WeaponLabel
 
 var _message_tween: Tween
 
@@ -23,6 +24,7 @@ func _ready() -> void:
 	player.stamina_changed.connect(_on_stamina_changed)
 	player.interact_prompt_changed.connect(func(text: String): prompt_label.text = text)
 	player.notify.connect(show_message)
+	player.weapon_changed.connect(func(weapon_name: String): weapon_label.text = weapon_name)
 	prompt_label.text = ""
 	message_label.modulate.a = 0.0
 

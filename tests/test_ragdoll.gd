@@ -22,6 +22,7 @@ func _initialize() -> void:
 func _physics_process(_delta: float) -> bool:
 	frame += 1
 	if frame == 30:
+		zombie.balance = 1.0 # já tonto: o chute derruba
 		zombie.take_hit(10, &"Chest", zombie.global_position + Vector3(0, 1.3, 0), Vector3(0, 0, 1), 90, true)
 		print("state after kick: ", Zombie.State.keys()[zombie.state])
 	if frame in [60, 120, 180]:

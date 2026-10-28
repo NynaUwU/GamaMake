@@ -12,7 +12,9 @@ reação física a golpes e ragdoll (estilo Dying Light), visual de PC dos anos 
 |---|---|
 | WASD / Shift / Espaço | mover / correr / pular |
 | Clique esquerdo | golpe de espada — clique de novo para o combo: direita→esquerda, esquerda→direita, de cima para baixo (x1.5) |
-| F | chute (derruba o zumbi em ragdoll) |
+| Clique esquerdo (cajado) | míssil mágico explosivo — segure para disparar sem parar |
+| 1 / 2 / Q / roda do mouse | espada / cajado / trocar arma |
+| F | chute (desequilibra muito; derruba se o zumbi já estiver tonto) |
 | E | pegar item (gancho para o inventário) |
 | Z | cria um zumbi na sua frente (teste) |
 | R | recomeça · Esc solta o mouse |
@@ -26,12 +28,13 @@ scenes/
   ui/hud.tscn          vida, stamina, mira, avisos (CanvasLayer 2)
   ui/retro_screen.tscn pós-processamento (CanvasLayer 1, não afeta o HUD)
 scripts/enemies/
-  zombie.gd            IA, vida, dano por osso, estados (andar, atacar, cambalear, cair, levantar, morrer)
+  zombie.gd            IA, vida, dano por osso, equilíbrio, estados (andar, atacar, tranco, cambalear, cair, levantar, morrer)
   humanoid_rig.gd      monta o boneco de teste (ossos, visual, hitboxes, ossos físicos)
-  zombie_locomotion.gd animação procedural (andar mancando, braços esticados, ataque)
-  hit_reaction.gd      SkeletonModifier3D: osso atingido tomba e volta como mola
+  zombie_locomotion.gd animação procedural (andar, ataque, inclinação, agachar, cambaleio, joelho cedendo)
+  hit_reaction.gd      SkeletonModifier3D: tronco tomba e volta como mola (pernas de fora)
   ragdoll.gd           PhysicalBoneSimulator3D: liga/desliga física, impulsos, blend para levantar
-scripts/player/player.gd
+scripts/player/player.gd   player, espada, cajado, chute, interação
+scripts/weapons/           míssil mágico e explosão
 shaders/retro_screen.gdshader
 tests/                 testes headless (ragdoll, juntas, jogo)
 ```
@@ -53,13 +56,26 @@ tests/                 testes headless (ragdoll, juntas, jogo)
    Acertou a **hitbox** de um osso → `Zombie.take_hit(dano, osso, ponto, direção, força)`;
    a direção é para onde a lâmina se move, então o zumbi é empurrado para o lado do corte.
    Um corte atravessa até 2 inimigos (`max_targets`).
-3. Dependendo do golpe:
-   - **Golpe normal** → `HitReaction` tomba o osso (e os pais) como uma mola pouco amortecida,
-     os membros filhos chicoteiam, o quadril afunda, e o zumbi é empurrado e volta rápido.
-     Ajuste `stiffness`, `damping` e `whip` no nó `HitReaction` de `zombie.tscn`.
-   - **Chute** ou golpe na perna (35% de chance) → ragdoll com impulso no osso atingido; depois de ~2s levanta (blend de `influence` 1 → 0).
+3. Atacar **não gasta stamina** (stamina é só para correr).
+4. Dependendo do golpe:
+   - **Tronco**: a reação física (`HitReaction`) atua só da cintura para cima — o tronco é
+     jogado na direção do golpe e volta para cima como mola, braços chicoteiam.
+     **Pernas ficam firmes**: o corpo agacha dobrando os joelhos com os pés no lugar.
+   - **Equilíbrio** (`balance` em `zombie.gd`): cada golpe tira equilíbrio, golpe na perna tira
+     mais e faz o joelho ceder. O equilíbrio volta sozinho com o tempo.
+     - abaixo de `stumble_at` → tranco curto, já volta a atacar;
+     - acima de `stumble_at` → **cambaleia como bêbado**: passos em ziguezague para trás,
+       tronco inclinado, braços abertos, quase cai;
+     - acima de `fall_at` (ou apanhou cambaleando) → cai em ragdoll e depois levanta.
    - **Morte** → ragdoll permanente; continua dando para bater/chutar o corpo.
-4. O *hitstop* (jogo quase para por 50–70 ms) e o tremor de câmera dão peso ao impacto.
+5. O *hitstop* (jogo quase para por 50–70 ms) e o tremor de câmera dão peso ao impacto.
+
+## Cajado e míssil mágico
+- `scripts/weapons/magic_missile.gd`: voa a 24 m/s, curva de leve atrás do zumbi mais próximo
+  à frente (`homing_turn`, `homing_cone`) e explode ao tocar em qualquer coisa.
+- `scripts/weapons/explosion.gd`: raio 3.5 m, dano com queda pela distância, joga os zumbis em
+  ragdoll (força espalhada por todos os ossos), empurra caixas e treme a tela do player.
+- Cadência em `cast_cooldown` (player). Sem mana por enquanto.
 
 ## Trocar o boneco por um modelo real (Mixamo, Blender…)
 1. Importe o `.glb`/`.fbx` com esqueleto e animações.

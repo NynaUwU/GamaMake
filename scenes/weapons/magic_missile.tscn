@@ -1,0 +1,52 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://scripts/weapons/magic_missile.gd" id="1_missile"]
+
+[sub_resource type="SphereMesh" id="SphereMesh_core"]
+radius = 0.12
+height = 0.24
+radial_segments = 8
+rings = 4
+
+[sub_resource type="StandardMaterial3D" id="Material_core"]
+shading_mode = 0
+albedo_color = Color(0.95, 0.8, 1, 1)
+
+[sub_resource type="Gradient" id="Gradient_trail"]
+colors = PackedColorArray(0.9, 0.7, 1, 1, 0.45, 0.15, 1, 0)
+
+[sub_resource type="StandardMaterial3D" id="Material_trail"]
+shading_mode = 0
+transparency = 1
+vertex_color_use_as_albedo = true
+
+[sub_resource type="BoxMesh" id="BoxMesh_trail"]
+material = SubResource("Material_trail")
+size = Vector3(0.05, 0.05, 0.05)
+
+[node name="MagicMissile" type="Node3D"]
+script = ExtResource("1_missile")
+
+[node name="Core" type="MeshInstance3D" parent="."]
+cast_shadow = 0
+mesh = SubResource("SphereMesh_core")
+surface_material_override/0 = SubResource("Material_core")
+
+[node name="Light" type="OmniLight3D" parent="."]
+light_color = Color(0.7, 0.35, 1, 1)
+light_energy = 2.5
+omni_range = 4.0
+
+[node name="Trail" type="CPUParticles3D" parent="."]
+amount = 40
+lifetime = 0.35
+local_coords = false
+mesh = SubResource("BoxMesh_trail")
+direction = Vector3(0, 0, 0)
+spread = 180.0
+initial_velocity_min = 0.2
+initial_velocity_max = 0.6
+gravity = Vector3(0, 0, 0)
+scale_amount_min = 0.5
+scale_amount_max = 1.2
+color_ramp = SubResource("Gradient_trail")

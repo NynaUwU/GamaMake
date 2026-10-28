@@ -1,8 +1,10 @@
 class_name HitReaction
 extends SkeletonModifier3D
-## Reação procedural a golpes: o osso atingido (e os pais dele) "tomba" na
-## direção do golpe e volta como uma mola, balançando algumas vezes.
-## Os ossos filhos (braços, cabeça) atrasam e chicoteiam, e o quadril afunda.
+## Reação procedural a golpes no tronco: o osso atingido (e os pais dele, até
+## "chain_root") tomba na direção do golpe e volta como uma mola.
+## Os ossos filhos (braços, cabeça) atrasam e chicoteiam.
+## As pernas ficam de fora: quem cuida delas (agachar, joelho ceder, passos)
+## é a Locomotion, assim os pés ficam firmes no chão.
 ## Roda depois da animação, então funciona em cima de qualquer animação.
 
 @export var stiffness := 230.0 ## força da mola que volta para a pose
@@ -11,13 +13,10 @@ extends SkeletonModifier3D
 @export var chain_falloff := 0.5 ## quanto do golpe passa para o osso pai
 @export var whip := 0.55 ## quanto os ossos filhos atrasam (efeito chicote)
 @export var impulse_scale := 13.0
-@export var hips_drop := 0.9 ## quanto o quadril afunda no golpe (m/s)
-@export var hips_stiffness := 300.0
-@export var hips_damping := 12.0
+@export var chain_root: StringName = &"Spine" ## o tombo sobe até este osso (não mexe no quadril)
+@export var ignored_bones: Array[StringName] = [&"Hips", &"UpperLeg.L", &"LowerLeg.L", &"UpperLeg.R", &"LowerLeg.R"]
 
 var _springs := {} # índice do osso -> [deslocamento: Vector3, velocidade: Vector3]
-var _hips_offset := Vector3.ZERO
-var _hips_velocity := Vector3.ZERO
 
 
 ## direction: direção do golpe no mundo. strength: ~0.3 (leve) a ~2 (forte).
@@ -26,8 +25,9 @@ func add_hit(bone: StringName, direction: Vector3, strength: float) -> void:
 	if skeleton == null:
 		return
 	var idx := skeleton.find_bone(bone)
-	if idx < 0:
+	if idx < 0 or bone in ignored_bones:
 		return
+	var stop := skeleton.find_bone(chain_root)
 	var local_dir := (skeleton.global_basis.inverse() * direction).normalized()
 	var axis := _bone_tip_direction(skeleton, idx).cross(local_dir)
 	if axis.length() > 0.01:
@@ -39,15 +39,16 @@ func add_hit(bone: StringName, direction: Vector3, strength: float) -> void:
 		axis = _bone_tip_direction(skeleton, idx).cross(local_dir)
 		if axis.length() > 0.01:
 			_add_spring(idx, axis.normalized() * s)
+		if idx == stop:
+			break
 		idx = skeleton.get_bone_parent(idx)
 		s *= chain_falloff
-
-	# O corpo inteiro cede: quadril desce e é empurrado na direção do golpe.
-	_hips_velocity += (Vector3.DOWN * 0.7 + Vector3(local_dir.x, 0, local_dir.z) * 0.5) * hips_drop * strength
 
 
 func _add_whip(skeleton: Skeleton3D, idx: int, impulse: Vector3) -> void:
 	for child in skeleton.get_bone_children(idx):
+		if skeleton.get_bone_name(child) in ignored_bones:
+			continue
 		_add_spring(child, impulse)
 		_add_whip(skeleton, child, impulse * 0.6)
 
@@ -60,7 +61,6 @@ func _add_spring(idx: int, impulse: Vector3) -> void:
 
 func _process_modification_with_delta(delta: float) -> void:
 	var skeleton := get_skeleton()
-	_update_hips(skeleton, delta)
 	if _springs.is_empty():
 		return
 	var indices := _springs.keys()
@@ -87,16 +87,6 @@ func _process_modification_with_delta(delta: float) -> void:
 			parent_rot = skeleton.get_bone_global_pose(parent).basis.get_rotation_quaternion()
 		var local := skeleton.get_bone_pose_rotation(idx)
 		skeleton.set_bone_pose_rotation(idx, parent_rot.inverse() * rotation * parent_rot * local)
-
-
-func _update_hips(skeleton: Skeleton3D, delta: float) -> void:
-	if _hips_offset.length() < 0.0005 and _hips_velocity.length() < 0.005:
-		return
-	_hips_velocity += (-_hips_offset * hips_stiffness - _hips_velocity * hips_damping) * delta
-	_hips_offset += _hips_velocity * delta
-	_hips_offset = _hips_offset.limit_length(0.25)
-	var root := 0
-	skeleton.set_bone_pose_position(root, skeleton.get_bone_pose_position(root) + _hips_offset)
 
 
 ## Direção em que o osso "aponta" (para o filho), no espaço do esqueleto.

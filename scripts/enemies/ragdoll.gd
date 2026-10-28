@@ -112,3 +112,14 @@ func _physics_process(_delta: float) -> void:
 		var pb: PhysicalBone3D = hit[0]
 		pb.apply_impulse(hit[1], hit[2] - pb.global_position)
 	_pending_hits.clear()
+
+
+## Explosão: empurra cada osso para longe do centro (e para cima), proporcional à massa.
+func apply_explosion(center: Vector3, force: float) -> void:
+	var total_mass := 0.0
+	for pb in _bones:
+		total_mass += pb.mass
+	for pb in _bones:
+		var away := pb.global_position - center
+		var dir := (away.normalized() + Vector3.UP * 0.7).normalized()
+		_pending_hits.append([pb, dir * force * pb.mass / total_mass, pb.global_position])

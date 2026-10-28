@@ -32,6 +32,36 @@ rings = 1
 [sub_resource type="StandardMaterial3D" id="Material_tape"]
 albedo_color = Color(0.12, 0.12, 0.12, 1)
 
+[sub_resource type="CylinderMesh" id="CylinderMesh_shaft"]
+top_radius = 0.022
+bottom_radius = 0.028
+height = 1.1
+radial_segments = 8
+rings = 1
+
+[sub_resource type="StandardMaterial3D" id="Material_wood"]
+albedo_color = Color(0.32, 0.2, 0.12, 1)
+roughness = 0.9
+
+[sub_resource type="CylinderMesh" id="CylinderMesh_claw"]
+top_radius = 0.06
+bottom_radius = 0.02
+height = 0.1
+radial_segments = 6
+rings = 1
+
+[sub_resource type="SphereMesh" id="SphereMesh_orb"]
+radius = 0.05
+height = 0.1
+radial_segments = 10
+rings = 5
+
+[sub_resource type="StandardMaterial3D" id="Material_orb"]
+albedo_color = Color(0.8, 0.55, 1, 1)
+emission_enabled = true
+emission = Color(0.6, 0.25, 1, 1)
+emission_energy_multiplier = 3.0
+
 [sub_resource type="BoxMesh" id="BoxMesh_foot"]
 size = Vector3(0.14, 0.12, 0.32)
 
@@ -77,6 +107,32 @@ position = Vector3(0, 0, 0.04)
 rotation = Vector3(1.5708, 0, 0)
 mesh = SubResource("CylinderMesh_grip")
 surface_material_override/0 = SubResource("Material_tape")
+
+[node name="Staff" type="Node3D" parent="Head/Camera3D"]
+position = Vector3(0.34, -0.5, -0.55)
+rotation = Vector3(-0.35, 0, 0.12)
+
+[node name="Shaft" type="MeshInstance3D" parent="Head/Camera3D/Staff"]
+mesh = SubResource("CylinderMesh_shaft")
+surface_material_override/0 = SubResource("Material_wood")
+
+[node name="Claw" type="MeshInstance3D" parent="Head/Camera3D/Staff"]
+position = Vector3(0, 0.58, 0)
+mesh = SubResource("CylinderMesh_claw")
+surface_material_override/0 = SubResource("Material_wood")
+
+[node name="Tip" type="Node3D" parent="Head/Camera3D/Staff"]
+position = Vector3(0, 0.66, 0)
+
+[node name="Orb" type="MeshInstance3D" parent="Head/Camera3D/Staff/Tip"]
+cast_shadow = 0
+mesh = SubResource("SphereMesh_orb")
+surface_material_override/0 = SubResource("Material_orb")
+
+[node name="Light" type="OmniLight3D" parent="Head/Camera3D/Staff/Tip"]
+light_color = Color(0.7, 0.4, 1, 1)
+light_energy = 1.2
+omni_range = 2.5
 
 [node name="Foot" type="Node3D" parent="Head/Camera3D"]
 position = Vector3(0.05, -0.9, -0.2)
