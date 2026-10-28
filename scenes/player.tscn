@@ -7,17 +7,25 @@
 radius = 0.35
 height = 1.8
 
-[sub_resource type="CylinderMesh" id="CylinderMesh_pipe"]
-top_radius = 0.025
-bottom_radius = 0.025
-height = 0.75
-radial_segments = 8
-rings = 1
+[sub_resource type="BoxMesh" id="BoxMesh_blade"]
+size = Vector3(0.06, 0.012, 0.82)
+
+[sub_resource type="PrismMesh" id="PrismMesh_tip"]
+left_to_right = 0.5
+size = Vector3(0.06, 0.1, 0.012)
+
+[sub_resource type="BoxMesh" id="BoxMesh_guard"]
+size = Vector3(0.2, 0.035, 0.035)
+
+[sub_resource type="StandardMaterial3D" id="Material_guard"]
+albedo_color = Color(0.35, 0.28, 0.15, 1)
+metallic = 0.5
+roughness = 0.5
 
 [sub_resource type="CylinderMesh" id="CylinderMesh_grip"]
-top_radius = 0.032
-bottom_radius = 0.032
-height = 0.2
+top_radius = 0.022
+bottom_radius = 0.022
+height = 0.18
 radial_segments = 8
 rings = 1
 
@@ -47,15 +55,26 @@ near = 0.03
 fov = 75.0
 
 [node name="Weapon" type="Node3D" parent="Head/Camera3D"]
-position = Vector3(0.32, -0.28, -0.45)
-rotation = Vector3(-1.0, 0.2, -0.25)
 
-[node name="Pipe" type="MeshInstance3D" parent="Head/Camera3D/Weapon"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.3, 0)
-mesh = SubResource("CylinderMesh_pipe")
+[node name="Blade" type="MeshInstance3D" parent="Head/Camera3D/Weapon"]
+position = Vector3(0, 0, -0.47)
+mesh = SubResource("BoxMesh_blade")
 surface_material_override/0 = ExtResource("2_metal")
 
+[node name="Tip" type="MeshInstance3D" parent="Head/Camera3D/Weapon"]
+position = Vector3(0, 0, -0.93)
+rotation = Vector3(-1.5708, 0, 0)
+mesh = SubResource("PrismMesh_tip")
+surface_material_override/0 = ExtResource("2_metal")
+
+[node name="Guard" type="MeshInstance3D" parent="Head/Camera3D/Weapon"]
+position = Vector3(0, 0, -0.05)
+mesh = SubResource("BoxMesh_guard")
+surface_material_override/0 = SubResource("Material_guard")
+
 [node name="Grip" type="MeshInstance3D" parent="Head/Camera3D/Weapon"]
+position = Vector3(0, 0, 0.04)
+rotation = Vector3(1.5708, 0, 0)
 mesh = SubResource("CylinderMesh_grip")
 surface_material_override/0 = SubResource("Material_tape")
 

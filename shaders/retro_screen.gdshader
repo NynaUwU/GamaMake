@@ -1,5 +1,5 @@
 shader_type canvas_item;
-// Pós-processamento "PC anos 2000": a imagem já é renderizada em 800x600
+// Pós-processamento "PC anos 2000": a imagem já é renderizada em 960x540
 // (stretch mode = viewport); aqui reduzimos as cores (estilo 16 bits) com
 // dithering ordenado, e ajustamos contraste/saturação e vinheta.
 

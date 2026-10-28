@@ -1,5 +1,5 @@
 extends CanvasLayer
-## HUD simples em 800x600: vida, stamina, mira, aviso de interação e mensagens.
+## HUD simples em 960x540: vida, stamina, mira, aviso de interação e mensagens.
 ## Tudo em Control nodes, então dá para crescer para inventário/crafting
 ## na mesma camada sem mexer no 3D.
 

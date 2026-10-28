@@ -35,6 +35,8 @@ const LEG_BONES := [&"UpperLeg.L", &"LowerLeg.L", &"UpperLeg.R", &"LowerLeg.R"]
 @export var down_time := 2.2 ## tempo mínimo caído antes de levantar
 @export var get_up_time := 0.9
 @export var leg_knockdown_chance := 0.35
+@export var stagger_time := 0.35 ## curto = volta a atacar rápido
+@export var turn_speed := 7.0
 
 var state := State.IDLE
 var health := max_health
@@ -97,7 +99,7 @@ func _update_chase(delta: float) -> void:
 		_set_state(State.IDLE)
 		return
 	var to_target := _flat_to_target()
-	_face(to_target, delta, 4.0)
+	_face(to_target, delta, turn_speed)
 	if to_target.length() <= attack_range and _cooldown <= 0.0:
 		_set_state(State.ATTACK)
 		return
@@ -108,7 +110,7 @@ func _update_chase(delta: float) -> void:
 
 func _update_attack(delta: float) -> void:
 	_brake(delta)
-	_face(_flat_to_target(), delta, 2.0)
+	_face(_flat_to_target(), delta, turn_speed * 0.4)
 	var windup := clampf(_state_time / attack_windup, 0.0, 1.0)
 	locomotion.attack = windup
 	if _state_time >= attack_windup:
@@ -125,8 +127,8 @@ func _update_attack(delta: float) -> void:
 func _update_stagger(delta: float) -> void:
 	velocity.x = _stagger_velocity.x
 	velocity.z = _stagger_velocity.z
-	_stagger_velocity = _stagger_velocity.lerp(Vector3.ZERO, 1.0 - exp(-6.0 * delta))
-	if _state_time > 0.5:
+	_stagger_velocity = _stagger_velocity.lerp(Vector3.ZERO, 1.0 - exp(-9.0 * delta))
+	if _state_time > stagger_time:
 		_set_state(State.CHASE)
 
 
@@ -152,7 +154,7 @@ func take_hit(damage: float, bone: StringName, point: Vector3, direction: Vector
 		# Bateu no zumbi caído: ele volta (ou continua) no chão.
 		_knock_down(bone, point, direction * force)
 		return
-	hit_reaction.add_hit(bone, direction, clampf(force / 30.0, 0.3, 2.0))
+	hit_reaction.add_hit(bone, direction, clampf(force / 25.0, 0.4, 2.5))
 	var leg_hit := bone in LEG_BONES and randf() < leg_knockdown_chance
 	if knockdown or leg_hit:
 		_knock_down(bone, point, direction * force)
@@ -162,7 +164,8 @@ func take_hit(damage: float, bone: StringName, point: Vector3, direction: Vector
 
 func _stagger(direction: Vector3, force: float) -> void:
 	_end_attack()
-	_stagger_velocity = Vector3(direction.x, 0, direction.z) * clampf(force * 0.06, 0.5, 3.0)
+	# Empurrão forte e curto: o zumbi é jogado para trás e logo volta para cima do player.
+	_stagger_velocity = Vector3(direction.x, 0, direction.z) * clampf(force * 0.1, 1.0, 4.5)
 	_set_state(State.STAGGER)
 
 
