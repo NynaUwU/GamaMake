@@ -21,9 +21,7 @@ func _physics_process(_d: float) -> bool:
 		player.look_at(Vector3(z.global_position.x, player.global_position.y, z.global_position.z))
 		player.head.rotation.x = -0.15
 	if frame == 135:
-		var hit: Dictionary = player._cast_melee(2.3)
-		print("ray hit: ", hit.collider.name if hit else "nada", " bone=", hit.collider.get_meta("bone") if hit and hit.collider.has_meta("bone") else "-")
-		player._melee()
+		player._melee_attack()
 	if frame == 175:
 		print("after melee: z1 hp=", z.health, " state=", Zombie.State.keys()[z.state], " player stamina=", int(player.stamina))
 	if frame == 200:

@@ -198,3 +198,93 @@ func _make_material(color: Color) -> StandardMaterial3D:
 	mat.roughness = 0.9
 	mat.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST_WITH_MIPMAPS
 	return mat
+
+
+# --- Desmembramento ---------------------------------------------------------
+
+## Osso e todos os ossos abaixo dele (ex.: UpperArm.L -> [UpperArm.L, LowerArm.L]).
+func get_bone_subtree(bone_name: StringName) -> Array[StringName]:
+	var result: Array[StringName] = []
+	var idx := find_bone(bone_name)
+	if idx < 0:
+		return result
+	var stack := [idx]
+	while not stack.is_empty():
+		var current: int = stack.pop_back()
+		result.append(StringName(get_bone_name(current)))
+		stack.append_array(get_bone_children(current))
+	return result
+
+
+## Arranca o membro: esconde o visual e as hitboxes, cria um pedaço físico com
+## cópia dos blocos, sangue no corte e um "toco" no osso pai.
+## Retorna os ossos que saíram (para o Ragdoll remover os corpos físicos).
+func detach_limb(bone_name: StringName, impulse: Vector3) -> Array[StringName]:
+	var bones := get_bone_subtree(bone_name)
+	if bones.is_empty():
+		return bones
+	var idx := find_bone(bone_name)
+	var cut_transform := global_transform * get_bone_global_pose(idx)
+	var scene_root: Node = get_tree().current_scene
+	if scene_root == null:
+		scene_root = owner.get_parent() if owner else get_parent()
+
+	var limb := RigidBody3D.new()
+	limb.name = "Membro_" + bone_name
+	limb.collision_layer = Ragdoll.LAYER_RAGDOLL
+	limb.collision_mask = Ragdoll.MASK_RAGDOLL
+	limb.mass = 3.0
+	limb.angular_damp = 1.0
+	scene_root.add_child(limb)
+	limb.global_transform = cut_transform
+
+	for name in bones:
+		var attachment := get_node_or_null("Att_" + name) as BoneAttachment3D
+		if attachment == null:
+			continue
+		for child in attachment.get_children():
+			if child is MeshInstance3D:
+				var copy: MeshInstance3D = child.duplicate()
+				limb.add_child(copy)
+				copy.global_transform = child.global_transform
+			elif child is Area3D:
+				child.collision_layer = 0
+		attachment.visible = false
+
+	# Colisão: bloco do osso cortado (o resto do membro vai junto visualmente).
+	for def in BONES:
+		if def[0] == bone_name:
+			var shape := CollisionShape3D.new()
+			var box := BoxShape3D.new()
+			box.size = Vector3(def[5], def[3], def[6])
+			shape.shape = box
+			shape.position = Vector3(0, def[4] * def[3] * 0.5, 0)
+			limb.add_child(shape)
+	limb.apply_impulse(impulse, Vector3(0, -0.1, 0))
+	limb.angular_velocity = Vector3(randf_range(-8, 8), randf_range(-8, 8), randf_range(-8, 8))
+	scene_root.get_tree().create_timer(40.0).timeout.connect(limb.queue_free)
+
+	ImpactFX.burst(scene_root, cut_transform.origin, impulse.normalized() + Vector3.UP * 0.5,
+			ImpactFX.BLOOD, 30, 3.5, 0.06)
+	_add_stump(idx)
+	return bones
+
+
+func _add_stump(idx: int) -> void:
+	var parent := get_bone_parent(idx)
+	if parent < 0:
+		return
+	var attachment := get_node_or_null("Att_" + get_bone_name(parent)) as Node3D
+	if attachment == null:
+		return
+	var stump := MeshInstance3D.new()
+	var box := BoxMesh.new()
+	box.size = Vector3(0.1, 0.05, 0.1)
+	stump.mesh = box
+	var material := StandardMaterial3D.new()
+	material.albedo_color = Color(0.35, 0.02, 0.02)
+	material.roughness = 0.3
+	stump.material_override = material
+	stump.position = get_bone_rest(idx).origin
+	attachment.add_child(stump)
+	ImpactFX.spurt(attachment, stump.position, ImpactFX.BLOOD)

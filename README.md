@@ -11,13 +11,14 @@ reação física a golpes e ragdoll (estilo Dying Light), visual de PC dos anos 
 | Tecla | Ação |
 |---|---|
 | WASD / Shift / Espaço | mover / correr / pular |
-| Clique esquerdo | golpe de espada — clique de novo para o combo: direita→esquerda, esquerda→direita, de cima para baixo (x1.5) |
+| Clique esquerdo (espada/taco) | combo: direita→esquerda, esquerda→direita, de cima para baixo (x1.5) |
+| Clique esquerdo (pistola) | tiro (12 balas; R recarrega; cabeça mata com um tiro) |
 | Clique esquerdo (cajado) | míssil mágico explosivo — segure para disparar sem parar |
-| 1 / 2 / Q / roda do mouse | espada / cajado / trocar arma |
-| F | chute (desequilibra muito; derruba se o zumbi já estiver tonto) |
+| 1 / 2 / 3 / 4 | espada / taco / cajado / pistola (Q ou roda do mouse alterna) |
+| F | chute em área: pega todos à frente (~70° para cada lado, 2.4 m) e joga longe |
 | E | pegar item (gancho para o inventário) |
 | Z | cria um zumbi na sua frente (teste) |
-| R | recomeça · Esc solta o mouse |
+| Backspace | recomeça · Esc solta o mouse |
 
 ## Estrutura
 ```
@@ -35,6 +36,7 @@ scripts/enemies/
   ragdoll.gd           PhysicalBoneSimulator3D: liga/desliga física, impulsos, blend para levantar
 scripts/player/player.gd   player, espada, cajado, chute, interação
 scripts/weapons/           míssil mágico e explosão
+scripts/effects/impact_fx.gd  sangue, faíscas, rastro de bala
 shaders/retro_screen.gdshader
 tests/                 testes headless (ragdoll, juntas, jogo)
 ```
@@ -67,6 +69,12 @@ tests/                 testes headless (ragdoll, juntas, jogo)
      - acima de `stumble_at` → **cambaleia como bêbado**: passos em ziguezague para trás,
        tronco inclinado, braços abertos, quase cai;
      - acima de `fall_at` (ou apanhou cambaleando) → cai em ragdoll e depois levanta.
+   - **Tranco**: um ou dois passos para trás (dois com golpe forte, como o taco).
+   - **Espada corta membros** (`CUT_CHANCE` em `zombie.gd`, `cut_multiplier` no inspetor):
+     antebraço/braço podem sair em qualquer golpe; cabeça mata na hora; pernas só no golpe
+     que mata ou no corpo caído. O membro vira um corpo físico, fica um toco com sangue,
+     e zumbi sem braços morde com metade do dano. Explosão que mata também espalha pedaços.
+   - **Taco**: mais lento, menos dano, muito mais força — quase sempre faz cambalear.
    - **Morte** → ragdoll permanente; continua dando para bater/chutar o corpo.
 5. O *hitstop* (jogo quase para por 50–70 ms) e o tremor de câmera dão peso ao impacto.
 

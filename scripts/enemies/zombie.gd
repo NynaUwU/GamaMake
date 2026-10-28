@@ -6,7 +6,7 @@ extends CharacterBody3D
 ##   IDLE      -> parado até ver o player
 ##   CHASE     -> anda até o player
 ##   ATTACK    -> ergue os braços e golpeia
-##   STAGGER   -> tranco curto: tronco balança, pés firmes
+##   STAGGER   -> tranco: tronco balança e dá um ou dois passos para trás
 ##   STUMBLE   -> perdeu o equilíbrio: cambaleia como bêbado, quase cai
 ##   DOWN      -> caído em ragdoll (perdeu o equilíbrio de vez, explosão)
 ##   GETTING_UP-> volta da física para a animação
@@ -25,6 +25,14 @@ const BONE_DAMAGE := {
 	&"UpperLeg.L": 0.7, &"LowerLeg.L": 0.6, &"UpperLeg.R": 0.7, &"LowerLeg.R": 0.6,
 }
 const LEG_BONES := [&"UpperLeg.L", &"LowerLeg.L", &"UpperLeg.R", &"LowerLeg.R"]
+const ARM_BONES := [&"UpperArm.L", &"LowerArm.L", &"UpperArm.R", &"LowerArm.R"]
+
+## Chance base de a espada arrancar o membro atingido (escala com a força do golpe).
+## Pernas só saem no golpe que mata (ou no corpo caído); cabeça mata na hora.
+const CUT_CHANCE := {
+	&"LowerArm.L": 0.4, &"LowerArm.R": 0.4, &"UpperArm.L": 0.25, &"UpperArm.R": 0.25,
+	&"Head": 0.1, &"LowerLeg.L": 0.35, &"LowerLeg.R": 0.35, &"UpperLeg.L": 0.25, &"UpperLeg.R": 0.25,
+}
 
 @export var max_health := 100.0
 @export var move_speed := 1.6
@@ -35,7 +43,9 @@ const LEG_BONES := [&"UpperLeg.L", &"LowerLeg.L", &"UpperLeg.R", &"LowerLeg.R"]
 @export var attack_cooldown := 1.2
 @export var down_time := 2.2 ## tempo mínimo caído antes de levantar
 @export var get_up_time := 0.9
-@export var stagger_time := 0.3 ## curto = volta a atacar rápido
+@export var step_time := 0.3 ## duração de cada passo do tranco (1 ou 2 passos)
+@export var step_speed := 1.5
+@export var cut_multiplier := 1.0 ## 0 = espada nunca corta membros
 @export var turn_speed := 7.0
 
 @export_group("Equilíbrio")
@@ -64,6 +74,9 @@ var _stumble_duration := 1.0
 var _lean := Vector2.ZERO # inclinação do tronco (mola), espaço local
 var _lean_velocity := Vector2.ZERO
 var _buckle := Vector2.ZERO
+var _stagger_duration := 0.3
+var _stumble_power := 1.0
+var _cut_bones: Array[StringName] = []
 var _gravity: float = ProjectSettings.get_setting("physics/3d/default_gravity")
 
 @onready var collision: CollisionShape3D = $CollisionShape3D
@@ -146,10 +159,12 @@ func _update_attack(delta: float) -> void:
 
 
 func _update_stagger(delta: float) -> void:
-	velocity.x = _stagger_velocity.x
-	velocity.z = _stagger_velocity.z
-	_stagger_velocity = _stagger_velocity.lerp(Vector3.ZERO, 1.0 - exp(-9.0 * delta))
-	if _state_time > stagger_time:
+	# Passos para trás em velocidade constante, freando só no fim do último.
+	var fade := 1.0 - smoothstep(_stagger_duration - 0.12, _stagger_duration, _state_time)
+	var target := _stagger_velocity * fade
+	velocity.x = lerpf(velocity.x, target.x, 1.0 - exp(-14.0 * delta))
+	velocity.z = lerpf(velocity.z, target.z, 1.0 - exp(-14.0 * delta))
+	if _state_time > _stagger_duration:
 		_set_state(State.CHASE)
 
 
@@ -157,7 +172,7 @@ func _update_stumble(delta: float) -> void:
 	# Andar de bêbado: vai na direção do empurrão, ziguezagueando e perdendo força.
 	var k := clampf(_state_time / _stumble_duration, 0.0, 1.0)
 	var zigzag := _stumble_dir.rotated(Vector3.UP, sin(_state_time * 6.0) * 0.8)
-	var desired := zigzag * stumble_speed * (1.0 - k) * (0.6 + balance)
+	var desired := zigzag * stumble_speed * _stumble_power * (1.0 - k) * (0.6 + balance)
 	velocity.x = lerpf(velocity.x, desired.x, 1.0 - exp(-6.0 * delta))
 	velocity.z = lerpf(velocity.z, desired.z, 1.0 - exp(-6.0 * delta))
 	if _state_time >= _stumble_duration:
@@ -173,13 +188,22 @@ func _update_down() -> void:
 # --- Dano ------------------------------------------------------------------
 
 ## Chamado pelo player. direction = direção do golpe (normalizada).
+## can_cut = golpe com fio (espada): pode arrancar o membro.
 func take_hit(damage: float, bone: StringName, point: Vector3, direction: Vector3,
-		force: float, knockdown := false) -> void:
+		force: float, knockdown := false, can_cut := false) -> void:
+	if bone in _cut_bones:
+		return
 	if state == State.DEAD:
+		if can_cut:
+			_try_cut(bone, direction, force, true)
 		ragdoll.apply_hit(bone, direction * force, point)
 		return
 	health -= damage * BONE_DAMAGE.get(bone, 1.0)
-	if health <= 0.0:
+	var killing := health <= 0.0
+	if can_cut and _try_cut(bone, direction, force, killing) and bone == &"Head":
+		health = 0.0
+		killing = true
+	if killing:
 		_die(bone, point, direction * force * 1.3)
 		return
 	if state == State.DOWN or state == State.GETTING_UP:
@@ -207,7 +231,7 @@ func take_hit(damage: float, bone: StringName, point: Vector3, direction: Vector
 	if balance >= fall_at:
 		_knock_down(bone, point, direction * force)
 	elif balance >= stumble_at or state == State.STUMBLE:
-		_stumble(direction)
+		_stumble(direction, force)
 	else:
 		_stagger(direction, force)
 
@@ -221,18 +245,26 @@ func take_explosion(center: Vector3, damage: float, force: float) -> void:
 		_set_state(State.DEAD if health <= 0.0 else State.DOWN)
 		if state == State.DEAD:
 			died.emit(self)
+			# Explosão que mata espalha pedaços.
+			for limb in [&"LowerArm.L", &"LowerArm.R", &"LowerLeg.L", &"LowerLeg.R", &"Head"]:
+				if randf() < 0.25:
+					_cut(limb, (skeleton.global_position - center).normalized() * force * 0.02 + Vector3.UP * 3.0)
 	ragdoll.apply_explosion(center, force)
 
 
 func _stagger(direction: Vector3, force: float) -> void:
 	_end_attack()
-	# Tranco curto: meio passo para trás e já volta para cima do player.
-	_stagger_velocity = Vector3(direction.x, 0, direction.z) * clampf(force * 0.04, 0.4, 1.5)
+	# Um passo para trás; golpe mais forte (ou sorte) = dois passos.
+	var steps := 2 if force > 40.0 or randf() < 0.35 else 1
+	_stagger_duration = step_time * steps
+	var flat := Vector3(direction.x, 0, direction.z).normalized()
+	_stagger_velocity = flat * step_speed * clampf(force / 30.0, 0.8, 1.6)
 	_set_state(State.STAGGER)
 
 
-func _stumble(direction: Vector3) -> void:
+func _stumble(direction: Vector3, force: float) -> void:
 	_end_attack()
+	_stumble_power = clampf(force / 50.0, 1.0, 2.6) # chute e taco empurram mais longe
 	_stumble_dir = Vector3(direction.x, 0, direction.z).normalized()
 	_stumble_duration = randf_range(0.9, 1.5) + balance * 0.4
 	_set_state(State.STUMBLE)
@@ -282,6 +314,40 @@ func _on_get_up_finished() -> void:
 
 # --- Utilidades ------------------------------------------------------------
 
+# --- Desmembramento ----------------------------------------------------------
+
+func _try_cut(bone: StringName, direction: Vector3, force: float, killing: bool) -> bool:
+	if not CUT_CHANCE.has(bone) or bone in _cut_bones:
+		return false
+	if bone in LEG_BONES and not killing:
+		return false
+	var chance: float = CUT_CHANCE[bone] * clampf(force / 30.0, 0.5, 2.0) * cut_multiplier
+	if killing:
+		chance *= 1.8
+	if randf() > chance:
+		return false
+	_cut(bone, direction * force * 0.06 + Vector3.UP * 1.5)
+	return true
+
+
+func _cut(bone: StringName, impulse: Vector3) -> void:
+	if bone in _cut_bones or not skeleton.has_method("detach_limb"):
+		return
+	var removed: Array[StringName] = skeleton.detach_limb(bone, impulse)
+	_cut_bones.append_array(removed)
+	ragdoll.remove_bones(removed)
+
+
+## Braços que sobraram (sem braços o zumbi ainda morde, mas fraco).
+func _arm_count() -> int:
+	var arms := 0
+	for side in [&"UpperArm.L", &"UpperArm.R"]:
+		if not side in _cut_bones:
+			var lower := StringName(String(side).replace("Upper", "Lower"))
+			arms += 1 if not lower in _cut_bones else 0
+	return arms
+
+
 func _try_damage_target() -> void:
 	if not is_instance_valid(target):
 		return
@@ -289,7 +355,7 @@ func _try_damage_target() -> void:
 	var facing := -global_basis.z
 	if to_target.length() <= attack_range + 0.4 and facing.dot(to_target.normalized()) > 0.4:
 		if target.has_method("take_damage"):
-			target.take_damage(attack_damage, to_target.normalized())
+			target.take_damage(attack_damage * maxf(_arm_count(), 1.0) / 2.0, to_target.normalized())
 
 
 func _end_attack() -> void:
@@ -363,7 +429,8 @@ func _to_local_flat(direction: Vector3) -> Vector2:
 
 func _set_hitboxes_enabled(enabled: bool) -> void:
 	for area in find_children("Hitbox", "Area3D", true, false):
-		area.collision_layer = LAYER_HITBOX if enabled else 0
+		var cut: bool = area.get_meta("bone") in _cut_bones
+		area.collision_layer = LAYER_HITBOX if enabled and not cut else 0
 
 
 func _find_floor_height(from: Vector3) -> float:

@@ -23,7 +23,7 @@ func _physics_process(_d: float) -> bool:
 		player.global_position = z.global_position + Vector3(0, 0, 1.7)
 		player.rotation.y = 0.0
 	if frame in [10, 40, 70]:
-		player._melee()
+		player._melee_attack()
 	if frame in [25, 55, 90]:
 		print("f", frame, " combo=", player._swing_index, " hp=", z.health, " state=", Zombie.State.keys()[z.state],
 			" springs=", z.hit_reaction._springs.size())

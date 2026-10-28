@@ -123,3 +123,15 @@ func apply_explosion(center: Vector3, force: float) -> void:
 		var away := pb.global_position - center
 		var dir := (away.normalized() + Vector3.UP * 0.7).normalized()
 		_pending_hits.append([pb, dir * force * pb.mass / total_mass, pb.global_position])
+
+
+## Remove os corpos físicos de ossos que foram arrancados (desmembramento).
+func remove_bones(bone_names: Array[StringName]) -> void:
+	for bone in bone_names:
+		var pb: PhysicalBone3D = _by_name.get(bone)
+		if pb == null:
+			continue
+		_by_name.erase(bone)
+		_bones.erase(pb)
+		_pending_hits = _pending_hits.filter(func(hit): return hit[0] != pb)
+		pb.queue_free()
