@@ -5,6 +5,7 @@
 [ext_resource type="Script" path="res://scripts/enemies/zombie_locomotion.gd" id="3_loco"]
 [ext_resource type="Script" path="res://scripts/enemies/hit_reaction.gd" id="4_hit"]
 [ext_resource type="Script" path="res://scripts/enemies/ragdoll.gd" id="5_ragdoll"]
+[ext_resource type="Script" path="res://scripts/enemies/limp_limbs.gd" id="6_limp"]
 
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_body"]
 radius = 0.32
@@ -27,6 +28,9 @@ script = ExtResource("3_loco")
 
 [node name="HitReaction" type="SkeletonModifier3D" parent="Skeleton3D"]
 script = ExtResource("4_hit")
+
+[node name="LimpLimbs" type="SkeletonModifier3D" parent="Skeleton3D"]
+script = ExtResource("6_limp")
 
 [node name="PhysicalBoneSimulator3D" type="PhysicalBoneSimulator3D" parent="Skeleton3D"]
 script = ExtResource("5_ragdoll")

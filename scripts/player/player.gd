@@ -28,14 +28,19 @@ const MASK_PROPS := 1 | (1 << 5)
 
 ## Combo corpo a corpo (espada e taco usam os mesmos arcos). Cada golpe gira a
 ## arma em volta de "axis" (espaço da câmera), centrado em "pivot", do ângulo
-## "from" ao "to". damage/force multiplicam os valores da arma.
+## "from" ao "to". damage/force multiplicam os valores da arma. "bias" multiplica
+## o dano no membro: golpes horizontais decepam cabeça/pernas (depende de onde
+## pegam), o golpe de cima arranca braços.
 const SWINGS := [
 	{"axis": Vector3(0.1, 1.0, 0.2), "pivot": Vector3(0.1, -0.1, -0.22),
-		"from": -1.5, "to": 1.5, "damage": 1.0, "force": 1.0}, # direita -> esquerda, descendo um pouco
+		"from": -1.5, "to": 1.5, "damage": 1.0, "force": 1.0,
+		"bias": {"head": 2.0, "leg": 1.8, "arm": 0.8}}, # direita -> esquerda, descendo um pouco
 	{"axis": Vector3(-0.15, 1.0, -0.2), "pivot": Vector3(-0.05, -0.16, -0.22),
-		"from": 1.5, "to": -1.5, "damage": 1.0, "force": 1.0}, # esquerda -> direita, subindo
+		"from": 1.5, "to": -1.5, "damage": 1.0, "force": 1.0,
+		"bias": {"head": 1.8, "leg": 1.6, "arm": 0.9}}, # esquerda -> direita, subindo
 	{"axis": Vector3(1.0, 0.1, 0.0), "pivot": Vector3(0.12, -0.2, -0.25),
-		"from": 1.8, "to": -1.0, "damage": 1.5, "force": 1.5}, # de cima para baixo
+		"from": 1.8, "to": -1.0, "damage": 1.5, "force": 1.5,
+		"bias": {"head": 0.7, "leg": 0.3, "arm": 2.4}}, # de cima para baixo
 ]
 const ARM_LENGTH := 0.45
 const TRAIL_LIFETIME := 0.1 ## quanto tempo o rastro do golpe fica na tela
@@ -435,8 +440,10 @@ func _apply_swing_hit(hit: Dictionary, direction: Vector3, swing: Dictionary) ->
 	if collider.has_meta("enemy"):
 		if is_instance_valid(key) and key.has_method("take_hit"):
 			_swing_hits.append(key)
-			key.take_hit(stats.damage * swing.damage, collider.get_meta("bone"), hit.position,
-					direction, stats.force * swing.force, false, stats.cut)
+			var info := HitInfo.make(stats.damage * swing.damage, collider.get_meta("bone"), hit.position,
+					direction, stats.force * swing.force, HitInfo.Type.CUT if stats.cut else HitInfo.Type.BLUNT)
+			info.limb_bias = swing.bias
+			key.take_hit(info)
 			_hitstop(stats.hitstop)
 			_shake = 0.12
 	elif collider is RigidBody3D:
@@ -541,7 +548,8 @@ func _fire_pistol() -> void:
 		if collider.has_meta("enemy"):
 			var enemy = collider.get_meta("enemy")
 			if is_instance_valid(enemy) and enemy.has_method("take_hit"):
-				enemy.take_hit(pistol_damage, collider.get_meta("bone"), hit.position, direction, pistol_force)
+				enemy.take_hit(HitInfo.make(pistol_damage, collider.get_meta("bone"), hit.position,
+						direction, pistol_force, HitInfo.Type.PIERCE))
 				ImpactFX.burst(get_parent(), hit.position, -direction + hit.normal, ImpactFX.BLOOD, 14, 2.5)
 		else:
 			if collider is RigidBody3D:
@@ -603,7 +611,9 @@ func _do_kick() -> void:
 		if flat.length() > 0.3 and forward.dot(flat.normalized()) < kick_cone:
 			continue
 		var dir := (forward * 0.6 + flat.normalized() * 0.4 + Vector3.UP * 0.25).normalized()
-		enemy.take_hit(kick_damage, &"Chest", point, dir, kick_force, true)
+		var info := HitInfo.make(kick_damage, &"Chest", point, dir, kick_force, HitInfo.Type.BLUNT)
+		info.knockdown = true
+		enemy.take_hit(info)
 		hit_any = true
 	# Caixas e itens na frente também voam.
 	var shape := SphereShape3D.new()

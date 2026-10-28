@@ -69,7 +69,7 @@ func _build_bone_visual(def: Array, enemy: Node) -> void:
 	var center := Vector3(0, dir * length * 0.5, 0)
 
 	var attachment := BoneAttachment3D.new()
-	attachment.name = "Att_" + bone_name
+	attachment.name = attachment_name(bone_name)
 	attachment.bone_name = bone_name
 	add_child(attachment)
 
@@ -202,6 +202,11 @@ func _make_material(color: Color) -> StandardMaterial3D:
 
 # --- Desmembramento ---------------------------------------------------------
 
+## Nome do BoneAttachment3D de um osso ("." não vale em nome de nó: vira "_").
+static func attachment_name(bone_name: String) -> String:
+	return ("Att_" + bone_name).validate_node_name()
+
+
 ## Osso e todos os ossos abaixo dele (ex.: UpperArm.L -> [UpperArm.L, LowerArm.L]).
 func get_bone_subtree(bone_name: StringName) -> Array[StringName]:
 	var result: Array[StringName] = []
@@ -239,9 +244,9 @@ func detach_limb(bone_name: StringName, impulse: Vector3) -> Array[StringName]:
 	limb.global_transform = cut_transform
 
 	for name in bones:
-		var attachment := get_node_or_null("Att_" + name) as BoneAttachment3D
-		if attachment == null:
-			continue
+		var attachment := get_node_or_null(attachment_name(name)) as BoneAttachment3D
+		if attachment == null or not attachment.visible:
+			continue # já foi arrancado antes
 		for child in attachment.get_children():
 			if child is MeshInstance3D:
 				var copy: MeshInstance3D = child.duplicate()
@@ -274,7 +279,7 @@ func _add_stump(idx: int) -> void:
 	var parent := get_bone_parent(idx)
 	if parent < 0:
 		return
-	var attachment := get_node_or_null("Att_" + get_bone_name(parent)) as Node3D
+	var attachment := get_node_or_null(attachment_name(get_bone_name(parent))) as Node3D
 	if attachment == null:
 		return
 	var stump := MeshInstance3D.new()

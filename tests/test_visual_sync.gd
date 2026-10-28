@@ -16,7 +16,7 @@ func _initialize() -> void:
 func _process(_d: float) -> bool:
 	frame += 1
 	if frame == 5:
-		z.take_hit(10, &"Chest", z.global_position + Vector3(0, 1.3, 0), Vector3(0, 0.2, 1).normalized(), 95, true)
+		z.take_hit(_hit(10, &"Chest", z.global_position + Vector3(0, 1.3, 0), Vector3(0, 0.2, 1).normalized(), 95, true))
 	if frame in [20, 60]:
 		var att: Node3D = z.skeleton.get_node("Att_Head")
 		var pb := z.ragdoll.get_bone_body(&"Head")
@@ -25,3 +25,13 @@ func _process(_d: float) -> bool:
 	if frame == 61:
 		quit()
 	return false
+
+
+
+## Monta um HitInfo a partir dos argumentos antigos (dano, osso, ponto, direção, força, derruba, corta).
+func _hit(damage: float, bone: StringName, point: Vector3, direction: Vector3, force: float,
+		knockdown := false, cut := false) -> HitInfo:
+	var info := HitInfo.make(damage, bone, point, direction, force,
+			HitInfo.Type.CUT if cut else HitInfo.Type.BLUNT)
+	info.knockdown = knockdown
+	return info

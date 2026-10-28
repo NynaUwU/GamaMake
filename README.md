@@ -33,10 +33,12 @@ scripts/enemies/
   humanoid_rig.gd      monta o boneco de teste (ossos, visual, hitboxes, ossos físicos)
   zombie_locomotion.gd animação procedural (andar, ataque, inclinação, agachar, cambaleio, joelho cedendo)
   hit_reaction.gd      SkeletonModifier3D: tronco tomba e volta como mola (pernas de fora)
+  limp_limbs.gd        SkeletonModifier3D: membros quebrados pendurados (pêndulos)
   ragdoll.gd           PhysicalBoneSimulator3D: liga/desliga física, impulsos, blend para levantar
 scripts/player/player.gd   player, espada, cajado, chute, interação
 scripts/weapons/           míssil mágico e explosão
 scripts/effects/impact_fx.gd  sangue, faíscas, rastro de bala
+scripts/combat/hit_info.gd    dados de um golpe (dano, osso, força, tipo CUT/BLUNT/PIERCE, bias)
 shaders/retro_screen.gdshader
 tests/                 testes headless (ragdoll, juntas, jogo)
 ```
@@ -55,7 +57,7 @@ tests/                 testes headless (ragdoll, juntas, jogo)
 1. Cada golpe é um **arco**: a lâmina gira em volta de um eixo (tabela `SWINGS` em `player.gd`)
    em três fases — preparação, corte e volta para a guarda — com rastro do corte na tela.
 2. Durante o corte, raios seguem a lâmina pelo trecho do arco percorrido a cada frame.
-   Acertou a **hitbox** de um osso → `Zombie.take_hit(dano, osso, ponto, direção, força)`;
+   Acertou a **hitbox** de um osso → `Zombie.take_hit(HitInfo)`;
    a direção é para onde a lâmina se move, então o zumbi é empurrado para o lado do corte.
    Um corte atravessa até 2 inimigos (`max_targets`).
 3. Atacar **não gasta stamina** (stamina é só para correr).
@@ -70,11 +72,23 @@ tests/                 testes headless (ragdoll, juntas, jogo)
        tronco inclinado, braços abertos, quase cai;
      - acima de `fall_at` (ou apanhou cambaleando) → cai em ragdoll e depois levanta.
    - **Tranco**: um ou dois passos para trás (dois com golpe forte, como o taco).
-   - **Espada corta membros** (`CUT_CHANCE` em `zombie.gd`, `cut_multiplier` no inspetor):
-     antebraço/braço podem sair em qualquer golpe; cabeça mata na hora; pernas só no golpe
-     que mata ou no corpo caído. O membro vira um corpo físico, fica um toco com sangue,
-     e zumbi sem braços morde com metade do dano. Explosão que mata também espalha pedaços.
-   - **Taco**: mais lento, menos dano, muito mais força — quase sempre faz cambalear.
+   - **Membros com vida própria** (cabeça 70, braço 35, perna 50 — grupo "Membros" no
+     inspetor do Zombie). Quando a vida do membro acaba:
+     - **corte** (espada) → o membro **sai voando** (corpo físico, toco sangrando);
+     - **impacto** (taco, chute) ou **tiro** → o osso **quebra**: o membro fica mole,
+       balançando como ragdoll (`limp_limbs.gd`);
+     - cabeça destruída mata; braço inutilizado = ataque mais fraco;
+     - **perna arrancada ou quebrada** → o zumbi cai e passa a **rastejar** (mais lento,
+       cápsula deitada, ataca mais fraco).
+   - **Golpes da espada favorecem membros diferentes** (`bias` em `SWINGS`, `player.gd`):
+     horizontais decepam cabeça (2x) e pernas (1.8x) conforme a altura em que pegam;
+     o golpe de cima arranca braços (2.4x).
+   - **Impacto derruba mais**: taco e chute tiram 1.45x mais equilíbrio
+     (`blunt_balance_multiplier`); tiro tira metade.
+   - **Explosão que mata despedaça o corpo inteiro**: cabeça, braços e pernas voam.
+   - **Levantar em etapas** (poses procedurais em `zombie_locomotion.gd`): de bruços →
+     apoio nas mãos e joelhos → ajoelhado → de pé; de costas → senta → agacha → de pé.
+     Dá para derrubar de novo no meio. Quem rasteja volta direto a rastejar.
    - **Morte** → ragdoll permanente; continua dando para bater/chutar o corpo.
 5. O *hitstop* (jogo quase para por 50–70 ms) e o tremor de câmera dão peso ao impacto.
 

@@ -30,7 +30,7 @@ func _physics_process(_d: float) -> bool:
 		z.detect_range = 0.0
 	var hit_frames := [20, 50, 80, 110]
 	if frame in hit_frames:
-		z.take_hit(30, &"Chest", z.global_position + Vector3(0, 1.3, 0), Vector3(0, 0, 1), 30)
+		z.take_hit(_hit(30, &"Chest", z.global_position + Vector3(0, 1.3, 0), Vector3(0, 0, 1), 30))
 		print("hit f", frame, ": balance=", snappedf(z.balance, 0.01), " state=", Zombie.State.keys()[z.state])
 	if frame == 28:
 		print("  feet during stagger: L=", snappedf(_foot_height("L"), 0.01), " R=", snappedf(_foot_height("R"), 0.01),
@@ -42,7 +42,17 @@ func _physics_process(_d: float) -> bool:
 	if frame == 300:
 		print("later: state=", Zombie.State.keys()[z.state], " balance=", snappedf(z.balance, 0.01))
 		# leg hit: knee buckle
-		z.take_hit(10, &"LowerLeg.L", z.global_position + Vector3(0, 0.4, 0), Vector3(0, 0, 1), 20)
+		z.take_hit(_hit(10, &"LowerLeg.L", z.global_position + Vector3(0, 0.4, 0), Vector3(0, 0, 1), 20))
 		print("leg hit: buckle=", z._buckle, " state=", Zombie.State.keys()[z.state])
 		quit()
 	return false
+
+
+
+## Monta um HitInfo a partir dos argumentos antigos (dano, osso, ponto, direção, força, derruba, corta).
+func _hit(damage: float, bone: StringName, point: Vector3, direction: Vector3, force: float,
+		knockdown := false, cut := false) -> HitInfo:
+	var info := HitInfo.make(damage, bone, point, direction, force,
+			HitInfo.Type.CUT if cut else HitInfo.Type.BLUNT)
+	info.knockdown = knockdown
+	return info
