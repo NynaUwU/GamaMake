@@ -109,7 +109,9 @@ func _physics_process(delta: float) -> void:
 	var throttle := Input.get_axis("move_back", "move_forward")
 	var steer_input := Input.get_axis("move_right", "move_left")
 	# Menos esterço em alta velocidade (não capota na curva).
-	var steer_limit := lerpf(max_steer, max_steer * 0.35, clampf(absf(speed) / top_speed, 0.0, 1.0))
+	# Quanto mais rápido, menos a roda vira (a partir de ~10 km/h; no máximo sobra 15%).
+	var fast := smoothstep(0.1, 0.75, absf(speed) / top_speed)
+	var steer_limit := max_steer * lerpf(1.0, 0.15, fast)
 	steering = move_toward(steering, steer_input * steer_limit, delta * 2.5)
 	brake = 0.0
 	if throttle > 0.0:

@@ -46,6 +46,8 @@ static func build(id: StringName) -> Node3D:
 			_mace(parts)
 		&"cajado":
 			_staff(parts)
+		&"colher":
+			_spoon(parts)
 		&"pistola":
 			_pistol(parts)
 		&"lanterna":
@@ -99,6 +101,33 @@ static func _mace(p: Dictionary) -> void:
 		var out := Vector3(cos(a), sin(a), 0)
 		_mb(p, IRON).box(Vector3(0, 0, -0.73) + out * 0.075, Vector3(0.03, 0.03, 0.18), Basis(out, Vector3(0, 0, 1).cross(out), Vector3(0, 0, 1)))
 	_mb(p, BRASS).lathe(PackedVector2Array([Vector2(0.034, 0.56), Vector2(0.034, 0.6)]), 8, AXIS_Z)
+
+
+## Colherona: colher de sopa ridiculamente grande. Cabo achatado de ferro com
+## ponta de couro e uma concha funda (bem simples, como as outras armas).
+static func _spoon(p: Dictionary) -> void:
+	# Cabo: seção achatada que alarga perto da concha.
+	var handle := []
+	for s in [[0.06, 0.022, 0.008], [-0.4, 0.026, 0.009], [-0.85, 0.034, 0.01], [-1.02, 0.05, 0.012]]:
+		handle.append(MeshBuilder.ring(Vector3(0, 0, s[0]), s[1], s[2], 2.5, 8))
+	handle.reverse()
+	_mb(p, STEEL).loft(handle, true, true)
+	_mb(p, LEATHER).lathe(PackedVector2Array([Vector2(0.03, -0.08), Vector2(0.03, 0.14)]), 6, AXIS_Z)
+	# Concha: casca oval funda (por fora e por dentro), aberta para cima.
+	var center := Vector3(0, 0.03, -1.27)
+	var outer := []
+	var inner := []
+	for i in 9:
+		var t := lerpf(-1.0, 1.0, i / 8.0)
+		var half_w := 0.17 * sqrt(maxf(1.0 - t * t, 0.0)) + 0.002
+		var depth := 0.09 * sqrt(maxf(1.0 - t * t, 0.0)) + 0.002
+		var z := center.z + t * 0.25
+		outer.append(MeshBuilder.ring(Vector3(0, center.y, z), half_w, depth, 2.0, 12, -INF, PI, TAU))
+		inner.append(MeshBuilder.ring(Vector3(0, center.y + 0.004, z), half_w * 0.94, depth * 0.9, 2.0, 12, -INF, PI, TAU))
+	outer.reverse()
+	inner.reverse()
+	_mb(p, STEEL).loft(outer, false)
+	_mb(p, STEEL).loft(inner, false, false, true)
 
 
 ## Cajado: cabo reto de madeira, ponteira de ferro, uma cinta de latão e o

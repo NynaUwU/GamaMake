@@ -33,6 +33,10 @@ func _ready() -> void:
 	inventory_ui.name = "InventoryUI"
 	$Root.add_child(inventory_ui)
 	inventory_ui.setup(player)
+	var map := WorldMap.new()
+	map.name = "WorldMap"
+	$Root.add_child(map)
+	map.setup(player, player.get_parent().get_node_or_null("Terrain"))
 
 
 func _on_health_changed(current: float, maximum: float) -> void:

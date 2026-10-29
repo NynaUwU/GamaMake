@@ -314,6 +314,13 @@ func _finish(coord: Vector2i, data: Dictionary) -> Node3D:
 	return chunk
 
 
+## Para o mapa: cor do chão e altura no ponto (seguro de chamar em thread).
+func map_sample(x: float, z: float) -> Array:
+	var biome := biome_at(x, z)
+	var h := _height_from(x, z, biome)
+	return [_color_for(x, z, h, biome), h]
+
+
 func _color_for(x: float, z: float, h: float, biome: Dictionary) -> Color:
 	var grass := COLOR_GRASS.lerp(COLOR_DRY_GRASS, clampf(biome.temperature * 1.6 - 0.6, 0.0, 1.0))
 	var color: Color = grass * biome.plains + COLOR_SAND * biome.desert + COLOR_SNOW * biome.winter

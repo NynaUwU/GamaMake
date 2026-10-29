@@ -276,6 +276,11 @@ position = Vector3(-3.0, 0.95, 11.7)
 rotation = Vector3(0, 0.6, 1.5708)
 item_id = &"pistola"
 
+[node name="Colherona" parent="Props" instance=ExtResource("7_pickup")]
+position = Vector3(-2.9, 0.95, 11.6)
+rotation = Vector3(0, 0.3, 0)
+item_id = &"colher"
+
 [node name="Carregador" parent="Props" instance=ExtResource("7_pickup")]
 position = Vector3(-3.4, 1.0, 11.1)
 item_id = &"carregador"

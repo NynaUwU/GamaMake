@@ -15,14 +15,14 @@ signal item_picked_up(item_id: StringName, amount: int) ## gancho para o invent�
 signal died
 signal weapon_changed(weapon_text: String) ## nome da arma (+ munição)
 
-enum WeaponType { FISTS, SWORD, BAT, STAFF, PISTOL, CHARGER }
+enum WeaponType { FISTS, SWORD, BAT, STAFF, PISTOL, CHARGER, SPOON }
 const WEAPON_NAMES := {
 	WeaponType.FISTS: "Mãos", WeaponType.SWORD: "Espada", WeaponType.BAT: "Taco",
-	WeaponType.STAFF: "Cajado", WeaponType.PISTOL: "Pistola", WeaponType.CHARGER: "Carregador",
+	WeaponType.STAFF: "Cajado", WeaponType.PISTOL: "Pistola", WeaponType.CHARGER: "Carregador", WeaponType.SPOON: "Colherona",
 }
 ## ItemDB "weapon" -> tipo de arma do player.
 const WEAPON_FROM_ITEM := {"sword": WeaponType.SWORD, "bat": WeaponType.BAT,
-	"staff": WeaponType.STAFF, "pistol": WeaponType.PISTOL, "charger": WeaponType.CHARGER}
+	"staff": WeaponType.STAFF, "pistol": WeaponType.PISTOL, "charger": WeaponType.CHARGER, "spoon": WeaponType.SPOON}
 const PICKUP_SCENE := preload("res://scenes/props/pickup_item.tscn")
 const MISSILE_SCENE := preload("res://scenes/weapons/magic_missile.tscn")
 
@@ -80,6 +80,11 @@ enum SwingPhase { NONE, WINDUP, SLASH, RECOVER }
 @export var bat_damage := 24.0
 @export var bat_force := 58.0 ## força alta: desequilibra e empurra bem mais que a espada
 @export var bat_speed := 0.8 ## multiplicador de velocidade do golpe (mais pesado)
+
+@export_group("Colherona")
+@export var spoon_damage := 20.0
+@export var spoon_force := 95.0 ## empurrão enorme: arremessa zumbis
+@export var spoon_speed := 0.6 ## pesadona: golpe lento
 
 @export_group("Empalar")
 ## Correndo com a espada, segure o ataque: a lâmina vai para frente e espeta
@@ -215,6 +220,7 @@ var _punch_timer := 0.0
 var _punch_side := 0
 var _punch_anim := [0.0, 0.0] # direita, esquerda (1 = braço esticado)
 
+var spoon: Node3D ## colherona na mão
 var charger: Node3D # carregador a dínamo na mão (modelo com Lever/Rotor/Needle)
 var _crank_rate := 0.0
 var _lever := 0.0
@@ -228,11 +234,16 @@ func _ready() -> void:
 	health = max_health
 	stamina = max_stamina
 	_ammo = magazine_size
+	spoon = Node3D.new()
+	spoon.name = "Spoon"
+	camera.add_child(spoon)
 	_melee = {
 		WeaponType.SWORD: {"node": weapon, "damage": melee_damage, "force": melee_force, "speed": 1.0,
 			"cut": true, "length": 0.98, "trail": Color(1.0, 1.0, 0.95), "hitstop": 0.06},
 		WeaponType.BAT: {"node": bat, "damage": bat_damage, "force": bat_force, "speed": bat_speed,
 			"cut": false, "length": 0.9, "trail": Color(0.85, 0.75, 0.6), "hitstop": 0.09},
+		WeaponType.SPOON: {"node": spoon, "damage": spoon_damage, "force": spoon_force, "speed": spoon_speed,
+			"cut": false, "length": 1.5, "trail": Color(0.9, 0.9, 0.95), "hitstop": 0.12},
 	}
 	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 	foot.visible = false
@@ -460,6 +471,7 @@ func _install_weapon_models() -> void:
 	staff_model.transform = Transform3D(Basis(Vector3.RIGHT, PI / 2), Vector3(0, -0.41, 0)) # em pé, orbe na ponta (Tip)
 	staff.add_child(staff_model)
 	pistol.add_child(ItemModels.build(&"pistola"))
+	spoon.add_child(ItemModels.build(&"colher"))
 	charger = Node3D.new()
 	charger.name = "Charger"
 	charger.position = CHARGER_REST
@@ -513,6 +525,8 @@ func _update_fp_arm() -> void:
 			grip = weapon.transform.translated_local(Vector3(0, 0, 0.04))
 		WeaponType.BAT:
 			grip = bat.transform.translated_local(Vector3(0, 0, -0.05))
+		WeaponType.SPOON:
+			grip = spoon.transform.translated_local(Vector3(0, 0, 0.0))
 		WeaponType.STAFF:
 			grip = staff.transform.translated_local(Vector3(0, -0.12, 0))
 		WeaponType.PISTOL:
@@ -565,6 +579,7 @@ func _show_weapon(type: WeaponType) -> void:
 	bat.visible = type == WeaponType.BAT
 	staff.visible = type == WeaponType.STAFF
 	pistol.visible = type == WeaponType.PISTOL
+	spoon.visible = type == WeaponType.SPOON
 	if charger:
 		charger.visible = type == WeaponType.CHARGER
 	_emit_weapon_text()
@@ -1028,7 +1043,7 @@ func enter_vehicle(car: VintageCar) -> void:
 	_vehicle_yaw = 0.0
 	_vehicle_pitch = 0.0
 	# Primeira pessoa: guarda a arma; as mãos vão para o volante.
-	for node in [weapon, bat, staff, pistol, charger, foot]:
+	for node in [weapon, bat, staff, pistol, charger, spoon, foot]:
 		node.visible = false
 	_fp_arm_left.visible = true
 	_fp_hand_left.visible = true

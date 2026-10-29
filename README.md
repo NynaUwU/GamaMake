@@ -20,6 +20,7 @@ reação física a golpes e ragdoll (estilo Dying Light), visual de PC dos anos 
 | 1–5 / Q / roda | escolher slot da hotbar |
 | Tab | mochila (clique em dois slots para trocar) |
 | E / G | pegar / soltar item |
+| M | mapa do mundo (o minimapa fica no canto de baixo à direita) |
 | L | lanterna (precisa estar no inventário e ter bateria) |
 | R | recarregar a pistola |
 | E (no carro) | entrar/sair. Dirigindo: W/S acelera/ré, A/D vira, Espaço freio de mão |
@@ -37,7 +38,8 @@ reação física a golpes e ragdoll (estilo Dying Light), visual de PC dos anos 
 - **Dirigir é em primeira pessoa**: você senta no banco, olha em volta com o mouse e as mãos
   ficam no volante (que gira com a direção). Sem para-brisa: o **velocímetro** (0–140 km/h,
   ponteiro funcionando) fica embutido no centro do painel.
-- Pneus escorregam um pouco antes de tombar. Dirigindo, volante e braços ficam semitransparentes
+- Pneus escorregam um pouco antes de tombar. Em alta velocidade a roda vira bem menos
+  (100% parado, ~45% a 50 km/h, ~15% a 100 km/h). Dirigindo, volante e braços ficam semitransparentes
   e o mouse gira só a cabeça (o corpo fica sentado). **Faróis** acendem ao entrar; **L** liga/desliga.
 - Atropelar derruba o zumbi (dano ~7 por m/s; rápido mata e pode arrancar membros).
 
@@ -70,6 +72,7 @@ os ícones.
   **clique rápido** para carregar; o volante na ponta esquerda gira.
   A carga só aparece no ponteiro do carregador. A lanterna gasta a bateria (~2,5 min cheia) e a
   luz vai ficando mais fraca bem aos poucos (é preciso prestar atenção para notar) até apagar.
+- **Colherona:** colher de sopa ridiculamente grande (1,5 m). Lenta, pouco dano, empurrão enorme.
 - **Lanterna** de latão, **sucata**, **pano** e **fita**.
 
 ## Inventário
@@ -190,6 +193,12 @@ tests/                 testes headless (ragdoll, juntas, jogo)
    - **Encontrão**: zumbi cambaleando (ou voando em ragdoll) empurra os outros um pouco.
    - **Morte** → ragdoll permanente; continua dando para bater/chutar o corpo.
 5. O *hitstop* (jogo quase para por 50–70 ms) e o tremor de câmera dão peso ao impacto.
+
+## Mapa (`scripts/ui/world_map.gd`)
+- Gerado uma vez, em thread, a partir do próprio terreno (cor do bioma + sombreado do relevo,
+  8 m por pixel) com os prédios da cidade por cima. Leva ~1 s no início.
+- **Minimapa** (320 m, norte para cima): seta do player, carro e zumbis próximos.
+- **M**: mapa do mundo inteiro com o player, o carro e a legenda dos biomas.
 
 ## Zumbis: navegação, escalada, armas e lanterna
 - **Contornam obstáculos** com NavigationMesh gerado da fase ao iniciar (`main.gd`).
