@@ -20,8 +20,8 @@ func _bake_navigation() -> void:
 	var level := $Level
 	level.add_to_group("navigation_source")
 	var mesh := NavigationMesh.new()
-	mesh.agent_radius = 0.4
-	mesh.agent_height = 1.8
+	mesh.agent_radius = 0.5 # múltiplos de cell_size/cell_height (evita aviso de precisão)
+	mesh.agent_height = 1.75
 	mesh.agent_max_climb = 0.25
 	mesh.cell_size = 0.25
 	mesh.cell_height = 0.25

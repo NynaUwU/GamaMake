@@ -32,6 +32,17 @@ reação física a golpes e ragdoll (estilo Dying Light), visual de PC dos anos 
   pistola em cima do contêiner). O player começa sem nada.
 - A arma na mão é a do slot selecionado; slot sem arma = punhos.
 
+### Ícones e janela de informação
+- `scripts/items/item_icons.gd` (autoload `ItemIcons`): na primeira vez que o jogo abre, cada
+  item é fotografado do próprio modelo 3D (64x64, fundo transparente) e salvo em
+  `user://icon_cache/`. Nas próximas vezes só carrega os PNGs.
+- O cache é refeito sozinho quando o jogo muda: a assinatura junta
+  `application/config/version` (Projeto → Configurações), `RENDER_VERSION` e o conteúdo do
+  `ItemDB`. Mudou um item ou subiu a versão → re-render automático.
+- Os slots mostram só o ícone (e a quantidade). Passando o mouse na mochila aparece uma
+  janelinha que segue o mouse com nome, tipo de dano, dano, empurrão e descrição
+  (campos `damage_type`, `damage`, `knockback`, `desc` no `ItemDB`).
+
 ## Movimento (`scripts/player/parkour.gd`)
 - Sonda à frente: altura do topo e profundidade do obstáculo decidem o movimento.
   - até `vault_max_height` (1.3 m) e até `vault_max_depth` (1.6 m), correndo → passa por cima;

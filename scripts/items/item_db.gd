@@ -5,15 +5,29 @@ class_name ItemDB
 ## kind: "weapon" (equipa ao selecionar na hotbar), "tool" (funciona estando
 ## no inventário, ex.: lanterna) ou "material" (para crafting no futuro).
 
+## Campos da janela de informação (hover no inventário): damage_type, damage,
+## knockback e desc. Os números são os valores padrão das armas no Player.
 const ITEMS := {
-	&"espada": {"name": "Espada", "kind": "weapon", "weapon": "sword", "stack": 1, "size": Vector3(0.2, 0.05, 1.0)},
-	&"taco": {"name": "Taco", "kind": "weapon", "weapon": "bat", "stack": 1, "size": Vector3(0.1, 0.1, 0.9)},
-	&"cajado": {"name": "Cajado", "kind": "weapon", "weapon": "staff", "stack": 1, "size": Vector3(0.12, 0.12, 1.2)},
-	&"pistola": {"name": "Pistola", "kind": "weapon", "weapon": "pistol", "stack": 1, "size": Vector3(0.05, 0.15, 0.22)},
-	&"lanterna": {"name": "Lanterna", "kind": "tool", "stack": 1, "size": Vector3(0.08, 0.08, 0.24)},
-	&"sucata": {"name": "Sucata", "kind": "material", "stack": 10, "size": Vector3(0.3, 0.12, 0.2)},
-	&"pano": {"name": "Pano", "kind": "material", "stack": 10, "size": Vector3(0.3, 0.05, 0.25)},
-	&"fita": {"name": "Fita adesiva", "kind": "material", "stack": 10, "size": Vector3(0.14, 0.06, 0.14)},
+	&"espada": {"name": "Espada", "kind": "weapon", "weapon": "sword", "stack": 1, "size": Vector3(0.2, 0.05, 1.0),
+		"damage_type": "Corte", "damage": 34, "knockback": 30,
+		"desc": "Afiada o bastante para cortar braços. E pão. Principalmente braços."},
+	&"taco": {"name": "Taco", "kind": "weapon", "weapon": "bat", "stack": 1, "size": Vector3(0.1, 0.1, 0.9),
+		"damage_type": "Impacto", "damage": 24, "knockback": 58,
+		"desc": "Feito para beisebol. Ninguém mais lembra as regras do beisebol."},
+	&"cajado": {"name": "Cajado", "kind": "weapon", "weapon": "staff", "stack": 1, "size": Vector3(0.12, 0.12, 1.2),
+		"damage_type": "Explosão", "damage": 70, "knockback": 450,
+		"desc": "Dispara mísseis mágicos. Ler o manual antes era opcional."},
+	&"pistola": {"name": "Pistola", "kind": "weapon", "weapon": "pistol", "stack": 1, "size": Vector3(0.05, 0.15, 0.22),
+		"damage_type": "Perfuração", "damage": 40, "knockback": 20,
+		"desc": "12 balas e munição infinita. A física da munição pediu demissão."},
+	&"lanterna": {"name": "Lanterna", "kind": "tool", "stack": 1, "size": Vector3(0.08, 0.08, 0.24),
+		"desc": "Aperte L. Zumbis adoram uma luz na cara, igual mariposa com fome."},
+	&"sucata": {"name": "Sucata", "kind": "material", "stack": 10, "size": Vector3(0.3, 0.12, 0.2),
+		"desc": "Metal velho. Um dia vai virar algo incrível. Hoje é só sucata."},
+	&"pano": {"name": "Pano", "kind": "material", "stack": 10, "size": Vector3(0.3, 0.05, 0.25),
+		"desc": "Cheira estranho. Não pergunte de onde veio."},
+	&"fita": {"name": "Fita adesiva", "kind": "material", "stack": 10, "size": Vector3(0.14, 0.06, 0.14),
+		"desc": "Conserta tudo, menos o fim do mundo. Ainda."},
 }
 
 ## Armas que zumbis podem carregar (só corpo a corpo).
@@ -30,6 +44,10 @@ static func def(id: StringName) -> Dictionary:
 
 static func display_name(id: StringName) -> String:
 	return def(id).name
+
+
+static func description(id: StringName) -> String:
+	return def(id).get("desc", "")
 
 
 static func weapon_of(id: StringName) -> String:
