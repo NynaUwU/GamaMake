@@ -10,8 +10,8 @@ const ZOMBIE_SCENE := preload("res://scenes/zombie.tscn")
 @export var player_path: NodePath
 @export var max_zombies := 14
 @export var spawn_min := 45.0
-@export var spawn_max := 140.0
-@export var despawn_distance := 240.0
+@export var spawn_max := 110.0
+@export var despawn_distance := 200.0
 @export var check_interval := 1.0
 
 var _terrain: TerrainWorld

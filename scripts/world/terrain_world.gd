@@ -22,7 +22,7 @@ signal chunk_loaded(coord: Vector2i)
 @export var world_size := 3072.0 ## lado do mapa em metros
 @export var chunk_size := 64.0
 @export var cell := 2.0 ## distância entre vértices (2 m = visual low-poly)
-@export var view_distance := 300.0 ## além da neblina mais longa
+@export var view_distance := 220.0 ## além da neblina mais longa
 @export var chunks_per_frame := 1
 @export var town_radius := 45.0 ## área plana da cidade no centro
 @export var player_path: NodePath
@@ -38,6 +38,7 @@ var _noise_rugged := FastNoiseLite.new()
 var _noise_hills := FastNoiseLite.new()
 var _noise_ridge := FastNoiseLite.new()
 var _noise_dunes := FastNoiseLite.new()
+var _noise_bumps := FastNoiseLite.new()
 var _noise_detail := FastNoiseLite.new()
 var _chunks := {} # Vector2i -> Node3D
 var _tasks := {} # Vector2i -> id da tarefa em andamento
@@ -63,10 +64,11 @@ func _ready() -> void:
 func _setup_noise() -> void:
 	var setups := [
 		[_noise_temp, 1.0 / 700.0, FastNoiseLite.TYPE_SIMPLEX_SMOOTH, 2],
-		[_noise_rugged, 1.0 / 520.0, FastNoiseLite.TYPE_SIMPLEX_SMOOTH, 2],
+		[_noise_rugged, 1.0 / 750.0, FastNoiseLite.TYPE_SIMPLEX_SMOOTH, 2],
 		[_noise_hills, 1.0 / 170.0, FastNoiseLite.TYPE_SIMPLEX_SMOOTH, 4],
-		[_noise_ridge, 1.0 / 300.0, FastNoiseLite.TYPE_SIMPLEX, 5],
-		[_noise_dunes, 1.0 / 90.0, FastNoiseLite.TYPE_SIMPLEX_SMOOTH, 2],
+		[_noise_ridge, 1.0 / 420.0, FastNoiseLite.TYPE_SIMPLEX_SMOOTH, 3],
+		[_noise_dunes, 1.0 / 75.0, FastNoiseLite.TYPE_SIMPLEX_SMOOTH, 2],
+		[_noise_bumps, 1.0 / 55.0, FastNoiseLite.TYPE_SIMPLEX_SMOOTH, 2],
 		[_noise_detail, 1.0 / 25.0, FastNoiseLite.TYPE_SIMPLEX, 2],
 	]
 	for i in setups.size():
@@ -75,7 +77,6 @@ func _setup_noise() -> void:
 		noise.frequency = setups[i][1]
 		noise.noise_type = setups[i][2]
 		noise.fractal_octaves = setups[i][3]
-	_noise_ridge.fractal_type = FastNoiseLite.FRACTAL_RIDGED
 
 
 # --- Consultas (usadas por spawner, atmosfera, props) --------------------------
@@ -88,7 +89,8 @@ func biome_at(x: float, z: float) -> Dictionary:
 	var winter := 1.0 - smoothstep(0.28, 0.38, temperature)
 	var temperate := clampf(1.0 - desert - winter, 0.0, 1.0)
 	var rugged := _noise_rugged.get_noise_2d(x, z) * 0.5 + 0.5
-	var mountain := smoothstep(0.58, 0.72, rugged) * (1.0 - desert)
+	# Limiar mais baixo e ruído mais largo = regiões de montanha maiores.
+	var mountain := smoothstep(0.48, 0.64, rugged) * (1.0 - desert)
 	mountain = maxf(mountain, _border(x, z))
 	mountain *= 1.0 - _town_mask(x, z)
 	return {
@@ -112,11 +114,17 @@ func snow_at(x: float, z: float) -> float:
 
 func _height_from(x: float, z: float, biome: Dictionary) -> float:
 	var hills := _noise_hills.get_noise_2d(x, z)
-	var plains_h := 2.0 + hills * 6.0
-	var desert_h := 1.0 + _noise_dunes.get_noise_2d(x, z) * 2.0 + hills * 1.5 # quase plano
-	var winter_h := 6.0 + hills * 14.0
-	var ridge := _noise_ridge.get_noise_2d(x, z) * 0.5 + 0.5
-	var mountain_h := 15.0 + pow(ridge, 1.6) * 150.0
+	var bumps := _noise_bumps.get_noise_2d(x, z)
+	# Planície ondulada: morros largos + elevações menores.
+	var plains_h := 3.0 + hills * 11.0 + bumps * 3.0
+	# Dunas: cristas suaves e vales largos (forma "ao quadrado"), até ~16 m.
+	var dune := _noise_dunes.get_noise_2d(x, z) * 0.5 + 0.5
+	var desert_h := 1.0 + dune * dune * 16.0 + hills * 2.0
+	var winter_h := 6.0 + hills * 14.0 + bumps * 2.0
+	# Montanhas arredondadas (ruído suave, sem cristas afiadas): boas para andar e
+	# para estradas no futuro. smoothstep deixa topo e pé das encostas mais macios.
+	var round_peak := smoothstep(0.0, 1.0, _noise_ridge.get_noise_2d(x, z) * 0.5 + 0.5)
+	var mountain_h := 12.0 + round_peak * 115.0 + hills * 8.0
 	var base: float = plains_h * biome.plains + desert_h * biome.desert + winter_h * biome.winter
 	var total_flat: float = biome.plains + biome.desert + biome.winter
 	if total_flat > 0.001:
@@ -151,7 +159,9 @@ func update_around(center: Vector3, budget := -1, radius := -1.0) -> void:
 	var wanted := _wanted_chunks(center, view_distance if radius < 0.0 else radius)
 	var keep := wanted if radius < 0.0 else _wanted_chunks(center, view_distance)
 	for coord in _chunks.keys():
-		if not keep.has(coord):
+		if not is_instance_valid(_chunks[coord]):
+			_chunks.erase(coord) # alguém já liberou
+		elif not keep.has(coord):
 			_chunks[coord].queue_free()
 			_chunks.erase(coord)
 	if budget < 0:
@@ -307,7 +317,9 @@ func _finish(coord: Vector2i, data: Dictionary) -> Node3D:
 func _color_for(x: float, z: float, h: float, biome: Dictionary) -> Color:
 	var grass := COLOR_GRASS.lerp(COLOR_DRY_GRASS, clampf(biome.temperature * 1.6 - 0.6, 0.0, 1.0))
 	var color: Color = grass * biome.plains + COLOR_SAND * biome.desert + COLOR_SNOW * biome.winter
-	color += COLOR_ROCK * biome.mountain
+	# Montanha: grama nas partes baixas, rocha subindo (as encostas íngremes viram rocha no mesh).
+	var mountain_color := (grass * 0.85).lerp(COLOR_ROCK, smoothstep(30.0, 70.0, h))
+	color += mountain_color * biome.mountain
 	color = color.lerp(COLOR_SNOW, smoothstep(65.0, 85.0, h)) # topo das montanhas com neve
 	var jitter := _noise_detail.get_noise_2d(x * 3.0, z * 3.0) * 0.06
 	return Color(color.r + jitter, color.g + jitter, color.b + jitter)

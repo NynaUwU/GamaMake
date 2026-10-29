@@ -46,18 +46,21 @@ reação física a golpes e ragdoll (estilo Dying Light), visual de PC dos anos 
 
 ## Mapa aberto (`scripts/world/`)
 - `terrain_world.gd`: mapa de **3 km x 3 km** gerado pela semente (`seed`; `randomize_seed`
-  para sortear). Norte = **inverno** (morros com neve, pinheiros), meio = **planícies** (grama,
-  árvores) cortadas por **cadeias de montanhas** (até ~150 m, neve no topo), sul = **deserto**
-  grande e quase plano (dunas de ~3 m, cactos). Bordas sobem em montanhas; o centro é a cidade.
-- O terreno vem em pedaços de 64 m que aparecem perto do player e somem longe (até 300 m).
+  para sortear). Norte = **inverno** (morros com neve, floresta densa de pinheiros), meio =
+  **planícies** onduladas (morros + elevações menores) e **montanhas** (~30% do mapa, formas
+  **arredondadas** de até ~120 m: grama embaixo, rocha no alto e nas encostas íngremes — boas
+  para andar e para estradas no futuro), sul = **deserto** com dunas fortes (até ~16 m) e cactos.
+  Bordas sobem em montanhas; o centro é a cidade.
+- O terreno vem em pedaços de 64 m que aparecem perto do player e somem longe (até 220 m).
   O cálculo roda em threads; a thread principal só monta os nós (~2.5 ms por pedaço).
-- `terrain_props.gd`: árvores, arbustos, pinheiros, cactos e rochas em blocos (MultiMesh),
-  com colisão no tronco/rocha. Sempre os mesmos para a mesma semente.
-- `biome_atmosphere.gd`: neblina por distância conforme o bioma onde você está, com transição
-  suave: planície ~180 m, deserto ~210 m, montanha ~160 m, **neve ~50 m** (com neve caindo e sol
-  mais fraco). Valores na tabela `FOG`.
-- `zombie_spawner.gd`: mantém ~14 zumbis entre 45 e 140 m do player (mais no inverno) e apaga os
-  que ficam a mais de 240 m. Fora da cidade eles andam em linha reta (sem NavigationMesh).
+- `terrain_props.gd`: árvores, arbustos, pinheiros, rochas e **3 tipos de cacto grandes e tortos**
+  (gomos inclinados, braços caídos, florzinha), em blocos via MultiMesh, com colisão no
+  tronco/rocha. Sempre os mesmos para a mesma semente.
+- `biome_atmosphere.gd`: neblina por distância conforme o bioma, com transição suave:
+  planície ~130 m, deserto ~150 m, montanha ~115 m, **neve ~50 m** (com neve caindo e sol mais
+  fraco). Valores na tabela `FOG`.
+- `zombie_spawner.gd`: mantém ~14 zumbis entre 45 e 110 m do player (mais no inverno) e apaga os
+  que ficam a mais de 200 m. Fora da cidade eles andam em linha reta (sem NavigationMesh).
 
 ## Movimento (`scripts/player/parkour.gd`)
 - Sonda à frente: altura do topo e profundidade do obstáculo decidem o movimento.

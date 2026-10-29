@@ -1,7 +1,7 @@
 class_name BiomeAtmosphere
 extends Node
 ## Neblina e clima pelo bioma onde o player está (mistura suave na transição):
-##   planície ~180 m · deserto ~210 m (névoa de calor) · montanha ~160 m
+##   planície ~130 m · deserto ~150 m (névoa de calor) · montanha ~115 m
 ##   inverno ~50 m (nevasca, com neve caindo)
 ## Usa neblina por distância (fog_mode = DEPTH): fog_end = onde não se vê mais nada.
 
@@ -12,9 +12,9 @@ extends Node
 
 ## distância de visão (fim da neblina), começo da neblina e cor, por bioma.
 const FOG := {
-	"plains": {"end": 180.0, "begin": 25.0, "color": Color(0.55, 0.5, 0.45)},
-	"desert": {"end": 210.0, "begin": 40.0, "color": Color(0.78, 0.66, 0.5)},
-	"mountain": {"end": 160.0, "begin": 20.0, "color": Color(0.52, 0.54, 0.58)},
+	"plains": {"end": 130.0, "begin": 18.0, "color": Color(0.55, 0.5, 0.45)},
+	"desert": {"end": 150.0, "begin": 25.0, "color": Color(0.78, 0.66, 0.5)},
+	"mountain": {"end": 115.0, "begin": 15.0, "color": Color(0.52, 0.54, 0.58)},
 	"winter": {"end": 50.0, "begin": 4.0, "color": Color(0.78, 0.82, 0.88)},
 }
 
@@ -23,7 +23,7 @@ var _environment: Environment
 var _player: Node3D
 var _sun: DirectionalLight3D
 var _snow: CPUParticles3D
-var _target := {"end": 180.0, "begin": 25.0, "color": Color(0.55, 0.5, 0.45), "snow": 0.0}
+var _target := {"end": 130.0, "begin": 18.0, "color": Color(0.55, 0.5, 0.45), "snow": 0.0}
 var _timer := 0.0
 var _snow_amount := 0.0
 

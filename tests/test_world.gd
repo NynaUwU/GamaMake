@@ -16,7 +16,7 @@ func _physics_process(_d: float) -> bool:
 	var player: Player = main.get_node("Player")
 	if frame == 2:
 		var t0 := Time.get_ticks_usec()
-		terrain._build_chunk(Vector2i(10, 10)).queue_free()
+		terrain._build_chunk(Vector2i(10, 10))
 		print("one chunk: ", (Time.get_ticks_usec() - t0) / 1000.0, " ms")
 		# Distribuição de biomas numa grade do mapa inteiro.
 		var counts := {"desert": 0, "plains": 0, "winter": 0, "mountain": 0}
