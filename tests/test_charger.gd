@@ -18,8 +18,8 @@ func _physics_process(_d: float) -> bool:
 		player.flashlight_charge = 0.2
 	if frame == 30:
 		print("holding=", Player.WeaponType.keys()[player._weapon_type], " charge=", snappedf(player.flashlight_charge, 0.001))
-	# Devagar: 1 clique por segundo durante 4 s.
-	if frame > 30 and frame <= 270 and frame % 60 == 0:
+	# Bem devagar: 1 clique a cada 1,5 s durante 4 s.
+	if frame > 30 and frame <= 270 and frame % 90 == 0:
 		player._crank()
 	if frame == 270:
 		print("slow cranking 4s: charge=", snappedf(player.flashlight_charge, 0.001))

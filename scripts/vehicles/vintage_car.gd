@@ -30,6 +30,8 @@ const SPEEDO_MAX := 140.0 ## km/h no fim da escala
 @export var max_brake := 35.0
 @export var max_steer := 0.55
 @export var top_speed := 28.0 ## m/s (~100 km/h)
+@export var anti_roll := 9000.0 ## barra estabilizadora: torque que segura a carroceria de pé
+@export var roll_damping := 2500.0
 
 var driver: Node3D
 var seat: Node3D ## onde o player fica (olhando para a frente do carro)
@@ -44,7 +46,7 @@ var _materials := {}
 func _ready() -> void:
 	mass = 1050.0
 	center_of_mass_mode = RigidBody3D.CENTER_OF_MASS_MODE_CUSTOM
-	center_of_mass = Vector3(0, 0.15, 0) # baixo: não capota fácil
+	center_of_mass = Vector3(0, -0.1, 0) # abaixo do eixo das rodas: muito difícil de capotar
 	collision_layer = 1
 	collision_mask = 1 | LAYER_ENEMY
 	add_to_group("interactable")
@@ -73,6 +75,7 @@ func interact(player: Node) -> void:
 
 func set_driver(who: Node3D) -> void:
 	driver = who
+	set_see_through(who != null)
 	if who == null:
 		engine_force = 0.0
 		steering = 0.0
@@ -95,6 +98,7 @@ func hand_points() -> Array:
 # --- Direção -----------------------------------------------------------------
 
 func _physics_process(delta: float) -> void:
+	_stabilize()
 	var forward := global_basis.z
 	var speed := linear_velocity.dot(forward)
 	if driver == null:
@@ -122,6 +126,33 @@ func _physics_process(delta: float) -> void:
 		brake = 2.0 # freio-motor
 	if Input.is_action_pressed("jump"):
 		brake = max_brake * 1.5 # freio de mão
+
+
+## Barra estabilizadora: com as rodas no chão, empurra a carroceria de volta para
+## a vertical em torno do eixo longitudinal (rolagem) e amortece o balanço.
+func _stabilize() -> void:
+	var grounded := 0
+	for child in get_children():
+		if child is VehicleWheel3D and child.is_in_contact():
+			grounded += 1
+	if grounded < 2:
+		return
+	var forward := global_basis.z
+	var up := global_basis.y
+	var roll_axis := up.cross(Vector3.UP)
+	var roll := roll_axis.dot(forward) # inclinação lateral (sinal = lado)
+	var roll_rate := angular_velocity.dot(forward)
+	apply_torque(forward * (roll * anti_roll - roll_rate * roll_damping))
+
+
+## Visão do motorista: volante e coluna semitransparentes para não tapar a estrada.
+func set_see_through(enabled: bool) -> void:
+	for key in ["wheel_rim", "column"]:
+		var material: StandardMaterial3D = _materials.get(key)
+		if material == null:
+			continue
+		material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA if enabled else BaseMaterial3D.TRANSPARENCY_DISABLED
+		material.albedo_color.a = 0.45 if enabled else 1.0
 
 
 func _process(_delta: float) -> void:
@@ -411,7 +442,7 @@ func _build_cockpit(model: Node3D) -> void:
 	_add(steering_wheel, wheel.finish(_material("wheel_rim", DARK, 0.6, 0.2)))
 	var column := MeshBuilder.new()
 	column.tube(PackedVector3Array([column_base, steering_wheel.position + Vector3(0, -0.01, 0.02)]), 0.018, 6)
-	_add(model, column.finish(_material("dark_round", DARK, 0.6, 0.3)))
+	_add(model, column.finish(_material("column", DARK, 0.6, 0.3)))
 
 
 func _build_wheels() -> void:
@@ -426,12 +457,12 @@ func _build_wheels() -> void:
 			wheel.wheel_radius = WHEEL_RADIUS
 			wheel.wheel_rest_length = 0.32
 			wheel.suspension_travel = 0.28 # curso longo: fora de estrada
-			wheel.suspension_stiffness = 38.0
-			wheel.suspension_max_force = 9000.0
-			wheel.damping_compression = 2.2
-			wheel.damping_relaxation = 3.0
-			wheel.wheel_friction_slip = 2.6
-			wheel.wheel_roll_influence = 0.25
+			wheel.suspension_stiffness = 46.0
+			wheel.suspension_max_force = 12000.0
+			wheel.damping_compression = 3.2 # amortecido: não "pula" e balança menos nas curvas
+			wheel.damping_relaxation = 4.2
+			wheel.wheel_friction_slip = 2.2 # escorrega um pouco antes de tombar
+			wheel.wheel_roll_influence = 0.05 # a força das rodas quase não gira a carroceria
 			wheel.add_child(_wheel_node())
 			add_child(wheel)
 

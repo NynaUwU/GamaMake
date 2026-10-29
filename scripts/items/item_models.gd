@@ -167,6 +167,7 @@ static func build_charger() -> Node3D:
 	var motor := Vector3(-0.095, 0.075, -0.02)
 	_mb(p, IRON).lathe(PackedVector2Array([Vector2(0.002, -0.06), Vector2(0.045, -0.06), Vector2(0.049, 0.0),
 		Vector2(0.045, 0.06), Vector2(0.002, 0.06)]), 10, axis_x, motor)
+	_mb(p, IRON).tube(PackedVector3Array([motor + Vector3(-0.06, 0, 0), motor + Vector3(-0.08, 0, 0)]), 0.006, 6) # eixo até o volante
 	for i in 4:
 		var a := TAU * i / 4.0 + PI / 4
 		var off := Vector3(0, cos(a), sin(a)) * 0.051
@@ -207,10 +208,15 @@ static func build_charger() -> Node3D:
 	# Rotor (volante) na ponta esquerda do motor; gira em X.
 	var rotor := Node3D.new()
 	rotor.name = "Rotor"
-	rotor.position = motor + Vector3(-0.068, 0, 0)
+	rotor.position = motor + Vector3(-0.078, 0, 0)
 	var rp := {}
-	_mb(rp, IRON).lathe(PackedVector2Array([Vector2(0.002, -0.006), Vector2(0.032, -0.006), Vector2(0.032, 0.006), Vector2(0.002, 0.006)]), 6, axis_x)
-	_mb(rp, BRASS).box(Vector3(-0.007, 0.02, 0.0), Vector3(0.004, 0.02, 0.012)) # marca: dá para ver girar
+	# Volante grande de latão com 3 raios de ferro e uma manopla vermelha: bem visível girando.
+	_mb(rp, BRASS).torus(0.055, 0.008, 12, 5, Basis(Vector3(0, 0, 1), PI / 2))
+	_mb(rp, BRASS).lathe(PackedVector2Array([Vector2(0.002, -0.012), Vector2(0.014, -0.012), Vector2(0.014, 0.012), Vector2(0.002, 0.012)]), 8, axis_x)
+	for i in 3:
+		var a := TAU * i / 3.0
+		_mb(rp, IRON).box(Vector3(0, cos(a), sin(a)) * 0.03, Vector3(0.008, 0.05, 0.01), Basis(Vector3.RIGHT, -a))
+	_mb(rp, RED_PAINT).box(Vector3(-0.012, 0.055, 0.0), Vector3(0.022, 0.014, 0.014)) # manopla
 	_part(rotor, rp)
 	root.add_child(rotor)
 	# Ponteiro do medidor (gira em volta do pivô embaixo do mostrador).

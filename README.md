@@ -23,7 +23,7 @@ reação física a golpes e ragdoll (estilo Dying Light), visual de PC dos anos 
 | L | lanterna (precisa estar no inventário e ter bateria) |
 | R | recarregar a pistola |
 | E (no carro) | entrar/sair. Dirigindo: W/S acelera/ré, A/D vira, Espaço freio de mão |
-| Z | novo zumbi (teste) · Backspace recomeça · Esc solta o mouse |
+| Z | novo zumbi (teste) · Backspace recomeça · **Esc pausa** (Continuar / Recomeçar / Sair) |
 
 ## Área inicial e carro
 - Ao lado de onde você nasce: uma bancada coberta (com lâmpada) com **um exemplar de cada arma**
@@ -37,6 +37,9 @@ reação física a golpes e ragdoll (estilo Dying Light), visual de PC dos anos 
 - **Dirigir é em primeira pessoa**: você senta no banco, olha em volta com o mouse e as mãos
   ficam no volante (que gira com a direção). Sem para-brisa: o **velocímetro** (0–140 km/h,
   ponteiro funcionando) fica embutido no centro do painel.
+- Estável: centro de massa abaixo dos eixos, suspensão mais firme/amortecida e barra
+  estabilizadora (`anti_roll`) — não tomba em curva fechada. Dirigindo, volante e braços ficam
+  semitransparentes e o mouse gira só a cabeça (o corpo fica sentado).
 - Atropelar derruba o zumbi (dano ~7 por m/s; rápido mata e pode arrancar membros).
 
 ## Estilo visual
@@ -65,8 +68,9 @@ os ícones.
 - **Pistola:** cano de latão, tambor e armação de ferro, cão, guarda-mato, coronha de madeira.
 - **Carregador** (inspirado no do Metro Exodus): dínamo de mão horizontal: motor de ferro deitado
   com bobina de cobre embaixo, alavanca vermelha, medidor com ponteiro da bateria e vários fios. Equipe na hotbar e
-  **clique rápido** para carregar (clicando devagar o dínamo não gira o bastante). A lanterna
-  gasta a bateria (~2,5 min cheia), pisca quando está fraca e apaga quando acaba.
+  **segure o clique** (ou clique rápido) para carregar; o volante na ponta esquerda gira.
+  A carga só aparece no ponteiro do carregador. A lanterna gasta a bateria (~2,5 min cheia) e a
+  luz vai ficando mais fraca bem aos poucos (é preciso prestar atenção para notar) até apagar.
 - **Lanterna** de latão, **sucata**, **pano** e **fita**.
 
 ## Inventário

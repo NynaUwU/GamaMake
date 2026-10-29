@@ -115,10 +115,11 @@ enum SwingPhase { NONE, WINDUP, SLASH, RECOVER }
 @export var attract_range := 45.0 ## zumbis de frente na luz vêm de longe
 @export var attract_cone := 0.975 ## dot entre a mira e o zumbi
 @export var battery_duration := 150.0 ## segundos de luz com a bateria cheia
-@export var crank_per_click := 0.35 ## giro do dínamo por clique
-@export var crank_decay := 1.5 ## quanto o giro perde por segundo
-@export var crank_min := 0.4 ## giro mínimo para começar a carregar (clicar devagar não carrega)
-@export var charge_rate := 0.05 ## carga por segundo por unidade de giro acima do mínimo
+@export var crank_per_click := 0.5 ## giro do dínamo por clique
+@export var crank_hold_interval := 0.18 ## segurando o botão: aperta sozinho a cada X s
+@export var crank_decay := 1.0 ## quanto o giro perde por segundo
+@export var crank_min := 0.25 ## giro mínimo para começar a carregar (clicar muito devagar não carrega)
+@export var charge_rate := 0.06 ## carga por segundo por unidade de giro acima do mínimo
 
 var flashlight_charge := 0.5 ## bateria da lanterna (0..1)
 
@@ -197,6 +198,7 @@ var _fp_hand: Node3D
 const FP_SHOULDER := Vector3(0.34, -0.55, 0.22) ## de onde o braço sai (fora da tela)
 
 var _fp_arm_left: MeshInstance3D
+var _arm_materials: Array = [] # manga e pele (ficam translúcidas dirigindo)
 var _fp_hand_left: Node3D
 const FP_SHOULDER_LEFT := Vector3(-0.34, -0.55, 0.22)
 
@@ -216,7 +218,7 @@ var _punch_anim := [0.0, 0.0] # direita, esquerda (1 = braço esticado)
 var charger: Node3D # carregador a dínamo na mão (modelo com Lever/Rotor/Needle)
 var _crank_rate := 0.0
 var _lever := 0.0
-var _charge_text_timer := 0.0
+var _crank_hold := 0.0
 
 var _charging := false # correndo com a espada para frente
 var _charge_time := 0.0
@@ -263,15 +265,13 @@ func _unhandled_input(event: InputEvent) -> void:
 			head.rotation.x = clampf(head.rotation.x, deg_to_rad(-70), deg_to_rad(60))
 		elif event.is_action_pressed("interact"):
 			exit_vehicle()
-		elif event.is_action_pressed("ui_cancel"):
-			Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+		elif event is InputEventMouseButton and event.pressed and Input.mouse_mode != Input.MOUSE_MODE_CAPTURED:
+			Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 		return
 	if event is InputEventMouseMotion and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
 		rotate_y(-event.relative.x * mouse_sensitivity)
 		head.rotate_x(-event.relative.y * mouse_sensitivity)
 		head.rotation.x = clampf(head.rotation.x, deg_to_rad(-85), deg_to_rad(85))
-	elif event.is_action_pressed("ui_cancel"):
-		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	elif event is InputEventMouseButton and event.pressed and Input.mouse_mode != Input.MOUSE_MODE_CAPTURED:
 		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 		get_viewport().set_input_as_handled()
@@ -316,7 +316,8 @@ func _physics_process(delta: float) -> void:
 		return
 	if vehicle:
 		# Sentado no banco: acompanha o carro (o mouse gira só a cabeça).
-		global_transform = vehicle.seat.global_transform * Transform3D(Basis(Vector3.UP, _vehicle_yaw), Vector3.ZERO)
+		# Sentado: o corpo fica preso ao banco; o mouse gira só a cabeça (pernas não seguem a câmera).
+		global_transform = vehicle.seat.global_transform
 		velocity = Vector3.ZERO
 		return
 	if parkour.physics(delta):
@@ -429,7 +430,8 @@ func _release_impaled() -> void:
 func _process(delta: float) -> void:
 	if vehicle:
 		head.position.y = vehicle.eye_height
-		global_transform = vehicle.seat.global_transform * Transform3D(Basis(Vector3.UP, _vehicle_yaw), Vector3.ZERO)
+		global_transform = vehicle.seat.global_transform
+		head.rotation.y = _vehicle_yaw
 		_update_driving_hands()
 		_update_camera_shake(delta)
 		return
@@ -468,11 +470,13 @@ func _install_weapon_models() -> void:
 
 func _setup_fp_arm() -> void:
 	var sleeve := StandardMaterial3D.new()
+	_arm_materials = [sleeve]
 	sleeve.albedo_color = Color(0.22, 0.3, 0.2)
 	sleeve.roughness = 0.9
 	var skin := StandardMaterial3D.new()
 	skin.albedo_color = Color(0.85, 0.66, 0.52)
 	skin.roughness = 0.8
+	_arm_materials.append(skin)
 	_fp_arm = MeshInstance3D.new()
 	var arm_mesh := BoxMesh.new()
 	arm_mesh.size = Vector3(0.085, 0.085, 1.0)
@@ -571,8 +575,6 @@ func _emit_weapon_text() -> void:
 		text = ItemDB.display_name(inventory.selected_id())
 	if _weapon_type == WeaponType.PISTOL:
 		text += "  recarregando..." if _reload_timer > 0.0 else "  %d/%d" % [_ammo, magazine_size]
-	elif _weapon_type == WeaponType.CHARGER:
-		text += "  bateria %d%%" % roundi(flashlight_charge * 100.0)
 	weapon_changed.emit(text)
 
 
@@ -1028,9 +1030,17 @@ func enter_vehicle(car: VintageCar) -> void:
 		node.visible = false
 	_fp_arm_left.visible = true
 	_fp_hand_left.visible = true
+	_set_arms_see_through(true)
 	interact_prompt_changed.emit("")
 	weapon_changed.emit("Carro")
 	notify.emit("W/S acelerar e ré · A/D virar · Espaço freio de mão · E sair")
+
+
+## Dirigindo: braços e mãos semitransparentes para enxergar a estrada.
+func _set_arms_see_through(enabled: bool) -> void:
+	for material: StandardMaterial3D in _arm_materials:
+		material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA if enabled else BaseMaterial3D.TRANSPARENCY_DISABLED
+		material.albedo_color.a = 0.45 if enabled else 1.0
 
 
 ## Mãos no aro do volante (seguem o giro); antebraços saem dos ombros.
@@ -1053,7 +1063,8 @@ func exit_vehicle() -> void:
 	global_position = exit
 	rotation = Vector3(0, car.rotation.y + PI, 0)
 	$CollisionShape3D.set_deferred("disabled", false)
-	head.rotation.x = 0.0
+	head.rotation = Vector3.ZERO
+	_set_arms_see_through(false)
 	_show_weapon(_weapon_type)
 	_emit_weapon_text()
 
@@ -1173,11 +1184,8 @@ func _toggle_flashlight() -> void:
 		notify.emit("Você não tem uma lanterna")
 		return
 	if not _flashlight.visible and flashlight_charge < 0.02:
-		notify.emit("Bateria vazia — carregue com o carregador")
-		return
+		return # sem bateria: não acende (só o carregador mostra a carga)
 	_flashlight.visible = not _flashlight.visible
-	if _flashlight.visible:
-		notify.emit("Lanterna: bateria %d%%" % roundi(flashlight_charge * 100.0))
 
 
 # Carregador ------------------------------------------------------------------
@@ -1191,6 +1199,14 @@ func _crank() -> void:
 
 
 func _update_charger(delta: float) -> void:
+	# Segurar o botão também aperta (mais fácil que clicar sem parar).
+	if _weapon_type == WeaponType.CHARGER and Input.is_action_pressed("attack") and not ui_blocked and health > 0.0:
+		_crank_hold -= delta
+		if _crank_hold <= 0.0:
+			_crank_hold = crank_hold_interval
+			_crank()
+	else:
+		_crank_hold = crank_hold_interval
 	_crank_rate = move_toward(_crank_rate, 0.0, crank_decay * delta)
 	_lever = move_toward(_lever, 0.0, delta * 7.0)
 	if _crank_rate > crank_min:
@@ -1205,10 +1221,6 @@ func _update_charger(delta: float) -> void:
 	var needle: Node3D = model.get_node("Needle")
 	var wanted := lerpf(0.9, -0.9, flashlight_charge) + sin(Time.get_ticks_msec() * 0.03) * 0.03 * _crank_rate
 	needle.rotation.z = lerpf(needle.rotation.z, wanted, 1.0 - exp(-10.0 * delta))
-	_charge_text_timer -= delta
-	if _charge_text_timer <= 0.0:
-		_charge_text_timer = 0.25
-		_emit_weapon_text()
 
 
 func is_flashlight_on() -> bool:
@@ -1221,15 +1233,16 @@ func _update_flashlight(delta: float) -> void:
 		_flashlight.visible = false # soltou a lanterna
 	if not _flashlight.visible:
 		return
-	# Bateria: gasta com a luz ligada; fraca, a luz pisca e enfraquece.
+	# Bateria: a luz enfraquece devagar e suave conforme a carga cai (dá para
+	# notar só prestando atenção); quase no fim dá umas piscadas leves.
 	flashlight_charge = maxf(flashlight_charge - delta / battery_duration, 0.0)
-	var strength := clampf(flashlight_charge * 4.0, 0.25, 1.0)
-	if flashlight_charge < 0.12 and randf() < 0.15:
-		strength *= randf_range(0.1, 0.6)
-	_flashlight.light_energy = 2.5 * strength
+	var strength := 0.35 + 0.65 * sqrt(flashlight_charge)
+	if flashlight_charge < 0.04 and randf() < 0.05:
+		strength *= 0.7
+	_flashlight.light_energy = lerpf(_flashlight.light_energy, 2.5 * strength, 1.0 - exp(-6.0 * delta))
+	_flashlight.spot_range = flashlight_range * (0.75 + 0.25 * strength)
 	if flashlight_charge <= 0.0:
 		_flashlight.visible = false
-		notify.emit("Bateria da lanterna acabou — carregue com o carregador")
 		return
 	_attract_timer -= delta
 	if _attract_timer > 0.0:

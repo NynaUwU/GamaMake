@@ -8,6 +8,9 @@ const ZOMBIE_SCENE := preload("res://scenes/zombie.tscn")
 
 
 func _ready() -> void:
+	var pause := PauseMenu.new()
+	pause.name = "PauseMenu"
+	add_child(pause)
 	# O CSG monta a geometria só depois do primeiro frame: espera para gerar a navegação.
 	await get_tree().process_frame
 	await get_tree().physics_frame
