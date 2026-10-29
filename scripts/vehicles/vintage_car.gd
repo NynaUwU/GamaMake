@@ -469,9 +469,10 @@ func _material(key: String, color: Color, roughness: float, metallic: float, dou
 	if _materials.has(key):
 		return _materials[key]
 	var material := StandardMaterial3D.new()
-	material.albedo_color = color
-	material.roughness = roughness
-	material.metallic = metallic
+	# Pós-apocalíptico: pintura e cromados gastos, quase sem reflexo.
+	material.albedo_color = color.darkened(0.12) if key in ["paint", "chrome"] else color
+	material.roughness = maxf(roughness, 0.78)
+	material.metallic = minf(metallic, 0.25)
 	if double_sided:
 		material.cull_mode = BaseMaterial3D.CULL_DISABLED
 	if color.a < 1.0:

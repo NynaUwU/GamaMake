@@ -185,11 +185,11 @@ var _reload_timer := 0.0
 var _pistol_kick := 0.0
 
 var _fp_arm: MeshInstance3D # antebraço em primeira pessoa (do ombro até a mão)
-var _fp_hand: MeshInstance3D
+var _fp_hand: Node3D
 const FP_SHOULDER := Vector3(0.34, -0.55, 0.22) ## de onde o braço sai (fora da tela)
 
 var _fp_arm_left: MeshInstance3D
-var _fp_hand_left: MeshInstance3D
+var _fp_hand_left: Node3D
 const FP_SHOULDER_LEFT := Vector3(-0.34, -0.55, 0.22)
 
 var vehicle: VintageCar ## carro que está dirigindo (null = a pé)
@@ -459,16 +459,11 @@ func _setup_fp_arm() -> void:
 	_fp_arm.material_override = sleeve
 	_fp_arm.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	camera.add_child(_fp_arm)
-	_fp_hand = MeshInstance3D.new()
-	var hand_mesh := BoxMesh.new()
-	hand_mesh.size = Vector3(0.075, 0.07, 0.1)
-	_fp_hand.mesh = hand_mesh
-	_fp_hand.material_override = skin
-	_fp_hand.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	_fp_hand = BlockyHand.fist(skin) # mão em blocos com dedos (segura o cabo ao longo de Z)
 	camera.add_child(_fp_hand)
 	_fp_arm_left = _fp_arm.duplicate()
 	camera.add_child(_fp_arm_left)
-	_fp_hand_left = _fp_hand.duplicate()
+	_fp_hand_left = BlockyHand.fist(_fp_hand.get_child(0).material_override, false, true)
 	camera.add_child(_fp_hand_left)
 
 
@@ -499,7 +494,7 @@ func _update_fp_arm() -> void:
 	_place_arm(_fp_arm, _fp_hand, FP_SHOULDER, grip)
 
 
-func _place_arm(arm: MeshInstance3D, hand: MeshInstance3D, shoulder: Vector3, grip: Transform3D) -> void:
+func _place_arm(arm: MeshInstance3D, hand: Node3D, shoulder: Vector3, grip: Transform3D) -> void:
 	hand.transform = grip
 	var to_hand := grip.origin - shoulder
 	if to_hand.length() < 0.05:

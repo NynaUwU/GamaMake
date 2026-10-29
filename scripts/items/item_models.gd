@@ -1,7 +1,8 @@
 class_name ItemModels
 ## Modelos dos itens em malha poligonal estilo PS2 (MeshBuilder), no estilo
-## MEDIEVAL STEAMPUNK: aço, ferro, latão, cobre, couro e madeira, com
-## engrenagens, canos, rebites e manômetros.
+## MEDIEVAL STEAMPUNK pós-apocalíptico: aço, ferro, latão, cobre, couro e
+## madeira gastos — tudo fosco (quase nada reflete), com canos, cintas e
+## manômetros (sem engrenagens decorativas).
 ##
 ## Uma única fonte para: arma na mão do player, item no chão, arma na mão dos
 ## zumbis e ícones (ItemIcons fotografa estes modelos).
@@ -11,10 +12,11 @@ class_name ItemModels
 ## Perfis de lathe com AXIS_Z: altura h vira z = -h (h positivo = para frente),
 ## sempre em ordem CRESCENTE de altura (senão as faces ficam viradas para dentro).
 
-const STEEL := Color(0.72, 0.74, 0.77)
-const IRON := Color(0.3, 0.3, 0.32)
-const BRASS := Color(0.78, 0.6, 0.26)
-const COPPER := Color(0.72, 0.4, 0.22)
+# Cores gastas/oxidadas (pós-apocalíptico).
+const STEEL := Color(0.58, 0.59, 0.6)
+const IRON := Color(0.27, 0.26, 0.26)
+const BRASS := Color(0.6, 0.48, 0.26)
+const COPPER := Color(0.55, 0.34, 0.22)
 const LEATHER := Color(0.32, 0.18, 0.1)
 const WOOD := Color(0.42, 0.26, 0.14)
 const DARK_WOOD := Color(0.26, 0.15, 0.08)
@@ -63,8 +65,8 @@ static func build(id: StringName) -> Node3D:
 
 # --- Armas -------------------------------------------------------------------
 
-## Espada longa: lâmina de aço em losango, guarda de latão curvada com
-## engrenagem no centro, cabo de couro com fio de latão e pomo de engrenagem.
+## Espada longa: lâmina de aço em losango, guarda de latão curvada, cabo de
+## couro encorpado (poucos lados) com cintas de latão e pomo de ferro.
 static func _sword(p: Dictionary) -> void:
 	var blade := []
 	for s in [[-0.04, 0.032, 0.007], [-0.3, 0.03, 0.0065], [-0.65, 0.026, 0.006], [-0.86, 0.018, 0.005], [-0.97, 0.002, 0.002]]:
@@ -73,7 +75,7 @@ static func _sword(p: Dictionary) -> void:
 	_mb(p, STEEL).loft(blade, true, true)
 	# Cano de cobre correndo pela base da lâmina (o "vapor" da espada).
 	_mb(p, COPPER).tube(PackedVector3Array([Vector3(0, 0.009, -0.05), Vector3(0, 0.009, -0.24), Vector3(0, 0.006, -0.27)]), 0.0045, 6)
-	# Guarda: barra curvada para a lâmina com esferas nas pontas + engrenagem central.
+	# Guarda: barra curvada para a lâmina com esferas nas pontas e miolo de ferro.
 	var guard := PackedVector3Array()
 	for i in 9:
 		var x := lerpf(-0.12, 0.12, i / 8.0)
@@ -81,18 +83,16 @@ static func _sword(p: Dictionary) -> void:
 	_mb(p, BRASS).tube(guard, 0.011, 6)
 	for side in [-1.0, 1.0]:
 		_ball(_mb(p, BRASS), Vector3(side * 0.12, 0, -0.03 - 0.0317), 0.017)
-	_gear(_mb(p, BRASS), Vector3(0, 0, -0.03), 0.034, 0.022, 10, AXIS_X)
-	_mb(p, IRON).lathe(PackedVector2Array([Vector2(0.01, -0.012), Vector2(0.014, 0.0), Vector2(0.01, 0.012)]), 6, AXIS_X, Vector3(0, 0, -0.03))
-	# Cabo de couro com voltas de fio de latão.
-	_mb(p, LEATHER).lathe(PackedVector2Array([Vector2(0.02, -0.13), Vector2(0.022, -0.06), Vector2(0.019, 0.0)]), 8, AXIS_Z)
-	for z in [0.025, 0.06, 0.095]:
-		_mb(p, BRASS).torus(0.0215, 0.0028, 10, 4, AXIS_Z, Vector3(0, 0, z))
-	# Pomo: engrenagem com miolo de ferro.
-	_gear(_mb(p, BRASS), Vector3(0, 0, 0.16), 0.036, 0.024, 8, AXIS_X)
-	_mb(p, IRON).lathe(PackedVector2Array([Vector2(0.012, -0.014), Vector2(0.015, 0.0), Vector2(0.012, 0.014)]), 6, AXIS_X, Vector3(0, 0, 0.16))
+	_mb(p, IRON).lathe(PackedVector2Array([Vector2(0.016, -0.018), Vector2(0.024, 0.0), Vector2(0.016, 0.018)]), 6, AXIS_X, Vector3(0, 0, -0.03))
+	# Cabo encorpado e simples (hexagonal): couro com duas cintas de latão.
+	_mb(p, LEATHER).lathe(PackedVector2Array([Vector2(0.028, -0.14), Vector2(0.031, -0.07), Vector2(0.027, 0.0)]), 6, AXIS_Z)
+	for z in [0.03, 0.1]:
+		_mb(p, BRASS).torus(0.03, 0.004, 6, 4, AXIS_Z, Vector3(0, 0, z))
+	# Pomo: bola de ferro facetada.
+	_ball(_mb(p, IRON), Vector3(0, 0, 0.165), 0.034, 6)
 
 
-## Maça a vapor: cabo de madeira escura, cabeça de ferro com 6 flanges,
+## Maça: cabo de madeira escura, cabeça de ferro com 6 flanges,
 ## cintas de latão e uma serpentina de cobre subindo pelo cabo.
 static func _mace(p: Dictionary) -> void:
 	_mb(p, DARK_WOOD).lathe(PackedVector2Array([Vector2(0.022, -0.08), Vector2(0.024, 0.2), Vector2(0.028, 0.62)]), 8, AXIS_Z)
@@ -148,7 +148,7 @@ static func _staff(p: Dictionary) -> void:
 	_ball(_mb(p, GLOW), center, 0.05, 10)
 
 
-## Pistola steampunk: cano octogonal de latão, tambor com engrenagem, armação
+## Pistola steampunk: cano octogonal de latão, tambor de ferro, armação
 ## de ferro, cão, guarda-mato, cano de cobre e coronha curva de madeira.
 static func _pistol(p: Dictionary) -> void:
 	var barrel := []
@@ -158,7 +158,6 @@ static func _pistol(p: Dictionary) -> void:
 	_mb(p, BRASS).loft(barrel, true, true)
 	_mb(p, BRASS).torus(0.016, 0.004, 8, 4, AXIS_Z, Vector3(0, 0.035, -0.165))
 	_mb(p, IRON).lathe(PackedVector2Array([Vector2(0.024, -0.005), Vector2(0.026, 0.02), Vector2(0.024, 0.045)]), 8, AXIS_Z, Vector3(0, 0.03, 0.0))
-	_gear(_mb(p, BRASS), Vector3(0.026, 0.03, -0.02), 0.018, 0.013, 8, AXIS_X, 0.006)
 	_mb(p, IRON).box(Vector3(0, 0.012, 0.015), Vector3(0.026, 0.035, 0.07))
 	_mb(p, BRASS).box(Vector3(0, 0.058, 0.05), Vector3(0.01, 0.03, 0.012), Basis(Vector3(1, 0, 0), 0.5)) # cão
 	_mb(p, COPPER).tube(PackedVector3Array([Vector3(0, 0.014, 0.0), Vector3(0, 0.014, -0.12), Vector3(0, 0.022, -0.14)]), 0.005, 6)
@@ -241,26 +240,23 @@ static func _mb(parts: Dictionary, color: Color) -> MeshBuilder:
 	return parts[color]
 
 
+## Tudo fosco: metal gasto quase não reflete (pós-apocalíptico).
 static func _material(color: Color) -> StandardMaterial3D:
 	if _materials.has(color):
 		return _materials[color]
 	var material := StandardMaterial3D.new()
 	material.albedo_color = color
+	material.roughness = 0.9
 	match color:
 		STEEL:
-			material.metallic = 0.8
-			material.roughness = 0.3
-		BRASS, COPPER:
-			material.metallic = 0.75
-			material.roughness = 0.38
-		IRON:
-			material.metallic = 0.6
-			material.roughness = 0.55
+			material.metallic = 0.25
+			material.roughness = 0.75
+		BRASS, COPPER, IRON:
+			material.metallic = 0.2
+			material.roughness = 0.82
 		GLOW, LENS:
 			material.emission_enabled = true
 			material.emission = color
 			material.emission_energy_multiplier = 2.5
-		_:
-			material.roughness = 0.85
 	_materials[color] = material
 	return material

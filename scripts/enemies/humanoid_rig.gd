@@ -89,6 +89,14 @@ func _build_bone_visual(def: Array, enemy: Node) -> void:
 
 	if bone_name == "Head" and glowing_eyes:
 		_add_eyes(attachment, center, size)
+	if bone_name.begins_with("LowerArm"):
+		# Mão no fim do antebraço (zumbi = dedos de garra). Palma para dentro do corpo.
+		var shadow := mesh.cast_shadow
+		var hand := BlockyHand.open(_materials["skin"], glowing_eyes, shadow)
+		hand.position = Vector3(0, -length, 0)
+		if bone_name.ends_with(".R"):
+			hand.rotation.y = PI
+		attachment.add_child(hand)
 	if not build_hitboxes:
 		return
 
@@ -215,10 +223,9 @@ func set_shadow_only(enabled: bool) -> void:
 		var attachment := get_node_or_null(attachment_name(bone))
 		if attachment == null:
 			continue
-		for child in attachment.get_children():
-			if child is MeshInstance3D:
-				child.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_SHADOWS_ONLY if enabled \
-						else GeometryInstance3D.SHADOW_CASTING_SETTING_ON
+		for child in attachment.find_children("*", "MeshInstance3D", true, false):
+			child.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_SHADOWS_ONLY if enabled \
+					else GeometryInstance3D.SHADOW_CASTING_SETTING_ON
 
 
 # --- Desmembramento ---------------------------------------------------------
@@ -269,8 +276,8 @@ func detach_limb(bone_name: StringName, impulse: Vector3) -> Array[StringName]:
 		if attachment == null or not attachment.visible:
 			continue # já foi arrancado antes
 		for child in attachment.get_children():
-			if child is MeshInstance3D:
-				var copy: MeshInstance3D = child.duplicate()
+			if child is MeshInstance3D or child.name == "Hand":
+				var copy: Node3D = child.duplicate()
 				limb.add_child(copy)
 				copy.global_transform = child.global_transform
 			elif child is Area3D:
