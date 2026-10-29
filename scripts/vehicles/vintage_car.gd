@@ -353,9 +353,17 @@ func _build_cockpit(model: Node3D) -> void:
 	# Velocímetro na frente do motorista (lado direito).
 	var gauge := Node3D.new()
 	gauge.name = "Speedometer"
-	gauge.position = Vector3(0.22, 0.65, 0.175)
-	gauge.rotation = Vector3(-0.15, PI, 0) # mostrador virado para o motorista (-Z)
+	# Em cima do painel, logo acima do volante: fácil de ver sem baixar os olhos.
+	gauge.position = Vector3(0.22, 0.88, 0.24)
+	gauge.rotation = Vector3(-0.25, PI, 0) # mostrador virado para o motorista (-Z)
 	model.add_child(gauge)
+	var pod := MeshBuilder.new() # caneca escura que segura o mostrador
+	pod.lathe(PackedVector2Array([Vector2(0.03, -0.06), Vector2(0.07, -0.05), Vector2(0.088, -0.02), Vector2(0.088, 0.0)]), 16,
+			Basis(Vector3.RIGHT, PI / 2))
+	_add(gauge, pod.finish(_material("dark_round", DARK, 0.6, 0.3)))
+	var stalk := MeshBuilder.new()
+	stalk.tube(PackedVector3Array([Vector3(0.22, 0.74, 0.22), Vector3(0.22, 0.83, 0.25)]), 0.018, 6)
+	_add(model, stalk.finish(_material("dark_round", DARK, 0.6, 0.3)))
 	var bezel := MeshBuilder.new()
 	bezel.torus(0.075, 0.009, 18, 5, Basis(Vector3.RIGHT, PI / 2))
 	_add(gauge, bezel.finish(_material("chrome", CHROME, 0.25, 0.85)))
@@ -403,23 +411,6 @@ func _build_cockpit(model: Node3D) -> void:
 	var column := MeshBuilder.new()
 	column.tube(PackedVector3Array([column_base, steering_wheel.position + Vector3(0, -0.01, 0.02)]), 0.018, 6)
 	_add(model, column.finish(_material("dark_round", DARK, 0.6, 0.3)))
-	# Para-brisas pequenos ("aero screens") com moldura cromada.
-	for side in [-1.0, 1.0]:
-		var glass := MeshBuilder.new()
-		var rows := []
-		for r in 2:
-			var y := lerpf(0.76, 0.88, r)
-			var row := PackedVector3Array()
-			for c in 4:
-				var x: float = side * 0.22 + lerpf(-0.15, 0.15, c / 3.0)
-				row.append(Vector3(x, y, 0.27 - r * 0.06 - absf(x - side * 0.22) * 0.12))
-			rows.append(row)
-		glass.sheet(rows)
-		_add(model, glass.finish(_material("glass", Color(0.7, 0.85, 0.9, 0.3), 0.1, 0.0, true)))
-		var frame := MeshBuilder.new()
-		var top_row: PackedVector3Array = rows[1]
-		frame.tube(top_row, 0.006, 4)
-		_add(model, frame.finish(_material("chrome", CHROME, 0.25, 0.85)))
 
 
 func _build_wheels() -> void:
@@ -473,16 +464,13 @@ func _add(parent: Node, mesh: Mesh) -> MeshInstance3D:
 	return instance
 
 
-func _material(key: String, color: Color, roughness: float, metallic: float, double_sided := false) -> StandardMaterial3D:
+func _material(key: String, color: Color, roughness: float, metallic: float, _double_sided := false) -> Material:
 	if _materials.has(key):
 		return _materials[key]
-	var material := StandardMaterial3D.new()
-	material.albedo_color = color
-	material.roughness = roughness
-	material.metallic = metallic
-	if double_sided:
-		material.cull_mode = BaseMaterial3D.CULL_DISABLED
-	if color.a < 1.0:
-		material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	# Shader facetado: polígonos marcados com linhas finas nas arestas.
+	var edge := 0.45 if color.get_luminance() > 0.3 else 0.3
+	if key in ["dial", "ink", "needle", "roundel"]:
+		edge = 0.0 # mostrador e números limpos (legíveis)
+	var material := MeshBuilder.facet_material(color, roughness, metallic, 0.55, edge)
 	_materials[key] = material
 	return material
