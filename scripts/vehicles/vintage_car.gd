@@ -17,7 +17,7 @@ const DARK := Color(0.09, 0.09, 0.1)
 const LEATHER := Color(0.36, 0.2, 0.11)
 const TIRE := Color(0.07, 0.07, 0.07)
 const ALUMINIUM := Color(0.62, 0.62, 0.6)
-const DIAL := Color(0.92, 0.89, 0.78)
+const DIAL := Color(0.97, 0.97, 0.95) # fundo branco do mostrador
 const LAYER_ENEMY := 1 << 2
 
 const WHEELBASE := 2.7
@@ -354,7 +354,7 @@ func _build_cockpit(model: Node3D) -> void:
 	var gauge := Node3D.new()
 	gauge.name = "Speedometer"
 	# No centro do painel, um pouco abaixo da borda, virado de leve para o motorista.
-	gauge.position = Vector3(0.0, 0.7, 0.175)
+	gauge.position = Vector3(0.0, 0.7, 0.16) # 1,5 cm à frente do painel (evita z-fighting)
 	gauge.rotation = Vector3(-0.3, PI + 0.3, 0) # mostrador virado para o motorista (-Z)
 	model.add_child(gauge)
 	var pod := MeshBuilder.new() # moldura funda que embute o mostrador no painel
@@ -365,8 +365,12 @@ func _build_cockpit(model: Node3D) -> void:
 	bezel.torus(0.075, 0.009, 18, 5, Basis(Vector3.RIGHT, PI / 2))
 	_add(gauge, bezel.finish(_material("chrome", CHROME, 0.25, 0.85)))
 	var face := MeshBuilder.new()
-	face.lathe(PackedVector2Array([Vector2(0.002, 0.004), Vector2(0.072, 0.0)]), 18, Basis(Vector3.RIGHT, PI / 2))
+	face.lathe(PackedVector2Array([Vector2(0.072, 0.0), Vector2(0.002, 0.004)]), 18, Basis(Vector3.RIGHT, PI / 2)) # perfil de fora para dentro = face virada para o motorista
 	_add(gauge, face.finish(_material("dial", DIAL, 0.6, 0.0)))
+	# Disco branco de fundo, preenchendo a moldura inteira por trás do mostrador.
+	var backing := MeshBuilder.new()
+	backing.lathe(PackedVector2Array([Vector2(0.084, -0.004), Vector2(0.002, -0.004)]), 18, Basis(Vector3.RIGHT, PI / 2))
+	_add(gauge, backing.finish(_material("dial", DIAL, 0.6, 0.0)))
 	var ticks := MeshBuilder.new()
 	# Escala no sentido horário: 0 embaixo à esquerda, máximo embaixo à direita.
 	for i in 15:
@@ -383,10 +387,10 @@ func _build_cockpit(model: Node3D) -> void:
 		label.pixel_size = 0.0006
 		label.modulate = DARK
 		label.outline_size = 0
-		label.position = Vector3(sin(a), cos(a), 0.002) * 0.042
+		label.position = Vector3(sin(a) * 0.042, cos(a) * 0.042, 0.006) # acima do disco branco
 		gauge.add_child(label)
 	_needle = Node3D.new()
-	_needle.position = Vector3(0, 0, 0.004)
+	_needle.position = Vector3(0, 0, 0.008)
 	gauge.add_child(_needle)
 	var needle := MeshBuilder.new()
 	needle.tri(Vector3(-0.003, 0, 0), Vector3(0, 0.058, 0), Vector3(0.003, 0, 0))
@@ -472,5 +476,10 @@ func _material(key: String, color: Color, roughness: float, metallic: float, dou
 		material.cull_mode = BaseMaterial3D.CULL_DISABLED
 	if color.a < 1.0:
 		material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	if key == "dial":
+		# Leve brilho próprio: o fundo continua branco na sombra do cockpit.
+		material.emission_enabled = true
+		material.emission = color
+		material.emission_energy_multiplier = 0.35
 	_materials[key] = material
 	return material
