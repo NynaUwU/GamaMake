@@ -20,6 +20,8 @@ func populate(world: TerrainWorld, chunk: Node3D, body: StaticBody3D, coord: Vec
 		var z := origin.y + rng.randf() * world.chunk_size
 		if Vector2(x, z).length() < world.town_radius * 2.0:
 			continue # deixa a cidade e o entorno livres
+		if world.city_mask(x, z) > 0.0:
+			continue # nada de árvores dentro das cidades geradas
 		var biome := world.biome_at(x, z)
 		var kind := _pick_kind(biome, rng)
 		if kind == "":

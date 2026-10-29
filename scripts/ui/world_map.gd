@@ -102,6 +102,13 @@ func _generate() -> void:
 
 ## Prédios e muros da cidade (CSG do nó Level) como blocos escuros no mapa.
 func _draw_buildings(image: Image) -> void:
+	# Casas das cidades geradas.
+	for city in terrain.cities:
+		for lot in city.lots:
+			var c := _world_to_pixel(lot.pos)
+			var half := Vector2(lot.w, lot.d) * 0.5 / terrain.world_size * MAP_PIXELS
+			var shade := 0.32 - minf(lot.floors, 12) * 0.015
+			image.fill_rect(Rect2i(Vector2i(c - half), Vector2i((half * 2.0).max(Vector2.ONE))), Color(shade, shade * 0.9, shade * 0.85))
 	var level := terrain.get_parent().get_node_or_null("Level")
 	if level == null:
 		return

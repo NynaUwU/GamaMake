@@ -13,6 +13,7 @@ var direction := Vector3.FORWARD
 var force := 0.0
 var type := Type.BLUNT
 var knockdown := false ## golpe que desequilibra muito (chute)
+var launch := 0.0 ## > 0: arremessa o zumbi longe (impulso total, N·s) — colherona
 ## Multiplicador de dano em membros por tipo: {"head": x, "arm": x, "leg": x}.
 ## Ex.: o golpe de cima da espada tem "arm" alto (arranca braços com facilidade).
 var limb_bias := {}

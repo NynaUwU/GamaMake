@@ -48,6 +48,8 @@ static func build(id: StringName) -> Node3D:
 			_staff(parts)
 		&"colher":
 			_spoon(parts)
+		&"gancho":
+			_grapple(parts)
 		&"pistola":
 			_pistol(parts)
 		&"lanterna":
@@ -101,6 +103,25 @@ static func _mace(p: Dictionary) -> void:
 		var out := Vector3(cos(a), sin(a), 0)
 		_mb(p, IRON).box(Vector3(0, 0, -0.73) + out * 0.075, Vector3(0.03, 0.03, 0.18), Basis(out, Vector3(0, 0, 1).cross(out), Vector3(0, 0, 1)))
 	_mb(p, BRASS).lathe(PackedVector2Array([Vector2(0.034, 0.56), Vector2(0.034, 0.6)]), 8, AXIS_Z)
+
+
+## Lançador do gancho: tubo de latão com carretel de corda, cabo de madeira
+## e o gancho de ferro de 3 garras na boca. Simples, como as outras armas.
+static func _grapple(p: Dictionary) -> void:
+	_mb(p, BRASS).lathe(PackedVector2Array([Vector2(0.002, -0.06), Vector2(0.026, -0.06), Vector2(0.026, 0.2), Vector2(0.002, 0.2)]), 8, AXIS_Z, Vector3(0, 0.035, 0))
+	_mb(p, IRON).lathe(PackedVector2Array([Vector2(0.002, -0.02), Vector2(0.045, -0.02), Vector2(0.045, 0.02), Vector2(0.002, 0.02)]), 10,
+			Basis(Vector3(0, 0, 1), PI / 2), Vector3(0, 0.03, 0.03)) # carretel
+	_mb(p, CLOTH.darkened(0.45)).lathe(PackedVector2Array([Vector2(0.002, -0.018), Vector2(0.038, -0.018), Vector2(0.038, 0.018), Vector2(0.002, 0.018)]), 10,
+			Basis(Vector3(0, 0, 1), PI / 2), Vector3(0, 0.03, 0.03)) # corda enrolada
+	var grip := PackedVector2Array([Vector2(-0.01, 0.0), Vector2(-0.045, 0.0), Vector2(-0.065, -0.07), Vector2(-0.045, -0.1), Vector2(-0.015, -0.04)])
+	_mb(p, DARK_WOOD).extrude(grip, 0.028, Basis(Vector3(0, 1, 0), PI / 2), Vector3(0, 0, 0.04))
+	# Gancho: haste + 3 garras curvas.
+	var tip := Vector3(0, 0.035, -0.2)
+	_mb(p, IRON).tube(PackedVector3Array([tip, tip + Vector3(0, 0, -0.07)]), 0.01, 6)
+	for i in 3:
+		var a := TAU * i / 3.0
+		var out := Vector3(cos(a), sin(a), 0)
+		_mb(p, IRON).tube(PackedVector3Array([tip + Vector3(0, 0, -0.06), tip + out * 0.045 + Vector3(0, 0, -0.04), tip + out * 0.06 + Vector3(0, 0, 0.0)]), 0.007, 4)
 
 
 ## Colherona: colher de sopa ridiculamente grande. Cabo achatado de ferro com

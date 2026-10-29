@@ -40,6 +40,7 @@ var _noise_ridge := FastNoiseLite.new()
 var _noise_dunes := FastNoiseLite.new()
 var _noise_bumps := FastNoiseLite.new()
 var _noise_detail := FastNoiseLite.new()
+var cities: Array = [] ## cidades geradas pela semente (CityGen): centro, raio, tamanho, altura, lotes
 var _chunks := {} # Vector2i -> Node3D
 var _tasks := {} # Vector2i -> id da tarefa em andamento
 var _results := {} # Vector2i -> dados prontos (escrito pelas threads)
@@ -53,6 +54,7 @@ func _ready() -> void:
 	if randomize_seed:
 		seed = randi()
 	_setup_noise()
+	cities = CityGen.place_cities(self)
 	_material = _make_material()
 	_props = TerrainProps.new()
 	_player = get_node_or_null(player_path)
@@ -120,7 +122,28 @@ func snow_at(x: float, z: float) -> float:
 	return clampf(maxf(cold, smoothstep(65.0, 85.0, h)), 0.0, 1.0)
 
 
+## Altura final: relevo + chão achatado das cidades.
 func _height_from(x: float, z: float, biome: Dictionary) -> float:
+	var h := raw_height(x, z, biome)
+	for city in cities:
+		var d: float = Vector2(x, z).distance_to(city.center)
+		var r: float = city.radius
+		if d < r * 1.8:
+			h = lerpf(h, city.base, 1.0 - smoothstep(r * 1.05, r * 1.8, d))
+	return h
+
+
+## Quanto o ponto está dentro de uma cidade (1 = no meio, 0 = fora).
+func city_mask(x: float, z: float) -> float:
+	var m := 0.0
+	for city in cities:
+		var d: float = Vector2(x, z).distance_to(city.center)
+		m = maxf(m, 1.0 - smoothstep(city.radius * 0.85, city.radius * 1.15, d))
+	return m
+
+
+## Relevo sem as cidades (usado para escolher onde elas ficam).
+func raw_height(x: float, z: float, biome: Dictionary) -> float:
 	var hills := _noise_hills.get_noise_2d(x, z)
 	var bumps := _noise_bumps.get_noise_2d(x, z)
 	# Planície ondulada: morros largos + elevações menores.
@@ -336,6 +359,10 @@ func _color_for(x: float, z: float, h: float, biome: Dictionary) -> Color:
 	var mountain_color := (grass * 0.85).lerp(COLOR_ROCK, smoothstep(30.0, 70.0, h))
 	color += mountain_color * biome.mountain
 	color = color.lerp(COLOR_SNOW, smoothstep(65.0, 85.0, h)) # topo das montanhas com neve
+	# Ruas de terra batida dentro das cidades.
+	var in_city := city_mask(x, z)
+	if in_city > 0.0:
+		color = color.lerp(Color(0.38, 0.33, 0.27), in_city * 0.75)
 	var jitter := _noise_detail.get_noise_2d(x * 3.0, z * 3.0) * 0.06
 	return Color(color.r + jitter, color.g + jitter, color.b + jitter)
 

@@ -72,7 +72,10 @@ os ícones.
   **clique rápido** para carregar; o volante na ponta esquerda gira.
   A carga só aparece no ponteiro do carregador. A lanterna gasta a bateria (~2,5 min cheia) e a
   luz vai ficando mais fraca bem aos poucos (é preciso prestar atenção para notar) até apagar.
-- **Colherona:** colher de sopa ridiculamente grande (1,5 m). Lenta, pouco dano, empurrão enorme.
+- **Colherona:** colher de sopa ridiculamente grande (1,5 m). Lenta, pouco dano, e **arremessa
+  o zumbi ~20 m** girando (`spoon_launch`).
+- **Gancho:** clique e **segure** para prender e balançar (pêndulo, WASD empurra); **Espaço**
+  recolhe a corda; soltar o clique solta a corda e mantém o impulso no ar. Alcance 45 m.
 - **Lanterna** de latão, **sucata**, **pano** e **fita**.
 
 ## Inventário
@@ -119,6 +122,8 @@ os ícones.
   - mais comprido (ex.: carro no sentido do comprimento) → sobe em cima;
   - até `climb_max_height` (2.3 m): fino (cerca) → passa para o outro lado; grosso → sobe.
 - Deslizar desliga a colisão com zumbis e chama `Zombie.trip()` em quem passar por cima.
+- **Deslize:** A/D curvam de leve; ladeira abaixo ele acelera e não para até o chão ficar plano.
+- **Vault** em objetos de até 4 m de comprimento (capô de carro no sentido do comprimento, mesas).
 - **Sem perder o ritmo:** deslizar termina na velocidade de corrida (ou de andar), vault e subir
   saem na mesma velocidade em que entraram (a duração depende dela). Só escalar a cerca para.
 - **Animação:** mãos apoiando no obstáculo (as duas ao subir/escalar, a esquerda no vault e
@@ -198,6 +203,18 @@ tests/                 testes headless (ragdoll, juntas, jogo)
    - **Encontrão**: zumbi cambaleando (ou voando em ragdoll) empurra os outros um pouco.
    - **Morte** → ragdoll permanente; continua dando para bater/chutar o corpo.
 5. O *hitstop* (jogo quase para por 50–70 ms) e o tremor de câmera dão peso ao impacto.
+
+## Cidades (`scripts/world/city_gen.gd`, `city_manager.gd`)
+- Geradas pela semente: **2 grandes**, **4 médias** e **7 vilas**, em terreno plano (fora das
+  montanhas), com o chão achatado e ruas de terra.
+- Casas medievais com toque steampunk, em ruínas, no estilo **Hello Neighbor**: andares
+  empilhados de tamanhos diferentes, tortos e deslocados, puxadinhos, telhados íngremes (alguns
+  desabados, com os caibros à mostra), chaminés, canos de cobre, caldeiras, janelas tapadas.
+- **Grande:** torres-casa de até 15 andares (~50 m) no centro, baixando para fora; caldeira gigante
+  com chaminé na praça. **Média:** 2–6 andares. **Vila:** casinhas de 1–2 andares espalhadas,
+  cercas e um poço.
+- São construídas aos poucos quando você chega perto (2 casas por frame) e apagadas longe; cada
+  uma ganha zumbis nas ruas. Aparecem no mapa e no minimapa.
 
 ## Mapa (`scripts/ui/world_map.gd`)
 - Gerado uma vez, em thread, a partir do próprio terreno (cor do bioma + sombreado do relevo,

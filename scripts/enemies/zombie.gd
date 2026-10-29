@@ -293,6 +293,9 @@ func take_hit(hit: HitInfo) -> void:
 	health -= body_damage
 	if limb != &"":
 		_damage_limb(limb, hit)
+	if hit.launch > 0.0:
+		_launch(hit)
+		return
 	if health <= 0.0:
 		_die(hit.bone, hit.point, hit.direction * hit.force * 1.3)
 		return
@@ -498,6 +501,22 @@ func hit_by_vehicle(car_velocity: Vector3, _car_position: Vector3) -> void:
 	else:
 		_set_state(State.DOWN)
 	ragdoll.apply_explosion(center, speed * 22.0)
+
+
+## Arremessado (colherona): voa longe, girando, em ragdoll.
+func _launch(hit: HitInfo) -> void:
+	_end_attack()
+	_enter_ragdoll()
+	if health <= 0.0:
+		_set_state(State.DEAD)
+		_drop_weapon()
+		died.emit(self)
+	else:
+		_set_state(State.DOWN)
+	var dir := Vector3(hit.direction.x, 0, hit.direction.z).normalized()
+	# Centro da "explosão" atrás e abaixo do zumbi: empurra para frente e para cima.
+	ragdoll.apply_explosion(global_position + Vector3.UP * 0.4 - dir * 1.0, hit.launch)
+	ragdoll.apply_hit(&"Chest", Vector3.UP * hit.launch * 0.15, global_position + Vector3.UP * 1.3)
 
 
 ## Player deslizou por baixo: as pernas vão para frente e o zumbi cai.

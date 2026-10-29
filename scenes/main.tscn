@@ -5,6 +5,7 @@
 [ext_resource type="Script" path="res://scripts/world/terrain_world.gd" id="8_terrain"]
 [ext_resource type="Script" path="res://scripts/world/biome_atmosphere.gd" id="9_atmosphere"]
 [ext_resource type="Script" path="res://scripts/world/zombie_spawner.gd" id="10_spawner"]
+[ext_resource type="Script" path="res://scripts/world/city_manager.gd" id="12_cities"]
 [ext_resource type="PackedScene" path="res://scenes/player.tscn" id="2_player"]
 [ext_resource type="PackedScene" path="res://scenes/zombie.tscn" id="3_zombie"]
 [ext_resource type="PackedScene" path="res://scenes/ui/hud.tscn" id="4_hud"]
@@ -281,6 +282,10 @@ position = Vector3(-2.9, 0.95, 11.6)
 rotation = Vector3(0, 0.3, 0)
 item_id = &"colher"
 
+[node name="Gancho" parent="Props" instance=ExtResource("7_pickup")]
+position = Vector3(-3.5, 0.95, 9.9)
+item_id = &"gancho"
+
 [node name="Carregador" parent="Props" instance=ExtResource("7_pickup")]
 position = Vector3(-3.4, 1.0, 11.1)
 item_id = &"carregador"
@@ -323,6 +328,11 @@ terrain_path = NodePath("../Terrain")
 environment_path = NodePath("../WorldEnvironment")
 player_path = NodePath("../Player")
 sun_path = NodePath("../Sun")
+
+[node name="Cities" type="Node" parent="."]
+script = ExtResource("12_cities")
+terrain_path = NodePath("../Terrain")
+player_path = NodePath("../Player")
 
 [node name="ZombieSpawner" type="Node" parent="."]
 script = ExtResource("10_spawner")

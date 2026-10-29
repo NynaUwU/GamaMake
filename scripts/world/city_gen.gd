@@ -1,0 +1,338 @@
+class_name CityGen
+## Cidades geradas pela semente do mapa, no tema medieval com toque steampunk,
+## em ruínas. Inspiração das casas: "Hello Neighbor" — casas tortas, andares
+## empilhados de tamanhos diferentes, puxadinhos, telhados íngremes.
+##
+## Tamanhos:
+##   small  -> vila: poucas casinhas de 1-2 andares, espalhadas, cercas, poço.
+##   medium -> cidade: casas de 2-6 andares em anéis em volta de uma praça.
+##   large  -> cidade grande: no centro, torres-casa de até ~15 andares (~50 m).
+##
+## place_cities() só decide ONDE e a PLANTA (lotes); build_house() monta a
+## malha e a colisão de um lote (feito aos poucos pelo CityManager).
+
+const SIZES := {
+	"large": {"count": 2, "radius": 150.0, "max_floors": 15, "spacing": 15.0, "lot": [7.0, 11.0], "fill": 0.85},
+	"medium": {"count": 4, "radius": 95.0, "max_floors": 6, "spacing": 14.0, "lot": [6.0, 9.0], "fill": 0.8},
+	"small": {"count": 7, "radius": 55.0, "max_floors": 2, "spacing": 16.0, "lot": [5.0, 7.0], "fill": 0.55},
+}
+const FLOOR_HEIGHT := 3.2
+
+const STONE := Color(0.42, 0.4, 0.37)
+const WOOD := Color(0.33, 0.23, 0.15)
+const DARK_WOOD := Color(0.2, 0.14, 0.09)
+const WINDOW := Color(0.06, 0.06, 0.07)
+const COPPER := Color(0.48, 0.32, 0.2)
+const IRON := Color(0.25, 0.24, 0.24)
+const PLASTER := [Color(0.68, 0.62, 0.5), Color(0.46, 0.5, 0.42), Color(0.44, 0.48, 0.53),
+	Color(0.6, 0.48, 0.32), Color(0.55, 0.42, 0.4)]
+const ROOF := [Color(0.42, 0.2, 0.14), Color(0.27, 0.29, 0.31), Color(0.33, 0.27, 0.2)]
+
+static var _material: StandardMaterial3D
+
+
+# --- Onde ficam as cidades ----------------------------------------------------
+
+static func place_cities(world: TerrainWorld) -> Array:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = world.seed * 31 + 7
+	var cities := []
+	var half := world.world_size * 0.5 - 220.0
+	for size in ["large", "medium", "small"]:
+		var cfg: Dictionary = SIZES[size]
+		var placed := 0
+		for attempt in 400:
+			if placed >= cfg.count:
+				break
+			var center := Vector2(rng.randf_range(-half, half), rng.randf_range(-half, half))
+			var radius: float = cfg.radius
+			if center.length() < 420.0 + radius:
+				continue # longe da cidade inicial
+			var ok := true
+			for other in cities:
+				if center.distance_to(other.center) < radius + other.radius + 140.0:
+					ok = false
+					break
+			if not ok:
+				continue
+			var base := _site_height(world, center, radius)
+			if is_nan(base):
+				continue
+			var city := {"center": center, "radius": radius, "size": size, "base": base, "seed": rng.randi()}
+			city["lots"] = _layout(city, cfg)
+			cities.append(city)
+			placed += 1
+	return cities
+
+
+## Altura média do terreno no local, ou NAN se for montanhoso/inclinado demais.
+static func _site_height(world: TerrainWorld, center: Vector2, radius: float) -> float:
+	var heights := []
+	for i in 9:
+		var p := center if i == 0 else center + Vector2.from_angle(TAU * i / 8.0) * radius
+		var biome := world.biome_at(p.x, p.y)
+		if biome.mountain > 0.3 or biome.depth > 0.15:
+			return NAN
+		heights.append(world.raw_height(p.x, p.y, biome))
+	if heights.max() - heights.min() > 22.0:
+		return NAN
+	var total := 0.0
+	for h in heights:
+		total += h
+	return total / heights.size()
+
+
+## Planta: casas em anéis em volta da praça, com 4 ruas radiais livres.
+static func _layout(city: Dictionary, cfg: Dictionary) -> Array:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = city.seed
+	var lots := []
+	var radius: float = city.radius
+	var road_angle := rng.randf() * TAU
+	var r := 16.0 if city.size != "small" else 12.0
+	while r < radius * 0.92:
+		var count := int(TAU * r / cfg.spacing)
+		var phase := rng.randf() * TAU
+		for i in count:
+			var a := phase + TAU * i / count
+			# Ruas radiais: deixa uma faixa livre a cada 90°.
+			var to_road := fposmod(a - road_angle, PI / 2.0)
+			if minf(to_road, PI / 2.0 - to_road) * r < 4.5:
+				continue
+			if rng.randf() > cfg.fill:
+				continue
+			var dir := Vector2.from_angle(a)
+			var pos: Vector2 = city.center + dir * (r + rng.randf_range(-1.5, 1.5))
+			var w := rng.randf_range(cfg.lot[0], cfg.lot[1])
+			var d := rng.randf_range(cfg.lot[0], cfg.lot[1])
+			var t := r / radius
+			var floors := 1
+			match city.size:
+				"large":
+					# Centro: torres-casa de ~16 andares (~50 m); caem rápido para fora.
+					floors = int(round(lerpf(cfg.max_floors + 2.0, 2.0, pow(t, 0.7)) * rng.randf_range(0.75, 1.08)))
+				"medium":
+					floors = int(round(lerpf(cfg.max_floors, 1.5, t) * rng.randf_range(0.6, 1.1)))
+				"small":
+					floors = rng.randi_range(1, 2)
+			floors = clampi(floors, 1, cfg.max_floors + 1) # grande: até 16 andares ≈ 51 m
+			var ruin := rng.randf() < (0.25 if city.size == "small" else 0.18)
+			lots.append({"pos": pos, "w": w, "d": d, "floors": floors, "ruin": ruin,
+				"yaw": atan2(-dir.x, -dir.y) + rng.randf_range(-0.15, 0.15), "seed": rng.randi(),
+				"village": city.size == "small"})
+		r += cfg.spacing
+	return lots
+
+
+# --- Construção de uma casa ---------------------------------------------------
+
+static func material() -> StandardMaterial3D:
+	if _material == null:
+		_material = StandardMaterial3D.new()
+		_material.vertex_color_use_as_albedo = true
+		_material.roughness = 0.95
+	return _material
+
+
+## Casa pronta (malha + colisão) com a base na origem; posicione pelo lote.
+static func build_house(lot: Dictionary) -> Node3D:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = lot.seed
+	var mb := MeshBuilder.new()
+	var body := StaticBody3D.new()
+	body.collision_layer = 1
+	body.collision_mask = 0
+	var w: float = lot.w
+	var d: float = lot.d
+	var floors: int = lot.floors
+	# Fundação de pedra (afunda no chão).
+	_box(mb, body, STONE.darkened(0.1), Vector3(0, -0.4, 0), Vector3(w + 0.4, 1.4, d + 0.4), Basis.IDENTITY)
+	if lot.ruin:
+		_ruin(mb, body, rng, w, d)
+	else:
+		var y := 0.3
+		var fw := w
+		var fd := d
+		var offset := Vector3.ZERO
+		var yaw := 0.0
+		var plaster: Color = PLASTER[rng.randi() % PLASTER.size()]
+		for i in floors:
+			# Cada andar um pouco diferente: tamanho, deslocamento e torto (estilo Hello Neighbor).
+			if i > 0:
+				fw = clampf(fw * rng.randf_range(0.82, 1.08), 3.6, w * 1.15)
+				fd = clampf(fd * rng.randf_range(0.82, 1.08), 3.6, d * 1.15)
+				offset += Vector3(rng.randf_range(-0.6, 0.6), 0, rng.randf_range(-0.6, 0.6))
+				offset = offset.limit_length(1.2)
+				yaw += rng.randf_range(-0.07, 0.07)
+			var tilt := rng.randf_range(-0.02, 0.02) if i > 0 else 0.0
+			var basis := Basis(Vector3.UP, yaw) * Basis(Vector3.BACK, tilt)
+			var center := offset + Vector3(0, y + FLOOR_HEIGHT * 0.5, 0)
+			var color: Color = STONE if i == 0 and not lot.village else (WOOD if (i + int(lot.seed)) % 3 == 0 else plaster)
+			color = color.darkened(rng.randf_range(0.0, 0.15))
+			_box(mb, body, color, center, Vector3(fw, FLOOR_HEIGHT, fd), basis)
+			# Viga escura em cima do andar e janelas nas 4 paredes.
+			_box(mb, null, DARK_WOOD, center + basis * Vector3(0, FLOOR_HEIGHT * 0.5 - 0.1, 0), Vector3(fw + 0.12, 0.2, fd + 0.12), basis)
+			_windows(mb, rng, center, basis, fw, fd, i == 0)
+			# Puxadinho saindo da lateral em alguns andares (casas altas).
+			if i > 0 and i < floors - 1 and rng.randf() < 0.22:
+				var side := 1.0 if rng.randf() < 0.5 else -1.0
+				var annex := center + basis * Vector3(side * (fw * 0.5 + 1.0), -0.2, rng.randf_range(-fd * 0.2, fd * 0.2))
+				_box(mb, body, plaster.darkened(0.2), annex, Vector3(2.0, FLOOR_HEIGHT * 0.8, 2.6), basis)
+				_box(mb, null, DARK_WOOD, annex + Vector3(0, -FLOOR_HEIGHT * 0.45, 0), Vector3(0.15, 0.6, 0.15), basis) # mão-francesa
+			y += FLOOR_HEIGHT
+		_roof(mb, body, rng, offset + Vector3(0, y, 0), Basis(Vector3.UP, yaw), fw, fd)
+		# Chaminé e cano de cobre descendo pela parede (steampunk).
+		var chimney := offset + Vector3(fw * 0.25, y + 1.2, fd * 0.2)
+		_box(mb, body, STONE, chimney, Vector3(0.7, 2.6, 0.7), Basis(Vector3.UP, yaw))
+		mb.color(COPPER)
+		var pipe_x := w * 0.5 + 0.25
+		mb.tube(PackedVector3Array([Vector3(pipe_x, 0.2, -d * 0.3), Vector3(pipe_x, minf(y, 9.0), -d * 0.3),
+			Vector3(pipe_x - 0.3, minf(y, 9.0) + 0.3, -d * 0.3)]), 0.12, 6)
+	# Porta e um barril/caldeira ao lado de algumas casas.
+	if not lot.ruin:
+		_box(mb, null, DARK_WOOD, Vector3(0, 1.3, -d * 0.5 - 0.05), Vector3(1.1, 2.1, 0.1), Basis.IDENTITY)
+	if rng.randf() < 0.35:
+		mb.color(IRON)
+		mb.lathe(PackedVector2Array([Vector2(0.02, 0.0), Vector2(0.55, 0.0), Vector2(0.6, 0.8), Vector2(0.55, 1.6), Vector2(0.02, 1.7)]),
+				8, Basis.IDENTITY, Vector3(-w * 0.5 - 0.9, 0.0, d * 0.25))
+		_shape(body, Vector3(-w * 0.5 - 0.9, 0.85, d * 0.25), Vector3(1.1, 1.7, 1.1), Basis.IDENTITY)
+	if lot.village and rng.randf() < 0.6:
+		_fence(mb, rng, w, d)
+	var house := Node3D.new()
+	var mesh := MeshInstance3D.new()
+	mesh.mesh = mb.finish(material(), false)
+	house.add_child(mesh)
+	house.add_child(body)
+	return house
+
+
+static func _windows(mb: MeshBuilder, rng: RandomNumberGenerator, center: Vector3, basis: Basis, fw: float, fd: float, ground: bool) -> void:
+	for face in 4:
+		var length := fw if face % 2 == 0 else fd
+		var depth := fd if face % 2 == 0 else fw
+		var count := int(length / 2.4)
+		for k in count:
+			if ground and face == 0 and k == count / 2:
+				continue # lugar da porta
+			if rng.randf() < 0.2:
+				continue
+			var along := (k + 0.5) / count * length - length * 0.5
+			var local := Vector3(along, 0.2, -depth * 0.5 - 0.03) # um pouco para fora da parede
+			var face_basis := Basis(Vector3.UP, face * PI / 2.0)
+			var boarded := rng.randf() < 0.3
+			var color := WOOD if boarded else WINDOW
+			_box(mb, null, color, center + basis * (face_basis * local), Vector3(0.85, 1.15, 0.08), basis * face_basis)
+
+
+static func _roof(mb: MeshBuilder, body: StaticBody3D, rng: RandomNumberGenerator, base: Vector3, basis: Basis, fw: float, fd: float) -> void:
+	var color: Color = ROOF[rng.randi() % ROOF.size()]
+	var height := fw * rng.randf_range(0.5, 0.85) # telhado íngreme
+	var hw := fw * 0.5 + 0.35
+	var broken := rng.randf() < 0.3
+	var shape := PackedVector2Array([Vector2(-hw, 0), Vector2(hw, 0), Vector2(0, height)])
+	if broken:
+		# Telhado desabado de um lado: só uma água + caibros à mostra.
+		shape = PackedVector2Array([Vector2(-hw, 0), Vector2(0.0, 0), Vector2(0, height)])
+		mb.color(DARK_WOOD)
+		var rafter := Basis(Vector3.BACK, -atan2(height, hw)) # caibro ao longo da água que caiu
+		for k in 4:
+			var z := lerpf(-fd * 0.45, fd * 0.45, k / 3.0)
+			mb.box(base + basis * Vector3(hw * 0.5, height * 0.5, z), Vector3(sqrt(hw * hw + height * height), 0.12, 0.12), basis * rafter)
+	mb.color(color.darkened(rng.randf_range(0.0, 0.15)))
+	# Extrusão em Z local; gira para o telhado correr ao longo da profundidade.
+	mb.extrude(shape, fd + 0.6, basis, base)
+	var points := PackedVector3Array()
+	for p in shape:
+		for z in [-(fd + 0.6) * 0.5, (fd + 0.6) * 0.5]:
+			points.append(basis * Vector3(p.x, p.y, z) + base)
+	var collision := CollisionShape3D.new()
+	var convex := ConvexPolygonShape3D.new()
+	convex.points = points
+	collision.shape = convex
+	body.add_child(collision)
+
+
+## Ruína: paredes quebradas de alturas diferentes, sem telhado, entulho.
+static func _ruin(mb: MeshBuilder, body: StaticBody3D, rng: RandomNumberGenerator, w: float, d: float) -> void:
+	var walls := [[Vector3(0, 0, -d * 0.5), Vector3(w, 0, 0.4)], [Vector3(0, 0, d * 0.5), Vector3(w, 0, 0.4)],
+		[Vector3(-w * 0.5, 0, 0), Vector3(0.4, 0, d)], [Vector3(w * 0.5, 0, 0), Vector3(0.4, 0, d)]]
+	for wall in walls:
+		if rng.randf() < 0.2:
+			continue # parede que caiu inteira
+		var pieces := 3
+		for k in pieces:
+			var t := (k + 0.5) / pieces - 0.5
+			var size: Vector3 = wall[1]
+			var piece_size := Vector3(maxf(size.x / pieces, 0.4), rng.randf_range(0.8, FLOOR_HEIGHT * 1.8), maxf(size.z / pieces, 0.4))
+			var pos: Vector3 = wall[0] + Vector3(size.x * t, piece_size.y * 0.5 + 0.3, size.z * t)
+			_box(mb, body, STONE.darkened(rng.randf_range(0.0, 0.2)), pos, piece_size, Basis(Vector3.BACK, rng.randf_range(-0.04, 0.04)))
+	for k in 5:
+		var pos := Vector3(rng.randf_range(-w, w) * 0.5, 0.3, rng.randf_range(-d, d) * 0.5)
+		var size := Vector3(rng.randf_range(0.4, 1.1), rng.randf_range(0.3, 0.7), rng.randf_range(0.4, 1.1))
+		_box(mb, body, STONE.darkened(0.25), pos, size, Basis(Vector3.UP, rng.randf() * TAU))
+
+
+static func _fence(mb: MeshBuilder, rng: RandomNumberGenerator, w: float, d: float) -> void:
+	var hw := w * 0.5 + 2.0
+	var hd := d * 0.5 + 2.0
+	var corners := [Vector3(-hw, 0, -hd), Vector3(hw, 0, -hd), Vector3(hw, 0, hd), Vector3(-hw, 0, hd)]
+	mb.color(WOOD.darkened(0.1))
+	for c in 4:
+		var a: Vector3 = corners[c]
+		var b: Vector3 = corners[(c + 1) % 4]
+		var posts := int(a.distance_to(b) / 1.6)
+		for k in posts + 1:
+			if c == 0 and abs(k - posts / 2) <= 1:
+				continue # portão
+			var p := a.lerp(b, float(k) / posts)
+			mb.box(p + Vector3(0, 0.5, 0), Vector3(0.12, 1.0 + rng.randf_range(-0.2, 0.1), 0.12), Basis(Vector3.BACK, rng.randf_range(-0.1, 0.1)))
+		mb.box(a.lerp(b, 0.5) + Vector3(0, 0.7, 0), Vector3(a.distance_to(b), 0.08, 0.06) if c % 2 == 0 else Vector3(0.06, 0.08, a.distance_to(b)))
+
+
+static func _box(mb: MeshBuilder, body: StaticBody3D, color: Color, center: Vector3, size: Vector3, basis: Basis) -> void:
+	mb.color(color)
+	mb.box(center, size, basis)
+	if body:
+		_shape(body, center, size, basis)
+
+
+static func _shape(body: StaticBody3D, center: Vector3, size: Vector3, basis: Basis) -> void:
+	var collision := CollisionShape3D.new()
+	var box := BoxShape3D.new()
+	box.size = size
+	collision.shape = box
+	collision.transform = Transform3D(basis, center)
+	body.add_child(collision)
+
+
+## Peça central da praça: caldeira enferrujada com chaminé e canos (ou poço, na vila).
+static func build_plaza(city: Dictionary) -> Node3D:
+	var mb := MeshBuilder.new()
+	var body := StaticBody3D.new()
+	body.collision_layer = 1
+	if city.size == "small":
+		mb.color(STONE)
+		mb.lathe(PackedVector2Array([Vector2(1.2, 0.0), Vector2(1.2, 0.9), Vector2(0.95, 0.9), Vector2(0.95, 0.2)]), 10)
+		_box(mb, null, DARK_WOOD, Vector3(-1.0, 1.6, 0), Vector3(0.15, 1.6, 0.15), Basis.IDENTITY)
+		_box(mb, null, DARK_WOOD, Vector3(1.0, 1.6, 0), Vector3(0.15, 1.6, 0.15), Basis.IDENTITY)
+		_box(mb, null, ROOF[0], Vector3(0, 2.5, 0), Vector3(2.6, 0.2, 1.6), Basis(Vector3.RIGHT, 0.0))
+		_shape(body, Vector3(0, 0.45, 0), Vector3(2.4, 0.9, 2.4), Basis.IDENTITY)
+	else:
+		var scale := 1.6 if city.size == "large" else 1.0
+		mb.color(IRON)
+		mb.lathe(Transform2D.IDENTITY.scaled(Vector2.ONE * scale) * PackedVector2Array([Vector2(0.05, 0.0), Vector2(2.4, 0.0), Vector2(2.6, 2.0), Vector2(2.4, 5.5), Vector2(1.4, 6.5), Vector2(0.05, 6.7)]), 12)
+		mb.color(STONE)
+		mb.lathe(Transform2D.IDENTITY.scaled(Vector2.ONE * scale) * PackedVector2Array([Vector2(0.6, 6.2), Vector2(0.6, 14.0), Vector2(0.8, 14.5)]), 8)
+		mb.color(COPPER)
+		for i in 4:
+			var a := TAU * i / 4.0
+			var out := Vector3(cos(a), 0, sin(a))
+			mb.tube(PackedVector3Array([out * 2.3 * scale + Vector3(0, 3.0 * scale, 0), out * 3.6 * scale + Vector3(0, 3.4 * scale, 0), out * 3.8 * scale + Vector3(0, 0.0, 0)]), 0.18 * scale, 6)
+		_shape(body, Vector3(0, 3.3 * scale, 0), Vector3(5.0, 6.6, 5.0) * scale, Basis.IDENTITY)
+		_shape(body, Vector3(0, 10.0 * scale, 0), Vector3(1.4, 8.0, 1.4) * scale, Basis.IDENTITY)
+	var node := Node3D.new()
+	var mesh := MeshInstance3D.new()
+	mesh.mesh = mb.finish(material(), false)
+	node.add_child(mesh)
+	node.add_child(body)
+	return node

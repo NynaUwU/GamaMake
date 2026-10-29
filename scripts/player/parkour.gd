@@ -26,11 +26,14 @@ const LAYER_ENEMY := 1 << 2
 @export var slide_speed := 8.5
 @export var slide_time := 0.85
 @export var slide_trip_force := 45.0
+@export var slide_steer := 1.4 ## rad/s: A/D curvam o deslize de leve
+@export var slide_friction := 2.4 ## m/s² de atrito no plano
+@export var slide_max_speed := 15.0
 
 @export_group("Obstáculos")
 @export var min_height := 0.45 ## abaixo disso é só um degrau
 @export var vault_max_height := 1.3 ## altura do quadril (+ capô de carro)
-@export var vault_max_depth := 1.6 ## mais comprido que isso: sobe em cima em vez de passar
+@export var vault_max_depth := 4.0 ## até isso passa deslizando por cima (capô, mesa comprida); mais: sobe em cima
 @export var climb_max_height := 2.3 ## um pouco acima da cabeça
 @export var fence_max_depth := 0.6 ## cerca fina: escala e desce do outro lado
 @export var reach := 1.1 ## distância máxima até o obstáculo
@@ -56,6 +59,7 @@ var _duration := 1.0
 var _points: Array[Vector3] = []
 var _slide_dir := Vector3.FORWARD
 var _slide_time := 0.0
+var _slide_speed := 0.0
 var _tripped: Array = []
 var _mask_backup := 0
 
@@ -116,6 +120,7 @@ func on_crouch_pressed(sprinting: bool) -> void:
 func _start_slide() -> void:
 	move = Move.SLIDE
 	_slide_time = 0.0
+	_slide_speed = slide_speed
 	_tripped.clear()
 	var flat := Vector3(_player.velocity.x, 0, _player.velocity.z)
 	_slide_dir = flat.normalized() if flat.length() > 0.5 else -_player.global_basis.z
@@ -127,11 +132,24 @@ func _start_slide() -> void:
 
 func _update_slide(delta: float) -> void:
 	_slide_time += delta
-	var k := clampf(_slide_time / slide_time, 0.0, 1.0)
-	# Termina na velocidade de corrida (segurando Shift) ou de andar: não "freia" o player.
+	# A/D curvam o deslize de leve.
+	var steer := Input.get_axis("move_right", "move_left")
+	_slide_dir = _slide_dir.rotated(Vector3.UP, steer * slide_steer * delta).normalized()
+	# Física simples: a ladeira acelera, o atrito freia. Descendo, não para.
+	var slope := 0.0
+	if _player.is_on_floor():
+		var n := _player.get_floor_normal()
+		slope = Vector3(n.x, 0, n.z).dot(_slide_dir) # >0 = descendo
+	_slide_speed = clampf(_slide_speed + (slope * 9.8 * 1.3 - slide_friction) * delta, 0.0, slide_max_speed)
 	var running: bool = Input.is_action_pressed("sprint") and Input.is_action_pressed("move_forward")
 	var exit_speed: float = _player.sprint_speed if running else _player.walk_speed
-	var speed := lerpf(slide_speed, exit_speed, smoothstep(0.0, 1.0, k))
+	var downhill := slope > 0.06
+	# k: "progresso" usado nas animações; termina ao cair à velocidade de saída no plano.
+	var k := clampf(_slide_time / slide_time, 0.0, 1.0)
+	if downhill:
+		k = minf(k, 0.5)
+	var done := _slide_time > 0.35 and not downhill and _slide_speed <= exit_speed
+	var speed := maxf(_slide_speed, exit_speed if done else 0.0)
 	_player.velocity.x = _slide_dir.x * speed
 	_player.velocity.z = _slide_dir.z * speed
 	if not _player.is_on_floor():
@@ -144,7 +162,7 @@ func _update_slide(delta: float) -> void:
 	hand_targets = [_player.global_position - side * 0.55 - _slide_dir * 0.1 + Vector3.UP * 0.05, Vector3.INF]
 	hand_weight = smoothstep(0.0, 0.15, k) * (1.0 - smoothstep(0.6, 0.9, k))
 	_trip_zombies()
-	if k >= 1.0:
+	if done or _slide_speed < 0.5:
 		_end_slide()
 
 
@@ -314,9 +332,9 @@ func _probe(forward: Vector3) -> Dictionary:
 		return {} # mais alto que o alcance
 	var top_y: float = top.position.y
 	# Profundidade: anda por cima até o topo acabar (ou cair).
-	var depth := 3.0
+	var depth := 4.5
 	var d := 0.2
-	while d < 3.0:
+	while d < 4.5:
 		var p := wall + forward * d
 		var down := _ray(Vector3(p.x, top_y + 0.5, p.z), Vector3(p.x, feet.y - 0.1, p.z))
 		if down.is_empty() or down.position.y < top_y - 0.3:

@@ -15,14 +15,14 @@ signal item_picked_up(item_id: StringName, amount: int) ## gancho para o invent�
 signal died
 signal weapon_changed(weapon_text: String) ## nome da arma (+ munição)
 
-enum WeaponType { FISTS, SWORD, BAT, STAFF, PISTOL, CHARGER, SPOON }
+enum WeaponType { FISTS, SWORD, BAT, STAFF, PISTOL, CHARGER, SPOON, GRAPPLE }
 const WEAPON_NAMES := {
 	WeaponType.FISTS: "Mãos", WeaponType.SWORD: "Espada", WeaponType.BAT: "Taco",
-	WeaponType.STAFF: "Cajado", WeaponType.PISTOL: "Pistola", WeaponType.CHARGER: "Carregador", WeaponType.SPOON: "Colherona",
+	WeaponType.STAFF: "Cajado", WeaponType.PISTOL: "Pistola", WeaponType.CHARGER: "Carregador", WeaponType.SPOON: "Colherona", WeaponType.GRAPPLE: "Gancho",
 }
 ## ItemDB "weapon" -> tipo de arma do player.
 const WEAPON_FROM_ITEM := {"sword": WeaponType.SWORD, "bat": WeaponType.BAT,
-	"staff": WeaponType.STAFF, "pistol": WeaponType.PISTOL, "charger": WeaponType.CHARGER, "spoon": WeaponType.SPOON}
+	"staff": WeaponType.STAFF, "pistol": WeaponType.PISTOL, "charger": WeaponType.CHARGER, "spoon": WeaponType.SPOON, "grapple": WeaponType.GRAPPLE}
 const PICKUP_SCENE := preload("res://scenes/props/pickup_item.tscn")
 const MISSILE_SCENE := preload("res://scenes/weapons/magic_missile.tscn")
 
@@ -85,6 +85,15 @@ enum SwingPhase { NONE, WINDUP, SLASH, RECOVER }
 @export var spoon_damage := 20.0
 @export var spoon_force := 95.0 ## empurrão enorme: arremessa zumbis
 @export var spoon_speed := 0.6 ## pesadona: golpe lento
+@export var spoon_launch := 1500.0 ## impulso do arremesso (zumbi voa ~15-25 m)
+
+@export_group("Gancho")
+## Clique para disparar e SEGURE para ficar preso balançando; soltou = solta a
+## corda e mantém o impulso. Espaço (segurando) recolhe a corda.
+@export var grapple_range := 45.0
+@export var grapple_air_control := 9.0 ## m/s² de empurrão com WASD balançando
+@export var grapple_reel_speed := 9.0
+@export var grapple_pull := 4.0 ## puxão inicial na direção do gancho
 
 @export_group("Empalar")
 ## Correndo com a espada, segure o ataque: a lâmina vai para frente e espeta
@@ -221,6 +230,11 @@ var _punch_side := 0
 var _punch_anim := [0.0, 0.0] # direita, esquerda (1 = braço esticado)
 
 var spoon: Node3D ## colherona na mão
+var grapple: Node3D ## lançador do gancho na mão
+var _grapple_active := false
+var _anchor := Vector3.ZERO
+var _rope_length := 0.0
+var _rope: MeshInstance3D
 var charger: Node3D # carregador a dínamo na mão (modelo com Lever/Rotor/Needle)
 var _crank_rate := 0.0
 var _lever := 0.0
@@ -237,6 +251,10 @@ func _ready() -> void:
 	spoon = Node3D.new()
 	spoon.name = "Spoon"
 	camera.add_child(spoon)
+	grapple = Node3D.new()
+	grapple.name = "Grapple"
+	grapple.position = Vector3(0.22, -0.24, -0.42)
+	camera.add_child(grapple)
 	_melee = {
 		WeaponType.SWORD: {"node": weapon, "damage": melee_damage, "force": melee_force, "speed": 1.0,
 			"cut": true, "length": 0.98, "trail": Color(1.0, 1.0, 0.95), "hitstop": 0.06},
@@ -301,6 +319,8 @@ func _unhandled_input(event: InputEvent) -> void:
 				_punch()
 			elif _weapon_type == WeaponType.CHARGER:
 				_crank()
+			elif _weapon_type == WeaponType.GRAPPLE:
+				_fire_grapple()
 		elif event.is_action_pressed("reload"):
 			_start_reload()
 		elif event.is_action_pressed("weapon_next"):
@@ -337,6 +357,11 @@ func _physics_process(delta: float) -> void:
 		_update_camera_shake(delta)
 		_update_charge(delta)
 		return
+	if _grapple_active:
+		_update_grapple(delta)
+		_update_interact()
+		_update_camera_shake(delta)
+		return
 	var sprinting := _is_sprinting()
 	if not is_on_floor():
 		velocity.y -= _gravity * delta
@@ -356,8 +381,17 @@ func _physics_process(delta: float) -> void:
 	var target := direction * speed
 	var accel := acceleration if is_on_floor() else acceleration * air_control
 	var t := 1.0 - exp(-accel * delta)
-	velocity.x = lerpf(velocity.x, target.x, t)
-	velocity.z = lerpf(velocity.z, target.z, t)
+	var flat := Vector2(velocity.x, velocity.z)
+	if not is_on_floor() and flat.length() > speed:
+		# No ar mais rápido que a corrida (soltou o gancho, pulou de um telhado):
+		# mantém o impulso; WASD só curva um pouco.
+		if direction != Vector3.ZERO:
+			flat = flat.lerp(Vector2(direction.x, direction.z) * flat.length(), t * 0.5)
+		velocity.x = flat.x
+		velocity.z = flat.y
+	else:
+		velocity.x = lerpf(velocity.x, target.x, t)
+		velocity.z = lerpf(velocity.z, target.z, t)
 	var fall_speed := velocity.y
 	var was_on_floor := is_on_floor()
 	move_and_slide()
@@ -466,6 +500,9 @@ func _process(delta: float) -> void:
 	_update_charger(delta)
 	_update_fp_arm()
 	_update_parkour_hands()
+	_update_rope()
+	if _weapon_type == WeaponType.GRAPPLE:
+		grapple.position = Vector3(0.22, -0.24, -0.42) + _bob_offset(0.8) + _equip_offset()
 
 
 ## Modelos das armas na mão: os mesmos do chão/ícones (ItemModels).
@@ -477,6 +514,23 @@ func _install_weapon_models() -> void:
 	staff.add_child(staff_model)
 	pistol.add_child(ItemModels.build(&"pistola"))
 	spoon.add_child(ItemModels.build(&"colher"))
+	grapple.add_child(ItemModels.build(&"gancho"))
+	_rope = MeshInstance3D.new()
+	_rope.name = "Rope"
+	var rope_mesh := CylinderMesh.new()
+	rope_mesh.top_radius = 0.012
+	rope_mesh.bottom_radius = 0.012
+	rope_mesh.height = 1.0
+	rope_mesh.radial_segments = 5
+	rope_mesh.rings = 1
+	var rope_mat := StandardMaterial3D.new()
+	rope_mat.albedo_color = Color(0.3, 0.22, 0.14)
+	rope_mat.roughness = 0.95
+	rope_mesh.material = rope_mat
+	_rope.mesh = rope_mesh
+	_rope.top_level = true
+	_rope.visible = false
+	add_child(_rope)
 	charger = Node3D.new()
 	charger.name = "Charger"
 	charger.position = CHARGER_REST
@@ -532,6 +586,8 @@ func _update_fp_arm() -> void:
 			grip = bat.transform.translated_local(Vector3(0, 0, -0.05))
 		WeaponType.SPOON:
 			grip = spoon.transform.translated_local(Vector3(0, 0, 0.0))
+		WeaponType.GRAPPLE:
+			grip = grapple.transform.translated_local(Vector3(0, -0.05, 0.03))
 		WeaponType.STAFF:
 			grip = staff.transform.translated_local(Vector3(0, -0.12, 0))
 		WeaponType.PISTOL:
@@ -569,7 +625,7 @@ func _update_parkour_hands() -> void:
 	if both:
 		if not _hands_busy and w > 0.3:
 			_hands_busy = true
-			for node in [weapon, bat, staff, pistol, charger, spoon]:
+			for node in [weapon, bat, staff, pistol, charger, spoon, grapple]:
 				node.visible = false
 		var rest_r := Vector3(0.2, -0.26, -0.38)
 		var planted_r: Vector3 = visible_point.call(to_camera * parkour.hand_targets[1])
@@ -620,6 +676,10 @@ func _show_weapon(type: WeaponType) -> void:
 	staff.visible = type == WeaponType.STAFF
 	pistol.visible = type == WeaponType.PISTOL
 	spoon.visible = type == WeaponType.SPOON
+	if grapple:
+		grapple.visible = type == WeaponType.GRAPPLE
+	if type != WeaponType.GRAPPLE:
+		_release_grapple()
 	if charger:
 		charger.visible = type == WeaponType.CHARGER
 	_emit_weapon_text()
@@ -820,6 +880,8 @@ func _apply_swing_hit(hit: Dictionary, direction: Vector3, swing: Dictionary) ->
 			var info := HitInfo.make(stats.damage * swing.damage, collider.get_meta("bone"), hit.position,
 					direction, stats.force * swing.force, HitInfo.Type.CUT if stats.cut else HitInfo.Type.BLUNT)
 			info.limb_bias = swing.bias
+			if _weapon_type == WeaponType.SPOON:
+				info.launch = spoon_launch # efeito cômico: o zumbi vai longe
 			key.take_hit(info)
 			_hitstop(stats.hitstop)
 			_shake = 0.12
@@ -1083,7 +1145,8 @@ func enter_vehicle(car: VintageCar) -> void:
 	_vehicle_yaw = 0.0
 	_vehicle_pitch = 0.0
 	# Primeira pessoa: guarda a arma; as mãos vão para o volante.
-	for node in [weapon, bat, staff, pistol, charger, spoon, foot]:
+	_release_grapple()
+	for node in [weapon, bat, staff, pistol, charger, spoon, grapple, foot]:
 		node.visible = false
 	_fp_arm_left.visible = true
 	_fp_hand_left.visible = true
@@ -1246,6 +1309,72 @@ func _toggle_flashlight() -> void:
 	if not _flashlight.visible and flashlight_charge < 0.02:
 		return # sem bateria: não acende (só o carregador mostra a carga)
 	_flashlight.visible = not _flashlight.visible
+
+
+# Gancho -----------------------------------------------------------------------
+
+func _fire_grapple() -> void:
+	if _equip < 1.0 or _grapple_active:
+		return
+	var origin := camera.global_position
+	var forward := -camera.global_basis.z
+	var query := PhysicsRayQueryParameters3D.create(origin, origin + forward * grapple_range, 1, [get_rid()])
+	var hit := get_world_3d().direct_space_state.intersect_ray(query)
+	if hit.is_empty():
+		_shake = 0.03 # errou: só o tranco
+		return
+	_anchor = hit.position
+	_grapple_active = true
+	_rope_length = maxf(_chest().distance_to(_anchor) * 0.92, 2.0)
+	velocity += (_anchor - _chest()).normalized() * grapple_pull
+	_shake = 0.08
+
+
+func _release_grapple() -> void:
+	_grapple_active = false
+	if _rope:
+		_rope.visible = false
+
+
+func _chest() -> Vector3:
+	return global_position + Vector3.UP * 1.2
+
+
+## Pêndulo: gravidade + WASD, e a corda não deixa passar do comprimento.
+func _update_grapple(delta: float) -> void:
+	if not Input.is_action_pressed("attack") or health <= 0.0:
+		_release_grapple()
+		return
+	velocity.y -= _gravity * delta
+	var input := Input.get_vector("move_left", "move_right", "move_forward", "move_back")
+	velocity += (global_basis * Vector3(input.x, 0, input.y)) * grapple_air_control * delta
+	if Input.is_action_pressed("jump"):
+		_rope_length = maxf(_rope_length - grapple_reel_speed * delta, 2.0)
+	var to := _chest() - _anchor
+	if to.length() >= _rope_length:
+		var n := to.normalized()
+		var outward := velocity.dot(n)
+		if outward > 0.0:
+			velocity -= n * outward # tira a velocidade que esticaria a corda
+	move_and_slide()
+	to = _chest() - _anchor
+	if to.length() > _rope_length + 0.02:
+		global_position = _anchor + to.normalized() * _rope_length - Vector3.UP * 1.2
+	parkour.camera_roll = clampf(-velocity.dot(global_basis.x) * 0.012, -0.12, 0.12)
+
+
+func _update_rope() -> void:
+	if not _grapple_active:
+		return
+	var from := grapple.global_transform * Vector3(0, 0.02, -0.25)
+	var span := _anchor - from
+	if span.length() < 0.05:
+		return
+	_rope.visible = true
+	var up := span.normalized()
+	var side := up.cross(Vector3.FORWARD if absf(up.z) < 0.9 else Vector3.RIGHT).normalized()
+	# Estica só o eixo Y local do cilindro (a corda) até o gancho.
+	_rope.global_transform = Transform3D(Basis(side, up * span.length(), side.cross(up)), from + span * 0.5)
 
 
 # Carregador ------------------------------------------------------------------
