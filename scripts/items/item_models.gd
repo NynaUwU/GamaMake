@@ -1,8 +1,8 @@
 class_name ItemModels
 ## Modelos dos itens em malha poligonal estilo PS2 (MeshBuilder), no estilo
-## MEDIEVAL STEAMPUNK pós-apocalíptico: aço, ferro, latão, cobre, couro e
-## madeira gastos — tudo fosco (quase nada reflete), com canos, cintas e
-## manômetros (sem engrenagens decorativas).
+## MEDIEVAL STEAMPUNK pós-apocalíptico, SIMPLES: poucas peças retas (cabo,
+## guarda, cabeça, uma cinta de latão no máximo). Aço, ferro, latão, couro e
+## madeira gastos — tudo fosco (quase nada reflete).
 ##
 ## Uma única fonte para: arma na mão do player, item no chão, arma na mão dos
 ## zumbis e ícones (ItemIcons fotografa estes modelos).
@@ -73,8 +73,6 @@ static func _sword(p: Dictionary) -> void:
 		blade.append(MeshBuilder.ring(Vector3(0, 0, s[0]), s[1], s[2], 1.0, 4))
 	blade.reverse()
 	_mb(p, STEEL).loft(blade, true, true)
-	# Cano de cobre correndo pela base da lâmina (o "vapor" da espada).
-	_mb(p, COPPER).tube(PackedVector3Array([Vector3(0, 0.009, -0.05), Vector3(0, 0.009, -0.24), Vector3(0, 0.006, -0.27)]), 0.0045, 6)
 	# Guarda: barra reta e simples.
 	_mb(p, BRASS).box(Vector3(0, 0, -0.03), Vector3(0.2, 0.035, 0.035))
 	# Cabo: cilindro reto de couro, sem enfeites (como o primeiro modelo).
@@ -83,98 +81,58 @@ static func _sword(p: Dictionary) -> void:
 	_mb(p, IRON).lathe(PackedVector2Array([Vector2(0.002, -0.185), Vector2(0.03, -0.17), Vector2(0.03, -0.15)]), 8, AXIS_Z)
 
 
-## Maça: cabo de madeira escura, cabeça de ferro com 6 flanges,
-## cintas de latão e uma serpentina de cobre subindo pelo cabo.
+## Maça: cabo reto de madeira, empunhadura de couro, cabeça de ferro
+## octogonal com 4 flanges e uma cinta de latão.
 static func _mace(p: Dictionary) -> void:
-	_mb(p, DARK_WOOD).lathe(PackedVector2Array([Vector2(0.022, -0.08), Vector2(0.024, 0.2), Vector2(0.028, 0.62)]), 8, AXIS_Z)
-	_mb(p, LEATHER).lathe(PackedVector2Array([Vector2(0.027, -0.08), Vector2(0.029, 0.02), Vector2(0.027, 0.14)]), 8, AXIS_Z)
-	_ball(_mb(p, BRASS), Vector3(0, 0, 0.09), 0.03)
-	# Cabeça de ferro.
-	_mb(p, IRON).lathe(PackedVector2Array([Vector2(0.03, 0.6), Vector2(0.058, 0.64), Vector2(0.062, 0.76),
-		Vector2(0.05, 0.84), Vector2(0.02, 0.88)]), 10, AXIS_Z)
-	for i in 6:
-		var a := TAU * i / 6.0
-		var out := Vector3(cos(a), sin(a), 0)
-		# Flange: placa radial (largura para fora, comprimento ao longo do cabo).
-		var basis := Basis(out, Vector3(0, 0, 1).cross(out), Vector3(0, 0, 1))
-		_mb(p, IRON).box(Vector3(0, 0, -0.74) + out * 0.07, Vector3(0.035, 0.012, 0.19), basis)
-	for z in [-0.6, -0.86]:
-		_mb(p, BRASS).torus(0.05, 0.006, 12, 4, AXIS_Z, Vector3(0, 0, z))
-	# Serpentina de cobre.
-	var coil := PackedVector3Array()
-	for i in 41:
-		var t := i / 40.0
-		var a := t * TAU * 4.0
-		coil.append(Vector3(cos(a) * 0.033, sin(a) * 0.033, lerpf(-0.22, -0.55, t)))
-	_mb(p, COPPER).tube(coil, 0.0045, 5, true)
-
-
-## Cajado: madeira com cintas de latão, bobina de cobre, manômetro e um orbe
-## mágico preso numa gaiola de latão no topo.
-static func _staff(p: Dictionary) -> void:
-	_mb(p, WOOD).lathe(PackedVector2Array([Vector2(0.024, -0.05), Vector2(0.026, 0.4), Vector2(0.03, 0.94)]), 8, AXIS_Z)
-	_mb(p, IRON).lathe(PackedVector2Array([Vector2(0.012, -0.1), Vector2(0.026, -0.08), Vector2(0.026, -0.03)]), 8, AXIS_Z) # ponteira de ferro
-	for z in [-0.25, -0.55, -0.8]:
-		_mb(p, BRASS).torus(0.03, 0.006, 10, 4, AXIS_Z, Vector3(0, 0, z))
-	var coil := PackedVector3Array()
-	for i in 31:
-		var t := i / 30.0
-		var a := t * TAU * 5.0
-		coil.append(Vector3(cos(a) * 0.036, sin(a) * 0.036, lerpf(-0.84, -0.93, t)))
-	_mb(p, COPPER).tube(coil, 0.004, 5, true)
-	# Manômetro na lateral.
-	_mb(p, BRASS).lathe(PackedVector2Array([Vector2(0.024, 0.0), Vector2(0.024, 0.012), Vector2(0.002, 0.014)]), 10,
-			Basis(Vector3(0, 0, 1), -PI / 2), Vector3(0.03, 0, -0.7))
-	# Soquete e gaiola.
-	_mb(p, BRASS).lathe(PackedVector2Array([Vector2(0.03, 0.93), Vector2(0.05, 0.97), Vector2(0.055, 0.99)]), 10, AXIS_Z)
-	var center := Vector3(0, 0, -1.06)
+	_mb(p, DARK_WOOD).lathe(PackedVector2Array([Vector2(0.024, -0.08), Vector2(0.026, 0.62)]), 8, AXIS_Z)
+	_mb(p, LEATHER).lathe(PackedVector2Array([Vector2(0.029, -0.06), Vector2(0.029, 0.12)]), 8, AXIS_Z)
+	_mb(p, IRON).lathe(PackedVector2Array([Vector2(0.002, -0.1), Vector2(0.032, -0.09), Vector2(0.032, -0.07)]), 8, AXIS_Z)
+	_mb(p, IRON).lathe(PackedVector2Array([Vector2(0.05, 0.6), Vector2(0.06, 0.65), Vector2(0.06, 0.82), Vector2(0.002, 0.87)]), 8, AXIS_Z)
 	for i in 4:
 		var a := TAU * i / 4.0 + PI / 4
-		var arc := PackedVector3Array()
-		for k in 9:
-			var t := lerpf(-1.2, 1.35, k / 8.0)
-			arc.append(center + Vector3(cos(a) * cos(t) * 0.07, sin(a) * cos(t) * 0.07, -sin(t) * 0.07))
-		_mb(p, BRASS).tube(arc, 0.006, 5)
-	_ball(_mb(p, BRASS), center + Vector3(0, 0, -0.075), 0.014)
-	_ball(_mb(p, GLOW), center, 0.05, 10)
+		var out := Vector3(cos(a), sin(a), 0)
+		_mb(p, IRON).box(Vector3(0, 0, -0.73) + out * 0.075, Vector3(0.03, 0.03, 0.18), Basis(out, Vector3(0, 0, 1).cross(out), Vector3(0, 0, 1)))
+	_mb(p, BRASS).lathe(PackedVector2Array([Vector2(0.034, 0.56), Vector2(0.034, 0.6)]), 8, AXIS_Z)
 
 
-## Pistola steampunk: cano octogonal de latão, tambor de ferro, armação
-## de ferro, cão, guarda-mato, cano de cobre e coronha curva de madeira.
+## Cajado: cabo reto de madeira, ponteira de ferro, uma cinta de latão e o
+## orbe preso por 3 garras retas de latão.
+static func _staff(p: Dictionary) -> void:
+	_mb(p, WOOD).lathe(PackedVector2Array([Vector2(0.026, -0.05), Vector2(0.028, 0.95)]), 8, AXIS_Z)
+	_mb(p, IRON).lathe(PackedVector2Array([Vector2(0.002, -0.1), Vector2(0.028, -0.08), Vector2(0.028, -0.05)]), 8, AXIS_Z)
+	_mb(p, BRASS).lathe(PackedVector2Array([Vector2(0.031, 0.5), Vector2(0.031, 0.54)]), 8, AXIS_Z)
+	_mb(p, BRASS).lathe(PackedVector2Array([Vector2(0.03, 0.93), Vector2(0.045, 0.98), Vector2(0.045, 1.0)]), 8, AXIS_Z)
+	var center := Vector3(0, 0, -1.06)
+	for i in 3:
+		var a := TAU * i / 3.0
+		var out := Vector3(cos(a), sin(a), 0)
+		_mb(p, BRASS).tube(PackedVector3Array([Vector3(0, 0, -0.99) + out * 0.035, center + out * 0.055 + Vector3(0, 0, -0.03)]), 0.007, 4)
+	_ball(_mb(p, GLOW), center, 0.05, 8)
+
+
+## Pistola: cano reto de latão, tambor de ferro, armação de ferro, cão,
+## guarda-mato e coronha curva de madeira.
 static func _pistol(p: Dictionary) -> void:
-	var barrel := []
-	for z in [0.0, -0.15, -0.165]:
-		barrel.append(MeshBuilder.ring(Vector3(0, 0.035, z), 0.014, 0.014, 2.0, 8))
-	barrel.reverse()
-	_mb(p, BRASS).loft(barrel, true, true)
-	_mb(p, BRASS).torus(0.016, 0.004, 8, 4, AXIS_Z, Vector3(0, 0.035, -0.165))
-	_mb(p, IRON).lathe(PackedVector2Array([Vector2(0.024, -0.005), Vector2(0.026, 0.02), Vector2(0.024, 0.045)]), 8, AXIS_Z, Vector3(0, 0.03, 0.0))
+	_mb(p, BRASS).lathe(PackedVector2Array([Vector2(0.014, -0.005), Vector2(0.014, 0.165)]), 8, AXIS_Z, Vector3(0, 0.035, 0))
+	_mb(p, IRON).lathe(PackedVector2Array([Vector2(0.024, -0.01), Vector2(0.024, 0.04)]), 8, AXIS_Z, Vector3(0, 0.03, 0))
 	_mb(p, IRON).box(Vector3(0, 0.012, 0.015), Vector3(0.026, 0.035, 0.07))
-	_mb(p, BRASS).box(Vector3(0, 0.058, 0.05), Vector3(0.01, 0.03, 0.012), Basis(Vector3(1, 0, 0), 0.5)) # cão
-	_mb(p, COPPER).tube(PackedVector3Array([Vector3(0, 0.014, 0.0), Vector3(0, 0.014, -0.12), Vector3(0, 0.022, -0.14)]), 0.005, 6)
+	_mb(p, IRON).box(Vector3(0, 0.058, 0.05), Vector3(0.01, 0.03, 0.012), Basis(Vector3(1, 0, 0), 0.5)) # cão
 	var guard := PackedVector3Array()
-	for i in 9:
-		var a := lerpf(0.0, PI, i / 8.0)
-		guard.append(Vector3(0, -0.005 - sin(a) * 0.03, 0.0 + cos(a) * 0.025))
-	_mb(p, BRASS).tube(guard, 0.003, 4)
+	for i in 5:
+		var a := lerpf(0.0, PI, i / 4.0)
+		guard.append(Vector3(0, -0.005 - sin(a) * 0.028, cos(a) * 0.024))
+	_mb(p, IRON).tube(guard, 0.003, 4)
 	# Coronha: silhueta lateral extrudada na largura (X).
 	var grip := PackedVector2Array([Vector2(-0.01, 0.0), Vector2(-0.045, 0.0), Vector2(-0.07, -0.06),
 		Vector2(-0.085, -0.1), Vector2(-0.06, -0.11), Vector2(-0.035, -0.08), Vector2(-0.015, -0.03)])
-	# Basis: u da silhueta -> -Z (u negativo = para trás), espessura -> X.
 	_mb(p, DARK_WOOD).extrude(grip, 0.028, Basis(Vector3(0, 1, 0), PI / 2), Vector3(0, 0, 0))
-	_mb(p, BRASS).box(Vector3(0, -0.105, 0.072), Vector3(0.03, 0.012, 0.03), Basis(Vector3(1, 0, 0), -0.4))
 
 
-## Lanterna a manivela: corpo de latão, refletor alargado com lente acesa,
-## cintas de cobre e manivela na lateral.
+## Lanterna: corpo de latão, refletor alargado e lente acesa.
 static func _lantern(p: Dictionary) -> void:
 	_mb(p, BRASS).lathe(PackedVector2Array([Vector2(0.012, 0.0), Vector2(0.03, 0.005), Vector2(0.032, 0.15),
-		Vector2(0.045, 0.2), Vector2(0.046, 0.22)]), 10, AXIS_Z)
-	for z in [-0.04, -0.12]:
-		_mb(p, COPPER).torus(0.033, 0.004, 10, 4, AXIS_Z, Vector3(0, 0, z))
-	_mb(p, LENS).lathe(PackedVector2Array([Vector2(0.042, 0.215), Vector2(0.002, 0.23)]), 10, AXIS_Z)
-	_mb(p, IRON).tube(PackedVector3Array([Vector3(0.032, 0, -0.08), Vector3(0.05, 0, -0.08), Vector3(0.05, 0.03, -0.08)]), 0.004, 4)
-	_ball(_mb(p, WOOD), Vector3(0.05, 0.035, -0.08), 0.008, 6)
+		Vector2(0.045, 0.2), Vector2(0.046, 0.22)]), 8, AXIS_Z)
+	_mb(p, LENS).lathe(PackedVector2Array([Vector2(0.042, 0.215), Vector2(0.002, 0.23)]), 8, AXIS_Z)
 
 
 # --- Materiais de crafting -----------------------------------------------------
