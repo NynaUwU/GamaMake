@@ -15,14 +15,14 @@ signal item_picked_up(item_id: StringName, amount: int) ## gancho para o invent�
 signal died
 signal weapon_changed(weapon_text: String) ## nome da arma (+ munição)
 
-enum WeaponType { FISTS, SWORD, BAT, STAFF, PISTOL }
+enum WeaponType { FISTS, SWORD, BAT, STAFF, PISTOL, CHARGER }
 const WEAPON_NAMES := {
 	WeaponType.FISTS: "Mãos", WeaponType.SWORD: "Espada", WeaponType.BAT: "Taco",
-	WeaponType.STAFF: "Cajado", WeaponType.PISTOL: "Pistola",
+	WeaponType.STAFF: "Cajado", WeaponType.PISTOL: "Pistola", WeaponType.CHARGER: "Carregador",
 }
 ## ItemDB "weapon" -> tipo de arma do player.
 const WEAPON_FROM_ITEM := {"sword": WeaponType.SWORD, "bat": WeaponType.BAT,
-	"staff": WeaponType.STAFF, "pistol": WeaponType.PISTOL}
+	"staff": WeaponType.STAFF, "pistol": WeaponType.PISTOL, "charger": WeaponType.CHARGER}
 const PICKUP_SCENE := preload("res://scenes/props/pickup_item.tscn")
 const MISSILE_SCENE := preload("res://scenes/weapons/magic_missile.tscn")
 
@@ -53,6 +53,7 @@ const GUARD_HAND := Vector3(0.32, -0.34, -0.45) ## posição da mão em guarda
 const GUARD_DIR := Vector3(0.2, 0.75, -0.6) ## para onde a arma aponta em guarda
 const STAFF_REST := Vector3(0.34, -0.5, -0.55)
 const PISTOL_REST := Vector3(0.2, -0.21, -0.42)
+const CHARGER_REST := Vector3(0.13, -0.2, -0.33)
 
 enum SwingPhase { NONE, WINDUP, SLASH, RECOVER }
 
@@ -113,6 +114,13 @@ enum SwingPhase { NONE, WINDUP, SLASH, RECOVER }
 @export var flashlight_range := 28.0
 @export var attract_range := 45.0 ## zumbis de frente na luz vêm de longe
 @export var attract_cone := 0.975 ## dot entre a mira e o zumbi
+@export var battery_duration := 150.0 ## segundos de luz com a bateria cheia
+@export var crank_per_click := 0.35 ## giro do dínamo por clique
+@export var crank_decay := 1.5 ## quanto o giro perde por segundo
+@export var crank_min := 0.4 ## giro mínimo para começar a carregar (clicar devagar não carrega)
+@export var charge_rate := 0.05 ## carga por segundo por unidade de giro acima do mínimo
+
+var flashlight_charge := 0.5 ## bateria da lanterna (0..1)
 
 @export_group("Cajado")
 @export var cast_cooldown := 0.4 ## segure o clique para disparar sem parar
@@ -205,6 +213,11 @@ var _punch_timer := 0.0
 var _punch_side := 0
 var _punch_anim := [0.0, 0.0] # direita, esquerda (1 = braço esticado)
 
+var charger: Node3D # carregador a dínamo na mão (modelo com Lever/Rotor/Needle)
+var _crank_rate := 0.0
+var _lever := 0.0
+var _charge_text_timer := 0.0
+
 var _charging := false # correndo com a espada para frente
 var _charge_time := 0.0
 var _impaled: Array = []
@@ -275,6 +288,8 @@ func _unhandled_input(event: InputEvent) -> void:
 				_fire_pistol()
 			elif _weapon_type == WeaponType.FISTS:
 				_punch()
+			elif _weapon_type == WeaponType.CHARGER:
+				_crank()
 		elif event.is_action_pressed("reload"):
 			_start_reload()
 		elif event.is_action_pressed("weapon_next"):
@@ -430,6 +445,7 @@ func _process(delta: float) -> void:
 	_update_swing(delta)
 	_update_staff(delta)
 	_update_pistol(delta)
+	_update_charger(delta)
 	_update_fp_arm()
 
 
@@ -441,6 +457,11 @@ func _install_weapon_models() -> void:
 	staff_model.transform = Transform3D(Basis(Vector3.RIGHT, PI / 2), Vector3(0, -0.41, 0)) # em pé, orbe na ponta (Tip)
 	staff.add_child(staff_model)
 	pistol.add_child(ItemModels.build(&"pistola"))
+	charger = Node3D.new()
+	charger.name = "Charger"
+	charger.position = CHARGER_REST
+	charger.add_child(ItemModels.build_charger())
+	camera.add_child(charger)
 
 
 # Braço em primeira pessoa -----------------------------------------------------
@@ -491,6 +512,8 @@ func _update_fp_arm() -> void:
 			grip = staff.transform.translated_local(Vector3(0, -0.12, 0))
 		WeaponType.PISTOL:
 			grip = pistol.transform.translated_local(Vector3(0, -0.05, 0.03))
+		WeaponType.CHARGER:
+			grip = charger.transform.translated_local(Vector3(0, -0.05, 0.02))
 	_place_arm(_fp_arm, _fp_hand, FP_SHOULDER, grip)
 
 
@@ -537,6 +560,8 @@ func _show_weapon(type: WeaponType) -> void:
 	bat.visible = type == WeaponType.BAT
 	staff.visible = type == WeaponType.STAFF
 	pistol.visible = type == WeaponType.PISTOL
+	if charger:
+		charger.visible = type == WeaponType.CHARGER
 	_emit_weapon_text()
 
 
@@ -546,6 +571,8 @@ func _emit_weapon_text() -> void:
 		text = ItemDB.display_name(inventory.selected_id())
 	if _weapon_type == WeaponType.PISTOL:
 		text += "  recarregando..." if _reload_timer > 0.0 else "  %d/%d" % [_ammo, magazine_size]
+	elif _weapon_type == WeaponType.CHARGER:
+		text += "  bateria %d%%" % roundi(flashlight_charge * 100.0)
 	weapon_changed.emit(text)
 
 
@@ -997,7 +1024,7 @@ func enter_vehicle(car: VintageCar) -> void:
 	car.set_driver(self)
 	_vehicle_yaw = 0.0
 	# Primeira pessoa: guarda a arma; as mãos vão para o volante.
-	for node in [weapon, bat, staff, pistol, foot]:
+	for node in [weapon, bat, staff, pistol, charger, foot]:
 		node.visible = false
 	_fp_arm_left.visible = true
 	_fp_hand_left.visible = true
@@ -1145,7 +1172,43 @@ func _toggle_flashlight() -> void:
 	if not inventory.has(&"lanterna"):
 		notify.emit("Você não tem uma lanterna")
 		return
+	if not _flashlight.visible and flashlight_charge < 0.02:
+		notify.emit("Bateria vazia — carregue com o carregador")
+		return
 	_flashlight.visible = not _flashlight.visible
+	if _flashlight.visible:
+		notify.emit("Lanterna: bateria %d%%" % roundi(flashlight_charge * 100.0))
+
+
+# Carregador ------------------------------------------------------------------
+
+## Cada clique aperta a alavanca e gira o dínamo; só carrega girando rápido.
+func _crank() -> void:
+	if _equip < 1.0:
+		return
+	_crank_rate = minf(_crank_rate + crank_per_click, 2.5)
+	_lever = 1.0
+
+
+func _update_charger(delta: float) -> void:
+	_crank_rate = move_toward(_crank_rate, 0.0, crank_decay * delta)
+	_lever = move_toward(_lever, 0.0, delta * 7.0)
+	if _crank_rate > crank_min:
+		flashlight_charge = minf(flashlight_charge + (_crank_rate - crank_min) * charge_rate * delta, 1.0)
+	if _weapon_type != WeaponType.CHARGER or charger == null:
+		return
+	charger.position = CHARGER_REST + _bob_offset(0.8) + _equip_offset() + Vector3(0, 0.01, 0.015) * _lever
+	charger.rotation = Vector3(0.05 * _lever, 0.35, 0.0) # virado de leve: dá para ver motor e medidor
+	var model := charger.get_child(0)
+	model.get_node("Lever").rotation.x = -0.3 * ease(_lever, 0.5) # alavanca encosta no cabo
+	model.get_node("Rotor").rotation.z += _crank_rate * 25.0 * delta
+	var needle: Node3D = model.get_node("Needle")
+	var wanted := lerpf(0.9, -0.9, flashlight_charge) + sin(Time.get_ticks_msec() * 0.03) * 0.03 * _crank_rate
+	needle.rotation.z = lerpf(needle.rotation.z, wanted, 1.0 - exp(-10.0 * delta))
+	_charge_text_timer -= delta
+	if _charge_text_timer <= 0.0:
+		_charge_text_timer = 0.25
+		_emit_weapon_text()
 
 
 func is_flashlight_on() -> bool:
@@ -1157,6 +1220,16 @@ func _update_flashlight(delta: float) -> void:
 	if _flashlight.visible and not inventory.has(&"lanterna"):
 		_flashlight.visible = false # soltou a lanterna
 	if not _flashlight.visible:
+		return
+	# Bateria: gasta com a luz ligada; fraca, a luz pisca e enfraquece.
+	flashlight_charge = maxf(flashlight_charge - delta / battery_duration, 0.0)
+	var strength := clampf(flashlight_charge * 4.0, 0.25, 1.0)
+	if flashlight_charge < 0.12 and randf() < 0.15:
+		strength *= randf_range(0.1, 0.6)
+	_flashlight.light_energy = 2.5 * strength
+	if flashlight_charge <= 0.0:
+		_flashlight.visible = false
+		notify.emit("Bateria da lanterna acabou — carregue com o carregador")
 		return
 	_attract_timer -= delta
 	if _attract_timer > 0.0:

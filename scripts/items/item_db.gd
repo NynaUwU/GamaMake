@@ -21,7 +21,9 @@ const ITEMS := {
 		"damage_type": "Perfuração", "damage": 40, "knockback": 20,
 		"desc": "Latão, madeira e pólvora de procedência duvidosa. 12 tiros e munição infinita."},
 	&"lanterna": {"name": "Lanterna", "kind": "tool", "stack": 1, "size": Vector3(0.08, 0.08, 0.24),
-		"desc": "Lanterna de latão. Aperte L. Zumbis adoram uma luz na cara, igual mariposa com fome."},
+		"desc": "Lanterna de latão (L). Gasta bateria; recarregue com o carregador. Zumbis adoram uma luz na cara."},
+	&"carregador": {"name": "Carregador", "kind": "weapon", "weapon": "charger", "stack": 1, "size": Vector3(0.1, 0.22, 0.16),
+		"desc": "Dínamo de mão para a bateria da lanterna. Aperte rápido: devagar só cansa o braço."},
 	&"sucata": {"name": "Sucata", "kind": "material", "stack": 10, "size": Vector3(0.3, 0.12, 0.2),
 		"desc": "Ferro torto e cano de cobre. Um dia vai virar algo incrível. Hoje é só sucata."},
 	&"pano": {"name": "Pano", "kind": "material", "stack": 10, "size": Vector3(0.3, 0.05, 0.25),
@@ -65,6 +67,6 @@ static func make_mesh(id: StringName) -> Node3D:
 
 ## Centro da caixa de colisão do item no chão.
 static func shape_center(id: StringName) -> Vector3:
-	if def(id).kind in ["weapon", "tool"] and id != &"pistola":
+	if def(id).kind in ["weapon", "tool"] and id not in [&"pistola", &"carregador"]:
 		return Vector3(0, 0, -def(id).size.z * 0.5 + 0.05)
 	return Vector3.ZERO

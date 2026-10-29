@@ -23,6 +23,10 @@ const DARK_WOOD := Color(0.26, 0.15, 0.08)
 const GLOW := Color(0.75, 0.45, 1.0)
 const LENS := Color(1.0, 0.92, 0.65)
 const CLOTH := Color(0.62, 0.58, 0.5)
+const DARK := Color(0.05, 0.05, 0.05)
+const RED_PAINT := Color(0.5, 0.1, 0.07)
+const CREAM := Color(0.88, 0.84, 0.72)
+const WIRE := Color(0.18, 0.3, 0.6)
 const TAPE := Color(0.6, 0.6, 0.62)
 
 ## Eixo de peças torneadas ao longo de -Z (lathe/torus giram em volta do Y local).
@@ -46,6 +50,8 @@ static func build(id: StringName) -> Node3D:
 			_pistol(parts)
 		&"lanterna":
 			_lantern(parts)
+		&"carregador":
+			return build_charger()
 		&"sucata":
 			_scrap(parts)
 		&"pano":
@@ -113,10 +119,18 @@ static func _staff(p: Dictionary) -> void:
 ## Pistola: cano reto de latão, tambor de ferro, armação de ferro, cão,
 ## guarda-mato e coronha curva de madeira.
 static func _pistol(p: Dictionary) -> void:
-	_mb(p, BRASS).lathe(PackedVector2Array([Vector2(0.014, -0.005), Vector2(0.014, 0.165)]), 8, AXIS_Z, Vector3(0, 0.035, 0))
-	_mb(p, IRON).lathe(PackedVector2Array([Vector2(0.024, -0.01), Vector2(0.024, 0.04)]), 8, AXIS_Z, Vector3(0, 0.03, 0))
+	# Cano fechado nas pontas, com a alma escura na boca.
+	_mb(p, BRASS).lathe(PackedVector2Array([Vector2(0.002, -0.005), Vector2(0.014, -0.005), Vector2(0.014, 0.165), Vector2(0.002, 0.165)]), 8, AXIS_Z, Vector3(0, 0.035, 0))
+	_mb(p, DARK).lathe(PackedVector2Array([Vector2(0.007, 0.166), Vector2(0.001, 0.167)]), 8, AXIS_Z, Vector3(0, 0.035, 0))
+	# Tambor fechado, com 6 câmaras na face da frente.
+	_mb(p, IRON).lathe(PackedVector2Array([Vector2(0.002, -0.01), Vector2(0.024, -0.01), Vector2(0.024, 0.04), Vector2(0.002, 0.04)]), 8, AXIS_Z, Vector3(0, 0.03, 0))
+	for i in 6:
+		var a := TAU * i / 6.0
+		_mb(p, DARK).box(Vector3(cos(a) * 0.014, 0.03 + sin(a) * 0.014, -0.0405), Vector3(0.007, 0.007, 0.002))
+	# Armação: base + parte de trás que sobe até o cão (o cão fica preso nela).
 	_mb(p, IRON).box(Vector3(0, 0.012, 0.015), Vector3(0.026, 0.035, 0.07))
-	_mb(p, IRON).box(Vector3(0, 0.058, 0.05), Vector3(0.01, 0.03, 0.012), Basis(Vector3(1, 0, 0), 0.5)) # cão
+	_mb(p, IRON).box(Vector3(0, 0.035, 0.032), Vector3(0.022, 0.035, 0.03))
+	_mb(p, IRON).box(Vector3(0, 0.054, 0.045), Vector3(0.01, 0.026, 0.012), Basis(Vector3(1, 0, 0), 0.5)) # cão
 	var guard := PackedVector3Array()
 	for i in 5:
 		var a := lerpf(0.0, PI, i / 4.0)
@@ -133,6 +147,79 @@ static func _lantern(p: Dictionary) -> void:
 	_mb(p, BRASS).lathe(PackedVector2Array([Vector2(0.012, 0.0), Vector2(0.03, 0.005), Vector2(0.032, 0.15),
 		Vector2(0.045, 0.2), Vector2(0.046, 0.22)]), 8, AXIS_Z)
 	_mb(p, LENS).lathe(PackedVector2Array([Vector2(0.042, 0.215), Vector2(0.002, 0.23)]), 8, AXIS_Z)
+
+
+## Carregador a dínamo (inspirado no do Metro Exodus): motor de ferro com
+## tirantes de latão, bobina de cobre, alavanca vermelha que se aperta contra o
+## cabo e um medidor de carga com ponteiro. Peças móveis em nós separados:
+## "Lever" (gira em X ao apertar), "Rotor" (gira em Z) e "Needle" (gira em Z).
+## Origem = empunhadura (como a pistola: mão em volta, cabo para baixo).
+static func build_charger() -> Node3D:
+	var root := Node3D.new()
+	root.name = "Model"
+	var p := {}
+	# Cabo fixo de ferro (onde a mão fica) e base.
+	_mb(p, IRON).box(Vector3(0, -0.045, 0.012), Vector3(0.028, 0.11, 0.034), Basis(Vector3(1, 0, 0), -0.25))
+	_mb(p, IRON).box(Vector3(0, 0.012, -0.02), Vector3(0.05, 0.02, 0.1))
+	# Motor: cilindro deitado (eixo Z), tampas e tirantes de latão.
+	var motor := Vector3(0, 0.06, -0.03)
+	_mb(p, IRON).lathe(PackedVector2Array([Vector2(0.002, -0.05), Vector2(0.045, -0.05), Vector2(0.048, 0.0),
+		Vector2(0.045, 0.05), Vector2(0.002, 0.05)]), 10, AXIS_Z, motor)
+	for i in 4:
+		var a := TAU * i / 4.0 + PI / 4
+		var off := Vector3(cos(a), sin(a), 0) * 0.05
+		_mb(p, BRASS).tube(PackedVector3Array([motor + off + Vector3(0, 0, 0.055), motor + off + Vector3(0, 0, -0.055)]), 0.004, 4)
+	# Bobina de cobre embaixo, de lado (eixo X).
+	_mb(p, COPPER).lathe(PackedVector2Array([Vector2(0.002, -0.035), Vector2(0.02, -0.035), Vector2(0.022, 0.0),
+		Vector2(0.02, 0.035), Vector2(0.002, 0.035)]), 10, Basis(Vector3(0, 0, 1), PI / 2), Vector3(0, 0.0, -0.075))
+	# Medidor: caixa marrom em cima, virada para o player (+Z), com face creme.
+	var gauge := Vector3(0, 0.125, 0.005)
+	_mb(p, COPPER.darkened(0.4)).box(gauge, Vector3(0.07, 0.06, 0.024))
+	_mb(p, CREAM).box(gauge + Vector3(0, 0.004, 0.0125), Vector3(0.056, 0.042, 0.002))
+	for i in 5: # marcas da escala
+		var a := lerpf(-0.9, 0.9, i / 4.0)
+		_mb(p, DARK).box(gauge + Vector3(sin(a) * 0.022, -0.012 + cos(a) * 0.022, 0.0137), Vector3(0.0025, 0.006, 0.001), Basis(Vector3.BACK, -a))
+	_mb(p, IRON).box(gauge + Vector3(0, -0.038, -0.005), Vector3(0.02, 0.02, 0.012)) # suporte até o motor
+	# Fios.
+	_mb(p, WIRE).tube(PackedVector3Array([gauge + Vector3(0.03, -0.02, 0), motor + Vector3(0.06, 0.02, 0.02), motor + Vector3(0.048, 0.0, -0.02)]), 0.004, 4)
+	_mb(p, RED_PAINT).tube(PackedVector3Array([Vector3(-0.02, 0.0, -0.06), Vector3(-0.045, -0.03, -0.02), Vector3(-0.02, -0.06, 0.02)]), 0.0035, 4)
+	for color in p:
+		var mesh := MeshInstance3D.new()
+		mesh.mesh = p[color].finish(_material(color))
+		root.add_child(mesh)
+	# Alavanca vermelha: pivô na base, na frente do cabo.
+	var lever := Node3D.new()
+	lever.name = "Lever"
+	lever.position = Vector3(0, 0.0, -0.035)
+	var lp := {}
+	_mb(lp, RED_PAINT).box(Vector3(0, -0.055, -0.012), Vector3(0.026, 0.11, 0.018), Basis(Vector3(1, 0, 0), 0.35))
+	_part(lever, lp)
+	root.add_child(lever)
+	# Rotor (volante) na frente do motor.
+	var rotor := Node3D.new()
+	rotor.name = "Rotor"
+	rotor.position = motor + Vector3(0, 0, -0.058)
+	var rp := {}
+	_mb(rp, IRON).lathe(PackedVector2Array([Vector2(0.002, -0.006), Vector2(0.03, -0.006), Vector2(0.03, 0.006), Vector2(0.002, 0.006)]), 6, AXIS_Z)
+	_mb(rp, BRASS).box(Vector3(0, 0.018, 0.0), Vector3(0.008, 0.02, 0.014)) # marca: dá para ver girar
+	_part(rotor, rp)
+	root.add_child(rotor)
+	# Ponteiro do medidor (gira em volta do pivô embaixo do mostrador).
+	var needle := Node3D.new()
+	needle.name = "Needle"
+	needle.position = gauge + Vector3(0, -0.012, 0.0145)
+	var np := {}
+	_mb(np, DARK).box(Vector3(0, 0.014, 0), Vector3(0.0018, 0.028, 0.001))
+	_part(needle, np)
+	root.add_child(needle)
+	return root
+
+
+static func _part(parent: Node3D, parts: Dictionary) -> void:
+	for color in parts:
+		var mesh := MeshInstance3D.new()
+		mesh.mesh = parts[color].finish(_material(color))
+		parent.add_child(mesh)
 
 
 # --- Materiais de crafting -----------------------------------------------------

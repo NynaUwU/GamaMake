@@ -20,7 +20,7 @@ reação física a golpes e ragdoll (estilo Dying Light), visual de PC dos anos 
 | 1–5 / Q / roda | escolher slot da hotbar |
 | Tab | mochila (clique em dois slots para trocar) |
 | E / G | pegar / soltar item |
-| L | lanterna (precisa estar no inventário) |
+| L | lanterna (precisa estar no inventário e ter bateria) |
 | R | recarregar a pistola |
 | E (no carro) | entrar/sair. Dirigindo: W/S acelera/ré, A/D vira, Espaço freio de mão |
 | Z | novo zumbi (teste) · Backspace recomeça · Esc solta o mouse |
@@ -63,6 +63,10 @@ os ícones.
   uma cinta de latão.
 - **Cajado:** cabo de madeira, ponteira de ferro, uma cinta de latão e o orbe preso por 3 garras.
 - **Pistola:** cano de latão, tambor e armação de ferro, cão, guarda-mato, coronha de madeira.
+- **Carregador** (inspirado no do Metro Exodus): dínamo de mão com motor de ferro, bobina de
+  cobre, alavanca vermelha e medidor com ponteiro da bateria da lanterna. Equipe na hotbar e
+  **clique rápido** para carregar (clicando devagar o dínamo não gira o bastante). A lanterna
+  gasta a bateria (~2,5 min cheia), pisca quando está fraca e apaga quando acaba.
 - **Lanterna** de latão, **sucata**, **pano** e **fita**.
 
 ## Inventário
