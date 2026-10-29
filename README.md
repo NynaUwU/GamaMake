@@ -43,8 +43,26 @@ reação física a golpes e ragdoll (estilo Dying Light), visual de PC dos anos 
 - **Seres vivos** (player, zumbis, animais no futuro) são em **blocos**.
 - **Todo o resto** é **poligonal estilo PS2**: poucos lados, sombreamento suave mas silhueta
   facetada — nunca completamente liso. Peças complexas (painel, rodas) podem ter mais polígonos.
+- **Temas:**
+  - **Carros:** pré-guerra — de corrida (como o Alfa 8C Monza) e, no futuro, civis.
+  - **Armas:** **medieval steampunk** — aço, ferro, latão, cobre, couro e madeira, com
+    engrenagens, canos, serpentinas, rebites e manômetros.
+  - **Arquitetura:** **medieval com um toque de steampunk, em ruínas** (pedra, madeira,
+    telhados quebrados, canos e caldeiras abandonadas).
 - `scripts/util/mesh_builder.gd` gera essas malhas por código: seções interpoladas (`loft`),
   peças torneadas (`lathe`), toros, tubos ao longo de um caminho, chapas curvas e extrusões.
+
+## Armas (`scripts/items/item_models.gd`)
+Modelos medieval steampunk feitos com o `MeshBuilder`. A mesma função alimenta a arma na mão,
+o item no chão, a arma dos zumbis e os ícones.
+- **Espada:** lâmina de aço em losango, cano de cobre na base, guarda de latão curvada com
+  engrenagem, cabo de couro com fio de latão, pomo de engrenagem.
+- **Maça a vapor** (o antigo taco): cabo de madeira com empunhadura de couro, cabeça de ferro com
+  6 flanges e cintas de latão, serpentina de cobre.
+- **Cajado:** madeira com cintas de latão, manômetro, bobina de cobre e o orbe numa gaiola de latão.
+- **Pistola:** cano octogonal de latão, tambor de ferro com engrenagem, cão, guarda-mato,
+  cano de cobre e coronha curva de madeira.
+- **Lanterna** a manivela, **sucata** (engrenagem + cano), **pano** e **fita**.
 
 ## Inventário
 - `scripts/items/item_db.gd`: catálogo (nome, tipo, pilha, modelo 3D). Item novo = uma entrada lá.

@@ -1,103 +1,12 @@
 [gd_scene format=3]
 
 [ext_resource type="Script" path="res://scripts/player/player.gd" id="1_player"]
-[ext_resource type="Material" path="res://materials/metal.tres" id="2_metal"]
 [ext_resource type="Script" path="res://scripts/enemies/humanoid_rig.gd" id="3_rig"]
 [ext_resource type="Script" path="res://scripts/player/player_body.gd" id="4_body"]
 
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_player"]
 radius = 0.35
 height = 1.8
-
-[sub_resource type="BoxMesh" id="BoxMesh_blade"]
-size = Vector3(0.06, 0.012, 0.82)
-
-[sub_resource type="PrismMesh" id="PrismMesh_tip"]
-left_to_right = 0.5
-size = Vector3(0.06, 0.1, 0.012)
-
-[sub_resource type="BoxMesh" id="BoxMesh_guard"]
-size = Vector3(0.2, 0.035, 0.035)
-
-[sub_resource type="StandardMaterial3D" id="Material_guard"]
-albedo_color = Color(0.35, 0.28, 0.15, 1)
-metallic = 0.5
-roughness = 0.5
-
-[sub_resource type="CylinderMesh" id="CylinderMesh_grip"]
-top_radius = 0.022
-bottom_radius = 0.022
-height = 0.18
-radial_segments = 8
-rings = 1
-
-[sub_resource type="StandardMaterial3D" id="Material_tape"]
-albedo_color = Color(0.12, 0.12, 0.12, 1)
-
-[sub_resource type="CylinderMesh" id="CylinderMesh_shaft"]
-top_radius = 0.022
-bottom_radius = 0.028
-height = 1.1
-radial_segments = 8
-rings = 1
-
-[sub_resource type="StandardMaterial3D" id="Material_wood"]
-albedo_color = Color(0.32, 0.2, 0.12, 1)
-roughness = 0.9
-
-[sub_resource type="CylinderMesh" id="CylinderMesh_claw"]
-top_radius = 0.06
-bottom_radius = 0.02
-height = 0.1
-radial_segments = 6
-rings = 1
-
-[sub_resource type="SphereMesh" id="SphereMesh_orb"]
-radius = 0.05
-height = 0.1
-radial_segments = 10
-rings = 5
-
-[sub_resource type="StandardMaterial3D" id="Material_orb"]
-albedo_color = Color(0.8, 0.55, 1, 1)
-emission_enabled = true
-emission = Color(0.6, 0.25, 1, 1)
-emission_energy_multiplier = 3.0
-
-[sub_resource type="CylinderMesh" id="CylinderMesh_bat"]
-top_radius = 0.05
-bottom_radius = 0.022
-height = 0.86
-radial_segments = 10
-rings = 2
-
-[sub_resource type="CylinderMesh" id="CylinderMesh_knob"]
-top_radius = 0.032
-bottom_radius = 0.032
-height = 0.025
-radial_segments = 10
-rings = 1
-
-[sub_resource type="StandardMaterial3D" id="Material_batwood"]
-albedo_color = Color(0.72, 0.55, 0.34, 1)
-roughness = 0.7
-
-[sub_resource type="BoxMesh" id="BoxMesh_slide"]
-size = Vector3(0.036, 0.04, 0.2)
-
-[sub_resource type="BoxMesh" id="BoxMesh_frame"]
-size = Vector3(0.032, 0.03, 0.16)
-
-[sub_resource type="BoxMesh" id="BoxMesh_grip"]
-size = Vector3(0.032, 0.11, 0.05)
-
-[sub_resource type="StandardMaterial3D" id="Material_gunmetal"]
-albedo_color = Color(0.13, 0.13, 0.14, 1)
-metallic = 0.7
-roughness = 0.4
-
-[sub_resource type="StandardMaterial3D" id="Material_grip"]
-albedo_color = Color(0.22, 0.16, 0.12, 1)
 
 [sub_resource type="SphereMesh" id="SphereMesh_flash"]
 radius = 0.05
@@ -149,60 +58,10 @@ fov = 75.0
 
 [node name="Weapon" type="Node3D" parent="Head/Camera3D"]
 
-[node name="Blade" type="MeshInstance3D" parent="Head/Camera3D/Weapon"]
-position = Vector3(0, 0, -0.47)
-mesh = SubResource("BoxMesh_blade")
-surface_material_override/0 = ExtResource("2_metal")
-
-[node name="Tip" type="MeshInstance3D" parent="Head/Camera3D/Weapon"]
-position = Vector3(0, 0, -0.93)
-rotation = Vector3(-1.5708, 0, 0)
-mesh = SubResource("PrismMesh_tip")
-surface_material_override/0 = ExtResource("2_metal")
-
-[node name="Guard" type="MeshInstance3D" parent="Head/Camera3D/Weapon"]
-position = Vector3(0, 0, -0.05)
-mesh = SubResource("BoxMesh_guard")
-surface_material_override/0 = SubResource("Material_guard")
-
-[node name="Grip" type="MeshInstance3D" parent="Head/Camera3D/Weapon"]
-position = Vector3(0, 0, 0.04)
-rotation = Vector3(1.5708, 0, 0)
-mesh = SubResource("CylinderMesh_grip")
-surface_material_override/0 = SubResource("Material_tape")
-
 [node name="Bat" type="Node3D" parent="Head/Camera3D"]
-
-[node name="Barrel" type="MeshInstance3D" parent="Head/Camera3D/Bat"]
-position = Vector3(0, 0, -0.43)
-rotation = Vector3(-1.5708, 0, 0)
-mesh = SubResource("CylinderMesh_bat")
-surface_material_override/0 = SubResource("Material_batwood")
-
-[node name="Knob" type="MeshInstance3D" parent="Head/Camera3D/Bat"]
-position = Vector3(0, 0, 0.01)
-rotation = Vector3(-1.5708, 0, 0)
-mesh = SubResource("CylinderMesh_knob")
-surface_material_override/0 = SubResource("Material_batwood")
 
 [node name="Pistol" type="Node3D" parent="Head/Camera3D"]
 position = Vector3(0.2, -0.21, -0.42)
-
-[node name="Slide" type="MeshInstance3D" parent="Head/Camera3D/Pistol"]
-position = Vector3(0, 0.035, -0.06)
-mesh = SubResource("BoxMesh_slide")
-surface_material_override/0 = SubResource("Material_gunmetal")
-
-[node name="Frame" type="MeshInstance3D" parent="Head/Camera3D/Pistol"]
-position = Vector3(0, 0.005, -0.05)
-mesh = SubResource("BoxMesh_frame")
-surface_material_override/0 = SubResource("Material_gunmetal")
-
-[node name="Grip" type="MeshInstance3D" parent="Head/Camera3D/Pistol"]
-position = Vector3(0, -0.045, 0.02)
-rotation = Vector3(0.25, 0, 0)
-mesh = SubResource("BoxMesh_grip")
-surface_material_override/0 = SubResource("Material_grip")
 
 [node name="Muzzle" type="Node3D" parent="Head/Camera3D/Pistol"]
 position = Vector3(0, 0.035, -0.17)
@@ -223,22 +82,8 @@ omni_range = 5.0
 position = Vector3(0.34, -0.5, -0.55)
 rotation = Vector3(-0.35, 0, 0.12)
 
-[node name="Shaft" type="MeshInstance3D" parent="Head/Camera3D/Staff"]
-mesh = SubResource("CylinderMesh_shaft")
-surface_material_override/0 = SubResource("Material_wood")
-
-[node name="Claw" type="MeshInstance3D" parent="Head/Camera3D/Staff"]
-position = Vector3(0, 0.58, 0)
-mesh = SubResource("CylinderMesh_claw")
-surface_material_override/0 = SubResource("Material_wood")
-
 [node name="Tip" type="Node3D" parent="Head/Camera3D/Staff"]
 position = Vector3(0, 0.66, 0)
-
-[node name="Orb" type="MeshInstance3D" parent="Head/Camera3D/Staff/Tip"]
-cast_shadow = 0
-mesh = SubResource("SphereMesh_orb")
-surface_material_override/0 = SubResource("Material_orb")
 
 [node name="Light" type="OmniLight3D" parent="Head/Camera3D/Staff/Tip"]
 light_color = Color(0.7, 0.4, 1, 1)

@@ -17,7 +17,7 @@ signal icons_ready
 const ICON_DIR := "res://assets/icons"
 const MANIFEST := ICON_DIR + "/manifest.txt"
 const FALLBACK_DIR := "user://icon_cache"
-const RENDER_VERSION := 1 ## mude para forçar re-render (ex.: mudou ângulo/luz)
+const RENDER_VERSION := 3 ## mude para forçar re-render (ex.: mudou ângulo/luz)
 const ICON_SIZE := 64 ## pequeno de propósito: fica pixelado como o resto do jogo
 
 var ready_done := false

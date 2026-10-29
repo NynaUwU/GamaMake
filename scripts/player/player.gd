@@ -232,6 +232,7 @@ func _ready() -> void:
 	parkour.setup(self, $CollisionShape3D)
 	inventory.changed.connect(_emit_weapon_text)
 	inventory.selection_changed.connect(func(_i): _emit_weapon_text())
+	_install_weapon_models()
 	_setup_trail()
 	_setup_fp_arm()
 	_setup_flashlight()
@@ -430,6 +431,16 @@ func _process(delta: float) -> void:
 	_update_staff(delta)
 	_update_pistol(delta)
 	_update_fp_arm()
+
+
+## Modelos das armas na mão: os mesmos do chão/ícones (ItemModels).
+func _install_weapon_models() -> void:
+	weapon.add_child(ItemModels.build(&"espada"))
+	bat.add_child(ItemModels.build(&"taco"))
+	var staff_model := ItemModels.build(&"cajado")
+	staff_model.transform = Transform3D(Basis(Vector3.RIGHT, PI / 2), Vector3(0, -0.41, 0)) # em pé, orbe na ponta (Tip)
+	staff.add_child(staff_model)
+	pistol.add_child(ItemModels.build(&"pistola"))
 
 
 # Braço em primeira pessoa -----------------------------------------------------
