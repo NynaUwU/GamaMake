@@ -36,7 +36,7 @@ func _physics_process(_d: float) -> bool:
 		var items: Array = main.get_node("Props").get_children().filter(func(n): return n is PickupItem and n.item_id == &"espada")
 		print("espada on bench y=", snappedf(items[0].global_position.y, 0.01))
 		player.enter_vehicle(car)
-		print("driving=", player.vehicle != null, " car camera current=", car._camera.current)
+		print("driving=", player.vehicle != null, " first-person camera current=", player.camera.current)
 		start = car.global_position
 		Input.action_press("move_forward")
 	if frame == 240:

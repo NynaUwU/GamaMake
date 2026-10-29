@@ -30,12 +30,21 @@ reação física a golpes e ragdoll (estilo Dying Light), visual de PC dos anos 
   — espada, taco, cajado e pistola — e a lanterna.
 - Estacionado ao lado, virado para a saída sul da cidade: o **carro** (`scenes/vehicles/vintage_car.tscn`,
   `scripts/vehicles/vintage_car.gd`), inspirado no **Alfa Romeo 8C 2300 Monza (1932)**: capô
-  comprido com venezianas, grade vertical cromada em "coração", faróis redondos, para-lamas de moto,
-  rodas raiadas, "rabo de barco" com estepe, escapamento lateral e volante à direita. Suspensão
-  mais alta e com curso longo para andar fora de estrada; tração traseira, ~100 km/h.
-- Câmera de perseguição; o HUD mostra a velocidade. Atropelar derruba o zumbi (dano ~7 por m/s;
-  rápido mata e pode arrancar membros).
-- Tudo modelado por código em blocos/cilindros: ajuste cores e medidas no topo do script.
+  comprido com venezianas, grade cromada em "coração", faróis torneados, para-lamas de moto curvos,
+  rodas raiadas (pneu, aro, 16 raios cruzados, cubo knock-off), "rabo de barco" com estepe,
+  escapamento lateral, feixes de mola, número 8 e volante à direita. Suspensão alta e com curso
+  longo para fora de estrada; tração traseira, ~100 km/h.
+- **Dirigir é em primeira pessoa**: você senta no banco, olha em volta com o mouse e as mãos
+  ficam no volante (que gira com a direção). O painel tem só o **velocímetro** (0–140 km/h,
+  ponteiro funcionando).
+- Atropelar derruba o zumbi (dano ~7 por m/s; rápido mata e pode arrancar membros).
+
+## Estilo visual
+- **Seres vivos** (player, zumbis, animais no futuro) são em **blocos**.
+- **Todo o resto** é **poligonal estilo PS2**: poucos lados, sombreamento suave mas silhueta
+  facetada — nunca completamente liso. Peças complexas (painel, rodas) podem ter mais polígonos.
+- `scripts/util/mesh_builder.gd` gera essas malhas por código: seções interpoladas (`loft`),
+  peças torneadas (`lathe`), toros, tubos ao longo de um caminho, chapas curvas e extrusões.
 
 ## Inventário
 - `scripts/items/item_db.gd`: catálogo (nome, tipo, pilha, modelo 3D). Item novo = uma entrada lá.

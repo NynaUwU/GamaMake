@@ -193,6 +193,7 @@ var _fp_hand_left: MeshInstance3D
 const FP_SHOULDER_LEFT := Vector3(-0.34, -0.55, 0.22)
 
 var vehicle: VintageCar ## carro que está dirigindo (null = a pé)
+var _vehicle_yaw := 0.0 # olhar para os lados dentro do carro
 var inventory: Inventory
 var parkour: Parkour
 var ui_blocked := false ## inventário aberto: o player não age
@@ -241,8 +242,12 @@ func _ready() -> void:
 
 func _unhandled_input(event: InputEvent) -> void:
 	if vehicle:
-		# Dirigindo: o carro lê WASD/Espaço; aqui só o [E] para sair.
-		if event.is_action_pressed("interact"):
+		# Dirigindo (primeira pessoa): o carro lê WASD/Espaço; o mouse olha em volta.
+		if event is InputEventMouseMotion and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
+			_vehicle_yaw = clampf(_vehicle_yaw - event.relative.x * mouse_sensitivity, -1.9, 1.9)
+			head.rotate_x(-event.relative.y * mouse_sensitivity)
+			head.rotation.x = clampf(head.rotation.x, deg_to_rad(-70), deg_to_rad(60))
+		elif event.is_action_pressed("interact"):
 			exit_vehicle()
 		elif event.is_action_pressed("ui_cancel"):
 			Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
@@ -294,8 +299,8 @@ func _physics_process(delta: float) -> void:
 	if health <= 0.0:
 		return
 	if vehicle:
-		# Sentado no banco: acompanha o carro.
-		global_transform = vehicle.seat.global_transform
+		# Sentado no banco: acompanha o carro (o mouse gira só a cabeça).
+		global_transform = vehicle.seat.global_transform * Transform3D(Basis(Vector3.UP, _vehicle_yaw), Vector3.ZERO)
 		velocity = Vector3.ZERO
 		return
 	if parkour.physics(delta):
@@ -406,6 +411,12 @@ func _release_impaled() -> void:
 
 
 func _process(delta: float) -> void:
+	if vehicle:
+		head.position.y = vehicle.eye_height
+		global_transform = vehicle.seat.global_transform * Transform3D(Basis(Vector3.UP, _vehicle_yaw), Vector3.ZERO)
+		_update_driving_hands()
+		_update_camera_shake(delta)
+		return
 	head.position.y = parkour.eye_height(delta)
 	_sync_equipped()
 	_update_block(delta)
@@ -978,10 +989,25 @@ func enter_vehicle(car: VintageCar) -> void:
 	head.rotation.x = 0.0
 	_flashlight.visible = false
 	car.set_driver(self)
-	camera.visible = false # esconde braços/arma de primeira pessoa da câmera de fora
-	($Body/Skeleton3D as HumanoidRig).set_shadow_only(false) # câmera de fora vê o corpo todo
+	_vehicle_yaw = 0.0
+	# Primeira pessoa: guarda a arma; as mãos vão para o volante.
+	for node in [weapon, bat, staff, pistol, foot]:
+		node.visible = false
+	_fp_arm_left.visible = true
+	_fp_hand_left.visible = true
 	interact_prompt_changed.emit("")
+	weapon_changed.emit("Carro")
 	notify.emit("W/S acelerar e ré · A/D virar · Espaço freio de mão · E sair")
+
+
+## Mãos no aro do volante (seguem o giro); antebraços saem dos ombros.
+func _update_driving_hands() -> void:
+	var points: Array = vehicle.hand_points()
+	var to_camera := camera.global_transform.affine_inverse()
+	var wheel_basis := to_camera.basis * vehicle.steering_wheel.global_basis
+	# Ombros baixos e para os lados: os braços entram pelos cantos de baixo da tela.
+	_place_arm(_fp_arm_left, _fp_hand_left, Vector3(-0.28, -0.5, 0.1), Transform3D(wheel_basis, to_camera * points[0]))
+	_place_arm(_fp_arm, _fp_hand, Vector3(0.28, -0.5, 0.1), Transform3D(wheel_basis, to_camera * points[1]))
 
 
 func exit_vehicle() -> void:
@@ -994,9 +1020,8 @@ func exit_vehicle() -> void:
 	global_position = exit
 	rotation = Vector3(0, car.rotation.y + PI, 0)
 	$CollisionShape3D.set_deferred("disabled", false)
-	camera.current = true
-	camera.visible = true
-	($Body/Skeleton3D as HumanoidRig).set_shadow_only(true)
+	head.rotation.x = 0.0
+	_show_weapon(_weapon_type)
 	_emit_weapon_text()
 
 
