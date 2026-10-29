@@ -36,16 +36,13 @@ reação física a golpes e ragdoll (estilo Dying Light), visual de PC dos anos 
   longo para fora de estrada; tração traseira, ~100 km/h.
 - **Dirigir é em primeira pessoa**: você senta no banco, olha em volta com o mouse e as mãos
   ficam no volante (que gira com a direção). Sem para-brisa: o **velocímetro** (0–140 km/h,
-  ponteiro funcionando) fica numa cápsula em cima do painel, logo acima do volante.
+  ponteiro funcionando) fica embutido no centro do painel.
 - Atropelar derruba o zumbi (dano ~7 por m/s; rápido mata e pode arrancar membros).
 
 ## Estilo visual
 - **Seres vivos** (player, zumbis, animais no futuro) são em **blocos**.
 - **Todo o resto** é **poligonal estilo PS2**: poucos lados, sombreamento suave mas silhueta
   facetada — nunca completamente liso. Peças complexas (painel, rodas) podem ter mais polígonos.
-- `shaders/ps2_facets.gdshader` deixa os polígonos à mostra: mistura a normal suave com a da face
-  (`facet`) e desenha uma linha fina e escura nas arestas reais (`edge_darkness`, `edge_width`) —
-  as diagonais internas dos quadrados ficam escondidas.
 - `scripts/util/mesh_builder.gd` gera essas malhas por código: seções interpoladas (`loft`),
   peças torneadas (`lathe`), toros, tubos ao longo de um caminho, chapas curvas e extrusões.
 

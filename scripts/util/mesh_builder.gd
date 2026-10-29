@@ -4,17 +4,15 @@ extends RefCounted
 ## sombreamento suave (não fica quadrado) mas com silhueta facetada (não fica
 ## liso). Use para tudo que NÃO é ser vivo (seres vivos são em blocos).
 ##
-## Todas as funções somam triângulos; no fim chame finish() para gerar o Mesh.
-## Cada vértice leva em CUSTOM0 a "distância" até as arestas do triângulo,
-## para o shader ps2_facets desenhar as linhas dos polígonos (as diagonais
-## internas dos quadrados ficam escondidas).
+## Todas as funções somam triângulos num SurfaceTool já começado; no fim,
+## chame finish() para gerar normais e o Mesh.
 
-const FACET_SHADER := preload("res://shaders/ps2_facets.gdshader")
-
-var _verts := PackedVector3Array()
-var _colors := PackedColorArray()
-var _edges := PackedFloat32Array() # 4 floats por vértice (RGBA)
+var st := SurfaceTool.new()
 var _color := Color.WHITE
+
+
+func _init() -> void:
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
 
 
 func color(c: Color) -> MeshBuilder:
@@ -22,81 +20,27 @@ func color(c: Color) -> MeshBuilder:
 	return self
 
 
-## smooth = normais suaves entre faces parecidas (até ~60°); false = arestas duras.
+## smooth = normais suaves (carroceria, pneus). false = arestas duras (peças mecânicas).
 func finish(material: Material = null, smooth := true) -> ArrayMesh:
-	var normals := PackedVector3Array()
-	normals.resize(_verts.size())
-	var face_normals := PackedVector3Array()
-	for t in _verts.size() / 3:
-		var a := _verts[t * 3]
-		var n := (_verts[t * 3 + 2] - a).cross(_verts[t * 3 + 1] - a).normalized() # sentido horário
-		face_normals.append(n)
 	if smooth:
-		# Agrupa vértices pela posição e soma as normais das faces vizinhas parecidas.
-		var buckets := {}
-		for i in _verts.size():
-			var key := (_verts[i] * 10000.0).round()
-			if not buckets.has(key):
-				buckets[key] = []
-			buckets[key].append(i)
-		for key in buckets:
-			var ids: Array = buckets[key]
-			for i in ids:
-				var own := face_normals[i / 3]
-				var sum := Vector3.ZERO
-				for j in ids:
-					var other := face_normals[j / 3]
-					if own.dot(other) > 0.5:
-						sum += other
-				normals[i] = sum.normalized() if sum.length() > 0.0001 else own
-	else:
-		for i in _verts.size():
-			normals[i] = face_normals[i / 3]
-	var arrays := []
-	arrays.resize(Mesh.ARRAY_MAX)
-	arrays[Mesh.ARRAY_VERTEX] = _verts
-	arrays[Mesh.ARRAY_NORMAL] = normals
-	arrays[Mesh.ARRAY_COLOR] = _colors
-	arrays[Mesh.ARRAY_CUSTOM0] = _edges
-	var mesh := ArrayMesh.new()
-	var flags := Mesh.ARRAY_CUSTOM_RGBA_FLOAT << Mesh.ARRAY_FORMAT_CUSTOM0_SHIFT
-	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays, [], {}, flags)
+		st.index()
+	st.generate_normals()
+	var mesh := st.commit()
 	if material:
 		mesh.surface_set_material(0, material)
 	return mesh
 
 
-## Material com o shader facetado (use em tudo que sai do MeshBuilder).
-static func facet_material(albedo: Color, roughness := 0.6, metallic := 0.0, facet := 0.55,
-		edge_darkness := 0.35) -> ShaderMaterial:
-	var material := ShaderMaterial.new()
-	material.shader = FACET_SHADER
-	material.set_shader_parameter("albedo", albedo)
-	material.set_shader_parameter("roughness", roughness)
-	material.set_shader_parameter("metallic", metallic)
-	material.set_shader_parameter("facet", facet)
-	material.set_shader_parameter("edge_darkness", edge_darkness)
-	return material
-
-
-## hide: componente 1 = esconde a aresta oposta àquele vértice (0=a, 1=b, 2=c).
-func tri(a: Vector3, b: Vector3, c: Vector3, hide := Vector3.ZERO) -> void:
+func tri(a: Vector3, b: Vector3, c: Vector3) -> void:
 	# Sentido horário visto da frente = face visível no Godot.
-	var points := [a, c, b]
-	var ids := [0, 2, 1]
-	for k in 3:
-		var e := Vector3.ZERO
-		e[ids[k]] = 1.0
-		e = Vector3(maxf(e.x, hide.x), maxf(e.y, hide.y), maxf(e.z, hide.z))
-		_verts.append(points[k])
-		_colors.append(_color)
-		_edges.append_array([e.x, e.y, e.z, 1.0])
+	for v in [a, c, b]:
+		st.set_color(_color)
+		st.add_vertex(v)
 
 
-## Quadrado: a diagonal a-c fica escondida (só as 4 bordas aparecem).
 func quad(a: Vector3, b: Vector3, c: Vector3, d: Vector3) -> void:
-	tri(a, b, c, Vector3(0, 1, 0))
-	tri(a, c, d, Vector3(0, 0, 1))
+	tri(a, b, c)
+	tri(a, c, d)
 
 
 ## Anel de seção "superelipse" (n=2 elipse, n maior = mais quadrado arredondado).
@@ -143,11 +87,10 @@ func _cap(points: PackedVector3Array, flip: bool) -> void:
 	for i in points.size():
 		var a := points[i]
 		var b := points[(i + 1) % points.size()]
-		# Tampa em leque: só a borda externa aparece (raios escondidos).
 		if flip:
-			tri(center, b, a, Vector3(0, 1, 1))
+			tri(center, b, a)
 		else:
-			tri(center, a, b, Vector3(0, 1, 1))
+			tri(center, a, b)
 
 
 ## Sólido de revolução em volta do eixo local (profile = [raio, altura]).

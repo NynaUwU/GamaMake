@@ -1006,7 +1006,7 @@ func _update_driving_hands() -> void:
 	var to_camera := camera.global_transform.affine_inverse()
 	var wheel_basis := to_camera.basis * vehicle.steering_wheel.global_basis
 	# Ombros baixos e para os lados: os braços entram pelos cantos de baixo da tela.
-	_place_arm(_fp_arm_left, _fp_hand_left, Vector3(-0.28, -0.5, 0.1), Transform3D(wheel_basis, to_camera * points[0]))
+	_place_arm(_fp_arm_left, _fp_hand_left, Vector3(-0.3, -0.5, 0.1), Transform3D(wheel_basis, to_camera * points[0]))
 	_place_arm(_fp_arm, _fp_hand, Vector3(0.28, -0.5, 0.1), Transform3D(wheel_basis, to_camera * points[1]))
 
 

@@ -55,7 +55,7 @@ func _ready() -> void:
 	_build_bumper()
 	seat = Node3D.new()
 	seat.name = "DriverSeat"
-	seat.position = Vector3(0.22, 0.17, -0.38) # banco da direita (altura do assento)
+	seat.position = Vector3(-0.22, 0.17, -0.38) # banco da direita (o carro anda para +Z: direita = -X)
 	seat.rotation = Vector3(0, PI, 0) # o player olha para -Z; o carro anda para +Z
 	add_child(seat)
 
@@ -81,13 +81,13 @@ func set_driver(who: Node3D) -> void:
 
 ## Onde o player sai: ao lado do banco (direita do carro).
 func exit_point() -> Vector3:
-	return global_transform * Vector3(1.35, 0.2, -0.38)
+	return global_transform * Vector3(-1.35, 0.2, -0.38)
 
 
 ## Pontos do aro do volante (mundo) para as mãos: 10h e 2h, girando com a direção.
 func hand_points() -> Array:
 	var points := []
-	for a in [-0.95, 0.95]: # esquerda, direita (o nó do volante já gira com a direção)
+	for a in [0.95, -0.95]: # esquerda, direita do motorista (local +X = esquerda dele; o nó já gira com a direção)
 		points.append(steering_wheel.global_transform * Vector3(sin(a) * 0.18, cos(a) * 0.18, 0))
 	return points
 
@@ -353,17 +353,14 @@ func _build_cockpit(model: Node3D) -> void:
 	# Velocímetro na frente do motorista (lado direito).
 	var gauge := Node3D.new()
 	gauge.name = "Speedometer"
-	# Em cima do painel, logo acima do volante: fácil de ver sem baixar os olhos.
-	gauge.position = Vector3(0.22, 0.88, 0.24)
-	gauge.rotation = Vector3(-0.25, PI, 0) # mostrador virado para o motorista (-Z)
+	# No centro do painel, um pouco abaixo da borda, virado de leve para o motorista.
+	gauge.position = Vector3(0.0, 0.7, 0.175)
+	gauge.rotation = Vector3(-0.3, PI + 0.3, 0) # mostrador virado para o motorista (-Z)
 	model.add_child(gauge)
-	var pod := MeshBuilder.new() # caneca escura que segura o mostrador
+	var pod := MeshBuilder.new() # moldura funda que embute o mostrador no painel
 	pod.lathe(PackedVector2Array([Vector2(0.03, -0.06), Vector2(0.07, -0.05), Vector2(0.088, -0.02), Vector2(0.088, 0.0)]), 16,
 			Basis(Vector3.RIGHT, PI / 2))
 	_add(gauge, pod.finish(_material("dark_round", DARK, 0.6, 0.3)))
-	var stalk := MeshBuilder.new()
-	stalk.tube(PackedVector3Array([Vector3(0.22, 0.74, 0.22), Vector3(0.22, 0.83, 0.25)]), 0.018, 6)
-	_add(model, stalk.finish(_material("dark_round", DARK, 0.6, 0.3)))
 	var bezel := MeshBuilder.new()
 	bezel.torus(0.075, 0.009, 18, 5, Basis(Vector3.RIGHT, PI / 2))
 	_add(gauge, bezel.finish(_material("chrome", CHROME, 0.25, 0.85)))
@@ -398,9 +395,9 @@ func _build_cockpit(model: Node3D) -> void:
 	# Volante de aro fino com 3 raios, inclinado para o motorista.
 	steering_wheel = Node3D.new()
 	steering_wheel.name = "SteeringWheel"
-	var column_base := Vector3(0.22, 0.52, 0.32)
-	steering_wheel.position = Vector3(0.22, 0.68, 0.07)
-	steering_wheel.rotation = Vector3(-0.6, 0, 0)
+	var column_base := Vector3(-0.22, 0.52, 0.32)
+	steering_wheel.position = Vector3(-0.22, 0.68, 0.07)
+	steering_wheel.rotation = Vector3(0.57, 0, 0) # topo inclinado para o painel, perpendicular à coluna
 	model.add_child(steering_wheel)
 	var wheel := MeshBuilder.new()
 	wheel.torus(0.18, 0.014, 20, 6, Basis(Vector3.RIGHT, PI / 2))
@@ -464,13 +461,16 @@ func _add(parent: Node, mesh: Mesh) -> MeshInstance3D:
 	return instance
 
 
-func _material(key: String, color: Color, roughness: float, metallic: float, _double_sided := false) -> Material:
+func _material(key: String, color: Color, roughness: float, metallic: float, double_sided := false) -> StandardMaterial3D:
 	if _materials.has(key):
 		return _materials[key]
-	# Shader facetado: polígonos marcados com linhas finas nas arestas.
-	var edge := 0.45 if color.get_luminance() > 0.3 else 0.3
-	if key in ["dial", "ink", "needle", "roundel"]:
-		edge = 0.0 # mostrador e números limpos (legíveis)
-	var material := MeshBuilder.facet_material(color, roughness, metallic, 0.55, edge)
+	var material := StandardMaterial3D.new()
+	material.albedo_color = color
+	material.roughness = roughness
+	material.metallic = metallic
+	if double_sided:
+		material.cull_mode = BaseMaterial3D.CULL_DISABLED
+	if color.a < 1.0:
+		material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	_materials[key] = material
 	return material
