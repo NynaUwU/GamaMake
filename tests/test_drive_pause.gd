@@ -30,13 +30,16 @@ func _physics_process(_d: float) -> bool:
 	if frame == 480:
 		Input.action_release("move_left")
 		Input.action_release("move_forward")
-		print("hard turn 3s: min up·Y=", snappedf(min_up, 0.01), " (1 = reto, <0.5 = tombando) final up·Y=", snappedf(car.global_basis.y.dot(Vector3.UP), 0.01))
+		print("hard turn 3s: min up·Y=", snappedf(min_up, 0.01), " final up·Y=", snappedf(car.global_basis.y.dot(Vector3.UP), 0.01))
 		# Cabeça gira, corpo fica no banco.
 		player._vehicle_yaw = 1.2
+		player._vehicle_pitch = -0.4
 	if frame == 485:
 		var body_fwd: Vector3 = -player.get_node("Body").global_basis.z
 		var seat_fwd: Vector3 = -car.seat.global_basis.z
 		var cam_fwd: Vector3 = -player.camera.global_basis.z
+		print("camera roll (side axis vertical part, 0 = sem torção)=", snappedf(player.camera.global_basis.x.dot(car.global_basis.y), 0.01))
+		print("headlights on=", car.headlights_on)
 		print("body vs seat dot=", snappedf(body_fwd.dot(seat_fwd), 0.01), " camera vs seat dot=", snappedf(cam_fwd.dot(seat_fwd), 0.01))
 		var rim: StandardMaterial3D = car._materials["wheel_rim"]
 		print("wheel alpha=", rim.albedo_color.a, " arm alpha=", player._arm_materials[0].albedo_color.a)
@@ -45,11 +48,10 @@ func _physics_process(_d: float) -> bool:
 		player.inventory.add(&"lanterna")
 		player.equip_item(&"carregador")
 		player.flashlight_charge = 0.1
-	if frame == 500:
-		Input.action_press("attack")
+	if frame > 500 and frame < 740 and frame % 10 == 0:
+		player._crank() # 6 cliques/s
 	if frame == 740:
-		Input.action_release("attack")
-		print("holding attack 4s: charge 0.1 -> ", snappedf(player.flashlight_charge, 0.01), " label='", player._emit_weapon_text.get_method(), "'")
+		print("clicking 6/s for 4s: charge 0.1 -> ", snappedf(player.flashlight_charge, 0.01))
 		var pause: PauseMenu = main.get_node("PauseMenu")
 		pause.open()
 		print("paused=", paused, " mouse visible=", Input.mouse_mode == Input.MOUSE_MODE_VISIBLE)

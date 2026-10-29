@@ -116,7 +116,6 @@ enum SwingPhase { NONE, WINDUP, SLASH, RECOVER }
 @export var attract_cone := 0.975 ## dot entre a mira e o zumbi
 @export var battery_duration := 150.0 ## segundos de luz com a bateria cheia
 @export var crank_per_click := 0.5 ## giro do dínamo por clique
-@export var crank_hold_interval := 0.18 ## segurando o botão: aperta sozinho a cada X s
 @export var crank_decay := 1.0 ## quanto o giro perde por segundo
 @export var crank_min := 0.25 ## giro mínimo para começar a carregar (clicar muito devagar não carrega)
 @export var charge_rate := 0.06 ## carga por segundo por unidade de giro acima do mínimo
@@ -204,6 +203,7 @@ const FP_SHOULDER_LEFT := Vector3(-0.34, -0.55, 0.22)
 
 var vehicle: VintageCar ## carro que está dirigindo (null = a pé)
 var _vehicle_yaw := 0.0 # olhar para os lados dentro do carro
+var _vehicle_pitch := 0.0
 var inventory: Inventory
 var parkour: Parkour
 var ui_blocked := false ## inventário aberto: o player não age
@@ -218,7 +218,6 @@ var _punch_anim := [0.0, 0.0] # direita, esquerda (1 = braço esticado)
 var charger: Node3D # carregador a dínamo na mão (modelo com Lever/Rotor/Needle)
 var _crank_rate := 0.0
 var _lever := 0.0
-var _crank_hold := 0.0
 
 var _charging := false # correndo com a espada para frente
 var _charge_time := 0.0
@@ -261,10 +260,11 @@ func _unhandled_input(event: InputEvent) -> void:
 		# Dirigindo (primeira pessoa): o carro lê WASD/Espaço; o mouse olha em volta.
 		if event is InputEventMouseMotion and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
 			_vehicle_yaw = clampf(_vehicle_yaw - event.relative.x * mouse_sensitivity, -1.9, 1.9)
-			head.rotate_x(-event.relative.y * mouse_sensitivity)
-			head.rotation.x = clampf(head.rotation.x, deg_to_rad(-70), deg_to_rad(60))
+			_vehicle_pitch = clampf(_vehicle_pitch - event.relative.y * mouse_sensitivity, deg_to_rad(-70), deg_to_rad(60))
 		elif event.is_action_pressed("interact"):
 			exit_vehicle()
+		elif event.is_action_pressed("flashlight"):
+			vehicle.toggle_headlights()
 		elif event is InputEventMouseButton and event.pressed and Input.mouse_mode != Input.MOUSE_MODE_CAPTURED:
 			Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 		return
@@ -431,7 +431,8 @@ func _process(delta: float) -> void:
 	if vehicle:
 		head.position.y = vehicle.eye_height
 		global_transform = vehicle.seat.global_transform
-		head.rotation.y = _vehicle_yaw
+		# Guinada e arfagem montadas juntas (YXZ): girar o rotate_x depois da guinada torcia a câmera.
+		head.rotation = Vector3(_vehicle_pitch, _vehicle_yaw, 0.0)
 		_update_driving_hands()
 		_update_camera_shake(delta)
 		return
@@ -1025,6 +1026,7 @@ func enter_vehicle(car: VintageCar) -> void:
 	_flashlight.visible = false
 	car.set_driver(self)
 	_vehicle_yaw = 0.0
+	_vehicle_pitch = 0.0
 	# Primeira pessoa: guarda a arma; as mãos vão para o volante.
 	for node in [weapon, bat, staff, pistol, charger, foot]:
 		node.visible = false
@@ -1033,7 +1035,7 @@ func enter_vehicle(car: VintageCar) -> void:
 	_set_arms_see_through(true)
 	interact_prompt_changed.emit("")
 	weapon_changed.emit("Carro")
-	notify.emit("W/S acelerar e ré · A/D virar · Espaço freio de mão · E sair")
+	notify.emit("W/S acelerar e ré · A/D virar · Espaço freio de mão · L faróis · E sair")
 
 
 ## Dirigindo: braços e mãos semitransparentes para enxergar a estrada.
@@ -1180,6 +1182,9 @@ func _setup_flashlight() -> void:
 
 
 func _toggle_flashlight() -> void:
+	if vehicle:
+		vehicle.toggle_headlights() # no carro, L liga/desliga os faróis
+		return
 	if not inventory.has(&"lanterna"):
 		notify.emit("Você não tem uma lanterna")
 		return
@@ -1199,14 +1204,6 @@ func _crank() -> void:
 
 
 func _update_charger(delta: float) -> void:
-	# Segurar o botão também aperta (mais fácil que clicar sem parar).
-	if _weapon_type == WeaponType.CHARGER and Input.is_action_pressed("attack") and not ui_blocked and health > 0.0:
-		_crank_hold -= delta
-		if _crank_hold <= 0.0:
-			_crank_hold = crank_hold_interval
-			_crank()
-	else:
-		_crank_hold = crank_hold_interval
 	_crank_rate = move_toward(_crank_rate, 0.0, crank_decay * delta)
 	_lever = move_toward(_lever, 0.0, delta * 7.0)
 	if _crank_rate > crank_min:

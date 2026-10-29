@@ -37,9 +37,8 @@ reação física a golpes e ragdoll (estilo Dying Light), visual de PC dos anos 
 - **Dirigir é em primeira pessoa**: você senta no banco, olha em volta com o mouse e as mãos
   ficam no volante (que gira com a direção). Sem para-brisa: o **velocímetro** (0–140 km/h,
   ponteiro funcionando) fica embutido no centro do painel.
-- Estável: centro de massa abaixo dos eixos, suspensão mais firme/amortecida e barra
-  estabilizadora (`anti_roll`) — não tomba em curva fechada. Dirigindo, volante e braços ficam
-  semitransparentes e o mouse gira só a cabeça (o corpo fica sentado).
+- Pneus escorregam um pouco antes de tombar. Dirigindo, volante e braços ficam semitransparentes
+  e o mouse gira só a cabeça (o corpo fica sentado). **Faróis** acendem ao entrar; **L** liga/desliga.
 - Atropelar derruba o zumbi (dano ~7 por m/s; rápido mata e pode arrancar membros).
 
 ## Estilo visual
@@ -68,7 +67,7 @@ os ícones.
 - **Pistola:** cano de latão, tambor e armação de ferro, cão, guarda-mato, coronha de madeira.
 - **Carregador** (inspirado no do Metro Exodus): dínamo de mão horizontal: motor de ferro deitado
   com bobina de cobre embaixo, alavanca vermelha, medidor com ponteiro da bateria e vários fios. Equipe na hotbar e
-  **segure o clique** (ou clique rápido) para carregar; o volante na ponta esquerda gira.
+  **clique rápido** para carregar; o volante na ponta esquerda gira.
   A carga só aparece no ponteiro do carregador. A lanterna gasta a bateria (~2,5 min cheia) e a
   luz vai ficando mais fraca bem aos poucos (é preciso prestar atenção para notar) até apagar.
 - **Lanterna** de latão, **sucata**, **pano** e **fita**.

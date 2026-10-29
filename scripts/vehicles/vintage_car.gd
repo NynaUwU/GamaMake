@@ -30,8 +30,6 @@ const SPEEDO_MAX := 140.0 ## km/h no fim da escala
 @export var max_brake := 35.0
 @export var max_steer := 0.55
 @export var top_speed := 28.0 ## m/s (~100 km/h)
-@export var anti_roll := 9000.0 ## barra estabilizadora: torque que segura a carroceria de pé
-@export var roll_damping := 2500.0
 
 var driver: Node3D
 var seat: Node3D ## onde o player fica (olhando para a frente do carro)
@@ -41,12 +39,15 @@ var _needle: Node3D
 var _bumper: Area3D
 var _hit_cooldown := {}
 var _materials := {}
+var _headlight_points: Array[Vector3] = []
+var _headlights: Array[SpotLight3D] = []
+var headlights_on := false
 
 
 func _ready() -> void:
 	mass = 1050.0
 	center_of_mass_mode = RigidBody3D.CENTER_OF_MASS_MODE_CUSTOM
-	center_of_mass = Vector3(0, -0.1, 0) # abaixo do eixo das rodas: muito difícil de capotar
+	center_of_mass = Vector3(0, 0.15, 0) # baixo: não capota fácil
 	collision_layer = 1
 	collision_mask = 1 | LAYER_ENEMY
 	add_to_group("interactable")
@@ -76,6 +77,7 @@ func interact(player: Node) -> void:
 func set_driver(who: Node3D) -> void:
 	driver = who
 	set_see_through(who != null)
+	set_headlights(who != null) # entra: faróis acendem; sai: apagam
 	if who == null:
 		engine_force = 0.0
 		steering = 0.0
@@ -98,7 +100,6 @@ func hand_points() -> Array:
 # --- Direção -----------------------------------------------------------------
 
 func _physics_process(delta: float) -> void:
-	_stabilize()
 	var forward := global_basis.z
 	var speed := linear_velocity.dot(forward)
 	if driver == null:
@@ -128,21 +129,40 @@ func _physics_process(delta: float) -> void:
 		brake = max_brake * 1.5 # freio de mão
 
 
-## Barra estabilizadora: com as rodas no chão, empurra a carroceria de volta para
-## a vertical em torno do eixo longitudinal (rolagem) e amortece o balanço.
-func _stabilize() -> void:
-	var grounded := 0
-	for child in get_children():
-		if child is VehicleWheel3D and child.is_in_contact():
-			grounded += 1
-	if grounded < 2:
-		return
-	var forward := global_basis.z
-	var up := global_basis.y
-	var roll_axis := up.cross(Vector3.UP)
-	var roll := roll_axis.dot(forward) # inclinação lateral (sinal = lado)
-	var roll_rate := angular_velocity.dot(forward)
-	apply_torque(forward * (roll * anti_roll - roll_rate * roll_damping))
+## Lente de vidro fechando cada farol (acende junto com a luz) + luz de verdade.
+func _build_headlights(model: Node3D) -> void:
+	for point in _headlight_points:
+		var lens := MeshBuilder.new()
+		lens.lathe(PackedVector2Array([Vector2(0.112, 0.0), Vector2(0.06, 0.012), Vector2(0.002, 0.016)]), 14,
+				Basis(Vector3.RIGHT, PI / 2), point)
+		_add(model, lens.finish(_material("lens", Color(0.95, 0.9, 0.75), 0.3, 0.0, true)))
+		var light := SpotLight3D.new()
+		light.light_color = Color(1.0, 0.9, 0.7)
+		light.light_energy = 3.0
+		light.spot_range = 38.0
+		light.spot_angle = 28.0
+		light.spot_attenuation = 0.9
+		light.shadow_enabled = true
+		light.position = point + Vector3(0, 0, 0.03)
+		light.rotation = Vector3(-0.06, PI, 0) # luz aponta para -Z: gira para a frente do carro (+Z)
+		light.visible = false
+		model.add_child(light)
+		_headlights.append(light)
+
+
+func toggle_headlights() -> void:
+	set_headlights(not headlights_on)
+
+
+func set_headlights(on: bool) -> void:
+	headlights_on = on
+	for light in _headlights:
+		light.visible = on
+	var lens: StandardMaterial3D = _materials.get("lens")
+	if lens:
+		lens.emission_enabled = true
+		lens.emission = Color(1.0, 0.92, 0.7)
+		lens.emission_energy_multiplier = 2.0 if on else 0.05
 
 
 ## Visão do motorista: volante e coluna semitransparentes para não tapar a estrada.
@@ -228,6 +248,7 @@ func _build_model() -> void:
 	_add(model, dark.finish(_material("dark", DARK, 0.7, 0.3), false))
 	_add(model, leather.finish(_material("leather", LEATHER, 0.75, 0.0)))
 	_build_cockpit(model)
+	_build_headlights(model)
 	var spare := _wheel_node()
 	spare.position = Vector3(0, 0.72, -1.95)
 	spare.rotation = Vector3(-0.45, PI / 2, 0)
@@ -291,6 +312,7 @@ func _grille_and_lights(chrome: MeshBuilder, dark: MeshBuilder) -> void:
 	var lamp := PackedVector2Array([Vector2(0.02, -0.1), Vector2(0.08, -0.09), Vector2(0.115, -0.04), Vector2(0.125, 0.03), Vector2(0.12, 0.06)])
 	for side in [-1.0, 1.0]:
 		chrome.lathe(lamp, 14, Basis(Vector3.RIGHT, PI / 2), Vector3(side * 0.42, 0.57, 1.99))
+		_headlight_points.append(Vector3(side * 0.42, 0.57, 2.04))
 
 
 func _fenders(paint: MeshBuilder, dark: MeshBuilder) -> void:
@@ -457,12 +479,12 @@ func _build_wheels() -> void:
 			wheel.wheel_radius = WHEEL_RADIUS
 			wheel.wheel_rest_length = 0.32
 			wheel.suspension_travel = 0.28 # curso longo: fora de estrada
-			wheel.suspension_stiffness = 46.0
-			wheel.suspension_max_force = 12000.0
-			wheel.damping_compression = 3.2 # amortecido: não "pula" e balança menos nas curvas
-			wheel.damping_relaxation = 4.2
+			wheel.suspension_stiffness = 38.0
+			wheel.suspension_max_force = 9000.0
+			wheel.damping_compression = 2.2
+			wheel.damping_relaxation = 3.0
 			wheel.wheel_friction_slip = 2.2 # escorrega um pouco antes de tombar
-			wheel.wheel_roll_influence = 0.05 # a força das rodas quase não gira a carroceria
+			wheel.wheel_roll_influence = 0.25
 			wheel.add_child(_wheel_node())
 			add_child(wheel)
 
