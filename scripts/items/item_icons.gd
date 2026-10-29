@@ -1,16 +1,22 @@
 extends Node
 ## Autoload "ItemIcons": ícone de cada item, fotografado do próprio modelo 3D.
+## Ninguém precisa desenhar ícone: criou um item no ItemDB, o ícone aparece.
 ##
-## Na primeira vez que o jogo abre, cada item é renderizado num SubViewport
-## (fundo transparente, câmera ortográfica) e salvo em user://icon_cache/.
-## Nas próximas vezes os PNGs são só carregados. O cache é refeito sozinho
-## quando o jogo é atualizado: a "assinatura" junta a versão do projeto, a
-## versão do renderizador de ícones e o conteúdo do ItemDB.
+## Os PNGs ficam NA PASTA DO JOGO (res://assets/icons/) e vão junto no
+## repositório e no jogo exportado. Rodando pelo editor, o jogo confere a
+## "assinatura" (versão do projeto + RENDER_VERSION + conteúdo do ItemDB):
+## se algo mudou, fotografa de novo e regrava os PNGs. A GPU só é usada para
+## desenhar a foto uma vez; nada fica guardado nela.
+##
+## No jogo exportado a pasta do jogo é só leitura: os PNGs são só carregados.
+## Se faltar algum (esqueceu de rodar pelo editor antes de exportar), ele é
+## gerado em user://icon_cache/ como reserva.
 
 signal icons_ready
 
-const CACHE_DIR := "user://icon_cache"
-const MANIFEST := CACHE_DIR + "/manifest.txt"
+const ICON_DIR := "res://assets/icons"
+const MANIFEST := ICON_DIR + "/manifest.txt"
+const FALLBACK_DIR := "user://icon_cache"
 const RENDER_VERSION := 1 ## mude para forçar re-render (ex.: mudou ângulo/luz)
 const ICON_SIZE := 64 ## pequeno de propósito: fica pixelado como o resto do jogo
 
@@ -27,24 +33,46 @@ func get_icon(id: StringName) -> Texture2D:
 	return _icons.get(id)
 
 
-
-
 func _load_or_render() -> void:
-	var signature := _signature()
-	if DisplayServer.get_name() == "headless":
-		# Sem GPU não dá para fotografar: usa ícones simples e não mexe no cache.
-		for id in ItemDB.ITEMS:
-			_icons[id] = ImageTexture.create_from_image(_placeholder(id))
-	elif _cache_valid(signature):
-		for id in ItemDB.ITEMS:
-			var image := Image.load_from_file(_icon_path(id))
-			if image:
-				_icons[id] = ImageTexture.create_from_image(image)
+	var headless := DisplayServer.get_name() == "headless"
+	var in_editor := OS.has_feature("editor")
+	var missing: Array[StringName] = []
+	if in_editor and not headless and not _manifest_matches():
+		missing.assign(ItemDB.ITEMS.keys()) # mudou algo: refaz todos na pasta do jogo
 	else:
-		await _render_all()
-		_write_manifest(signature)
+		for id in ItemDB.ITEMS:
+			var texture := _load_icon(id)
+			if texture:
+				_icons[id] = texture
+			else:
+				missing.append(id)
+	if not missing.is_empty():
+		if headless:
+			# Sem GPU não dá para fotografar: ícones simples, sem gravar nada.
+			for id in missing:
+				_icons[id] = ImageTexture.create_from_image(_placeholder(id))
+		else:
+			var folder := ICON_DIR if in_editor else FALLBACK_DIR
+			await _render(missing, folder)
+			if in_editor:
+				_write_manifest(_signature())
 	ready_done = true
 	icons_ready.emit()
+
+
+## Carrega da pasta do jogo (importado) ou, se ainda não importado, direto do PNG.
+func _load_icon(id: StringName) -> Texture2D:
+	for folder in [ICON_DIR, FALLBACK_DIR]:
+		var path := "%s/%s.png" % [folder, id]
+		if folder == ICON_DIR and ResourceLoader.exists(path):
+			var texture := load(path) as Texture2D
+			if texture:
+				return texture
+		if FileAccess.file_exists(path):
+			var image := Image.load_from_file(path)
+			if image:
+				return ImageTexture.create_from_image(image)
+	return null
 
 
 func _signature() -> String:
@@ -53,13 +81,13 @@ func _signature() -> String:
 	return data.sha256_text()
 
 
-func _cache_valid(signature: String) -> bool:
+func _manifest_matches() -> bool:
 	if not FileAccess.file_exists(MANIFEST):
 		return false
-	if FileAccess.get_file_as_string(MANIFEST).strip_edges() != signature:
+	if FileAccess.get_file_as_string(MANIFEST).strip_edges() != _signature():
 		return false
 	for id in ItemDB.ITEMS:
-		if not FileAccess.file_exists(_icon_path(id)):
+		if not FileAccess.file_exists("%s/%s.png" % [ICON_DIR, id]):
 			return false
 	return true
 
@@ -70,17 +98,13 @@ func _write_manifest(signature: String) -> void:
 		file.store_string(signature)
 
 
-func _icon_path(id: StringName) -> String:
-	return "%s/%s.png" % [CACHE_DIR, id]
-
-
 # --- Render -------------------------------------------------------------------
 
-func _render_all() -> void:
-	DirAccess.make_dir_recursive_absolute(CACHE_DIR)
+func _render(ids: Array[StringName], folder: String) -> void:
+	DirAccess.make_dir_recursive_absolute(folder)
 	var studio := _make_studio()
 	add_child(studio.viewport)
-	for id in ItemDB.ITEMS:
+	for id in ids:
 		var model := ItemDB.make_mesh(id)
 		studio.pivot.add_child(model)
 		_frame(model, studio.camera)
@@ -90,7 +114,7 @@ func _render_all() -> void:
 		if image == null or image.is_empty():
 			image = _placeholder(id)
 		else:
-			image.save_png(_icon_path(id))
+			image.save_png("%s/%s.png" % [folder, id])
 		_icons[id] = ImageTexture.create_from_image(image)
 		model.queue_free()
 		await get_tree().process_frame

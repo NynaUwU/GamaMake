@@ -1,6 +1,9 @@
 [gd_scene format=3]
 
 [ext_resource type="Script" path="res://scripts/main.gd" id="1_main"]
+[ext_resource type="Script" path="res://scripts/world/terrain_world.gd" id="8_terrain"]
+[ext_resource type="Script" path="res://scripts/world/biome_atmosphere.gd" id="9_atmosphere"]
+[ext_resource type="Script" path="res://scripts/world/zombie_spawner.gd" id="10_spawner"]
 [ext_resource type="PackedScene" path="res://scenes/player.tscn" id="2_player"]
 [ext_resource type="PackedScene" path="res://scenes/zombie.tscn" id="3_zombie"]
 [ext_resource type="PackedScene" path="res://scenes/ui/hud.tscn" id="4_hud"]
@@ -226,6 +229,22 @@ position = Vector3(10, 0, -2)
 
 [node name="Zombie5" parent="Enemies" instance=ExtResource("3_zombie")]
 position = Vector3(2, 0.2, -21)
+
+[node name="Terrain" type="Node3D" parent="."]
+script = ExtResource("8_terrain")
+player_path = NodePath("../Player")
+
+[node name="Atmosphere" type="Node" parent="."]
+script = ExtResource("9_atmosphere")
+terrain_path = NodePath("../Terrain")
+environment_path = NodePath("../WorldEnvironment")
+player_path = NodePath("../Player")
+sun_path = NodePath("../Sun")
+
+[node name="ZombieSpawner" type="Node" parent="."]
+script = ExtResource("10_spawner")
+terrain_path = NodePath("../Terrain")
+player_path = NodePath("../Player")
 
 [node name="RetroScreen" parent="." instance=ExtResource("5_retro")]
 

@@ -26,6 +26,7 @@ func _ready() -> void:
 	player.interact_prompt_changed.connect(func(text: String): prompt_label.text = text)
 	player.notify.connect(show_message)
 	player.weapon_changed.connect(func(weapon_name: String): weapon_label.text = weapon_name)
+	player._emit_weapon_text() # o primeiro aviso saiu antes do HUD conectar
 	prompt_label.text = ""
 	message_label.modulate.a = 0.0
 	var inventory_ui := InventoryUI.new()

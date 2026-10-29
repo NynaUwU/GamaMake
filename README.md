@@ -33,15 +33,31 @@ reação física a golpes e ragdoll (estilo Dying Light), visual de PC dos anos 
 - A arma na mão é a do slot selecionado; slot sem arma = punhos.
 
 ### Ícones e janela de informação
-- `scripts/items/item_icons.gd` (autoload `ItemIcons`): na primeira vez que o jogo abre, cada
-  item é fotografado do próprio modelo 3D (64x64, fundo transparente) e salvo em
-  `user://icon_cache/`. Nas próximas vezes só carrega os PNGs.
-- O cache é refeito sozinho quando o jogo muda: a assinatura junta
-  `application/config/version` (Projeto → Configurações), `RENDER_VERSION` e o conteúdo do
-  `ItemDB`. Mudou um item ou subiu a versão → re-render automático.
+- `scripts/items/item_icons.gd` (autoload `ItemIcons`) fotografa o modelo 3D de cada item
+  (64x64, fundo transparente) — **ninguém precisa desenhar ícone**.
+- Os PNGs ficam **na pasta do jogo**: `assets/icons/` (vão no repositório e no jogo exportado).
+- Rodando pelo editor, o jogo confere a assinatura em `assets/icons/manifest.txt`
+  (`application/config/version` + `RENDER_VERSION` + conteúdo do `ItemDB`). Mudou item ou versão →
+  fotografa de novo e regrava os PNGs. A GPU só desenha a foto uma vez; nada fica guardado nela.
+- No jogo exportado os PNGs são só carregados. Faltou algum? É gerado em `user://icon_cache/`.
 - Os slots mostram só o ícone (e a quantidade). Passando o mouse na mochila aparece uma
   janelinha que segue o mouse com nome, tipo de dano, dano, empurrão e descrição
   (campos `damage_type`, `damage`, `knockback`, `desc` no `ItemDB`).
+
+## Mapa aberto (`scripts/world/`)
+- `terrain_world.gd`: mapa de **3 km x 3 km** gerado pela semente (`seed`; `randomize_seed`
+  para sortear). Norte = **inverno** (morros com neve, pinheiros), meio = **planícies** (grama,
+  árvores) cortadas por **cadeias de montanhas** (até ~150 m, neve no topo), sul = **deserto**
+  grande e quase plano (dunas de ~3 m, cactos). Bordas sobem em montanhas; o centro é a cidade.
+- O terreno vem em pedaços de 64 m que aparecem perto do player e somem longe (até 300 m).
+  O cálculo roda em threads; a thread principal só monta os nós (~2.5 ms por pedaço).
+- `terrain_props.gd`: árvores, arbustos, pinheiros, cactos e rochas em blocos (MultiMesh),
+  com colisão no tronco/rocha. Sempre os mesmos para a mesma semente.
+- `biome_atmosphere.gd`: neblina por distância conforme o bioma onde você está, com transição
+  suave: planície ~180 m, deserto ~210 m, montanha ~160 m, **neve ~50 m** (com neve caindo e sol
+  mais fraco). Valores na tabela `FOG`.
+- `zombie_spawner.gd`: mantém ~14 zumbis entre 45 e 140 m do player (mais no inverno) e apaga os
+  que ficam a mais de 240 m. Fora da cidade eles andam em linha reta (sem NavigationMesh).
 
 ## Movimento (`scripts/player/parkour.gd`)
 - Sonda à frente: altura do topo e profundidade do obstáculo decidem o movimento.

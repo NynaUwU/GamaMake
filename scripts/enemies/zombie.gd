@@ -558,6 +558,12 @@ func _setup_navigation() -> void:
 	add_child(_agent)
 
 
+## Está em cima (ou perto) da malha de navegação? Fora dela o caminho levaria à cidade.
+func _on_navmesh() -> bool:
+	var closest := NavigationServer3D.map_get_closest_point(_agent.get_navigation_map(), global_position)
+	return closest.distance_to(global_position) < 2.0
+
+
 func _nav_ready() -> bool:
 	return NavigationServer3D.map_get_iteration_id(_agent.get_navigation_map()) > 0
 
@@ -569,8 +575,8 @@ func _chase_direction(to_target: Vector3, delta: float) -> Vector3:
 	if repath:
 		_repath_timer = 0.4
 		_agent.target_position = target.global_position
-	if not _nav_ready():
-		return to_target.normalized()
+	if not _nav_ready() or not _on_navmesh():
+		return to_target.normalized() # fora da cidade (mapa aberto): vai reto
 	var next := _agent.get_next_path_position() # recalcula o caminho se mudou o alvo
 	if repath:
 		_decide_climb(to_target)
