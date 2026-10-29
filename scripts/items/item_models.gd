@@ -149,40 +149,49 @@ static func _lantern(p: Dictionary) -> void:
 	_mb(p, LENS).lathe(PackedVector2Array([Vector2(0.042, 0.215), Vector2(0.002, 0.23)]), 8, AXIS_Z)
 
 
-## Carregador a dínamo (inspirado no do Metro Exodus): motor de ferro com
-## tirantes de latão, bobina de cobre, alavanca vermelha que se aperta contra o
-## cabo e um medidor de carga com ponteiro. Peças móveis em nós separados:
-## "Lever" (gira em X ao apertar), "Rotor" (gira em Z) e "Needle" (gira em Z).
-## Origem = empunhadura (como a pistola: mão em volta, cabo para baixo).
+## Carregador a dínamo (inspirado no do Metro Exodus), em layout HORIZONTAL:
+## a mão segura o cabo à direita; o motor de ferro deitado (eixo X) vai para a
+## esquerda com a bobina de cobre embaixo; o medidor fica em cima do cabo,
+## virado para o player; vários fios ligam tudo. Peças móveis em nós
+## separados: "Lever" (gira em X ao apertar), "Rotor" (gira em X, na ponta do
+## motor) e "Needle" (gira em Z). Origem = empunhadura.
 static func build_charger() -> Node3D:
 	var root := Node3D.new()
 	root.name = "Model"
 	var p := {}
-	# Cabo fixo de ferro (onde a mão fica) e base.
-	_mb(p, IRON).box(Vector3(0, -0.045, 0.012), Vector3(0.028, 0.11, 0.034), Basis(Vector3(1, 0, 0), -0.25))
-	_mb(p, IRON).box(Vector3(0, 0.012, -0.02), Vector3(0.05, 0.02, 0.1))
-	# Motor: cilindro deitado (eixo Z), tampas e tirantes de latão.
-	var motor := Vector3(0, 0.06, -0.03)
-	_mb(p, IRON).lathe(PackedVector2Array([Vector2(0.002, -0.05), Vector2(0.045, -0.05), Vector2(0.048, 0.0),
-		Vector2(0.045, 0.05), Vector2(0.002, 0.05)]), 10, AXIS_Z, motor)
+	var axis_x := Basis(Vector3(0, 0, 1), PI / 2) # lathe ao longo de X
+	# Cabo fixo de ferro (mão) e trilho que segura o motor.
+	_mb(p, IRON).box(Vector3(0, -0.04, 0.008), Vector3(0.03, 0.1, 0.034), Basis(Vector3(1, 0, 0), -0.2))
+	_mb(p, IRON).box(Vector3(-0.07, 0.022, -0.02), Vector3(0.17, 0.016, 0.05))
+	# Motor deitado para a esquerda, com tampas e tirantes de latão.
+	var motor := Vector3(-0.095, 0.075, -0.02)
+	_mb(p, IRON).lathe(PackedVector2Array([Vector2(0.002, -0.06), Vector2(0.045, -0.06), Vector2(0.049, 0.0),
+		Vector2(0.045, 0.06), Vector2(0.002, 0.06)]), 10, axis_x, motor)
 	for i in 4:
 		var a := TAU * i / 4.0 + PI / 4
-		var off := Vector3(cos(a), sin(a), 0) * 0.05
-		_mb(p, BRASS).tube(PackedVector3Array([motor + off + Vector3(0, 0, 0.055), motor + off + Vector3(0, 0, -0.055)]), 0.004, 4)
-	# Bobina de cobre embaixo, de lado (eixo X).
-	_mb(p, COPPER).lathe(PackedVector2Array([Vector2(0.002, -0.035), Vector2(0.02, -0.035), Vector2(0.022, 0.0),
-		Vector2(0.02, 0.035), Vector2(0.002, 0.035)]), 10, Basis(Vector3(0, 0, 1), PI / 2), Vector3(0, 0.0, -0.075))
-	# Medidor: caixa marrom em cima, virada para o player (+Z), com face creme.
-	var gauge := Vector3(0, 0.125, 0.005)
+		var off := Vector3(0, cos(a), sin(a)) * 0.051
+		_mb(p, BRASS).tube(PackedVector3Array([motor + off + Vector3(0.066, 0, 0), motor + off + Vector3(-0.066, 0, 0)]), 0.004, 4)
+	# Bobina de cobre embaixo do motor, também deitada.
+	var coil := Vector3(-0.09, 0.003, -0.02)
+	_mb(p, COPPER).lathe(PackedVector2Array([Vector2(0.002, -0.045), Vector2(0.02, -0.045), Vector2(0.023, 0.0),
+		Vector2(0.02, 0.045), Vector2(0.002, 0.045)]), 10, axis_x, coil)
+	for x in [-0.05, 0.05]:
+		_mb(p, IRON).lathe(PackedVector2Array([Vector2(0.002, -0.004), Vector2(0.026, -0.004), Vector2(0.026, 0.004), Vector2(0.002, 0.004)]),
+				8, axis_x, coil + Vector3(x, 0, 0))
+	# Medidor em cima do cabo, virado para o player (+Z).
+	var gauge := Vector3(0.0, 0.095, 0.0)
 	_mb(p, COPPER.darkened(0.4)).box(gauge, Vector3(0.07, 0.06, 0.024))
 	_mb(p, CREAM).box(gauge + Vector3(0, 0.004, 0.0125), Vector3(0.056, 0.042, 0.002))
 	for i in 5: # marcas da escala
 		var a := lerpf(-0.9, 0.9, i / 4.0)
 		_mb(p, DARK).box(gauge + Vector3(sin(a) * 0.022, -0.012 + cos(a) * 0.022, 0.0137), Vector3(0.0025, 0.006, 0.001), Basis(Vector3.BACK, -a))
-	_mb(p, IRON).box(gauge + Vector3(0, -0.038, -0.005), Vector3(0.02, 0.02, 0.012)) # suporte até o motor
-	# Fios.
-	_mb(p, WIRE).tube(PackedVector3Array([gauge + Vector3(0.03, -0.02, 0), motor + Vector3(0.06, 0.02, 0.02), motor + Vector3(0.048, 0.0, -0.02)]), 0.004, 4)
-	_mb(p, RED_PAINT).tube(PackedVector3Array([Vector3(-0.02, 0.0, -0.06), Vector3(-0.045, -0.03, -0.02), Vector3(-0.02, -0.06, 0.02)]), 0.0035, 4)
+	_mb(p, IRON).box(gauge + Vector3(0, -0.045, -0.01), Vector3(0.02, 0.035, 0.014)) # pé do medidor
+	# Fios: soltos, fazendo curva, ligando medidor, motor, bobina e cabo.
+	_wire(p, WIRE, [gauge + Vector3(-0.034, 0.01, -0.005), motor + Vector3(0.03, 0.07, 0.0), motor + Vector3(-0.02, 0.052, 0.0)])
+	_wire(p, RED_PAINT, [gauge + Vector3(0.034, -0.015, 0.0), Vector3(0.06, 0.03, 0.02), Vector3(0.04, -0.07, 0.03), Vector3(0.01, -0.09, 0.02)])
+	_wire(p, DARK, [gauge + Vector3(0.034, -0.025, -0.005), Vector3(0.07, 0.0, 0.0), Vector3(0.05, -0.08, 0.0), Vector3(0.012, -0.095, 0.0)])
+	_wire(p, CREAM, [coil + Vector3(0.045, -0.01, 0.02), Vector3(-0.01, -0.03, 0.04), Vector3(-0.08, -0.06, 0.05), Vector3(-0.16, -0.03, 0.02), motor + Vector3(-0.07, -0.02, 0.03)])
+	_wire(p, WIRE, [coil + Vector3(-0.045, 0.0, -0.02), Vector3(-0.17, -0.01, -0.06), motor + Vector3(-0.07, 0.0, -0.04)])
 	for color in p:
 		var mesh := MeshInstance3D.new()
 		mesh.mesh = p[color].finish(_material(color))
@@ -190,18 +199,18 @@ static func build_charger() -> Node3D:
 	# Alavanca vermelha: pivô na base, na frente do cabo.
 	var lever := Node3D.new()
 	lever.name = "Lever"
-	lever.position = Vector3(0, 0.0, -0.035)
+	lever.position = Vector3(0, 0.01, -0.03)
 	var lp := {}
 	_mb(lp, RED_PAINT).box(Vector3(0, -0.055, -0.012), Vector3(0.026, 0.11, 0.018), Basis(Vector3(1, 0, 0), 0.35))
 	_part(lever, lp)
 	root.add_child(lever)
-	# Rotor (volante) na frente do motor.
+	# Rotor (volante) na ponta esquerda do motor; gira em X.
 	var rotor := Node3D.new()
 	rotor.name = "Rotor"
-	rotor.position = motor + Vector3(0, 0, -0.058)
+	rotor.position = motor + Vector3(-0.068, 0, 0)
 	var rp := {}
-	_mb(rp, IRON).lathe(PackedVector2Array([Vector2(0.002, -0.006), Vector2(0.03, -0.006), Vector2(0.03, 0.006), Vector2(0.002, 0.006)]), 6, AXIS_Z)
-	_mb(rp, BRASS).box(Vector3(0, 0.018, 0.0), Vector3(0.008, 0.02, 0.014)) # marca: dá para ver girar
+	_mb(rp, IRON).lathe(PackedVector2Array([Vector2(0.002, -0.006), Vector2(0.032, -0.006), Vector2(0.032, 0.006), Vector2(0.002, 0.006)]), 6, axis_x)
+	_mb(rp, BRASS).box(Vector3(-0.007, 0.02, 0.0), Vector3(0.004, 0.02, 0.012)) # marca: dá para ver girar
 	_part(rotor, rp)
 	root.add_child(rotor)
 	# Ponteiro do medidor (gira em volta do pivô embaixo do mostrador).
@@ -213,6 +222,20 @@ static func build_charger() -> Node3D:
 	_part(needle, np)
 	root.add_child(needle)
 	return root
+
+
+## Fio curvo passando pelos pontos (curva suave entre eles).
+static func _wire(parts: Dictionary, color: Color, points: Array) -> void:
+	var path := PackedVector3Array()
+	for i in points.size() - 1:
+		var a: Vector3 = points[i]
+		var b: Vector3 = points[i + 1]
+		var sag := Vector3(0, -0.012, 0)
+		for k in 4:
+			var t := k / 4.0
+			path.append(a.lerp(b, t) + sag * sin(t * PI))
+	path.append(points[points.size() - 1])
+	_mb(parts, color).tube(path, 0.0035, 4)
 
 
 static func _part(parent: Node3D, parts: Dictionary) -> void:

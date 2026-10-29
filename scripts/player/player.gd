@@ -53,7 +53,7 @@ const GUARD_HAND := Vector3(0.32, -0.34, -0.45) ## posição da mão em guarda
 const GUARD_DIR := Vector3(0.2, 0.75, -0.6) ## para onde a arma aponta em guarda
 const STAFF_REST := Vector3(0.34, -0.5, -0.55)
 const PISTOL_REST := Vector3(0.2, -0.21, -0.42)
-const CHARGER_REST := Vector3(0.13, -0.2, -0.33)
+const CHARGER_REST := Vector3(0.2, -0.2, -0.34)
 
 enum SwingPhase { NONE, WINDUP, SLASH, RECOVER }
 
@@ -1198,10 +1198,10 @@ func _update_charger(delta: float) -> void:
 	if _weapon_type != WeaponType.CHARGER or charger == null:
 		return
 	charger.position = CHARGER_REST + _bob_offset(0.8) + _equip_offset() + Vector3(0, 0.01, 0.015) * _lever
-	charger.rotation = Vector3(0.05 * _lever, 0.35, 0.0) # virado de leve: dá para ver motor e medidor
+	charger.rotation = Vector3(0.05 * _lever, -0.25, 0.0) # motor apontando para o centro da tela
 	var model := charger.get_child(0)
 	model.get_node("Lever").rotation.x = -0.3 * ease(_lever, 0.5) # alavanca encosta no cabo
-	model.get_node("Rotor").rotation.z += _crank_rate * 25.0 * delta
+	model.get_node("Rotor").rotation.x += _crank_rate * 25.0 * delta
 	var needle: Node3D = model.get_node("Needle")
 	var wanted := lerpf(0.9, -0.9, flashlight_charge) + sin(Time.get_ticks_msec() * 0.03) * 0.03 * _crank_rate
 	needle.rotation.z = lerpf(needle.rotation.z, wanted, 1.0 - exp(-10.0 * delta))

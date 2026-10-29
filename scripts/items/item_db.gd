@@ -22,7 +22,7 @@ const ITEMS := {
 		"desc": "Latão, madeira e pólvora de procedência duvidosa. 12 tiros e munição infinita."},
 	&"lanterna": {"name": "Lanterna", "kind": "tool", "stack": 1, "size": Vector3(0.08, 0.08, 0.24),
 		"desc": "Lanterna de latão (L). Gasta bateria; recarregue com o carregador. Zumbis adoram uma luz na cara."},
-	&"carregador": {"name": "Carregador", "kind": "weapon", "weapon": "charger", "stack": 1, "size": Vector3(0.1, 0.22, 0.16),
+	&"carregador": {"name": "Carregador", "kind": "weapon", "weapon": "charger", "stack": 1, "size": Vector3(0.26, 0.2, 0.1),
 		"desc": "Dínamo de mão para a bateria da lanterna. Aperte rápido: devagar só cansa o braço."},
 	&"sucata": {"name": "Sucata", "kind": "material", "stack": 10, "size": Vector3(0.3, 0.12, 0.2),
 		"desc": "Ferro torto e cano de cobre. Um dia vai virar algo incrível. Hoje é só sucata."},
