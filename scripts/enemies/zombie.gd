@@ -11,6 +11,7 @@ extends CharacterBody3D
 ##   DOWN      -> caído em ragdoll (perdeu o equilíbrio de vez, perna, explosão)
 ##   GETTING_UP-> levanta em etapas (ou volta a rastejar)
 ##   IMPALED   -> espetado na espada do player (ragdoll preso pelo peito)
+##   CLIMB     -> escalando um obstáculo (quando dar a volta é longe demais)
 ##   DEAD      -> ragdoll permanente
 ##
 ## Membros (cabeça, braços, pernas) têm vida própria. Quando a vida do membro
@@ -20,7 +21,7 @@ extends CharacterBody3D
 
 signal died(zombie: Zombie)
 
-enum State { IDLE, CHASE, ATTACK, STAGGER, STUMBLE, DOWN, GETTING_UP, DEAD, IMPALED }
+enum State { IDLE, CHASE, ATTACK, STAGGER, STUMBLE, DOWN, GETTING_UP, DEAD, IMPALED, CLIMB }
 enum LimbState { OK, BROKEN, CUT }
 
 const LAYER_HITBOX := 1 << 4
@@ -56,6 +57,17 @@ const LIMBS := {
 @export var step_time := 0.3 ## duração de cada passo do tranco (1 ou 2 passos)
 @export var step_speed := 1.5
 @export var turn_speed := 7.0
+@export var broken_limb_damage := 0.15 ## bater num membro já quebrado quase não dói
+@export var weapon_chance := 0.3 ## chance de nascer com arma corpo a corpo
+@export var weapon_id: StringName = &"" ## força uma arma (vazio = sorteio)
+@export var weapon_damage_multiplier := 1.6
+
+@export_group("Navegação")
+## Desvia de obstáculos pelo NavigationMesh. Só escala quando o caminho em volta
+## é mais que climb_detour_ratio vezes a distância em linha reta (ou não existe).
+@export var climb_max_height := 2.3
+@export var climb_detour_ratio := 2.0
+@export var climb_speed := 0.7 ## segundos por metro de altura (+ base)
 
 @export_group("Membros")
 @export var head_health := 70.0
@@ -101,6 +113,15 @@ var _getup_progress := 0.0
 var _standing_shape: Shape3D
 var _standing_shape_transform: Transform3D
 var _gravity: float = ProjectSettings.get_setting("physics/3d/default_gravity")
+var _alerted := false # viu a lanterna: persegue de qualquer distância
+var _bumped: Array = [] # quem já levou encontrão neste tranco
+var _held_weapon: Node3D
+var _impale_from_back := false
+var _agent: NavigationAgent3D
+var _repath_timer := 0.0
+var _climb_mode := false # vai em linha reta e escala o que estiver no caminho
+var _climb_points: Array[Vector3] = []
+var _climb_duration := 1.0
 
 @onready var collision: CollisionShape3D = $CollisionShape3D
 @onready var skeleton: Skeleton3D = $Skeleton3D
@@ -121,6 +142,11 @@ func _ready() -> void:
 	ragdoll.blend_finished.connect(_on_ragdoll_blended_out)
 	if target == null:
 		target = get_tree().get_first_node_in_group("player")
+	if weapon_id == &"" and randf() < weapon_chance:
+		weapon_id = ItemDB.ZOMBIE_WEAPONS.pick_random()
+	if weapon_id != &"":
+		_equip_weapon.call_deferred(weapon_id)
+	_setup_navigation()
 
 
 func _physics_process(delta: float) -> void:
@@ -141,6 +167,8 @@ func _physics_process(delta: float) -> void:
 			_update_down()
 		State.GETTING_UP:
 			_update_getting_up(delta)
+		State.CLIMB:
+			_update_climb(delta)
 		State.DEAD, State.IMPALED:
 			pass
 	if state in [State.IDLE, State.CHASE, State.ATTACK, State.STAGGER, State.STUMBLE]:
@@ -149,6 +177,7 @@ func _physics_process(delta: float) -> void:
 		move_and_slide()
 	_update_balance(delta)
 	_update_body_pose(delta)
+	_bump_others()
 
 
 # --- Estados ---------------------------------------------------------------
@@ -164,12 +193,16 @@ func _update_chase(delta: float) -> void:
 		_set_state(State.IDLE)
 		return
 	var to_target := _flat_to_target()
-	_face(to_target, delta, turn_speed * (0.5 if crawler else 1.0))
+	var direction := _chase_direction(to_target, delta)
+	# Longe: olha para onde anda (contorna obstáculos). Perto: olha para o player.
+	_face(direction if to_target.length() > 3.0 else to_target, delta, turn_speed * (0.5 if crawler else 1.0))
 	var reach := attack_range * (0.8 if crawler else 1.0)
 	if to_target.length() <= reach and _cooldown <= 0.0:
 		_set_state(State.ATTACK)
 		return
-	var desired := to_target.normalized() * (crawl_speed if crawler else move_speed)
+	if _climb_mode and _try_start_climb(direction):
+		return
+	var desired := direction * (crawl_speed if crawler else move_speed)
 	velocity.x = lerpf(velocity.x, desired.x, 1.0 - exp(-5.0 * delta))
 	velocity.z = lerpf(velocity.z, desired.z, 1.0 - exp(-5.0 * delta))
 
@@ -236,6 +269,14 @@ func take_hit(hit: HitInfo) -> void:
 	if hit.bone in _cut_bones:
 		return
 	var limb := _limb_of(hit.bone)
+	if state == State.CLIMB:
+		# Apanhou escalando: despenca.
+		health -= hit.damage * BONE_DAMAGE.get(hit.bone, 1.0)
+		if health <= 0.0:
+			_die(hit.bone, hit.point, hit.direction * hit.force)
+		else:
+			_knock_down(hit.bone, hit.point, hit.direction * hit.force)
+		return
 	if state == State.IMPALED:
 		# Espetado: apanha, mas continua na lâmina até o player soltar.
 		_hurt(hit.damage * BONE_DAMAGE.get(hit.bone, 1.0))
@@ -246,7 +287,10 @@ func take_hit(hit: HitInfo) -> void:
 			_damage_limb(limb, hit) # dá para arrancar pedaços do corpo caído
 		ragdoll.apply_hit(hit.bone, hit.direction * hit.force, hit.point)
 		return
-	health -= hit.damage * BONE_DAMAGE.get(hit.bone, 1.0)
+	var body_damage: float = hit.damage * BONE_DAMAGE.get(hit.bone, 1.0)
+	if limb != &"" and _limb_state[limb] == LimbState.BROKEN:
+		body_damage *= broken_limb_damage # osso já quebrado: quase não dói mais
+	health -= body_damage
 	if limb != &"":
 		_damage_limb(limb, hit)
 	if health <= 0.0:
@@ -301,6 +345,7 @@ func take_explosion(center: Vector3, damage: float, force: float) -> void:
 		if health <= 0.0:
 			_set_state(State.DEAD)
 			died.emit(self)
+			_drop_weapon()
 			_dismember_all(center, force)
 		else:
 			_set_state(State.DOWN)
@@ -338,6 +383,7 @@ func _knock_down(bone: StringName, point: Vector3, impulse: Vector3) -> void:
 
 
 func _die(bone: StringName, point: Vector3, impulse: Vector3) -> void:
+	_drop_weapon()
 	_end_attack()
 	_enter_ragdoll()
 	ragdoll.apply_hit(bone, impulse, point)
@@ -360,8 +406,20 @@ func _enter_ragdoll() -> void:
 var _impale_died := false
 
 
-func can_be_impaled() -> bool:
-	return state not in [State.IMPALED, State.DEAD, State.DOWN, State.GETTING_UP]
+## from_direction: direção da lâmina (do player para o zumbi). De lado não espeta;
+## de frente ou de costas sim.
+func can_be_impaled(from_direction := Vector3.ZERO) -> bool:
+	if state in [State.IMPALED, State.DEAD, State.DOWN, State.GETTING_UP] or crawler:
+		return false
+	if from_direction == Vector3.ZERO:
+		return true
+	var facing := -global_basis.z
+	var to_player := -Vector3(from_direction.x, 0, from_direction.z).normalized()
+	var dot := facing.dot(to_player)
+	if absf(dot) < 0.5:
+		return false
+	_impale_from_back = dot < 0.0
+	return true
 
 
 ## A espada atravessou o zumbi: vira ragdoll preso pela lâmina.
@@ -375,13 +433,24 @@ func impale(damage: float, point: Vector3, direction: Vector3) -> void:
 
 
 ## Chamado a cada frame de física pelo player: puxa o peito até a lâmina.
-func hold_impaled(target_point: Vector3, carrier_velocity: Vector3) -> void:
+func hold_impaled(target_point: Vector3, carrier_velocity: Vector3, blade_direction := Vector3.ZERO) -> void:
 	var chest := ragdoll.get_bone_body(&"Chest")
 	if chest == null:
 		return
 	var pull := (target_point - chest.global_position) * 18.0
 	chest.linear_velocity = (pull + carrier_velocity).limit_length(14.0)
-	chest.angular_velocity *= 0.8
+	if blade_direction == Vector3.ZERO:
+		chest.angular_velocity *= 0.8
+		return
+	# Alinha o tronco com a lâmina: peito (ou costas) virado para o player, em pé.
+	var front := -blade_direction if not _impale_from_back else blade_direction
+	front.y = 0.0
+	var wanted := Basis.looking_at(front.normalized(), Vector3.UP)
+	var error := (wanted * chest.global_basis.orthonormalized().inverse()).get_rotation_quaternion()
+	var angle := error.get_angle()
+	if angle > PI:
+		angle -= TAU
+	chest.angular_velocity = (error.get_axis() * angle * 10.0).limit_length(12.0)
 
 
 ## Chutado para fora da lâmina.
@@ -399,7 +468,218 @@ func _hurt(amount: float) -> void:
 	health -= amount
 	if health <= 0.0:
 		_impale_died = true
+		_drop_weapon()
 		died.emit(self)
+
+
+# --- Reações extras ---------------------------------------------------------
+
+## Player deslizou por baixo: as pernas vão para frente e o zumbi cai.
+func trip(direction: Vector3, force: float) -> void:
+	if state in [State.DOWN, State.DEAD, State.IMPALED, State.GETTING_UP] or crawler:
+		return
+	_end_attack()
+	_enter_ragdoll()
+	_set_state(State.DOWN)
+	var flat := Vector3(direction.x, 0, direction.z).normalized()
+	for bone in [&"LowerLeg.L", &"LowerLeg.R"]:
+		var body := ragdoll.get_bone_body(bone)
+		if body:
+			ragdoll.apply_hit(bone, (flat + Vector3.UP * 0.6) * force * 0.25, body.global_position)
+	ragdoll.apply_hit(&"Chest", -flat * force * 0.3, global_position + Vector3.UP * 1.3)
+
+
+## O player bloqueou o golpe. Parry (na hora certa) desequilibra muito.
+func on_blocked(parry: bool, push_direction: Vector3) -> void:
+	if state in [State.DOWN, State.DEAD, State.IMPALED]:
+		return
+	_end_attack()
+	_cooldown = attack_cooldown * (1.5 if parry else 1.0)
+	_lean_velocity += _to_local_flat(push_direction) * (4.0 if parry else 2.0)
+	if parry:
+		balance += stumble_at + 0.1
+		_stumble(push_direction, 40.0)
+	else:
+		_stagger(push_direction, 25.0)
+
+
+## Lanterna na cara: vem atrás do player de qualquer distância.
+func alert(who: Node3D) -> void:
+	target = who
+	_alerted = true
+	if state == State.IDLE:
+		_set_state(State.CHASE)
+
+
+## Zumbi cambaleando (ou voando em ragdoll) esbarra nos outros e empurra um pouco.
+func _bump_others() -> void:
+	var moving := Vector3(velocity.x, 0, velocity.z)
+	var center := global_position
+	var push := 0.0
+	if state in [State.STUMBLE, State.STAGGER] and moving.length() > 1.0:
+		push = 1.0
+	elif state in [State.DOWN, State.DEAD] and ragdoll.is_ragdolling():
+		var hips := ragdoll.get_bone_body(&"Hips")
+		if hips and hips.linear_velocity.length() > 3.0:
+			moving = hips.linear_velocity
+			moving.y = 0.0
+			center = hips.global_position
+			push = 1.6
+	if push == 0.0:
+		_bumped.clear()
+		return
+	for other in get_tree().get_nodes_in_group("enemy"):
+		if other == self or other in _bumped or not other.has_method("bumped"):
+			continue
+		var offset: Vector3 = other.global_position - center
+		offset.y = 0.0
+		if offset.length() < 0.9 and offset.normalized().dot(moving.normalized()) > 0.2:
+			_bumped.append(other)
+			other.bumped(moving.normalized(), push)
+
+
+func bumped(direction: Vector3, strength: float) -> void:
+	if state not in [State.IDLE, State.CHASE, State.ATTACK]:
+		return
+	hit_reaction.add_hit(&"Chest", direction, 0.5 * strength)
+	_lean_velocity += _to_local_flat(direction) * 1.5 * strength
+	balance += 0.15 * strength
+	_stagger(direction, 18.0 * strength)
+
+
+# --- Navegação e escalada -----------------------------------------------------
+
+func _setup_navigation() -> void:
+	_agent = NavigationAgent3D.new()
+	_agent.radius = 0.4
+	_agent.height = 1.8
+	_agent.path_desired_distance = 0.6
+	_agent.target_desired_distance = 1.0
+	add_child(_agent)
+
+
+func _nav_ready() -> bool:
+	return NavigationServer3D.map_get_iteration_id(_agent.get_navigation_map()) > 0
+
+
+## Direção para andar: segue o caminho do NavigationMesh (ou reto, se não houver).
+func _chase_direction(to_target: Vector3, delta: float) -> Vector3:
+	_repath_timer -= delta
+	var repath := _repath_timer <= 0.0
+	if repath:
+		_repath_timer = 0.4
+		_agent.target_position = target.global_position
+	if not _nav_ready():
+		return to_target.normalized()
+	var next := _agent.get_next_path_position() # recalcula o caminho se mudou o alvo
+	if repath:
+		_decide_climb(to_target)
+	if _climb_mode:
+		return to_target.normalized()
+	var direction := next - global_position
+	direction.y = 0.0
+	if _agent.is_navigation_finished() or direction.length() < 0.05:
+		return to_target.normalized()
+	return direction.normalized()
+
+
+## Escala só se dar a volta for longe demais (ou impossível) e houver algo
+## escalável no caminho reto.
+func _decide_climb(to_target: Vector3) -> void:
+	_climb_mode = false
+	if crawler or not _nav_ready():
+		return
+	var path := _agent.get_current_navigation_path()
+	if path.size() < 2:
+		return
+	var length := 0.0
+	for i in path.size() - 1:
+		length += path[i].distance_to(path[i + 1])
+	var unreachable := path[path.size() - 1].distance_to(target.global_position) > 1.5
+	if (length > to_target.length() * climb_detour_ratio or unreachable) and _obstacle_height(to_target.normalized(), to_target.length()) <= climb_max_height:
+		_climb_mode = true
+
+
+## Altura do primeiro obstáculo no caminho reto (0 = nada; INF = alto demais).
+func _obstacle_height(direction: Vector3, distance: float) -> float:
+	var space := get_world_3d().direct_space_state
+	var from := global_position + Vector3.UP * 0.5
+	var query := PhysicsRayQueryParameters3D.create(from, from + direction * distance, 1, [get_rid()])
+	var hit := space.intersect_ray(query)
+	if hit.is_empty():
+		return 0.0
+	var probe: Vector3 = hit.position + direction * 0.05 # dentro da parede (cerca fina)
+	var top_query := PhysicsRayQueryParameters3D.create(Vector3(probe.x, global_position.y + climb_max_height + 0.3, probe.z),
+			Vector3(probe.x, global_position.y - 0.1, probe.z), 1)
+	var top := space.intersect_ray(top_query)
+	return top.position.y - global_position.y if top else INF
+
+
+func _try_start_climb(direction: Vector3) -> bool:
+	var space := get_world_3d().direct_space_state
+	var from := global_position + Vector3.UP * 0.5
+	var hit := space.intersect_ray(PhysicsRayQueryParameters3D.create(from, from + direction * 0.7, 1, [get_rid()]))
+	if hit.is_empty():
+		return false
+	var height := _obstacle_height(direction, 0.8)
+	if height < 0.4 or height > climb_max_height:
+		return false
+	var wall: Vector3 = hit.position
+	var top_y := global_position.y + height
+	var feet := global_position
+	_climb_points = [feet, Vector3(wall.x, top_y, wall.z) - direction * 0.25, Vector3(wall.x, top_y, wall.z) + direction * 0.35]
+	# Obstáculo fino (cerca/muro): desce do outro lado.
+	var beyond: Vector3 = wall + direction * 0.8
+	var down := space.intersect_ray(PhysicsRayQueryParameters3D.create(Vector3(beyond.x, top_y + 0.3, beyond.z),
+			Vector3(beyond.x, feet.y - 1.0, beyond.z), 1))
+	if down and down.position.y < top_y - 0.4:
+		_climb_points.append(down.position + direction * 0.3)
+	_climb_duration = 0.6 + height * climb_speed + (0.4 if _climb_points.size() > 3 else 0.0)
+	rotation.y = atan2(-direction.x, -direction.z)
+	velocity = Vector3.ZERO
+	collision.set_deferred("disabled", true)
+	_set_state(State.CLIMB)
+	return true
+
+
+func _update_climb(_delta: float) -> void:
+	var k := clampf(_state_time / _climb_duration, 0.0, 1.0)
+	var segments := _climb_points.size() - 1
+	var f := k * segments
+	var i := mini(int(f), segments - 1)
+	global_position = _climb_points[i].lerp(_climb_points[i + 1], smoothstep(0.0, 1.0, f - i))
+	# Braços para cima agarrando, corpo encolhido.
+	locomotion.attack = 1.0 - absf(k - 0.4)
+	if k >= 1.0:
+		locomotion.attack = 0.0
+		collision.set_deferred("disabled", false)
+		_climb_mode = false
+		_repath_timer = 0.0
+		_set_state(State.CHASE)
+
+
+# --- Arma na mão ------------------------------------------------------------
+
+func _equip_weapon(id: StringName) -> void:
+	var hand := skeleton.get_node_or_null(HumanoidRig.attachment_name("LowerArm.R")) as Node3D
+	if hand == null:
+		return
+	_held_weapon = ItemDB.make_mesh(id)
+	hand.add_child(_held_weapon)
+	_held_weapon.position = Vector3(0, -0.3, 0)
+	weapon_id = id
+
+
+## Solta a arma no chão (morreu, ou o braço direito quebrou/saiu).
+func _drop_weapon() -> void:
+	if _held_weapon == null:
+		return
+	var item: PickupItem = load("res://scenes/props/pickup_item.tscn").instantiate()
+	item.item_id = weapon_id
+	get_parent().add_child(item)
+	item.global_transform = _held_weapon.global_transform
+	_held_weapon.queue_free()
+	_held_weapon = null
 
 
 # --- Levantar --------------------------------------------------------------
@@ -482,6 +762,8 @@ func _damage_limb(limb: StringName, hit: HitInfo) -> void:
 		limp_limbs.make_limp(bones)
 		_limb_state[limb] = LimbState.BROKEN
 		ImpactFX.burst(get_parent(), hit.point, -hit.direction + Vector3.UP, ImpactFX.BLOOD, 8, 1.5)
+	if limb == &"ArmR":
+		_drop_weapon()
 	match kind:
 		"head":
 			health = 0.0
@@ -531,7 +813,9 @@ func _try_damage_target() -> void:
 	if to_target.length() <= attack_range + 0.4 and facing.dot(to_target.normalized()) > 0.4:
 		if target.has_method("take_damage"):
 			var damage := attack_damage * maxf(_arm_count(), 1.0) / 2.0
-			target.take_damage(damage * (0.7 if crawler else 1.0), to_target.normalized())
+			if _held_weapon:
+				damage *= weapon_damage_multiplier
+			target.take_damage(damage * (0.7 if crawler else 1.0), to_target.normalized(), self)
 
 
 func _end_attack() -> void:
@@ -548,7 +832,7 @@ func _set_state(new_state: State) -> void:
 
 
 func _can_see_target() -> bool:
-	return is_instance_valid(target) and _flat_to_target().length() < detect_range
+	return is_instance_valid(target) and (_alerted or _flat_to_target().length() < detect_range)
 
 
 func _flat_to_target() -> Vector3:

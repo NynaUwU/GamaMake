@@ -49,6 +49,25 @@ func _process(delta: float) -> void:
 		_set_rot("UpperLeg." + side, Vector3(-dir.y * step, 0, dir.x * step * 0.5))
 		_set_rot("LowerLeg." + side, Vector3(-knee, 0, 0))
 
+	# Agachado / deslizando: quadril desce e as pernas dobram (ou vão para frente).
+	var parkour: Parkour = _player.get("parkour")
+	if parkour and parkour.move == Parkour.Move.SLIDE:
+		_skeleton.set_bone_pose_position(_b["Hips"], hips_rest + Vector3(0, -0.72, 0.1))
+		_set_rot("Hips", Vector3(1.0, 0, 0))
+		_set_rot("Spine", Vector3(-0.3, 0, 0))
+		_set_rot("UpperLeg.L", Vector3(0.45, 0, 0))
+		_set_rot("LowerLeg.L", Vector3(-0.1, 0, 0))
+		_set_rot("UpperLeg.R", Vector3(0.9, 0, 0))
+		_set_rot("LowerLeg.R", Vector3(-1.2, 0, 0))
+	elif parkour and parkour.crouching:
+		_skeleton.set_bone_pose_position(_b["Hips"], hips_rest + Vector3(0, -0.42, 0))
+		_set_rot("Spine", Vector3(-0.35, 0, 0))
+		for side in ["L", "R"]:
+			var p := _phase if side == "L" else _phase + PI
+			var step := sin(p) * 0.35 * amount
+			_set_rot("UpperLeg." + side, Vector3(1.05 - dir.y * step, 0, 0))
+			_set_rot("LowerLeg." + side, Vector3(-1.9 + maxf(0.0, cos(p)) * 0.3 * amount, 0, 0))
+
 	# Braços (só sombra): direito estendido segurando a arma, esquerdo balançando.
 	_set_rot("UpperArm.R", Vector3(1.1, 0, 0.1))
 	_set_rot("LowerArm.R", Vector3(0.5, 0, 0))

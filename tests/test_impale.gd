@@ -15,6 +15,7 @@ func _physics_process(_d: float) -> bool:
 	frame += 1
 	if frame == 2:
 		player = main.get_node("Player")
+		player.equip_item(&"espada")
 		zs = main.get_node("Enemies").get_children()
 		player.interact_prompt_changed.connect(func(t): prompts.append(t))
 		player.global_position = Vector3(0, 0, 12)

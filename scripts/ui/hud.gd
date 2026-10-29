@@ -1,5 +1,6 @@
 extends CanvasLayer
-## HUD simples em 960x540: vida, stamina (corrida), arma atual, mira, aviso de interação e mensagens.
+## HUD simples em 960x540: vida, stamina (corrida), arma atual, hotbar/mochila,
+## mira, aviso de interação e mensagens.
 ## Tudo em Control nodes, então dá para crescer para inventário/crafting
 ## na mesma camada sem mexer no 3D.
 
@@ -27,6 +28,10 @@ func _ready() -> void:
 	player.weapon_changed.connect(func(weapon_name: String): weapon_label.text = weapon_name)
 	prompt_label.text = ""
 	message_label.modulate.a = 0.0
+	var inventory_ui := InventoryUI.new()
+	inventory_ui.name = "InventoryUI"
+	$Root.add_child(inventory_ui)
+	inventory_ui.setup(player)
 
 
 func _on_health_changed(current: float, maximum: float) -> void:

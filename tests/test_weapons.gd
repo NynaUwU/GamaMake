@@ -54,7 +54,7 @@ func _physics_process(_d: float) -> bool:
 		zs[1].health = 100.0
 		zs[1].balance = 0.0
 		zs[1]._set_state(Zombie.State.IDLE)
-		player._switch_weapon(Player.WeaponType.PISTOL)
+		player.equip_item(&"pistola")
 		player.head.rotation.x = 0.0
 	if frame == 150:
 		# mira na cabeça (altura ~1.65 m); câmera em 1.6 m
@@ -63,7 +63,7 @@ func _physics_process(_d: float) -> bool:
 		print("pistol: ammo=", player._ammo, " z hp=", zs[1].health, " state=", Zombie.State.keys()[zs[1].state])
 	# 5) Chute em área: três zumbis na frente, lado a lado.
 	if frame == 170:
-		player._switch_weapon(Player.WeaponType.SWORD)
+		player.equip_item(&"espada")
 		player.global_position = Vector3(0, 0, 6)
 		for i in 3:
 			_zombie_at(zs[i + 1], Vector3(-1.0 + i, 0, 4.5))

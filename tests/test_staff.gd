@@ -16,9 +16,12 @@ func _physics_process(_d: float) -> bool:
 		player = main.get_node("Player")
 		z = main.get_node("Enemies/Zombie1")
 		z.detect_range = 0.0
+		for other in main.get_node("Enemies").get_children():
+			if other != z:
+				other.global_position += Vector3(40, 0, 0)
 		player.global_position = z.global_position + Vector3(1.5, 0, 9.0) # um pouco de lado: testa a curva
 		player.rotation.y = 0.0
-		player._switch_weapon(Player.WeaponType.STAFF)
+		player.equip_item(&"cajado")
 		start_pos = z.global_position
 	if frame == 30:
 		print("weapon=", Player.WeaponType.keys()[player._weapon_type], " equip=", player._equip)

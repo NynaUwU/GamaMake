@@ -13,6 +13,7 @@ func _physics_process(_d: float) -> bool:
 	frame += 1
 	if frame == 2:
 		player = main.get_node("Player")
+		player.equip_item(&"espada")
 		z = main.get_node("Enemies/Zombie1")
 		for e in main.get_node("Enemies").get_children():
 			if e != z:

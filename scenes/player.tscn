@@ -65,8 +65,8 @@ emission = Color(0.6, 0.25, 1, 1)
 emission_energy_multiplier = 3.0
 
 [sub_resource type="CylinderMesh" id="CylinderMesh_bat"]
-top_radius = 0.022
-bottom_radius = 0.05
+top_radius = 0.05
+bottom_radius = 0.022
 height = 0.86
 radial_segments = 10
 rings = 2

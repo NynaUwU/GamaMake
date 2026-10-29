@@ -1,9 +1,11 @@
 class_name Player
 extends CharacterBody3D
-## Player em primeira pessoa: movimento, armas, chute e interação.
-## Sem ragdoll — a física dele é só a do CharacterBody3D.
-## Armas: espada (corta membros), taco (desequilibra), cajado (mísseis
-## explosivos) e pistola. Atacar não gasta stamina; stamina é só para correr.
+## Player em primeira pessoa: movimento, armas, chute, soco, bloqueio,
+## lanterna, inventário e interação. Movimentos especiais (agachar, deslizar,
+## pular obstáculos, escalar) ficam no nó Parkour.
+## Armas (pegas no mapa, ficam na hotbar): espada (corta membros), taco
+## (desequilibra), cajado (mísseis explosivos) e pistola. Sem arma: soco.
+## Atacar não gasta stamina; stamina é só para correr.
 
 signal health_changed(current: float, maximum: float)
 signal stamina_changed(current: float, maximum: float)
@@ -13,12 +15,15 @@ signal item_picked_up(item_id: StringName, amount: int) ## gancho para o invent�
 signal died
 signal weapon_changed(weapon_text: String) ## nome da arma (+ munição)
 
-enum WeaponType { SWORD, BAT, STAFF, PISTOL }
-const WEAPON_ORDER := [WeaponType.SWORD, WeaponType.BAT, WeaponType.STAFF, WeaponType.PISTOL]
+enum WeaponType { FISTS, SWORD, BAT, STAFF, PISTOL }
 const WEAPON_NAMES := {
-	WeaponType.SWORD: "Espada", WeaponType.BAT: "Taco",
+	WeaponType.FISTS: "Mãos", WeaponType.SWORD: "Espada", WeaponType.BAT: "Taco",
 	WeaponType.STAFF: "Cajado", WeaponType.PISTOL: "Pistola",
 }
+## ItemDB "weapon" -> tipo de arma do player.
+const WEAPON_FROM_ITEM := {"sword": WeaponType.SWORD, "bat": WeaponType.BAT,
+	"staff": WeaponType.STAFF, "pistol": WeaponType.PISTOL}
+const PICKUP_SCENE := preload("res://scenes/props/pickup_item.tscn")
 const MISSILE_SCENE := preload("res://scenes/weapons/magic_missile.tscn")
 
 const MASK_HIT := 1 | (1 << 3) | (1 << 4) # mundo, ragdoll, hitbox
@@ -91,6 +96,24 @@ enum SwingPhase { NONE, WINDUP, SLASH, RECOVER }
 @export var kick_range := 2.4 ## alcance do chute (pega todos no cone à frente)
 @export var kick_cone := 0.35 ## dot mínimo: 0.35 ≈ 70° para cada lado
 
+@export_group("Soco")
+@export var punch_damage := 12.0
+@export var punch_force := 26.0
+@export var punch_range := 1.7
+@export var punch_rate := 0.32
+
+@export_group("Bloqueio")
+## Segure o botão direito com espada ou taco: golpes de frente quase não doem.
+## Bloquear logo antes do golpe (parry_window) desequilibra o zumbi.
+@export var block_damage_factor := 0.1
+@export var parry_window := 0.3
+@export var block_speed_factor := 0.6
+
+@export_group("Lanterna")
+@export var flashlight_range := 28.0
+@export var attract_range := 45.0 ## zumbis de frente na luz vêm de longe
+@export var attract_cone := 0.975 ## dot entre a mira e o zumbi
+
 @export_group("Cajado")
 @export var cast_cooldown := 0.4 ## segure o clique para disparar sem parar
 @export var equip_time := 0.25
@@ -134,7 +157,7 @@ var _gravity: float = ProjectSettings.get_setting("physics/3d/default_gravity")
 @onready var foot: Node3D = $Head/Camera3D/Foot
 @onready var _foot_rest := foot.transform
 
-var _weapon_type := WeaponType.SWORD
+var _weapon_type := WeaponType.FISTS
 var _equip := 1.0 # 0 = arma abaixada (trocando), 1 = pronta
 var _melee := {} # stats da arma corpo a corpo (montado no _ready)
 
@@ -165,6 +188,21 @@ var _fp_arm: MeshInstance3D # antebraço em primeira pessoa (do ombro até a mã
 var _fp_hand: MeshInstance3D
 const FP_SHOULDER := Vector3(0.34, -0.55, 0.22) ## de onde o braço sai (fora da tela)
 
+var _fp_arm_left: MeshInstance3D
+var _fp_hand_left: MeshInstance3D
+const FP_SHOULDER_LEFT := Vector3(-0.34, -0.55, 0.22)
+
+var inventory: Inventory
+var parkour: Parkour
+var ui_blocked := false ## inventário aberto: o player não age
+var _flashlight: SpotLight3D
+var _attract_timer := 0.0
+var _blocking := false
+var _block_time := 0.0
+var _punch_timer := 0.0
+var _punch_side := 0
+var _punch_anim := [0.0, 0.0] # direita, esquerda (1 = braço esticado)
+
 var _charging := false # correndo com a espada para frente
 var _charge_time := 0.0
 var _impaled: Array = []
@@ -183,8 +221,18 @@ func _ready() -> void:
 	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 	foot.visible = false
 	muzzle_flash.visible = false
+	inventory = Inventory.new()
+	inventory.name = "Inventory"
+	add_child(inventory)
+	parkour = Parkour.new()
+	parkour.name = "Parkour"
+	add_child(parkour)
+	parkour.setup(self, $CollisionShape3D)
+	inventory.changed.connect(_emit_weapon_text)
+	inventory.selection_changed.connect(func(_i): _emit_weapon_text())
 	_setup_trail()
 	_setup_fp_arm()
+	_setup_flashlight()
 	_show_weapon(_weapon_type)
 	health_changed.emit(health, max_health)
 	stamina_changed.emit(stamina, max_stamina)
@@ -200,30 +248,33 @@ func _unhandled_input(event: InputEvent) -> void:
 	elif event is InputEventMouseButton and event.pressed and Input.mouse_mode != Input.MOUSE_MODE_CAPTURED:
 		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 		get_viewport().set_input_as_handled()
-	elif health > 0.0:
+	elif health > 0.0 and not ui_blocked:
 		if event.is_action_pressed("attack"):
-			if _weapon_type == WeaponType.SWORD and _is_sprinting() and _swing_phase == SwingPhase.NONE and not _busy:
+			if _blocking:
+				pass
+			elif _weapon_type == WeaponType.SWORD and _is_sprinting() and _swing_phase == SwingPhase.NONE and not _busy:
 				_charging = true
 				_charge_time = 0.0
 			elif _is_melee():
 				_melee_attack()
 			elif _weapon_type == WeaponType.PISTOL:
 				_fire_pistol()
+			elif _weapon_type == WeaponType.FISTS:
+				_punch()
 		elif event.is_action_pressed("reload"):
 			_start_reload()
-		elif event.is_action_pressed("weapon_1"):
-			_switch_weapon(WeaponType.SWORD)
-		elif event.is_action_pressed("weapon_2"):
-			_switch_weapon(WeaponType.BAT)
-		elif event.is_action_pressed("weapon_3"):
-			_switch_weapon(WeaponType.STAFF)
-		elif event.is_action_pressed("weapon_4"):
-			_switch_weapon(WeaponType.PISTOL)
 		elif event.is_action_pressed("weapon_next"):
-			var next: int = (WEAPON_ORDER.find(_weapon_type) + 1) % WEAPON_ORDER.size()
-			_switch_weapon(WEAPON_ORDER[next])
+			inventory.select((inventory.selected + 1) % Inventory.HOTBAR_SIZE)
+		elif event.is_action_pressed("crouch"):
+			parkour.on_crouch_pressed(_is_sprinting())
+		elif event.is_action_pressed("flashlight"):
+			_toggle_flashlight()
+		elif event.is_action_pressed("drop"):
+			_drop_selected()
 		elif event.is_action_pressed("kick"):
 			_kick()
+		elif _hotbar_key(event) >= 0:
+			inventory.select(_hotbar_key(event))
 		elif event.is_action_pressed("interact") and is_instance_valid(_interact_target):
 			_interact_target.interact(self)
 			# O item some ao ser pego: limpa o aviso na hora.
@@ -234,16 +285,28 @@ func _unhandled_input(event: InputEvent) -> void:
 func _physics_process(delta: float) -> void:
 	if health <= 0.0:
 		return
+	if parkour.physics(delta):
+		# Deslizando / pulando obstáculo / escalando: o Parkour move o player.
+		_update_interact()
+		_update_camera_shake(delta)
+		_update_charge(delta)
+		return
+	var sprinting := _is_sprinting()
 	if not is_on_floor():
 		velocity.y -= _gravity * delta
-	elif Input.is_action_just_pressed("jump"):
-		velocity.y = jump_velocity
+	elif Input.is_action_just_pressed("jump") and not ui_blocked:
+		if not parkour.try_traverse(sprinting):
+			velocity.y = jump_velocity
 
 	var input := Input.get_vector("move_left", "move_right", "move_forward", "move_back")
+	if ui_blocked:
+		input = Vector2.ZERO
 	var direction := (global_basis * Vector3(input.x, 0, input.y)).normalized()
-	var sprinting := _is_sprinting()
 	var speed := sprint_speed if sprinting else walk_speed
 	speed *= 1.0 - impale_slowdown * _impaled.size()
+	speed *= parkour.speed_factor(walk_speed)
+	if _blocking:
+		speed *= block_speed_factor
 	var target := direction * speed
 	var accel := acceleration if is_on_floor() else acceleration * air_control
 	var t := 1.0 - exp(-accel * delta)
@@ -260,11 +323,22 @@ func _physics_process(delta: float) -> void:
 	if _swing_phase == SwingPhase.SLASH:
 		_sweep_blade()
 	_update_charge(delta)
+	_update_flashlight(delta)
 
 
 func _is_sprinting() -> bool:
+	if ui_blocked or _blocking or (parkour and parkour.crouching):
+		return false
 	var input := Input.get_vector("move_left", "move_right", "move_forward", "move_back")
 	return Input.is_action_pressed("sprint") and input.y < 0.0 and stamina > 1.0
+
+
+## Teclas 1-5 -> índice do slot da hotbar (-1 se não for uma delas).
+func _hotbar_key(event: InputEvent) -> int:
+	for i in Inventory.HOTBAR_SIZE:
+		if event.is_action_pressed("weapon_%d" % (i + 1)):
+			return i
+	return -1
 
 
 # Empalar ----------------------------------------------------------------------
@@ -288,11 +362,11 @@ func _update_charge(delta: float) -> void:
 	# Segura cada zumbi num ponto da lâmina (um atrás do outro).
 	for i in _impaled.size():
 		var point := camera.global_position + forward * (1.05 + i * 0.45) + Vector3.DOWN * 0.35
-		_impaled[i].hold_impaled(point, Vector3(velocity.x, 0, velocity.z))
+		_impaled[i].hold_impaled(point, Vector3(velocity.x, 0, velocity.z), forward)
 	if _impaled.size() >= max_impaled:
 		return
 	for enemy in get_tree().get_nodes_in_group("enemy"):
-		if enemy in _impaled or not enemy.has_method("can_be_impaled") or not enemy.can_be_impaled():
+		if enemy in _impaled or not enemy.has_method("can_be_impaled") or not enemy.can_be_impaled(forward):
 			continue
 		var to_enemy: Vector3 = (enemy.global_position + Vector3.UP * 1.2) - camera.global_position
 		var flat := Vector3(to_enemy.x, 0, to_enemy.z)
@@ -319,6 +393,12 @@ func _release_impaled() -> void:
 
 
 func _process(delta: float) -> void:
+	head.position.y = parkour.eye_height(delta)
+	_sync_equipped()
+	_update_block(delta)
+	_punch_timer -= delta
+	for i in 2:
+		_punch_anim[i] = move_toward(_punch_anim[i], 0.0, delta * 6.0)
 	_equip = minf(_equip + delta / equip_time, 1.0)
 	var moving := Vector2(velocity.x, velocity.z).length() / walk_speed
 	_bob += delta * (2.0 + moving * 7.0)
@@ -351,11 +431,27 @@ func _setup_fp_arm() -> void:
 	_fp_hand.material_override = skin
 	_fp_hand.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	camera.add_child(_fp_hand)
+	_fp_arm_left = _fp_arm.duplicate()
+	camera.add_child(_fp_arm_left)
+	_fp_hand_left = _fp_hand.duplicate()
+	camera.add_child(_fp_hand_left)
 
 
 ## A mão fica na empunhadura da arma atual; o antebraço liga o ombro até ela.
 func _update_fp_arm() -> void:
 	var grip: Transform3D
+	var fists := _weapon_type == WeaponType.FISTS
+	_fp_arm_left.visible = fists
+	_fp_hand_left.visible = fists
+	if fists:
+		# Punhos em guarda; o soco estica o braço para frente.
+		var offset := _bob_offset(0.8) + _equip_offset()
+		var right := Vector3(0.2, -0.24, -0.36).lerp(Vector3(0.06, -0.12, -0.62), ease(_punch_anim[0], 0.5))
+		var left := Vector3(-0.2, -0.26, -0.38).lerp(Vector3(-0.06, -0.12, -0.62), ease(_punch_anim[1], 0.5))
+		_place_arm(_fp_arm_left, _fp_hand_left, FP_SHOULDER_LEFT, Transform3D(Basis(), left + offset))
+		grip = Transform3D(Basis(), right + offset)
+		_place_arm(_fp_arm, _fp_hand, FP_SHOULDER, grip)
+		return
 	match _weapon_type:
 		WeaponType.SWORD:
 			grip = weapon.transform.translated_local(Vector3(0, 0, 0.04))
@@ -365,12 +461,16 @@ func _update_fp_arm() -> void:
 			grip = staff.transform.translated_local(Vector3(0, -0.12, 0))
 		WeaponType.PISTOL:
 			grip = pistol.transform.translated_local(Vector3(0, -0.05, 0.03))
-	_fp_hand.transform = grip
-	var to_hand := grip.origin - FP_SHOULDER
+	_place_arm(_fp_arm, _fp_hand, FP_SHOULDER, grip)
+
+
+func _place_arm(arm: MeshInstance3D, hand: MeshInstance3D, shoulder: Vector3, grip: Transform3D) -> void:
+	hand.transform = grip
+	var to_hand := grip.origin - shoulder
 	if to_hand.length() < 0.05:
 		return
 	var basis := Basis.looking_at(to_hand) * Basis.from_scale(Vector3(1, 1, to_hand.length()))
-	_fp_arm.transform = Transform3D(basis, FP_SHOULDER + to_hand * 0.5)
+	arm.transform = Transform3D(basis, shoulder + to_hand * 0.5)
 
 
 # Troca de arma ----------------------------------------------------------------
@@ -384,6 +484,24 @@ func _switch_weapon(type: WeaponType) -> void:
 	_show_weapon(type)
 
 
+## Garante o item no inventário e seleciona o slot dele na hotbar (testes, cheats).
+func equip_item(id: StringName) -> void:
+	if not inventory.has(id):
+		inventory.add(id)
+	for i in Inventory.HOTBAR_SIZE:
+		if not inventory.slots[i].is_empty() and inventory.slots[i].id == id:
+			inventory.select(i)
+			break
+	_sync_equipped()
+
+
+## A arma na mão segue o slot selecionado da hotbar (slot sem arma = soco).
+func _sync_equipped() -> void:
+	var wanted: WeaponType = WEAPON_FROM_ITEM.get(ItemDB.weapon_of(inventory.selected_id()), WeaponType.FISTS)
+	if wanted != _weapon_type:
+		_switch_weapon(wanted)
+
+
 func _show_weapon(type: WeaponType) -> void:
 	weapon.visible = type == WeaponType.SWORD
 	bat.visible = type == WeaponType.BAT
@@ -394,6 +512,8 @@ func _show_weapon(type: WeaponType) -> void:
 
 func _emit_weapon_text() -> void:
 	var text: String = WEAPON_NAMES[_weapon_type]
+	if inventory and inventory.selected_id() != &"":
+		text = ItemDB.display_name(inventory.selected_id())
 	if _weapon_type == WeaponType.PISTOL:
 		text += "  recarregando..." if _reload_timer > 0.0 else "  %d/%d" % [_ammo, magazine_size]
 	weapon_changed.emit(text)
@@ -416,7 +536,7 @@ func _bob_offset(scale: float) -> Vector3:
 # Espada e taco ----------------------------------------------------------------
 
 func _melee_attack() -> void:
-	if _busy or _equip < 1.0:
+	if _busy or _equip < 1.0 or not _is_melee():
 		return
 	match _swing_phase:
 		SwingPhase.WINDUP, SwingPhase.SLASH:
@@ -447,6 +567,12 @@ func _update_swing(delta: float) -> void:
 		return
 	var stats: Dictionary = _melee[_weapon_type]
 	var node: Node3D = stats.node
+	if _swing_phase == SwingPhase.NONE and _blocking:
+		# Arma atravessada na frente do rosto.
+		var guard := Transform3D(_blade_basis(Vector3(-1.0, 0.3, -0.25), Vector3(0, 0.3, 1)), Vector3(0.3, -0.2, -0.52))
+		node.transform = node.transform.interpolate_with(guard, 1.0 - exp(-20.0 * delta))
+		_roll = 0.0
+		return
 	if _swing_phase == SwingPhase.NONE and _charging:
 		# Lâmina apontada para frente, na altura da cintura (para espetar).
 		var thrust := Transform3D(_blade_basis(Vector3(0.0, 0.06, -1.0), Vector3(1, 0, 0)), Vector3(0.14, -0.3, -0.38))
@@ -712,7 +838,7 @@ func _flash_muzzle() -> void:
 # Chute ------------------------------------------------------------------------
 
 func _kick() -> void:
-	if _busy or _swing_phase != SwingPhase.NONE or _charging:
+	if _busy or _swing_phase != SwingPhase.NONE or _charging or parkour.is_busy():
 		return
 	_kick_animation(_do_kick)
 
@@ -773,9 +899,21 @@ func _do_kick() -> void:
 		_shake = 0.14
 
 
-func take_damage(amount: float, from_direction := Vector3.ZERO) -> void:
+func take_damage(amount: float, from_direction := Vector3.ZERO, attacker: Node = null) -> void:
 	if health <= 0.0:
 		return
+	if _blocking and _is_facing_attack(from_direction):
+		var parry := _block_time <= parry_window
+		amount *= 0.0 if parry else block_damage_factor
+		if attacker and attacker.has_method("on_blocked"):
+			attacker.on_blocked(parry, -from_direction)
+		var node: Node3D = _melee[_weapon_type].node
+		ImpactFX.burst(get_parent(), node.global_position - camera.global_basis.z * 0.4, -from_direction, ImpactFX.SPARK, 12, 3.0, 0.03)
+		_shake = 0.1 if parry else 0.16
+		if parry:
+			_hitstop(0.08)
+		if amount <= 0.0:
+			return
 	health = maxf(health - amount, 0.0)
 	health_changed.emit(health, max_health)
 	_shake = 0.2
@@ -816,9 +954,151 @@ func _update_interact() -> void:
 		interact_prompt_changed.emit(found.get_interact_text() if found else "")
 
 
-func pick_up(item_id: StringName, display_name: String, amount: int) -> void:
-	item_picked_up.emit(item_id, amount)
-	notify.emit("Pegou: %s x%d" % [display_name, amount])
+## Coloca o item no inventário. Devolve quanto NÃO coube.
+func pick_up(item_id: StringName, display_name: String, amount: int) -> int:
+	var left := inventory.add(item_id, amount)
+	if left == amount:
+		notify.emit("Inventário cheio")
+		return left
+	item_picked_up.emit(item_id, amount - left)
+	notify.emit("Pegou: %s x%d" % [display_name, amount - left])
+	return left
+
+
+## Solta o item do slot selecionado na frente do player (G).
+func _drop_selected() -> void:
+	if inventory.selected_id() == &"" or _swing_phase != SwingPhase.NONE or _charging:
+		return
+	var taken := inventory.take(inventory.selected, 999)
+	var item: PickupItem = PICKUP_SCENE.instantiate()
+	item.item_id = taken.id
+	item.amount = taken.amount
+	get_parent().add_child(item)
+	item.global_position = camera.global_position - camera.global_basis.z * 0.7
+	item.apply_central_impulse(-camera.global_basis.z * 2.0 + Vector3.UP)
+	notify.emit("Soltou: %s" % ItemDB.display_name(taken.id))
+
+
+func _is_facing_attack(from_direction: Vector3) -> bool:
+	var forward := -camera.global_basis.z
+	forward.y = 0.0
+	var incoming := -from_direction
+	incoming.y = 0.0
+	return forward.normalized().dot(incoming.normalized()) > 0.3
+
+
+# Bloqueio ---------------------------------------------------------------------
+
+func _update_block(delta: float) -> void:
+	var want := Input.is_action_pressed("block") and _is_melee() and not ui_blocked and health > 0.0 \
+			and _swing_phase == SwingPhase.NONE and not _charging and not _busy and _equip >= 1.0
+	if want and not _blocking:
+		_block_time = 0.0
+	_blocking = want
+	if _blocking:
+		_block_time += delta
+
+
+# Soco -------------------------------------------------------------------------
+
+func _punch() -> void:
+	if _punch_timer > 0.0 or _busy or _equip < 1.0:
+		return
+	_punch_timer = punch_rate
+	_punch_anim[_punch_side] = 1.0
+	_punch_side = 1 - _punch_side
+	get_tree().create_timer(0.07).timeout.connect(_do_punch_hit)
+
+
+func _do_punch_hit() -> void:
+	var hit := _cast_fan(punch_range)
+	if hit.is_empty():
+		return
+	var collider: Object = hit.collider
+	var direction := -camera.global_basis.z
+	if collider.has_meta("enemy"):
+		var enemy = collider.get_meta("enemy")
+		if is_instance_valid(enemy) and enemy.has_method("take_hit"):
+			enemy.take_hit(HitInfo.make(punch_damage, collider.get_meta("bone"), hit.position,
+					direction, punch_force, HitInfo.Type.BLUNT))
+			_hitstop(0.04)
+			_shake = 0.08
+	elif collider is RigidBody3D:
+		collider.apply_impulse(direction * punch_force * 0.3, hit.position - collider.global_position)
+
+
+## Raios em leque a partir da câmera: o golpe não precisa de mira perfeita.
+func _cast_fan(reach: float) -> Dictionary:
+	var space := get_world_3d().direct_space_state
+	var origin := camera.global_position
+	var cam_basis := camera.global_basis
+	var best := {}
+	var best_dist := INF
+	for offset in [Vector2.ZERO, Vector2(-0.15, 0), Vector2(0.15, 0), Vector2(0, -0.12), Vector2(0, 0.12)]:
+		var dir: Vector3 = (-cam_basis.z + cam_basis.x * offset.x + cam_basis.y * offset.y).normalized()
+		var query := PhysicsRayQueryParameters3D.create(origin, origin + dir * reach, MASK_HIT, [get_rid()])
+		query.collide_with_areas = true
+		var hit := space.intersect_ray(query)
+		if hit.is_empty():
+			continue
+		var dist := origin.distance_to(hit.position) - (0.5 if hit.collider.has_meta("enemy") else 0.0)
+		if dist < best_dist:
+			best_dist = dist
+			best = hit
+	return best
+
+
+# Lanterna ---------------------------------------------------------------------
+
+func _setup_flashlight() -> void:
+	_flashlight = SpotLight3D.new()
+	_flashlight.name = "Flashlight"
+	_flashlight.light_color = Color(1.0, 0.95, 0.8)
+	_flashlight.light_energy = 2.5
+	_flashlight.spot_range = flashlight_range
+	_flashlight.spot_angle = 22.0
+	_flashlight.spot_attenuation = 0.8
+	_flashlight.shadow_enabled = true
+	_flashlight.position = Vector3(-0.18, -0.12, -0.1)
+	_flashlight.visible = false
+	camera.add_child(_flashlight)
+
+
+func _toggle_flashlight() -> void:
+	if not inventory.has(&"lanterna"):
+		notify.emit("Você não tem uma lanterna")
+		return
+	_flashlight.visible = not _flashlight.visible
+
+
+func is_flashlight_on() -> bool:
+	return _flashlight.visible
+
+
+## Luz na cara de um zumbi que está olhando para você: ele vem de longe.
+func _update_flashlight(delta: float) -> void:
+	if _flashlight.visible and not inventory.has(&"lanterna"):
+		_flashlight.visible = false # soltou a lanterna
+	if not _flashlight.visible:
+		return
+	_attract_timer -= delta
+	if _attract_timer > 0.0:
+		return
+	_attract_timer = 0.25
+	var origin := camera.global_position
+	var aim := -camera.global_basis.z
+	for enemy in get_tree().get_nodes_in_group("enemy"):
+		if not enemy.has_method("alert") or enemy.state == Zombie.State.DEAD:
+			continue
+		var to_enemy: Vector3 = (enemy.global_position + Vector3.UP * 1.4) - origin
+		if to_enemy.length() > attract_range or aim.dot(to_enemy.normalized()) < attract_cone:
+			continue
+		var facing: Vector3 = -enemy.global_basis.z
+		if facing.dot(-Vector3(to_enemy.x, 0, to_enemy.z).normalized()) < 0.3:
+			continue # de costas: não vê a luz
+		var query := PhysicsRayQueryParameters3D.create(origin, origin + to_enemy, 1, [get_rid()])
+		if get_world_3d().direct_space_state.intersect_ray(query).is_empty():
+			enemy.alert(self)
 
 
 # --- Utilidades ------------------------------------------------------------
@@ -851,4 +1131,4 @@ func _update_camera_shake(delta: float) -> void:
 	var amount := _shake * 0.15
 	camera.h_offset = randf_range(-amount, amount)
 	camera.v_offset = randf_range(-amount, amount)
-	camera.rotation.z = lerpf(camera.rotation.z, _roll, 1.0 - exp(-14.0 * delta))
+	camera.rotation.z = lerpf(camera.rotation.z, _roll + parkour.camera_roll, 1.0 - exp(-14.0 * delta))

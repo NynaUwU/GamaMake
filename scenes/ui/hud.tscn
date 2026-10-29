@@ -77,19 +77,19 @@ layout_mode = 1
 anchors_preset = 1
 anchor_left = 1.0
 anchor_right = 1.0
-offset_left = -300.0
+offset_left = -330.0
 offset_top = 12.0
 offset_right = -16.0
 offset_bottom = 150.0
 grow_horizontal = 0
 theme_override_colors/font_color = Color(1, 1, 1, 0.55)
 theme_override_font_sizes/font_size = 12
-text = "WASD mover  Shift correr  Espaço pular
-Clique esq. atacar/atirar   F chute
-1 espada  2 taco  3 cajado  4 pistola
-Q trocar arma   R recarregar   E pegar
-Z novo zumbi   Backspace recomeçar
-Esc soltar o mouse"
+text = "WASD mover  Shift correr  Espaço pular/escalar
+C agachar (correndo: deslizar)
+Clique atacar  Botão dir. bloquear  F chute
+1-5 hotbar  Q próximo  G soltar  Tab mochila
+E pegar  L lanterna  R recarregar
+Z novo zumbi  Backspace recomeçar  Esc mouse"
 horizontal_alignment = 2
 
 [node name="Bars" type="VBoxContainer" parent="Root"]

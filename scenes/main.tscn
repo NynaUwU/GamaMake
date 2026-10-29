@@ -107,15 +107,15 @@ size = Vector3(0.3, 1.2, 6)
 material = ExtResource("m_concreto")
 
 [node name="Carro_1" type="CSGBox3D" parent="Level"]
-position = Vector3(-3, 0.7, -12)
+position = Vector3(-3, 0.6, -12)
 use_collision = true
-size = Vector3(1.9, 1.4, 4.2)
+size = Vector3(1.9, 1.2, 4.2)
 material = ExtResource("m_metal")
 
 [node name="Carro_2" type="CSGBox3D" parent="Level"]
-position = Vector3(12, 0.7, -9)
+position = Vector3(12, 0.6, -9)
 use_collision = true
-size = Vector3(4.2, 1.4, 1.9)
+size = Vector3(4.2, 1.2, 1.9)
 material = ExtResource("m_metal")
 
 [node name="Plataforma" type="CSGBox3D" parent="Level"]
@@ -130,6 +130,24 @@ rotation = Vector3(0.33, 0, 0)
 use_collision = true
 size = Vector3(3, 0.3, 4.4)
 material = ExtResource("m_concreto")
+
+[node name="Cerca_1" type="CSGBox3D" parent="Level"]
+position = Vector3(0, 0.95, -17.5)
+use_collision = true
+size = Vector3(24, 1.9, 0.12)
+material = ExtResource("m_metal")
+
+[node name="Barreira_1" type="CSGBox3D" parent="Level"]
+position = Vector3(4, 0.45, 5)
+use_collision = true
+size = Vector3(3, 0.9, 0.35)
+material = ExtResource("m_concreto")
+
+[node name="Conteiner" type="CSGBox3D" parent="Level"]
+position = Vector3(8, 1.05, 9)
+use_collision = true
+size = Vector3(2.4, 2.1, 6)
+material = ExtResource("m_metal")
 
 [node name="Props" type="Node3D" parent="."]
 
@@ -169,6 +187,26 @@ item_id = &"fita"
 display_name = "Fita adesiva"
 amount = 1
 
+[node name="Espada" parent="Props" instance=ExtResource("7_pickup")]
+position = Vector3(1.5, 0.3, 8)
+item_id = &"espada"
+
+[node name="Taco" parent="Props" instance=ExtResource("7_pickup")]
+position = Vector3(-1.5, 0.3, 8)
+item_id = &"taco"
+
+[node name="Lanterna" parent="Props" instance=ExtResource("7_pickup")]
+position = Vector3(0.4, 0.3, 7.2)
+item_id = &"lanterna"
+
+[node name="Cajado" parent="Props" instance=ExtResource("7_pickup")]
+position = Vector3(-13, 1.8, 8)
+item_id = &"cajado"
+
+[node name="Pistola" parent="Props" instance=ExtResource("7_pickup")]
+position = Vector3(8, 2.3, 9)
+item_id = &"pistola"
+
 [node name="Player" parent="." instance=ExtResource("2_player")]
 position = Vector3(0, 0, 10)
 
@@ -185,6 +223,9 @@ position = Vector3(-6, 0, -15)
 
 [node name="Zombie4" parent="Enemies" instance=ExtResource("3_zombie")]
 position = Vector3(10, 0, -2)
+
+[node name="Zombie5" parent="Enemies" instance=ExtResource("3_zombie")]
+position = Vector3(2, 0.2, -21)
 
 [node name="RetroScreen" parent="." instance=ExtResource("5_retro")]
 

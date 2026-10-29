@@ -11,6 +11,8 @@ func _physics_process(_d: float) -> bool:
 	frame += 1
 	var player: Player = main.get_node("Player")
 	var z: Zombie = main.get_node("Enemies/Zombie1")
+	if frame == 2:
+		player.equip_item(&"espada")
 	if frame == 10:
 		print("zombies: ", main.get_node("Enemies").get_child_count(), " state z1: ", Zombie.State.keys()[z.state])
 	if frame == 120:

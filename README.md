@@ -10,16 +10,34 @@ reação física a golpes e ragdoll (estilo Dying Light), visual de PC dos anos 
 ## Controles
 | Tecla | Ação |
 |---|---|
-| WASD / Shift / Espaço | mover / correr / pular |
-| Clique esquerdo (espada/taco) | combo: direita→esquerda, esquerda→direita, de cima para baixo (x1.5) |
-| Shift + segurar clique (espada) | **empalar**: corre com a lâmina para frente espetando até 3 zumbis; parou de correr ou soltou → chuta todos para fora |
-| Clique esquerdo (pistola) | tiro (12 balas; R recarrega; cabeça mata com um tiro) |
-| Clique esquerdo (cajado) | míssil mágico explosivo — segure para disparar sem parar |
-| 1 / 2 / 3 / 4 | espada / taco / cajado / pistola (Q ou roda do mouse alterna) |
-| F | chute em área: pega todos à frente (~70° para cada lado, 2.4 m) e joga longe |
-| E | pegar item (gancho para o inventário) |
-| Z | cria um zumbi na sua frente (teste) |
-| Backspace | recomeça · Esc solta o mouse |
+| WASD / Shift | mover / correr |
+| Espaço | pular — de frente para obstáculo: **vault** (correndo, até o quadril e curto), **subir** (comprido ou até um pouco acima da cabeça) ou **pular cerca** |
+| C | agachar — **correndo: deslizar** (passa por baixo dos zumbis e derruba quem estiver em cima) |
+| Clique esquerdo | atacar com a arma do slot (sem arma: **soco**) |
+| Botão direito | **bloquear** (espada/taco). Bloquear logo antes do golpe = parry (zumbi cambaleia) |
+| Shift + segurar clique (espada) | **empalar** até 3 zumbis (só de frente ou de costas); parou → chuta todos |
+| F | chute em área |
+| 1–5 / Q / roda | escolher slot da hotbar |
+| Tab | mochila (clique em dois slots para trocar) |
+| E / G | pegar / soltar item |
+| L | lanterna (precisa estar no inventário) |
+| R | recarregar a pistola |
+| Z | novo zumbi (teste) · Backspace recomeça · Esc solta o mouse |
+
+## Inventário
+- `scripts/items/item_db.gd`: catálogo (nome, tipo, pilha, modelo 3D). Item novo = uma entrada lá.
+- `scripts/items/inventory.gd`: 5 slots de hotbar + 15 de mochila. Armas/ferramentas vão para a
+  hotbar; materiais para a mochila (empilham até 10).
+- As armas ficam **no mapa** (espada, taco e lanterna perto do início; cajado na plataforma;
+  pistola em cima do contêiner). O player começa sem nada.
+- A arma na mão é a do slot selecionado; slot sem arma = punhos.
+
+## Movimento (`scripts/player/parkour.gd`)
+- Sonda à frente: altura do topo e profundidade do obstáculo decidem o movimento.
+  - até `vault_max_height` (1.3 m) e até `vault_max_depth` (1.6 m), correndo → passa por cima;
+  - mais comprido (ex.: carro no sentido do comprimento) → sobe em cima;
+  - até `climb_max_height` (2.3 m): fino (cerca) → passa para o outro lado; grosso → sobe.
+- Deslizar desliga a colisão com zumbis e chama `Zombie.trip()` em quem passar por cima.
 
 ## Estrutura
 ```
@@ -90,8 +108,20 @@ tests/                 testes headless (ragdoll, juntas, jogo)
    - **Levantar em etapas** (poses procedurais em `zombie_locomotion.gd`): de bruços →
      apoio nas mãos e joelhos → ajoelhado → de pé; de costas → senta → agacha → de pé.
      Dá para derrubar de novo no meio. Quem rasteja volta direto a rastejar.
+   - **Membro quebrado** recebe só 15% do dano (`broken_limb_damage`).
+   - **Encontrão**: zumbi cambaleando (ou voando em ragdoll) empurra os outros um pouco.
    - **Morte** → ragdoll permanente; continua dando para bater/chutar o corpo.
 5. O *hitstop* (jogo quase para por 50–70 ms) e o tremor de câmera dão peso ao impacto.
+
+## Zumbis: navegação, escalada, armas e lanterna
+- **Contornam obstáculos** com NavigationMesh gerado da fase ao iniciar (`main.gd`).
+- **Escalam** só quando o caminho em volta é mais que o dobro da distância reta (ou não existe)
+  e o obstáculo tem até 2.3 m (`climb_detour_ratio`, `climb_max_height`). Atrás da cerca longa
+  do norte tem um zumbi para testar.
+- **30% nascem armados** (taco ou espada, `weapon_chance`): batem 1.6x mais forte e soltam a arma
+  quando morrem ou perdem o braço direito — dá para pegar.
+- **Lanterna** apontada para um zumbi **de frente** para você (até 45 m, com linha de visão)
+  faz ele vir de qualquer distância.
 
 ## Modelo do player
 - `scenes/player.tscn` → `Body/Skeleton3D`: o mesmo boneco em blocos dos zumbis (`HumanoidRig`,
