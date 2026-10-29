@@ -22,7 +22,20 @@ reação física a golpes e ragdoll (estilo Dying Light), visual de PC dos anos 
 | E / G | pegar / soltar item |
 | L | lanterna (precisa estar no inventário) |
 | R | recarregar a pistola |
+| E (no carro) | entrar/sair. Dirigindo: W/S acelera/ré, A/D vira, Espaço freio de mão |
 | Z | novo zumbi (teste) · Backspace recomeça · Esc solta o mouse |
+
+## Área inicial e carro
+- Ao lado de onde você nasce: uma bancada coberta (com lâmpada) com **um exemplar de cada arma**
+  — espada, taco, cajado e pistola — e a lanterna.
+- Estacionado ao lado, virado para a saída sul da cidade: o **carro** (`scenes/vehicles/vintage_car.tscn`,
+  `scripts/vehicles/vintage_car.gd`), inspirado no **Alfa Romeo 8C 2300 Monza (1932)**: capô
+  comprido com venezianas, grade vertical cromada em "coração", faróis redondos, para-lamas de moto,
+  rodas raiadas, "rabo de barco" com estepe, escapamento lateral e volante à direita. Suspensão
+  mais alta e com curso longo para andar fora de estrada; tração traseira, ~100 km/h.
+- Câmera de perseguição; o HUD mostra a velocidade. Atropelar derruba o zumbi (dano ~7 por m/s;
+  rápido mata e pode arrancar membros).
+- Tudo modelado por código em blocos/cilindros: ajuste cores e medidas no topo do script.
 
 ## Inventário
 - `scripts/items/item_db.gd`: catálogo (nome, tipo, pilha, modelo 3D). Item novo = uma entrada lá.

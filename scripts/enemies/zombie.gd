@@ -474,6 +474,32 @@ func _hurt(amount: float) -> void:
 
 # --- Reações extras ---------------------------------------------------------
 
+## Atropelado: voa na direção do carro. Rápido o bastante, morre (e pode perder pedaços).
+func hit_by_vehicle(car_velocity: Vector3, _car_position: Vector3) -> void:
+	var speed := car_velocity.length()
+	var direction := car_velocity.normalized()
+	var center := global_position + Vector3.UP * 0.9 - direction * 1.0
+	if state == State.DEAD:
+		ragdoll.apply_explosion(center, speed * 20.0)
+		return
+	if state == State.IMPALED:
+		return
+	health -= speed * 7.0
+	_end_attack()
+	_enter_ragdoll()
+	if health <= 0.0:
+		_set_state(State.DEAD)
+		_drop_weapon()
+		died.emit(self)
+		if speed > 15.0:
+			for limb in [&"LowerArm.L", &"LowerArm.R", &"LowerLeg.L", &"LowerLeg.R"]:
+				if randf() < 0.25:
+					_cut(limb, direction * speed * 0.4 + Vector3.UP * 2.0)
+	else:
+		_set_state(State.DOWN)
+	ragdoll.apply_explosion(center, speed * 22.0)
+
+
 ## Player deslizou por baixo: as pernas vão para frente e o zumbi cai.
 func trip(direction: Vector3, force: float) -> void:
 	if state in [State.DOWN, State.DEAD, State.IMPALED, State.GETTING_UP] or crawler:

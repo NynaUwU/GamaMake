@@ -51,6 +51,18 @@ func _process(delta: float) -> void:
 
 	# Agachado / deslizando: quadril desce e as pernas dobram (ou vão para frente).
 	var parkour: Parkour = _player.get("parkour")
+	if _player.get("vehicle"):
+		# Sentado no carro: pernas esticadas para os pedais, mãos no volante.
+		_skeleton.set_bone_pose_position(_b["Hips"], hips_rest + Vector3(0, -0.62, 0))
+		_set_rot("Hips", Vector3.ZERO)
+		_set_rot("Spine", Vector3(0.15, 0, 0))
+		_set_rot("Chest", Vector3.ZERO)
+		for side in ["L", "R"]:
+			_set_rot("UpperLeg." + side, Vector3(1.45, 0, 0))
+			_set_rot("LowerLeg." + side, Vector3(-0.6, 0, 0))
+			_set_rot("UpperArm." + side, Vector3(1.0, 0, 0.15 if side == "R" else -0.15))
+			_set_rot("LowerArm." + side, Vector3(0.6, 0, 0))
+		return
 	if parkour and parkour.move == Parkour.Move.SLIDE:
 		_skeleton.set_bone_pose_position(_b["Hips"], hips_rest + Vector3(0, -0.72, 0.1))
 		_set_rot("Hips", Vector3(1.0, 0, 0))

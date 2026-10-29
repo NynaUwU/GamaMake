@@ -208,6 +208,19 @@ func _make_material(color: Color) -> StandardMaterial3D:
 	return mat
 
 
+## Liga/desliga o modo "só sombra" dos ossos de shadow_only_bones (o player
+## dirigindo aparece inteiro para a câmera de fora do carro).
+func set_shadow_only(enabled: bool) -> void:
+	for bone in shadow_only_bones:
+		var attachment := get_node_or_null(attachment_name(bone))
+		if attachment == null:
+			continue
+		for child in attachment.get_children():
+			if child is MeshInstance3D:
+				child.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_SHADOWS_ONLY if enabled \
+						else GeometryInstance3D.SHADOW_CASTING_SETTING_ON
+
+
 # --- Desmembramento ---------------------------------------------------------
 
 ## Nome do BoneAttachment3D de um osso ("." não vale em nome de nó: vira "_").

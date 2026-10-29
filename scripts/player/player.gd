@@ -192,6 +192,7 @@ var _fp_arm_left: MeshInstance3D
 var _fp_hand_left: MeshInstance3D
 const FP_SHOULDER_LEFT := Vector3(-0.34, -0.55, 0.22)
 
+var vehicle: VintageCar ## carro que está dirigindo (null = a pé)
 var inventory: Inventory
 var parkour: Parkour
 var ui_blocked := false ## inventário aberto: o player não age
@@ -239,6 +240,13 @@ func _ready() -> void:
 
 
 func _unhandled_input(event: InputEvent) -> void:
+	if vehicle:
+		# Dirigindo: o carro lê WASD/Espaço; aqui só o [E] para sair.
+		if event.is_action_pressed("interact"):
+			exit_vehicle()
+		elif event.is_action_pressed("ui_cancel"):
+			Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+		return
 	if event is InputEventMouseMotion and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
 		rotate_y(-event.relative.x * mouse_sensitivity)
 		head.rotate_x(-event.relative.y * mouse_sensitivity)
@@ -284,6 +292,11 @@ func _unhandled_input(event: InputEvent) -> void:
 
 func _physics_process(delta: float) -> void:
 	if health <= 0.0:
+		return
+	if vehicle:
+		# Sentado no banco: acompanha o carro.
+		global_transform = vehicle.seat.global_transform
+		velocity = Vector3.ZERO
 		return
 	if parkour.physics(delta):
 		# Deslizando / pulando obstáculo / escalando: o Parkour move o player.
@@ -952,6 +965,39 @@ func _update_interact() -> void:
 	if found != _interact_target:
 		_interact_target = found
 		interact_prompt_changed.emit(found.get_interact_text() if found else "")
+
+
+# Carro ------------------------------------------------------------------------
+
+func enter_vehicle(car: VintageCar) -> void:
+	if vehicle or _charging or _busy or parkour.is_busy() or _swing_phase != SwingPhase.NONE:
+		return
+	vehicle = car
+	$CollisionShape3D.set_deferred("disabled", true)
+	velocity = Vector3.ZERO
+	head.rotation.x = 0.0
+	_flashlight.visible = false
+	car.set_driver(self)
+	camera.visible = false # esconde braços/arma de primeira pessoa da câmera de fora
+	($Body/Skeleton3D as HumanoidRig).set_shadow_only(false) # câmera de fora vê o corpo todo
+	interact_prompt_changed.emit("")
+	notify.emit("W/S acelerar e ré · A/D virar · Espaço freio de mão · E sair")
+
+
+func exit_vehicle() -> void:
+	if vehicle == null:
+		return
+	var car := vehicle
+	var exit := car.exit_point()
+	car.set_driver(null)
+	vehicle = null
+	global_position = exit
+	rotation = Vector3(0, car.rotation.y + PI, 0)
+	$CollisionShape3D.set_deferred("disabled", false)
+	camera.current = true
+	camera.visible = true
+	($Body/Skeleton3D as HumanoidRig).set_shadow_only(true)
+	_emit_weapon_text()
 
 
 ## Coloca o item no inventário. Devolve quanto NÃO coube.

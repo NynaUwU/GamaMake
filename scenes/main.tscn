@@ -1,6 +1,7 @@
 [gd_scene format=3]
 
 [ext_resource type="Script" path="res://scripts/main.gd" id="1_main"]
+[ext_resource type="PackedScene" path="res://scenes/vehicles/vintage_car.tscn" id="11_car"]
 [ext_resource type="Script" path="res://scripts/world/terrain_world.gd" id="8_terrain"]
 [ext_resource type="Script" path="res://scripts/world/biome_atmosphere.gd" id="9_atmosphere"]
 [ext_resource type="Script" path="res://scripts/world/zombie_spawner.gd" id="10_spawner"]
@@ -152,6 +153,74 @@ use_collision = true
 size = Vector3(2.4, 2.1, 6)
 material = ExtResource("m_metal")
 
+[node name="AreaInicial" type="Node3D" parent="Level"]
+
+[node name="Bancada" type="CSGBox3D" parent="Level/AreaInicial"]
+position = Vector3(-3.2, 0.82, 11)
+use_collision = true
+size = Vector3(0.95, 0.08, 2.9)
+material = ExtResource("m_madeira")
+
+[node name="Perna1" type="CSGBox3D" parent="Level/AreaInicial"]
+position = Vector3(-3.6, 0.39, 9.7)
+use_collision = true
+size = Vector3(0.08, 0.78, 0.08)
+material = ExtResource("m_madeira")
+
+[node name="Perna2" type="CSGBox3D" parent="Level/AreaInicial"]
+position = Vector3(-2.8, 0.39, 9.7)
+use_collision = true
+size = Vector3(0.08, 0.78, 0.08)
+material = ExtResource("m_madeira")
+
+[node name="Perna3" type="CSGBox3D" parent="Level/AreaInicial"]
+position = Vector3(-3.6, 0.39, 12.3)
+use_collision = true
+size = Vector3(0.08, 0.78, 0.08)
+material = ExtResource("m_madeira")
+
+[node name="Perna4" type="CSGBox3D" parent="Level/AreaInicial"]
+position = Vector3(-2.8, 0.39, 12.3)
+use_collision = true
+size = Vector3(0.08, 0.78, 0.08)
+material = ExtResource("m_madeira")
+
+[node name="Poste1" type="CSGBox3D" parent="Level/AreaInicial"]
+position = Vector3(-5.0, 1.25, 9.0)
+use_collision = true
+size = Vector3(0.1, 2.5, 0.1)
+material = ExtResource("m_metal")
+
+[node name="Poste2" type="CSGBox3D" parent="Level/AreaInicial"]
+position = Vector3(-1.4, 1.25, 9.0)
+use_collision = true
+size = Vector3(0.1, 2.5, 0.1)
+material = ExtResource("m_metal")
+
+[node name="Poste3" type="CSGBox3D" parent="Level/AreaInicial"]
+position = Vector3(-5.0, 1.25, 13.0)
+use_collision = true
+size = Vector3(0.1, 2.5, 0.1)
+material = ExtResource("m_metal")
+
+[node name="Poste4" type="CSGBox3D" parent="Level/AreaInicial"]
+position = Vector3(-1.4, 1.25, 13.0)
+use_collision = true
+size = Vector3(0.1, 2.5, 0.1)
+material = ExtResource("m_metal")
+
+[node name="Telhado" type="CSGBox3D" parent="Level/AreaInicial"]
+position = Vector3(-3.2, 2.54, 11)
+use_collision = true
+size = Vector3(4.2, 0.08, 4.6)
+material = ExtResource("m_metal")
+
+[node name="Lampada" type="OmniLight3D" parent="Level/AreaInicial"]
+position = Vector3(-3.2, 2.3, 11)
+light_color = Color(1, 0.82, 0.55, 1)
+light_energy = 1.6
+omni_range = 6.0
+
 [node name="Props" type="Node3D" parent="."]
 
 [node name="Crate1" parent="Props" instance=ExtResource("6_crate")]
@@ -191,27 +260,32 @@ display_name = "Fita adesiva"
 amount = 1
 
 [node name="Espada" parent="Props" instance=ExtResource("7_pickup")]
-position = Vector3(1.5, 0.3, 8)
+position = Vector3(-3.35, 0.9, 10.55)
 item_id = &"espada"
 
 [node name="Taco" parent="Props" instance=ExtResource("7_pickup")]
-position = Vector3(-1.5, 0.3, 8)
+position = Vector3(-3.0, 0.92, 10.5)
 item_id = &"taco"
 
-[node name="Lanterna" parent="Props" instance=ExtResource("7_pickup")]
-position = Vector3(0.4, 0.3, 7.2)
-item_id = &"lanterna"
-
 [node name="Cajado" parent="Props" instance=ExtResource("7_pickup")]
-position = Vector3(-13, 1.8, 8)
+position = Vector3(-3.45, 0.92, 12.25)
 item_id = &"cajado"
 
 [node name="Pistola" parent="Props" instance=ExtResource("7_pickup")]
-position = Vector3(8, 2.3, 9)
+position = Vector3(-3.0, 0.95, 11.7)
+rotation = Vector3(0, 0.6, 1.5708)
 item_id = &"pistola"
+
+[node name="Lanterna" parent="Props" instance=ExtResource("7_pickup")]
+position = Vector3(-3.1, 0.92, 12.35)
+rotation = Vector3(0, 1.2, 0)
+item_id = &"lanterna"
 
 [node name="Player" parent="." instance=ExtResource("2_player")]
 position = Vector3(0, 0, 10)
+
+[node name="Carro" parent="." instance=ExtResource("11_car")]
+position = Vector3(2.6, 0.8, 13.5)
 
 [node name="Enemies" type="Node3D" parent="."]
 
