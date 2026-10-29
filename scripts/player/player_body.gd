@@ -63,7 +63,16 @@ func _process(delta: float) -> void:
 			_set_rot("UpperArm." + side, Vector3(1.0, 0, 0.15 if side == "R" else -0.15))
 			_set_rot("LowerArm." + side, Vector3(0.6, 0, 0))
 		return
-	if parkour and parkour.move == Parkour.Move.SLIDE:
+	if parkour and parkour.move in [Parkour.Move.VAULT, Parkour.Move.MANTLE, Parkour.Move.CLIMB_OVER]:
+		# Pernas encolhidas passando por cima (vault: de lado; subir: um joelho na frente).
+		_skeleton.set_bone_pose_position(_b["Hips"], hips_rest + Vector3(0, -0.15, 0))
+		var vault := parkour.move == Parkour.Move.VAULT
+		_set_rot("UpperLeg.L", Vector3(1.3 if vault else 1.5, 0, 0.5 if vault else 0.0))
+		_set_rot("LowerLeg.L", Vector3(-1.5, 0, 0))
+		_set_rot("UpperLeg.R", Vector3(1.0 if vault else 0.3, 0, 0.5 if vault else 0.0))
+		_set_rot("LowerLeg.R", Vector3(-1.2 if vault else -0.6, 0, 0))
+		_set_rot("Spine", Vector3(-0.35, 0, 0))
+	elif parkour and parkour.move == Parkour.Move.SLIDE:
 		_skeleton.set_bone_pose_position(_b["Hips"], hips_rest + Vector3(0, -0.72, 0.1))
 		_set_rot("Hips", Vector3(1.0, 0, 0))
 		_set_rot("Spine", Vector3(-0.3, 0, 0))

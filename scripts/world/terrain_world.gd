@@ -90,12 +90,20 @@ func biome_at(x: float, z: float) -> Dictionary:
 	var temperate := clampf(1.0 - desert - winter, 0.0, 1.0)
 	var rugged := _noise_rugged.get_noise_2d(x, z) * 0.5 + 0.5
 	# Limiar mais baixo e ruído mais largo = regiões de montanha maiores.
-	var mountain := smoothstep(0.48, 0.64, rugged) * (1.0 - desert)
+	var hot_cut := 1.0 - smoothstep(0.55, 0.76, temperature) # montanhas somem devagar perto do deserto
+	var mountain := smoothstep(0.44, 0.66, rugged) * hot_cut
+	# "Profundidade" dentro da cordilheira: o pé é baixo (morros) e os picos só
+	# sobem bem no meio dela, então a borda nunca vira um paredão.
+	var depth := smoothstep(0.5, 0.92, rugged) * hot_cut * hot_cut
+	var dist := Vector2(x, z).length()
+	depth *= smoothstep(town_radius * 2.4, town_radius * 9.0, dist) # sem picos perto da cidade
 	mountain = maxf(mountain, _border(x, z))
+	depth = maxf(depth, _border(x, z))
 	mountain *= 1.0 - _town_mask(x, z)
 	return {
 		"desert": desert * (1.0 - mountain), "plains": temperate * (1.0 - mountain),
 		"winter": winter * (1.0 - mountain), "mountain": mountain, "temperature": temperature,
+		"depth": depth,
 	}
 
 
@@ -124,7 +132,7 @@ func _height_from(x: float, z: float, biome: Dictionary) -> float:
 	# Montanhas arredondadas (ruído suave, sem cristas afiadas): boas para andar e
 	# para estradas no futuro. smoothstep deixa topo e pé das encostas mais macios.
 	var round_peak := smoothstep(0.0, 1.0, _noise_ridge.get_noise_2d(x, z) * 0.5 + 0.5)
-	var mountain_h := 12.0 + round_peak * 115.0 + hills * 8.0
+	var mountain_h := 10.0 + round_peak * 115.0 * pow(biome.depth, 1.3) + hills * 8.0
 	var base: float = plains_h * biome.plains + desert_h * biome.desert + winter_h * biome.winter
 	var total_flat: float = biome.plains + biome.desert + biome.winter
 	if total_flat > 0.001:

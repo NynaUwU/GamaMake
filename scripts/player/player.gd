@@ -358,7 +358,11 @@ func _physics_process(delta: float) -> void:
 	var t := 1.0 - exp(-accel * delta)
 	velocity.x = lerpf(velocity.x, target.x, t)
 	velocity.z = lerpf(velocity.z, target.z, t)
+	var fall_speed := velocity.y
+	var was_on_floor := is_on_floor()
 	move_and_slide()
+	if not was_on_floor and is_on_floor() and fall_speed < -2.5:
+		parkour.land(-fall_speed) # cabeça "afunda" ao aterrissar
 	_push_rigid_bodies()
 
 	if sprinting and direction != Vector3.ZERO:
@@ -461,6 +465,7 @@ func _process(delta: float) -> void:
 	_update_pistol(delta)
 	_update_charger(delta)
 	_update_fp_arm()
+	_update_parkour_hands()
 
 
 ## Modelos das armas na mão: os mesmos do chão/ícones (ItemModels).
@@ -534,6 +539,41 @@ func _update_fp_arm() -> void:
 		WeaponType.CHARGER:
 			grip = charger.transform.translated_local(Vector3(0, -0.05, 0.02))
 	_place_arm(_fp_arm, _fp_hand, FP_SHOULDER, grip)
+
+
+## Parkour: mãos apoiadas no obstáculo (ou arrastando no chão no deslize).
+## Com as duas mãos no obstáculo, a arma some por um instante.
+var _hands_busy := false
+
+
+func _update_parkour_hands() -> void:
+	var w := parkour.hand_weight
+	var both := parkour.hand_targets[1] != Vector3.INF
+	if w < 0.02:
+		if _hands_busy:
+			_hands_busy = false
+			_show_weapon(_weapon_type)
+		return
+	var to_camera := camera.global_transform.affine_inverse()
+	var palm_down := Basis(Vector3.RIGHT, -PI / 2) # punho virado para baixo, apoiando
+	# O apoio real fica abaixo do campo de visão: traz a mão para a borda de baixo da tela,
+	# na direção do ponto (dá a sensação de empurrar o obstáculo).
+	var visible_point := func(p: Vector3) -> Vector3:
+		return Vector3(clampf(p.x, -0.32, 0.32), maxf(p.y, -0.27), minf(p.z, -0.42))
+	if parkour.hand_targets[0] != Vector3.INF:
+		var rest := Vector3(-0.2, -0.26, -0.38)
+		var planted: Vector3 = visible_point.call(to_camera * parkour.hand_targets[0])
+		_fp_arm_left.visible = true
+		_fp_hand_left.visible = true
+		_place_arm(_fp_arm_left, _fp_hand_left, FP_SHOULDER_LEFT, Transform3D(palm_down, rest.lerp(planted, w)))
+	if both:
+		if not _hands_busy and w > 0.3:
+			_hands_busy = true
+			for node in [weapon, bat, staff, pistol, charger, spoon]:
+				node.visible = false
+		var rest_r := Vector3(0.2, -0.26, -0.38)
+		var planted_r: Vector3 = visible_point.call(to_camera * parkour.hand_targets[1])
+		_place_arm(_fp_arm, _fp_hand, FP_SHOULDER, Transform3D(palm_down, rest_r.lerp(planted_r, w)))
 
 
 func _place_arm(arm: MeshInstance3D, hand: Node3D, shoulder: Vector3, grip: Transform3D) -> void:
@@ -1307,3 +1347,4 @@ func _update_camera_shake(delta: float) -> void:
 	camera.h_offset = randf_range(-amount, amount)
 	camera.v_offset = randf_range(-amount, amount)
 	camera.rotation.z = lerpf(camera.rotation.z, _roll + parkour.camera_roll, 1.0 - exp(-14.0 * delta))
+	camera.rotation.x = lerpf(camera.rotation.x, parkour.camera_pitch, 1.0 - exp(-14.0 * delta))

@@ -99,7 +99,7 @@ os ícones.
 - `terrain_world.gd`: mapa de **3 km x 3 km** gerado pela semente (`seed`; `randomize_seed`
   para sortear). Norte = **inverno** (morros com neve, floresta densa de pinheiros), meio =
   **planícies** onduladas (morros + elevações menores) e **montanhas** (~30% do mapa, formas
-  **arredondadas** de até ~120 m: grama embaixo, rocha no alto e nas encostas íngremes — boas
+  **arredondadas** de até ~110 m, com pé baixo e picos só no meio das cordilheiras — sem paredões: grama embaixo, rocha no alto e nas encostas íngremes — boas
   para andar e para estradas no futuro), sul = **deserto** com dunas fortes (até ~16 m) e cactos.
   Bordas sobem em montanhas; o centro é a cidade.
 - O terreno vem em pedaços de 64 m que aparecem perto do player e somem longe (até 220 m).
@@ -119,6 +119,11 @@ os ícones.
   - mais comprido (ex.: carro no sentido do comprimento) → sobe em cima;
   - até `climb_max_height` (2.3 m): fino (cerca) → passa para o outro lado; grosso → sobe.
 - Deslizar desliga a colisão com zumbis e chama `Zombie.trip()` em quem passar por cima.
+- **Sem perder o ritmo:** deslizar termina na velocidade de corrida (ou de andar), vault e subir
+  saem na mesma velocidade em que entraram (a duração depende dela). Só escalar a cerca para.
+- **Animação:** mãos apoiando no obstáculo (as duas ao subir/escalar, a esquerda no vault e
+  arrastando no chão no deslize), câmera inclinando e mergulhando, pernas encolhidas no corpo e
+  "afundada" da cabeça ao aterrissar.
 
 ## Estrutura
 ```

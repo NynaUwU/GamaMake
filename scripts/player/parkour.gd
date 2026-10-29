@@ -38,6 +38,14 @@ const LAYER_ENEMY := 1 << 2
 var crouching := false
 var move := Move.NONE
 var camera_roll := 0.0
+## Animação (lidas pelo Player): inclinação extra da câmera, mergulho da cabeça
+## e mãos apoiadas no obstáculo (pontos no mundo; INF = mão livre).
+var camera_pitch := 0.0
+var camera_dip := 0.0
+var hand_targets: Array[Vector3] = [Vector3.INF, Vector3.INF] # esquerda, direita
+var hand_weight := 0.0
+var _dip_velocity := 0.0
+var _entry_speed := 0.0
 
 var _player: CharacterBody3D
 var _collision: CollisionShape3D
@@ -67,7 +75,18 @@ func eye_height(delta: float) -> float:
 	elif crouching:
 		target = crouch_eye
 	_eye = lerpf(_eye, target, 1.0 - exp(-14.0 * delta))
-	return _eye
+	# Mola do "mergulho" (aterrissagem, fim de vault): desce e volta.
+	_dip_velocity += (-camera_dip * 140.0 - _dip_velocity * 14.0) * delta
+	camera_dip += _dip_velocity * delta
+	if move == Move.NONE:
+		camera_pitch = lerpf(camera_pitch, 0.0, 1.0 - exp(-10.0 * delta))
+		hand_weight = move_toward(hand_weight, 0.0, delta * 6.0)
+	return _eye + camera_dip
+
+
+## Impacto na cabeça ao aterrissar (strength ~ velocidade da queda em m/s).
+func land(strength: float) -> void:
+	_dip_velocity -= clampf(strength, 0.0, 10.0) * 0.32
 
 
 func speed_factor(walk_speed: float) -> float:
@@ -109,13 +128,21 @@ func _start_slide() -> void:
 func _update_slide(delta: float) -> void:
 	_slide_time += delta
 	var k := clampf(_slide_time / slide_time, 0.0, 1.0)
-	var speed := lerpf(slide_speed, 2.0, k * k)
+	# Termina na velocidade de corrida (segurando Shift) ou de andar: não "freia" o player.
+	var running: bool = Input.is_action_pressed("sprint") and Input.is_action_pressed("move_forward")
+	var exit_speed: float = _player.sprint_speed if running else _player.walk_speed
+	var speed := lerpf(slide_speed, exit_speed, smoothstep(0.0, 1.0, k))
 	_player.velocity.x = _slide_dir.x * speed
 	_player.velocity.z = _slide_dir.z * speed
 	if not _player.is_on_floor():
 		_player.velocity.y -= 9.8 * delta
 	_player.move_and_slide()
-	camera_roll = -0.08
+	camera_roll = -0.08 * (1.0 - k * 0.6)
+	camera_pitch = 0.08 * sin(minf(k * 4.0, 1.0) * PI * 0.5) * (1.0 - k)
+	# Mão esquerda arrastando no chão, ao lado.
+	var side := _slide_dir.cross(Vector3.UP).normalized()
+	hand_targets = [_player.global_position - side * 0.55 - _slide_dir * 0.1 + Vector3.UP * 0.05, Vector3.INF]
+	hand_weight = smoothstep(0.0, 0.15, k) * (1.0 - smoothstep(0.6, 0.9, k))
 	_trip_zombies()
 	if k >= 1.0:
 		_end_slide()
@@ -136,6 +163,7 @@ func _trip_zombies() -> void:
 func _end_slide() -> void:
 	move = Move.NONE
 	camera_roll = 0.0
+	hand_targets = [Vector3.INF, Vector3.INF]
 	_player.collision_mask = _mask_backup
 	if _can_stand():
 		crouching = false
@@ -160,16 +188,24 @@ func try_traverse(sprinting: bool) -> bool:
 	var feet := _player.global_position
 	var wall: Vector3 = info.wall
 	var top_y: float = info.top_y
+	_entry_speed = Vector2(_player.velocity.x, _player.velocity.z).length()
+	var edge := Vector3(wall.x, top_y, wall.z) + forward * 0.06
+	var right := forward.cross(Vector3.UP).normalized()
 	var landing := _landing_point(wall + forward * (info.depth + 0.55), feet.y, top_y)
 	var on_top := Vector3(wall.x, top_y, wall.z) + forward * minf(0.45, info.depth * 0.5)
 
 	if info.height <= vault_max_height:
 		if sprinting and info.depth <= vault_max_depth and landing != Vector3.INF:
 			# Passa por cima deslizando (capô de carro / barreira).
-			_begin(Move.VAULT, 0.45, [feet, Vector3(wall.x, top_y + 0.25, wall.z) + forward * info.depth * 0.5, landing])
+			# Tempo pela distância e pela velocidade de entrada: atravessa sem perder ritmo.
+			var distance := Vector2(landing.x - feet.x, landing.z - feet.z).length()
+			var duration := clampf(distance / maxf(_entry_speed, 5.0), 0.28, 0.55)
+			_begin(Move.VAULT, duration, [feet, Vector3(wall.x, top_y + 0.25, wall.z) + forward * info.depth * 0.5, landing])
+			hand_targets = [edge + forward * info.depth * 0.4 - right * 0.12, Vector3.INF] # apoia a mão esquerda
 			return true
 		if _has_room(on_top):
-			_begin(Move.MANTLE, 0.3 + info.height * 0.2, [feet, Vector3(wall.x, top_y + 0.1, wall.z) - forward * 0.15, on_top])
+			_begin_mantle(feet, top_y, on_top + forward * minf(_entry_speed * 0.08, 0.4), info.height)
+			hand_targets = [edge - right * 0.24, edge + right * 0.24]
 			return true
 		return false
 	if info.depth <= fence_max_depth and landing != Vector3.INF:
@@ -177,11 +213,21 @@ func try_traverse(sprinting: bool) -> bool:
 		var over := Vector3(wall.x, top_y + 0.2, wall.z)
 		_begin(Move.CLIMB_OVER, 0.55 + info.height * 0.2,
 				[feet, over - forward * 0.15, over + forward * (info.depth + 0.15), landing])
+		_entry_speed = 0.0 # escalar a cerca é o único que para o player
+		hand_targets = [edge - right * 0.24, edge + right * 0.24]
 		return true
 	if _has_room(on_top):
-		_begin(Move.MANTLE, 0.35 + info.height * 0.25, [feet, Vector3(wall.x, top_y + 0.1, wall.z) - forward * 0.15, on_top])
+		_begin_mantle(feet, top_y, on_top, info.height)
+		hand_targets = [edge - right * 0.24, edge + right * 0.24]
 		return true
 	return false
+
+
+## Subir em cima: curva contínua (sobe e já avança), mais rápida com impulso.
+func _begin_mantle(feet: Vector3, top_y: float, on_top: Vector3, height: float) -> void:
+	var lift := Vector3(feet.x, top_y + 0.3, feet.z).lerp(on_top, 0.25)
+	var duration := clampf(0.24 + height * 0.2 - _entry_speed * 0.025, 0.24, 0.7)
+	_begin(Move.MANTLE, duration, [feet, lift, on_top])
 
 
 func _begin(kind: Move, duration: float, points: Array) -> void:
@@ -194,16 +240,26 @@ func _begin(kind: Move, duration: float, points: Array) -> void:
 
 
 func _update_traverse(delta: float) -> void:
+	var before := _player.global_position
 	_t += delta / _duration
 	var k := clampf(_t, 0.0, 1.0)
-	if move == Move.VAULT:
-		# Curva suave passando pelo ponto de cima (passa "deslizando").
+	if move == Move.VAULT or move == Move.MANTLE:
+		# Curva contínua (sem parar nos pontos): vault passa "deslizando" por cima,
+		# mantle sobe e já sai andando.
 		var a := _points[0]
 		var apex := _points[1]
 		var b := _points[2]
-		var control := apex * 2.0 - (a + b) * 0.5
-		_player.global_position = a.lerp(control, k).lerp(control.lerp(b, k), k)
-		camera_roll = sin(k * PI) * 0.12
+		var control := apex * 2.0 - (a + b) * 0.5 if move == Move.VAULT else apex
+		var t := k if move == Move.VAULT else ease(k, 0.8)
+		_player.global_position = a.lerp(control, t).lerp(control.lerp(b, t), t)
+		if move == Move.VAULT:
+			camera_roll = sin(k * PI) * 0.14
+			camera_pitch = -sin(k * PI) * 0.12
+			hand_weight = smoothstep(0.0, 0.2, k) * (1.0 - smoothstep(0.55, 0.85, k))
+		else:
+			camera_roll = sin(k * PI) * 0.04
+			camera_pitch = -sin(minf(k * 1.6, 1.0) * PI) * 0.22
+			hand_weight = smoothstep(0.0, 0.12, k) * (1.0 - smoothstep(0.7, 0.95, k))
 	else:
 		# Trechos retos: sobe, depois anda por cima (e desce, na cerca).
 		var segments := _points.size() - 1
@@ -211,14 +267,22 @@ func _update_traverse(delta: float) -> void:
 		var i := mini(int(f), segments - 1)
 		_player.global_position = _points[i].lerp(_points[i + 1], smoothstep(0.0, 1.0, f - i))
 		camera_roll = sin(k * PI) * 0.05
+		camera_pitch = -sin(k * PI) * 0.18
+		hand_weight = smoothstep(0.0, 0.1, k) * (1.0 - smoothstep(0.55, 0.75, k))
+	# Velocidade real do movimento (corpo e balanço da arma continuam animando).
+	if delta > 0.0:
+		_player.velocity = (_player.global_position - before) / delta
 	if k >= 1.0:
-		var keep_momentum := move == Move.VAULT
+		var kind := move
 		move = Move.NONE
 		camera_roll = 0.0
 		_collision.disabled = false
-		if keep_momentum:
-			var forward := -_player.global_basis.z
-			_player.velocity = Vector3(forward.x, 0, forward.z).normalized() * 5.5
+		hand_targets = [Vector3.INF, Vector3.INF]
+		# Sai na mesma velocidade em que entrou (vault e mantle não freiam o player).
+		var forward := -_player.global_basis.z
+		forward = Vector3(forward.x, 0, forward.z).normalized()
+		_player.velocity = forward * _entry_speed
+		land(3.0 if kind == Move.CLIMB_OVER else 1.6)
 
 
 ## Roda no _physics_process do player. Devolve true quando o parkour controla o movimento.
