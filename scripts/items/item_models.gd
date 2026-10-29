@@ -65,8 +65,8 @@ static func build(id: StringName) -> Node3D:
 
 # --- Armas -------------------------------------------------------------------
 
-## Espada longa: lâmina de aço em losango, guarda de latão curvada, cabo de
-## couro encorpado (poucos lados) com cintas de latão e pomo de ferro.
+## Espada longa: lâmina de aço em losango, guarda reta de latão, cabo reto de
+## couro e pomo curto de ferro (simples de propósito).
 static func _sword(p: Dictionary) -> void:
 	var blade := []
 	for s in [[-0.04, 0.032, 0.007], [-0.3, 0.03, 0.0065], [-0.65, 0.026, 0.006], [-0.86, 0.018, 0.005], [-0.97, 0.002, 0.002]]:
@@ -75,21 +75,12 @@ static func _sword(p: Dictionary) -> void:
 	_mb(p, STEEL).loft(blade, true, true)
 	# Cano de cobre correndo pela base da lâmina (o "vapor" da espada).
 	_mb(p, COPPER).tube(PackedVector3Array([Vector3(0, 0.009, -0.05), Vector3(0, 0.009, -0.24), Vector3(0, 0.006, -0.27)]), 0.0045, 6)
-	# Guarda: barra curvada para a lâmina com esferas nas pontas e miolo de ferro.
-	var guard := PackedVector3Array()
-	for i in 9:
-		var x := lerpf(-0.12, 0.12, i / 8.0)
-		guard.append(Vector3(x, 0, -0.03 - x * x * 2.2))
-	_mb(p, BRASS).tube(guard, 0.011, 6)
-	for side in [-1.0, 1.0]:
-		_ball(_mb(p, BRASS), Vector3(side * 0.12, 0, -0.03 - 0.0317), 0.017)
-	_mb(p, IRON).lathe(PackedVector2Array([Vector2(0.016, -0.018), Vector2(0.024, 0.0), Vector2(0.016, 0.018)]), 6, AXIS_X, Vector3(0, 0, -0.03))
-	# Cabo encorpado e simples (hexagonal): couro com duas cintas de latão.
-	_mb(p, LEATHER).lathe(PackedVector2Array([Vector2(0.028, -0.14), Vector2(0.031, -0.07), Vector2(0.027, 0.0)]), 6, AXIS_Z)
-	for z in [0.03, 0.1]:
-		_mb(p, BRASS).torus(0.03, 0.004, 6, 4, AXIS_Z, Vector3(0, 0, z))
-	# Pomo: bola de ferro facetada.
-	_ball(_mb(p, IRON), Vector3(0, 0, 0.165), 0.034, 6)
+	# Guarda: barra reta e simples.
+	_mb(p, BRASS).box(Vector3(0, 0, -0.03), Vector3(0.2, 0.035, 0.035))
+	# Cabo: cilindro reto de couro, sem enfeites (como o primeiro modelo).
+	_mb(p, LEATHER).lathe(PackedVector2Array([Vector2(0.024, -0.15), Vector2(0.024, -0.01)]), 8, AXIS_Z)
+	# Pomo: tampa curta de ferro.
+	_mb(p, IRON).lathe(PackedVector2Array([Vector2(0.002, -0.185), Vector2(0.03, -0.17), Vector2(0.03, -0.15)]), 8, AXIS_Z)
 
 
 ## Maça: cabo de madeira escura, cabeça de ferro com 6 flanges,

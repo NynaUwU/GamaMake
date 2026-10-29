@@ -57,8 +57,8 @@ reação física a golpes e ragdoll (estilo Dying Light), visual de PC dos anos 
 ## Armas (`scripts/items/item_models.gd`)
 Modelos medieval steampunk feitos com o `MeshBuilder`. A mesma função alimenta a arma na mão,
 o item no chão, a arma dos zumbis e os ícones.
-- **Espada:** lâmina de aço em losango, cano de cobre na base, guarda de latão curvada,
-  cabo de couro encorpado com cintas de latão, pomo de ferro.
+- **Espada:** lâmina de aço em losango, cano de cobre na base, guarda reta de latão,
+  cabo reto de couro e pomo curto de ferro.
 - **Maça** (o antigo taco): cabo de madeira com empunhadura de couro, cabeça de ferro com
   6 flanges e cintas de latão, serpentina de cobre.
 - **Cajado:** madeira com cintas de latão, manômetro, bobina de cobre e o orbe numa gaiola de latão.
