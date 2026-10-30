@@ -136,9 +136,9 @@ os ícones.
   traçado 3D (cada ponto tem altura; o terreno é moldado pela pista). Tudo aberto, sem trechos fechados:
   - **oval** com as **curvas inclinadas** (~10°) e uma **lombada na reta oposta** que faz o carro voar a partir de ~85 km/h;
   - **misto**: desce numa valeta, sobe o **morro do infield**, **grampo** lá em cima e desce em S;
-  - **cruzamento** de ponta a ponta numa **trincheira** com muros de arrimo; o misto passa por cima numa **ponte**;
+  - **cruzamento** de ponta a ponta num **rebaixo** de barrancos suaves; o misto passa por cima numa **ponte**;
   - **atalhos de terra**: um corta a curva 1 por dentro (**rampa** sobre uma valeta), outro sai do grampo e
-    **pula por cima da trincheira**;
+    **pula por cima do rebaixo**;
   - muretas vermelho/branco seguindo a inclinação, pneus, placas, largada quadriculada, pórtico e arquibancada.
   - Traçado em constantes no topo do arquivo (`INFIELD`, `CROSS`, `SHORTCUT_*`, `RAMPS`); teste em `tests/test_track.gd`.
 - `biome_atmosphere.gd`: neblina por distância conforme o bioma, com transição suave:

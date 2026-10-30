@@ -6,8 +6,8 @@ var frame := 0
 var runs := [
 	# [nome, ponto local, direção local, velocidade m/s, segundos]
 	["lombada", Vector2(-120, -85), Vector2(1, 0), 30.0, 4.0],
-	["ponte", Vector2(22, 15), Vector2(-1.4, -1), 14.0, 3.0],
-	["rampa atalho", Vector2(46, 22), Vector2(0.15, -1), 20.0, 3.0],
+	["ponte", Vector2(31, 21), Vector2(-1.4, -1), 14.0, 3.5],
+	["rampa atalho", Vector2(44, 28), Vector2(0.15, -1), 20.0, 3.5],
 	["rampa curva", Vector2(204, 36), Vector2(0.04, -1), 20.0, 3.5],
 ]
 var run := -1
@@ -34,9 +34,9 @@ func _physics_process(_d: float) -> bool:
 		max_air = maxi(max_air, air)
 		min_y = minf(min_y, car.global_position.y - terrain.track.base)
 		min_up = minf(min_up, car.global_basis.y.dot(Vector3.UP))
-		if run == 1 and (frame - start) % 10 == 0:
+		if run == int(OS.get_environment("TRACE_RUN")) and (frame - start) % 10 == 0:
 			var l := RaceTrack.to_local(terrain.track, Vector2(car.global_position.x, car.global_position.z))
-			print("  ponte t=", frame - start, " local=", l.snapped(Vector2.ONE * 0.1), " y=", snappedf(car.global_position.y - terrain.track.base, 0.1), " contato=", contact, " built=", main.has_node("RaceTrack"))
+			print("  trace t=", frame - start, " local=", l.snapped(Vector2.ONE * 0.1), " y=", snappedf(car.global_position.y - terrain.track.base, 0.1), " contato=", contact, " built=", main.has_node("RaceTrack"))
 		if frame - start > runs[run][4] * 60:
 			print("%s: maior tempo no ar=%.2f s, menor altura=%.1f, menor up=%.2f, vel final=%d km/h" % [runs[run][0], max_air / 60.0, min_y, min_up, car.linear_velocity.length() * 3.6])
 			car.queue_free()

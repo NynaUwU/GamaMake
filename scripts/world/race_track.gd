@@ -7,9 +7,9 @@ extends Node
 ##   lombada na reta oposta que faz o carro voar a partir de ~85 km/h.
 ## - Misto no meio: desce num valeta, sobe o morro do infield, grampo lá em
 ##   cima, desce em S e volta para o oval.
-## - Cruzamento pelo meio, numa trincheira; o misto passa por cima numa ponte.
+## - Cruzamento pelo meio, num rebaixo de barrancos suaves; o misto passa por cima numa ponte.
 ## - Atalhos de terra: um corta a curva 1 por dentro (rampa sobre uma valeta),
-##   outro sai do grampo e pula por cima da trincheira do cruzamento.
+##   outro sai do grampo e pula por cima do rebaixo do cruzamento.
 ##
 ## O traçado é 3D: cada ponto tem altura, e o relevo do terreno é moldado pela
 ## pista (surface()). Este nó constrói muretas, ponte, rampas, pneus,
@@ -22,7 +22,7 @@ const OVAL_WIDTH := 18.0
 const INFIELD_WIDTH := 13.0
 const CROSS_WIDTH := 12.0
 const DIRT_WIDTH := 9.0
-const CROSS_FALLOFF := 2.5 ## paredes da trincheira quase retas (a ponte cobre o vão)
+const CROSS_FALLOFF := 11.0 ## barrancos suaves do rebaixo do cruzamento (a ponte cobre o vão)
 const BANK := 0.18 ## inclinação das curvas do oval (~10°)
 const HILL_CENTER := Vector2(-5.0, 35.0) ## morro do infield
 const HILL_HEIGHT := 8.0
@@ -34,16 +34,16 @@ const INFIELD := [Vector3(-200, 85, 0), Vector3(-186, 58, 0), Vector3(-160, 28, 
 	Vector3(20, 14, 7.2), Vector3(4, 4, 6.2), Vector3(-4, -10, 5.0), Vector3(-14, -28, 3.0), Vector3(-18, -42, 1.2),
 	Vector3(12, -50, 0.2), Vector3(62, -30, 0.0), Vector3(100, -12, 0.6), Vector3(138, -32, 0.0), Vector3(160, -62, 0.0),
 	Vector3(168, -85, 0.0)]
-## Cruzamento (trincheira) de uma curva à outra, por baixo do morro.
+## Cruzamento de uma curva à outra, rebaixado por baixo do morro.
 const CROSS := [Vector3(-254, 0, -1.4), Vector3(-200, 4, -0.5), Vector3(-120, -4, 0.0), Vector3(-24, 0, 0.0),
 	Vector3(60, 2, 0.0), Vector3(150, -4, 0.0), Vector3(205, 0, -0.5), Vector3(254, 0, -1.4)]
 ## Atalhos de terra.
 const SHORTCUT_TURN := [Vector3(172, 78, 0), Vector3(196, 46, 0.3), Vector3(206, 14, 0.0), Vector3(207, -6, -1.8),
 	Vector3(204, -26, 0.0), Vector3(196, -48, 0.3), Vector3(172, -78, 0)]
-const SHORTCUT_JUMP := [Vector3(38, 28, 8.2), Vector3(44, 20, 7.6), Vector3(48, 12, 6.6), Vector3(50, -14, 2.6),
-	Vector3(54, -24, 0.8), Vector3(62, -30, 0.0)]
+const SHORTCUT_JUMP := [Vector3(38, 28, 8.2), Vector3(44, 24, 7.9), Vector3(47, 19, 7.4), Vector3(49, -12, 0.3),
+	Vector3(52, -22, 0.2), Vector3(62, -30, 0.0)]
 ## Rampas de madeira: [posição local, direção (u, v), comprimento, altura da ponta].
-const RAMPS := [[Vector2(206.0, 16.0), Vector2(0.03, -1.0), 7.0, 1.4], [Vector2(48.0, 14.5), Vector2(0.08, -1.0), 7.0, 1.6]]
+const RAMPS := [[Vector2(206.0, 16.0), Vector2(0.03, -1.0), 7.0, 1.4], [Vector2(46.8, 22.0), Vector2(0.08, -1.0), 7.0, 1.6]]
 
 @export var terrain_path: NodePath
 @export var player_path: NodePath
@@ -295,7 +295,6 @@ static func build(info: Dictionary) -> Node3D:
 	body.collision_layer = 1
 	_walls(info, concrete, paint, body)
 	_bridge(info, concrete, paint, body)
-	_trench_walls(info, concrete, body)
 	for ramp in RAMPS:
 		_ramp(info, wood, body, ramp[0], ramp[1], ramp[2], ramp[3])
 	# Pilhas de pneus por fora das curvas do misto e do grampo.
@@ -367,7 +366,7 @@ static func _walls(info: Dictionary, concrete: MeshBuilder, paint: MeshBuilder, 
 		paint.box(Vector3(center.x, y + 0.93, center.y), Vector3(length + 0.3, 0.06, 0.62), basis)
 
 
-## Ponte do misto por cima da trincheira do cruzamento: trechos de laje que
+## Ponte do misto por cima do rebaixo do cruzamento: trechos de laje que
 ## seguem a altura do próprio misto, com guarda-corpo e pilares.
 static func _bridge(info: Dictionary, concrete: MeshBuilder, paint: MeshBuilder, body: StaticBody3D) -> void:
 	var pts: PackedVector3Array = info.paths[0].points
@@ -392,34 +391,11 @@ static func _bridge(info: Dictionary, concrete: MeshBuilder, paint: MeshBuilder,
 			_shape(body, Vector3(rail.x, top + 0.45, rail.y), Vector3(length, 0.9, 0.4), basis)
 			paint.color(Color(0.7, 0.12, 0.08) if i % 2 == 0 else Color(0.9, 0.9, 0.88))
 			paint.box(Vector3(rail.x, top + 0.93, rail.y), Vector3(length, 0.06, 0.42), basis)
-		# Pilares nas beiradas da trincheira (sem fechar a passagem).
+		# Pilares nas beiradas do rebaixo (sem fechar a passagem).
 		if absf(mid.y) > CROSS_WIDTH * 0.5 and absf(mid.y) < CROSS_WIDTH * 0.5 + 4.0:
 			var floor_y := _h(info, mid)
 			if top - floor_y > 1.5:
 				concrete.box(Vector3(mid.x, (floor_y + top) * 0.5 - 0.35, mid.y), Vector3(1.2, top - floor_y, INFIELD_WIDTH - 1.0), basis)
-
-
-## Muros de arrimo dos dois lados da trincheira (onde ela é funda).
-static func _trench_walls(info: Dictionary, concrete: MeshBuilder, body: StaticBody3D) -> void:
-	var pts: PackedVector3Array = info.paths[4].points
-	var half := CROSS_WIDTH * 0.5
-	for i in pts.size() - 1:
-		var a := Vector2(pts[i].x, pts[i].y)
-		var b := Vector2(pts[i + 1].x, pts[i + 1].y)
-		var dir := (b - a).normalized()
-		var side := dir.orthogonal()
-		var mid := (a + b) * 0.5
-		var floor_y := (pts[i].z + pts[i + 1].z) * 0.5
-		for s in [-1.0, 1.0]:
-			var top := minf(_h(info, a + side * s * (half + CROSS_FALLOFF + 1.0)), _h(info, b + side * s * (half + CROSS_FALLOFF + 1.0)))
-			if top - floor_y < 1.0:
-				continue
-			var at: Vector2 = mid + side * s * (half + 0.4)
-			var height := top - floor_y + 0.15 # topo rente ao chão (a ponte passa por cima)
-			var basis := Basis(Vector3.UP, -atan2(dir.y, dir.x))
-			concrete.color(Color(0.58, 0.56, 0.52))
-			concrete.box(Vector3(at.x, floor_y - 0.2 + height * 0.5, at.y), Vector3(a.distance_to(b) + 0.5, height, 0.8), basis)
-			_shape(body, Vector3(at.x, floor_y - 0.2 + height * 0.5, at.y), Vector3(a.distance_to(b), height, 0.8), basis)
 
 
 ## Rampa de madeira (cunha) apontando para dir: sobe até "height" na ponta.
