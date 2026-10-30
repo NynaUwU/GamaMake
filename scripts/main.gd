@@ -81,8 +81,23 @@ func _unhandled_input(event: InputEvent) -> void:
 			Net.i.restart_world()
 
 
-## Teste: muitos zumbis em volta do player (anel de 12 a 45 m).
+## Teste: muitos zumbis em volta do player (anel de 12 a 45 m). Nascem em
+## lotes de 10 por quadro (criar 100 de uma vez travava o jogo por um instante).
+var _horde_left := 0
+
+
 func _spawn_horde(count: int) -> void:
+	_horde_left += count
+
+
+func _process(_delta: float) -> void:
+	if _horde_left > 0:
+		var batch := mini(_horde_left, 10)
+		_horde_left -= batch
+		_spawn_horde_batch(batch)
+
+
+func _spawn_horde_batch(count: int) -> void:
 	var terrain := get_node_or_null("Terrain") as TerrainWorld
 	for i in count:
 		var a := randf() * TAU

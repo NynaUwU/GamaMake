@@ -57,6 +57,9 @@ var mode := Mode.WALK
 var getup_t := 0.0 ## 0..3: progresso pelas poses de levantar
 var getup_face_down := true
 
+var frame_skip := 0 ## quadros pulados entre poses (zumbi longe anima menos vezes)
+var _skipped := 0
+var _skipped_time := 0.0
 var _phase := 0.0
 var _time := 0.0
 var _limp := randf_range(0.0, 0.3) # cada zumbi manca um pouco diferente
@@ -73,6 +76,14 @@ func _ready() -> void:
 
 
 func _process(delta: float) -> void:
+	if frame_skip > 0:
+		_skipped_time += delta
+		_skipped += 1
+		if _skipped <= frame_skip:
+			return
+		delta = _skipped_time
+		_skipped = 0
+		_skipped_time = 0.0
 	_time += delta
 	match mode:
 		Mode.CRAWL:

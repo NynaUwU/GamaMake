@@ -30,7 +30,8 @@ func setup() -> void:
 			_bones.append(child)
 			_by_name[StringName(child.get("bone_name"))] = child
 			child.collision_layer = 0
-			child.collision_mask = MASK_RAGDOLL
+			child.collision_mask = 0
+	_set_shapes(false)
 
 
 func is_ragdolling() -> bool:
@@ -44,6 +45,7 @@ func start(inherited_velocity := Vector3.ZERO) -> void:
 	influence = 1.0
 	if _active:
 		return # já está em ragdoll (ex.: apanhou enquanto levantava)
+	_set_shapes(true)
 	physical_bones_start_simulation()
 	_active = true
 	var skeleton := get_skeleton()
@@ -51,6 +53,7 @@ func start(inherited_velocity := Vector3.ZERO) -> void:
 		# top_level: os corpos não são arrastados quando o nó raiz do inimigo se move.
 		pb.top_level = true
 		pb.collision_layer = LAYER_RAGDOLL
+		pb.collision_mask = MASK_RAGDOLL
 		pb.global_transform = skeleton.global_transform \
 				* skeleton.get_bone_global_pose(pb.get_bone_id()) * pb.body_offset
 		pb.linear_velocity = inherited_velocity
@@ -83,8 +86,21 @@ func stop() -> void:
 	influence = 1.0
 	for pb in _bones:
 		pb.collision_layer = 0
+		pb.collision_mask = 0
 		pb.top_level = false
+	_set_shapes(false)
 	blend_finished.emit()
+
+
+## De pé os ossos físicos não colidem com nada: sem formas, a física quase não
+## gasta com eles (com 100 zumbis isso pesava vários ms por quadro).
+func _set_shapes(enabled: bool) -> void:
+	for pb in _bones:
+		# Desligado = fora do espaço de física (nem a posição é atualizada).
+		pb.process_mode = Node.PROCESS_MODE_INHERIT if enabled else Node.PROCESS_MODE_DISABLED
+		for child in pb.get_children():
+			if child is CollisionShape3D:
+				child.disabled = not enabled
 
 
 func get_bone_body(bone: StringName) -> PhysicalBone3D:

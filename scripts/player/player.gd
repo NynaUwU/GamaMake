@@ -1070,11 +1070,20 @@ func _fire_pistol() -> void:
 	var query := PhysicsRayQueryParameters3D.create(origin, origin + direction * pistol_range, MASK_HIT, [get_rid()])
 	query.collide_with_areas = true
 	var hit := get_world_3d().direct_space_state.intersect_ray(query)
+	# Zumbi longe fica sem hitboxes (desempenho): o tiro acerta a cápsula dele.
+	var far := PhysicsRayQueryParameters3D.create(origin, origin + direction * pistol_range, 1 << 2, [get_rid()])
+	var far_hit := get_world_3d().direct_space_state.intersect_ray(far)
+	if far_hit and far_hit.collider is Zombie and not far_hit.collider.hitboxes_active \
+			and (hit.is_empty() or origin.distance_to(far_hit.position) < origin.distance_to(hit.position)):
+		hit = far_hit
 	var end: Vector3 = hit.position if hit else origin + direction * pistol_range
 	ImpactFX.tracer(get_parent(), muzzle.global_position, end)
 	Net.i.fx("tracer", [muzzle.global_position, end])
 	if hit:
 		var collider: Object = hit.collider
+		if collider is Zombie:
+			collider.set_meta("enemy", collider)
+			collider.set_meta("bone", collider.hit_bone_at(hit.position))
 		if collider.has_meta("enemy"):
 			var enemy = collider.get_meta("enemy")
 			if is_instance_valid(enemy) and enemy.has_method("take_hit"):

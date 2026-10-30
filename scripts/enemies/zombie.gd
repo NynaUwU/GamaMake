@@ -25,6 +25,12 @@ enum State { IDLE, CHASE, ATTACK, STAGGER, STUMBLE, DOWN, GETTING_UP, DEAD, IMPA
 enum LimbState { OK, BROKEN, CUT }
 
 const LAYER_HITBOX := 1 << 4
+const LAYER_ENEMY := 1 << 2
+const SEPARATION_RADIUS := 0.75
+
+# Grade de vizinhança (montada uma vez por tick de física, para todos os zumbis).
+static var _grid := {}
+static var _grid_frame := -1
 
 ## Multiplicador de dano no corpo por osso (cabeça dói mais).
 const BONE_DAMAGE := {
@@ -135,6 +141,12 @@ var _has_snap := false
 var _state_hold := 0.0 # marionete: ignora o estado do host por um instante (empalou agora)
 var _retarget := 0.0
 var _net_spawn := {}
+# Nível de detalhe pela distância até o jogador mais perto (0 perto, 1 médio, 2 longe).
+var _lod := 0
+var hitboxes_active := true ## false = longe; golpes à distância usam a cápsula
+var _lod_distance := 0.0
+var _tick := 0
+var _step := 1
 
 @onready var collision: CollisionShape3D = $CollisionShape3D
 @onready var skeleton: Skeleton3D = $Skeleton3D
@@ -154,6 +166,9 @@ func _ready() -> void:
 	for limb in LIMBS:
 		_limb_state[limb] = LimbState.OK
 		_limb_hp[limb] = {"head": head_health, "arm": arm_health, "leg": leg_health}[LIMBS[limb].kind]
+	# Zumbis não colidem fisicamente entre si (cápsula contra cápsula numa
+	# multidão custa muito); eles se afastam com _separation() no lugar.
+	collision_mask &= ~LAYER_ENEMY
 	_standing_shape = collision.shape
 	_standing_shape_transform = collision.transform
 	ragdoll.blend_finished.connect(_on_ragdoll_blended_out)
@@ -177,12 +192,21 @@ func _physics_process(delta: float) -> void:
 	if puppet:
 		_puppet_physics(delta)
 		return
+	# Longe e só andando/parado: pensa a cada 2 ticks (com o passo dobrado).
+	_tick += 1
+	_step = 2 if _lod >= 2 and state in [State.IDLE, State.CHASE] else 1
+	if _tick % _step != 0:
+		return
+	delta *= _step
 	_state_time += delta
 	_cooldown -= delta
 	_retarget -= delta
-	if _retarget <= 0.0 and (not _alerted or _target_dead()):
+	if _retarget <= 0.0:
 		_retarget = 0.5
-		target = _nearest_player() # online: persegue o jogador mais perto
+		var nearest := _nearest_player()
+		if not _alerted or _target_dead():
+			target = nearest # online: persegue o jogador mais perto
+		_update_lod()
 	match state:
 		State.IDLE:
 			_update_idle(delta)
@@ -205,7 +229,9 @@ func _physics_process(delta: float) -> void:
 	if state in [State.IDLE, State.CHASE, State.ATTACK, State.STAGGER, State.STUMBLE]:
 		if not is_on_floor():
 			velocity.y -= _gravity * delta
+		velocity *= _step # pulou ticks: move_and_slide usa o tick normal, então anda o dobro
 		move_and_slide()
+		velocity /= _step
 	_update_balance(delta)
 	_update_body_pose(delta)
 	_bump_others()
@@ -233,7 +259,7 @@ func _update_chase(delta: float) -> void:
 		return
 	if _climb_mode and _try_start_climb(direction):
 		return
-	var desired := direction * (crawl_speed if crawler else move_speed)
+	var desired := direction * (crawl_speed if crawler else move_speed) + _separation() * 2.5
 	velocity.x = lerpf(velocity.x, desired.x, 1.0 - exp(-5.0 * delta))
 	velocity.z = lerpf(velocity.z, desired.z, 1.0 - exp(-5.0 * delta))
 
@@ -1030,6 +1056,63 @@ func _target_dead() -> bool:
 	return hp != null and hp <= 0.0
 
 
+## Osso aproximado de um ponto na cápsula (tiro em zumbi longe, sem hitboxes).
+func hit_bone_at(point: Vector3) -> StringName:
+	var h := point.y - global_position.y
+	if crawler:
+		return &"Chest"
+	if h > 1.5:
+		return &"Head"
+	if h > 1.0:
+		return &"Chest"
+	if h > 0.85:
+		return &"Hips"
+	return &"UpperLeg.L" if to_local(point).x < 0.0 else &"UpperLeg.R"
+
+
+## Empurrão para longe dos zumbis muito perto (no lugar da colisão entre eles).
+func _separation() -> Vector3:
+	var frame := Engine.get_physics_frames()
+	if frame != _grid_frame:
+		_grid_frame = frame
+		_grid.clear()
+		for z in get_tree().get_nodes_in_group("enemy"):
+			var key := Vector2i(floori(z.global_position.x / SEPARATION_RADIUS), floori(z.global_position.z / SEPARATION_RADIUS))
+			if not _grid.has(key):
+				_grid[key] = []
+			_grid[key].append(z)
+	var here := Vector2i(floori(global_position.x / SEPARATION_RADIUS), floori(global_position.z / SEPARATION_RADIUS))
+	var push := Vector3.ZERO
+	for dx in range(-1, 2):
+		for dz in range(-1, 2):
+			for other in _grid.get(here + Vector2i(dx, dz), []):
+				if other == self or other.state in [State.DOWN, State.DEAD, State.IMPALED]:
+					continue
+				var offset: Vector3 = global_position - other.global_position
+				offset.y = 0.0
+				var d := offset.length()
+				if d < SEPARATION_RADIUS and d > 0.001:
+					push += offset / d * (SEPARATION_RADIUS - d) / SEPARATION_RADIUS
+	return push
+
+
+## Detalhe pela distância: sombra só perto; animação e IA mais espaçadas longe.
+func _update_lod() -> void:
+	var level := 0 if _lod_distance < 30.0 else (1 if _lod_distance < 70.0 else 2)
+	if level == _lod:
+		return
+	_lod = level
+	locomotion.frame_skip = [0, 1, 3][level]
+	# Longe: as hitboxes saem da física (o tiro de longe acerta a cápsula; ver hit_bone_at).
+	hitboxes_active = level == 0
+	for area in find_children("Hitbox", "Area3D", true, false):
+		area.process_mode = Node.PROCESS_MODE_INHERIT if hitboxes_active else Node.PROCESS_MODE_DISABLED
+	var body: MeshInstance3D = skeleton.get("skin_mesh")
+	if body:
+		body.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON if level == 0 \
+				else GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+
+
 ## Jogador mais perto (vivo) entre o local e os bonecos dos outros.
 func _nearest_player() -> Node3D:
 	var best: Node3D = null
@@ -1042,6 +1125,7 @@ func _nearest_player() -> Node3D:
 			if d < best_d:
 				best_d = d
 				best = p
+	_lod_distance = sqrt(best_d) if best else 0.0
 	return best if best else target
 
 
@@ -1223,6 +1307,13 @@ func _apply_spawn_state() -> void:
 
 ## Marionete: segue a posição/estado do host e anima com isso (sem IA).
 func _puppet_physics(delta: float) -> void:
+	_retarget -= delta
+	if _retarget <= 0.0:
+		_retarget = 0.5
+		var local := get_tree().get_first_node_in_group("player") as Node3D
+		if local:
+			_lod_distance = global_position.distance_to(local.global_position)
+			_update_lod()
 	_state_time += delta
 	_state_hold -= delta
 	var ragdolled := ragdoll.is_ragdolling() and ragdoll.influence >= 1.0

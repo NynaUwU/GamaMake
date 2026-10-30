@@ -17,6 +17,15 @@ const LAYER_HITBOX := 1 << 4
 @export var glowing_eyes := true
 ## Ossos que só projetam sombra (no player: cabeça e braços, para não tapar a câmera).
 @export var shadow_only_bones: Array[StringName] = []
+## Corpo inteiro numa malha só deformada pelo esqueleto (1-2 chamadas de desenho
+## em vez de ~25 peças). Desligado sozinho quando há ossos "só sombra" (player).
+@export var merge_visuals := true
+
+var skin_mesh: MeshInstance3D ## malha única do corpo (modo merge_visuals)
+var _cut := {} # ossos arrancados (não entram mais na malha)
+static var _body_material: StandardMaterial3D
+static var _mesh_cache := {} # corpo inteiro (sem cortes) já montado, por cores: todos os zumbis usam o mesmo
+static var _eye_material: StandardMaterial3D
 
 # nome, pai, posição relativa ao pai, comprimento, direção (+1 cima / -1 baixo),
 # largura, profundidade, massa, parte (define cor e multiplicador de dano)
@@ -57,12 +66,22 @@ func _ready() -> void:
 	}
 	var enemy := owner if owner else get_parent()
 	var simulator := get_node_or_null("PhysicalBoneSimulator3D") as PhysicalBoneSimulator3D
+	if not shadow_only_bones.is_empty():
+		merge_visuals = false
 	for def in BONES:
 		_build_bone_visual(def, enemy)
 		if simulator:
 			_build_physical_bone(def, simulator, enemy)
 	if simulator and simulator.has_method("setup"):
 		simulator.setup()
+	if merge_visuals:
+		skin_mesh = MeshInstance3D.new()
+		skin_mesh.name = "Body"
+		add_child(skin_mesh)
+		skin_mesh.skeleton = NodePath("..")
+		skin_mesh.skin = create_skin_from_rest_transforms()
+		skin_mesh.visibility_range_end = 190.0 # além da neblina mais longa
+		_rebuild_skin()
 
 
 func _build_bone_visual(def: Array, enemy: Node) -> void:
@@ -76,6 +95,9 @@ func _build_bone_visual(def: Array, enemy: Node) -> void:
 	attachment.name = attachment_name(bone_name)
 	attachment.bone_name = bone_name
 	add_child(attachment)
+	if merge_visuals:
+		_build_hitbox(attachment, bone_name, size, center, enemy)
+		return
 
 	var mesh := MeshInstance3D.new()
 	var box := BoxMesh.new()
@@ -97,9 +119,12 @@ func _build_bone_visual(def: Array, enemy: Node) -> void:
 		if bone_name.ends_with(".R"):
 			hand.rotation.y = PI
 		attachment.add_child(hand)
+	_build_hitbox(attachment, bone_name, size, center, enemy)
+
+
+func _build_hitbox(attachment: Node3D, bone_name: String, size: Vector3, center: Vector3, enemy: Node) -> void:
 	if not build_hitboxes:
 		return
-
 	# Hitbox: é o que o golpe do player acerta enquanto o zumbi está de pé.
 	var hitbox := Area3D.new()
 	hitbox.name = "Hitbox"
@@ -249,6 +274,94 @@ func get_bone_subtree(bone_name: StringName) -> Array[StringName]:
 	return result
 
 
+# --- Malha única ---------------------------------------------------------------
+
+## Refaz a malha do corpo (sem os ossos arrancados). Cada bloco fica preso ao
+## seu osso com peso 1, então a pose, o ragdoll e as molas mexem tudo junto.
+func _rebuild_skin() -> void:
+	var key := "%s|%s|%s|%s" % [skin_color, shirt_color, pants_color, glowing_eyes]
+	if _cut.is_empty() and _mesh_cache.has(key):
+		skin_mesh.mesh = _mesh_cache[key]
+		return
+	var body := SurfaceTool.new()
+	body.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var eyes := SurfaceTool.new()
+	eyes.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var has_eyes := false
+	for def in BONES:
+		if _cut.has(def[0]):
+			continue
+		var idx := find_bone(def[0])
+		has_eyes = _part_geometry(body, eyes, def, get_bone_global_rest(idx), idx) or has_eyes
+	var mesh := body.commit()
+	mesh.surface_set_material(0, _get_body_material())
+	if has_eyes:
+		eyes.commit(mesh)
+		mesh.surface_set_material(1, _get_eye_material())
+	skin_mesh.mesh = mesh
+	if _cut.is_empty():
+		_mesh_cache[key] = mesh
+
+
+## Blocos de um osso (corpo, mão no antebraço, olhos na cabeça) no espaço "xform".
+## bone >= 0: vértices presos a esse osso (malha deformável); -1: malha comum.
+func _part_geometry(body: SurfaceTool, eyes: SurfaceTool, def: Array, xform: Transform3D, bone: int) -> bool:
+	var bone_name: String = def[0]
+	var length: float = def[3]
+	var size := Vector3(def[5], length, def[6])
+	var center := Vector3(0, def[4] * length * 0.5, 0)
+	var color: Color = {"skin": skin_color, "shirt": shirt_color, "pants": pants_color}[def[8]]
+	_add_box(body, bone, xform * Transform3D(Basis(), center), size, color)
+	var has_eyes := false
+	if bone_name == "Head" and glowing_eyes:
+		has_eyes = true
+		for side in [-1.0, 1.0]:
+			var at := center + Vector3(side * 0.05, 0.03, -size.z * 0.5 - 0.005)
+			_add_box(eyes, bone, xform * Transform3D(Basis(), at), Vector3(0.04, 0.03, 0.02), Color.WHITE)
+	if bone_name.begins_with("LowerArm"):
+		var hand := BlockyHand.open(null, glowing_eyes)
+		var hand_xform := Transform3D(Basis(Vector3.UP, PI) if bone_name.ends_with(".R") else Basis(), Vector3(0, -length, 0))
+		for block in hand.get_children():
+			if block is MeshInstance3D:
+				_add_box(body, bone, xform * hand_xform * block.transform, block.mesh.size, skin_color)
+		hand.free()
+	return has_eyes
+
+
+static func _add_box(st: SurfaceTool, bone: int, xform: Transform3D, size: Vector3, color: Color) -> void:
+	var box := BoxMesh.new()
+	box.size = size
+	var arrays := box.get_mesh_arrays()
+	var verts: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
+	var normals: PackedVector3Array = arrays[Mesh.ARRAY_NORMAL]
+	var indices: PackedInt32Array = arrays[Mesh.ARRAY_INDEX]
+	for i in indices:
+		st.set_color(color)
+		st.set_normal((xform.basis * normals[i]).normalized())
+		if bone >= 0:
+			st.set_bones(PackedInt32Array([bone, 0, 0, 0]))
+			st.set_weights(PackedFloat32Array([1.0, 0.0, 0.0, 0.0]))
+		st.add_vertex(xform * verts[i])
+
+
+static func _get_body_material() -> StandardMaterial3D:
+	if _body_material == null:
+		_body_material = StandardMaterial3D.new()
+		_body_material.vertex_color_use_as_albedo = true
+		_body_material.roughness = 0.9
+	return _body_material
+
+
+static func _get_eye_material() -> StandardMaterial3D:
+	if _eye_material == null:
+		_eye_material = StandardMaterial3D.new()
+		_eye_material.albedo_color = Color(1.0, 0.85, 0.3)
+		_eye_material.emission_enabled = true
+		_eye_material.emission = Color(1.0, 0.8, 0.2)
+		_eye_material.emission_energy_multiplier = 1.5
+	return _eye_material
+
+
 ## Arranca o membro: esconde o visual e as hitboxes, cria um pedaço físico com
 ## cópia dos blocos, sangue no corte e um "toco" no osso pai.
 ## Retorna os ossos que saíram (para o Ragdoll remover os corpos físicos).
@@ -271,6 +384,28 @@ func detach_limb(bone_name: StringName, impulse: Vector3) -> Array[StringName]:
 	scene_root.add_child(limb)
 	limb.global_transform = cut_transform
 
+	if merge_visuals:
+		# Pedaço com os blocos dos ossos que saíram (na pose atual), e o corpo sem eles.
+		var piece := SurfaceTool.new()
+		piece.begin(Mesh.PRIMITIVE_TRIANGLES)
+		var piece_eyes := SurfaceTool.new()
+		piece_eyes.begin(Mesh.PRIMITIVE_TRIANGLES)
+		var base := get_bone_global_pose(idx).affine_inverse()
+		var piece_has_eyes := false
+		for def in BONES:
+			if def[0] in bones and not _cut.has(def[0]):
+				piece_has_eyes = _part_geometry(piece, piece_eyes, def, base * get_bone_global_pose(find_bone(def[0])), -1) or piece_has_eyes
+		var limb_mesh := piece.commit()
+		limb_mesh.surface_set_material(0, _get_body_material())
+		if piece_has_eyes:
+			piece_eyes.commit(limb_mesh)
+			limb_mesh.surface_set_material(1, _get_eye_material())
+		var limb_visual := MeshInstance3D.new()
+		limb_visual.mesh = limb_mesh
+		limb.add_child(limb_visual)
+		for name in bones:
+			_cut[name] = true
+		_rebuild_skin()
 	for name in bones:
 		var attachment := get_node_or_null(attachment_name(name)) as BoneAttachment3D
 		if attachment == null or not attachment.visible:
