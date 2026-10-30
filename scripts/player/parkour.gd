@@ -26,7 +26,7 @@ const LAYER_ENEMY := 1 << 2
 @export var slide_speed := 8.5
 @export var slide_time := 0.85
 @export var slide_trip_force := 45.0
-@export var slide_steer := 1.4 ## rad/s: A/D curvam o deslize de leve
+@export var slide_steer := 1.4 ## rad/s: o deslize curva de leve para onde o mouse aponta
 @export var slide_friction := 2.4 ## m/s² de atrito no plano
 @export var slide_max_speed := 15.0
 
@@ -132,9 +132,11 @@ func _start_slide() -> void:
 
 func _update_slide(delta: float) -> void:
 	_slide_time += delta
-	# A/D curvam o deslize de leve.
-	var steer := Input.get_axis("move_right", "move_left")
-	_slide_dir = _slide_dir.rotated(Vector3.UP, steer * slide_steer * delta).normalized()
+	# O mouse curva o deslize de leve: a direção vai girando até onde o player olha.
+	var look := -_player.global_basis.z
+	look = Vector3(look.x, 0, look.z).normalized()
+	var turn := clampf(_slide_dir.signed_angle_to(look, Vector3.UP), -slide_steer * delta, slide_steer * delta)
+	_slide_dir = _slide_dir.rotated(Vector3.UP, turn).normalized()
 	# Física simples: a ladeira acelera, o atrito freia. Descendo, não para.
 	var slope := 0.0
 	if _player.is_on_floor():

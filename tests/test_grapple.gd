@@ -34,17 +34,14 @@ func _physics_process(_d: float) -> bool:
 		max_dist = maxf(max_dist, player._chest().distance_to(player._anchor) - player._rope_length)
 		min_y = minf(min_y, player.global_position.y)
 		max_speed = maxf(max_speed, player.velocity.length())
-	if frame == 120:
-		Input.action_press("jump")
 	if frame == 160:
-		Input.action_release("jump")
 		print("swinging: rope stretch max=", snappedf(max_dist, 0.01), " min y=", snappedf(min_y, 0.1), " max speed=", snappedf(max_speed, 0.1), " rope now=", snappedf(player._rope_length, 0.1))
-		player.velocity = Vector3(0, 2, -9)
+		player.velocity = Vector3(3, 2, 9) # para longe da parede
 	if frame == 162:
 		Input.action_release("attack")
 		Input.action_release("move_forward")
 	if frame == 170:
-		print("released: active=", player._grapple_active, " horizontal speed=", snappedf(Vector2(player.velocity.x, player.velocity.z).length(), 0.1), " rope visible=", player._rope.visible)
+		print("released: pos=", player.global_position.snapped(Vector3.ONE*0.1), " floor=", player.is_on_floor(), " active=", player._grapple_active, " horizontal speed=", snappedf(Vector2(player.velocity.x, player.velocity.z).length(), 0.1), " rope visible=", player._rope.visible)
 	if frame == 185:
 		print("  0.25 s later in air: horizontal speed=", snappedf(Vector2(player.velocity.x, player.velocity.z).length(), 0.1))
 		quit()

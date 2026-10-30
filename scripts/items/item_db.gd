@@ -18,7 +18,7 @@ const ITEMS := {
 		"damage_type": "Impacto", "damage": 20, "knockback": 95,
 		"desc": "Uma colher de sopa para um gigante com muita fome. Ninguém sabe de onde veio. Ninguém pergunta."},
 	&"gancho": {"name": "Gancho", "kind": "weapon", "weapon": "grapple", "stack": 1, "size": Vector3(0.12, 0.18, 0.5),
-		"desc": "Clique e segure para balançar; Espaço recolhe a corda. Não teste em zumbis."},
+		"desc": "Clique e segure para balançar; a corda se recolhe sozinha. Não teste em zumbis."},
 	&"cajado": {"name": "Cajado", "kind": "weapon", "weapon": "staff", "stack": 1, "size": Vector3(0.12, 0.12, 1.2),
 		"damage_type": "Explosão", "damage": 70, "knockback": 450,
 		"desc": "Dispara mísseis mágicos. Ler o manual antes era opcional."},

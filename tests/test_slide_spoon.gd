@@ -38,11 +38,10 @@ func _physics_process(_d: float) -> bool:
 		Input.action_press("move_forward")
 	if frame == 14:
 		player.parkour.on_crouch_pressed(true)
-		Input.action_press("move_left")
+		player.rotation.y = 1.0 # olha para a esquerda: o deslize curva para lá
 	if frame == 50:
 		var d := player.parkour._slide_dir
 		print("flat slide steering left: dir=", d.snapped(Vector3.ONE * 0.01), " move=", Parkour.Move.keys()[player.parkour.move])
-		Input.action_release("move_left")
 	# 2) Deslize descendo a rampa.
 	if frame == 100:
 		player.global_position = Vector3(60, 10.5, 56)

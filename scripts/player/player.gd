@@ -85,15 +85,16 @@ enum SwingPhase { NONE, WINDUP, SLASH, RECOVER }
 @export var spoon_damage := 20.0
 @export var spoon_force := 95.0 ## empurrão enorme: arremessa zumbis
 @export var spoon_speed := 0.6 ## pesadona: golpe lento
-@export var spoon_launch := 1500.0 ## impulso do arremesso (zumbi voa ~15-25 m)
+@export var spoon_launch := 750.0 ## impulso do arremesso (zumbi voa ~10 m)
 
 @export_group("Gancho")
 ## Clique para disparar e SEGURE para ficar preso balançando; soltou = solta a
-## corda e mantém o impulso. Espaço (segurando) recolhe a corda.
+## corda e mantém o impulso. A corda se recolhe sozinha quando você chega perto
+## do gancho (nunca fica frouxa). WASD = controle no ar.
 @export var grapple_range := 45.0
 @export var grapple_air_control := 9.0 ## m/s² de empurrão com WASD balançando
-@export var grapple_reel_speed := 9.0
 @export var grapple_pull := 4.0 ## puxão inicial na direção do gancho
+@export var grapple_lift := 4.5 ## impulso inicial para cima ao prender
 
 @export_group("Empalar")
 ## Correndo com a espada, segure o ataque: a lâmina vai para frente e espeta
@@ -1326,7 +1327,7 @@ func _fire_grapple() -> void:
 	_anchor = hit.position
 	_grapple_active = true
 	_rope_length = maxf(_chest().distance_to(_anchor) * 0.92, 2.0)
-	velocity += (_anchor - _chest()).normalized() * grapple_pull
+	velocity += (_anchor - _chest()).normalized() * grapple_pull + Vector3.UP * grapple_lift
 	_shake = 0.08
 
 
@@ -1348,9 +1349,8 @@ func _update_grapple(delta: float) -> void:
 	velocity.y -= _gravity * delta
 	var input := Input.get_vector("move_left", "move_right", "move_forward", "move_back")
 	velocity += (global_basis * Vector3(input.x, 0, input.y)) * grapple_air_control * delta
-	if Input.is_action_pressed("jump"):
-		_rope_length = maxf(_rope_length - grapple_reel_speed * delta, 2.0)
 	var to := _chest() - _anchor
+	_rope_length = maxf(minf(_rope_length, to.length()), 1.5) # chegou mais perto: recolhe
 	if to.length() >= _rope_length:
 		var n := to.normalized()
 		var outward := velocity.dot(n)

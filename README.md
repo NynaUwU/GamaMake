@@ -73,9 +73,9 @@ os ícones.
   A carga só aparece no ponteiro do carregador. A lanterna gasta a bateria (~2,5 min cheia) e a
   luz vai ficando mais fraca bem aos poucos (é preciso prestar atenção para notar) até apagar.
 - **Colherona:** colher de sopa ridiculamente grande (1,5 m). Lenta, pouco dano, e **arremessa
-  o zumbi ~20 m** girando (`spoon_launch`).
-- **Gancho:** clique e **segure** para prender e balançar (pêndulo, WASD empurra); **Espaço**
-  recolhe a corda; soltar o clique solta a corda e mantém o impulso no ar. Alcance 45 m.
+  o zumbi ~10 m** girando (`spoon_launch`).
+- **Gancho:** clique e **segure** para prender e balançar (pêndulo com um impulso para cima ao
+  prender, WASD controla no ar); a corda **se recolhe sozinha** quando você chega perto; soltar o clique solta a corda e mantém o impulso no ar. Alcance 45 m.
 - **Lanterna** de latão, **sucata**, **pano** e **fita**.
 
 ## Inventário
@@ -122,7 +122,7 @@ os ícones.
   - mais comprido (ex.: carro no sentido do comprimento) → sobe em cima;
   - até `climb_max_height` (2.3 m): fino (cerca) → passa para o outro lado; grosso → sobe.
 - Deslizar desliga a colisão com zumbis e chama `Zombie.trip()` em quem passar por cima.
-- **Deslize:** A/D curvam de leve; ladeira abaixo ele acelera e não para até o chão ficar plano.
+- **Deslize:** o **mouse** curva de leve; ladeira abaixo ele acelera e não para até o chão ficar plano.
 - **Vault** em objetos de até 4 m de comprimento (capô de carro no sentido do comprimento, mesas).
 - **Sem perder o ritmo:** deslizar termina na velocidade de corrida (ou de andar), vault e subir
   saem na mesma velocidade em que entraram (a duração depende dela). Só escalar a cerca para.
