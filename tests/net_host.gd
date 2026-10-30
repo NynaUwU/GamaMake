@@ -29,5 +29,7 @@ func _process(delta: float) -> bool:
 		print("HOST zombies=", zombies.size(), " dead=", dead, " car owner=", car.net_owner, " driver=", car.driver_peer,
 			" car pos=", car.global_position.snapped(Vector3.ONE * 0.1))
 		print("HOST taken=", Net.i.taken.keys(), " drops=", Net.i._drops)
+		var building: BuildingManager = main.get_node("Building")
+		print("HOST building: peças=", building.pieces.size(), " tirados=", building.pieces.values()[0].removed.count(1) if building.pieces.size() > 0 else -1)
 		quit()
 	return false

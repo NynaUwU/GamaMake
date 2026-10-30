@@ -50,7 +50,17 @@ func _process(delta: float) -> bool:
 		main.player.exit_vehicle()
 		main.player.inventory.select(0)
 		main.player._drop_selected()
+		# Construção pela rede: o host valida e repassa.
+		var building: BuildingManager = main.get_node("Building")
+		building.request_place(BuildPiece.Kind.WALL, Vector3i(-50, 0, 40), 0)
+	elif step == 5 and t > 2.0 and t - delta <= 2.0:
+		var building: BuildingManager = main.get_node("Building")
+		if building.pieces.size() > 0:
+			building.request_cut(building.pieces.values()[0], 10)
+			building.request_cut(building.pieces.values()[0], 11)
 	elif step == 5 and t > 6.0:
+		var building: BuildingManager = main.get_node("Building")
+		print("CLIENT building: peças=", building.pieces.size(), " tirados=", building.pieces.values()[0].removed.count(1) if building.pieces.size() > 0 else -1)
 		print("CLIENT hp=", main.player.health, " players seen=", main.puppets.size() + 1, " after drop: pickups espada in world=", main.get_tree().get_nodes_in_group("interactable").filter(func(n): return n is PickupItem and n.item_id == &"espada").size())
 		quit()
 	return false

@@ -290,6 +290,8 @@ func _send_world_state(id: int) -> void:
 		var item: PickupItem = _pickups.get(key)
 		if is_instance_valid(item):
 			_pspawn.rpc_id(id, key, _drops[key][0], _drops[key][1], item.global_transform, Vector3.ZERO)
+	if world.get_node_or_null("Building"):
+		_build_state.rpc_id(id, world.get_node("Building").state())
 	for car in _cars():
 		_car_owner.rpc_id(id, String(car.name), car.net_owner, car.driver_peer)
 		_csnap.rpc_id(id, String(car.name), car.global_transform, car.linear_velocity, car.steering, car.headlights_on)
@@ -433,6 +435,20 @@ func send_player_state(state: Array) -> void:
 func _pstate(state: Array) -> void:
 	if world:
 		world.update_puppet(multiplayer.get_remote_sender_id(), state)
+
+
+## Golpe/soco/chute/tiro do próprio jogador: os outros tocam a animação no boneco dele.
+func send_player_action(action: String, arg: int) -> void:
+	if online():
+		_paction.rpc(action, arg)
+
+
+@rpc("any_peer", "reliable")
+func _paction(action: String, arg: int) -> void:
+	if world:
+		var puppet: Node = world.puppets.get(multiplayer.get_remote_sender_id())
+		if is_instance_valid(puppet):
+			puppet.play_net_action(action, arg)
 
 
 ## Host: zumbi acertou o boneco de outro jogador -> o dano vai para ele.
@@ -713,6 +729,37 @@ func _csnap(name: String, xform: Transform3D, velocity: Vector3, steering: float
 		return
 	if car.net_owner != my_id():
 		car.apply_snapshot(xform, velocity, steering, lights)
+
+
+# --- Construção -----------------------------------------------------------------
+
+## Martelo/talhadeira: o host valida (lugar livre, triângulo existe) e repassa.
+func build_request(action: String, args: Array) -> void:
+	if world == null or world.get_node_or_null("Building") == null:
+		return
+	if is_host():
+		var result: Array = world.get_node("Building").host_apply(action, args)
+		if online() and not result.is_empty():
+			_build.rpc(action, result)
+	else:
+		_req_build.rpc_id(1, action, args)
+
+
+@rpc("any_peer", "reliable")
+func _req_build(action: String, args: Array) -> void:
+	build_request(action, args)
+
+
+@rpc("authority", "reliable")
+func _build(action: String, args: Array) -> void:
+	if world and world.get_node_or_null("Building"):
+		world.get_node("Building").apply_remote(action, args)
+
+
+@rpc("authority", "reliable")
+func _build_state(list: Array) -> void:
+	if world and world.get_node_or_null("Building"):
+		world.get_node("Building").load_state(list)
 
 
 # --- Efeitos -------------------------------------------------------------------

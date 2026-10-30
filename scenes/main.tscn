@@ -24,6 +24,7 @@
 [ext_resource type="Script" path="res://scripts/vehicles/cars/darracq_v8.gd" id="23_darracq_v8"]
 [ext_resource type="Script" path="res://scripts/vehicles/cars/hall_scott.gd" id="24_hall_scott"]
 [ext_resource type="Script" path="res://scripts/vehicles/cars/mormon_meteor.gd" id="25_mormon_meteor"]
+[ext_resource type="Script" path="res://scripts/building/building_manager.gd" id="30_building"]
 
 [sub_resource type="ProceduralSkyMaterial" id="SkyMaterial_dusk"]
 sky_top_color = Color(0.16, 0.18, 0.26, 1)
@@ -297,6 +298,16 @@ item_id = &"gancho"
 position = Vector3(-3.4, 1.0, 11.1)
 item_id = &"carregador"
 
+[node name="Martelo" parent="Props" instance=ExtResource("7_pickup")]
+position = Vector3(-4.3, 0.15, 10.3)
+rotation = Vector3(0, 0.4, 0)
+item_id = &"martelo"
+
+[node name="Talhadeira" parent="Props" instance=ExtResource("7_pickup")]
+position = Vector3(-4.3, 0.1, 11.5)
+rotation = Vector3(0, -0.3, 0)
+item_id = &"talhadeira"
+
 [node name="Lanterna" parent="Props" instance=ExtResource("7_pickup")]
 position = Vector3(-3.1, 0.92, 12.35)
 rotation = Vector3(0, 1.2, 0)
@@ -331,6 +342,9 @@ script = ExtResource("24_hall_scott")
 [node name="Carro_MormonMeteor" type="VehicleBody3D" parent="."]
 position = Vector3(27.0, 0.9, 3.5)
 script = ExtResource("25_mormon_meteor")
+
+[node name="Building" type="Node3D" parent="."]
+script = ExtResource("30_building")
 
 [node name="Enemies" type="Node3D" parent="."]
 

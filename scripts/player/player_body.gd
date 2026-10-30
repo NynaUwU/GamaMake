@@ -11,6 +11,24 @@ var _skeleton: Skeleton3D
 var _b := {}
 var _phase := 0.0
 var _move := Vector2.ZERO # suavizado, espaço local (x = lado, y = frente(-)/trás(+))
+# Ação em andamento (golpe, soco, chute...): os outros jogadores veem pelo boneco.
+var _action := ""
+var _action_arg := 0
+var _action_t := 1.0
+var _action_len := 0.4
+## Pose contínua dos braços: "aim" (pistola/cajado/gancho apontados), "block", "" (normal).
+var hold := ""
+var aim_pitch := 0.0 ## inclinação do olhar (rad, + = para cima) para apontar o braço
+
+const ACTION_TIME := {"swing": 0.42, "punch": 0.25, "kick": 0.4, "shoot": 0.18, "cast": 0.3, "tool": 0.35, "crank": 0.2}
+
+
+## Toca uma ação no corpo (o Player chama quando chega pela rede).
+func play(action: String, arg := 0) -> void:
+	_action = action
+	_action_arg = arg
+	_action_t = 0.0
+	_action_len = ACTION_TIME.get(action, 0.35)
 
 
 func _ready() -> void:
@@ -95,6 +113,59 @@ func _process(delta: float) -> void:
 	_set_rot("LowerArm.R", Vector3(0.5, 0, 0))
 	_set_rot("UpperArm.L", Vector3(-sin(_phase) * 0.5 * amount + 0.1, 0, -0.1))
 	_set_rot("LowerArm.L", Vector3(0.4, 0, 0))
+	match hold:
+		"aim": # braço reto para onde está olhando
+			_set_rot("UpperArm.R", Vector3(PI / 2 + aim_pitch, 0, 0.05))
+			_set_rot("LowerArm.R", Vector3(0.05, 0, 0))
+		"block": # arma atravessada na frente do peito
+			_set_rot("UpperArm.R", Vector3(1.5, 0, 0.7))
+			_set_rot("LowerArm.R", Vector3(1.3, 0, 0))
+			_set_rot("UpperArm.L", Vector3(1.2, 0, -0.5))
+			_set_rot("LowerArm.L", Vector3(1.0, 0, 0))
+	_play_action(delta)
+
+
+## Golpes por cima da pose: arcos parecidos com os da primeira pessoa.
+func _play_action(delta: float) -> void:
+	if _action == "" or _action_t >= 1.0:
+		return
+	_action_t = minf(_action_t + delta / _action_len, 1.0)
+	var t := _action_t
+	var windup := smoothstep(0.0, 0.3, t) * (1.0 - smoothstep(0.3, 0.55, t)) # recolhe antes
+	var strike := smoothstep(0.3, 0.6, t) * (1.0 - smoothstep(0.75, 1.0, t)) # golpe e volta
+	match _action:
+		"swing":
+			match _action_arg % 3:
+				0: # da direita para a esquerda
+					_set_rot("UpperArm.R", Vector3(1.4, 0, lerpf(0.1, -1.3, windup) + strike * 2.2))
+					_set_rot("Chest", Vector3(0, -0.5 * windup + 0.6 * strike, 0))
+				1: # da esquerda para a direita
+					_set_rot("UpperArm.R", Vector3(1.4, 0, lerpf(0.1, 1.0, windup) - strike * 1.9))
+					_set_rot("Chest", Vector3(0, 0.4 * windup - 0.6 * strike, 0))
+				_: # de cima para baixo
+					_set_rot("UpperArm.R", Vector3(lerpf(1.1, 3.0, windup) - strike * 2.2, 0, 0.1))
+					_set_rot("Spine", Vector3(-0.1 - 0.35 * strike, 0, 0))
+			_set_rot("LowerArm.R", Vector3(0.6 * windup + 0.1, 0, 0))
+		"punch":
+			var arm := "R" if _action_arg == 0 else "L"
+			var jab := smoothstep(0.0, 0.4, t) * (1.0 - smoothstep(0.5, 1.0, t))
+			_set_rot("UpperArm." + arm, Vector3(1.0 + jab * 0.6, 0, 0))
+			_set_rot("LowerArm." + arm, Vector3(1.4 * (1.0 - jab), 0, 0))
+			_set_rot("Chest", Vector3(0, (-0.35 if arm == "R" else 0.35) * jab, 0))
+		"kick":
+			var up := smoothstep(0.0, 0.35, t) * (1.0 - smoothstep(0.6, 1.0, t))
+			_set_rot("UpperLeg.R", Vector3(1.5 * up, 0, 0))
+			_set_rot("LowerLeg.R", Vector3(-0.3 * up, 0, 0))
+			_set_rot("Spine", Vector3(0.25 * up, 0, 0))
+		"shoot":
+			_set_rot("UpperArm.R", Vector3(PI / 2 + aim_pitch + 0.35 * (1.0 - t), 0, 0.05))
+		"cast":
+			var thrust := sin(t * PI)
+			_set_rot("UpperArm.R", Vector3(PI / 2 + aim_pitch + 0.2 * thrust, 0, 0.05))
+			_set_rot("LowerArm.R", Vector3(0.6 * (1.0 - thrust), 0, 0))
+		"tool", "crank": # martelada / talhadeira / dínamo: antebraço sobe e desce
+			_set_rot("UpperArm.R", Vector3(1.2 + windup * 0.9 - strike * 0.5, 0, 0.1))
+			_set_rot("LowerArm.R", Vector3(1.4 * windup + 0.2, 0, 0))
 
 
 func _set_rot(bone_name: String, euler: Vector3) -> void:

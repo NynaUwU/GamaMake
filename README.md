@@ -24,6 +24,28 @@ reação física a golpes e ragdoll (estilo Dying Light), visual de PC dos anos 
 - Os outros jogadores aparecem com o nome em cima, o item da mão, a lanterna acesa e uma bolinha
   azul no minimapa/mapa. Em cima, no meio da tela, aparece quem está online.
 
+## Construção (`scripts/building/`)
+- Ferramentas na área inicial (no chão, ao lado da bancada): **martelo** e **talhadeira**.
+- **Grade invisível** de **0,4 m** no mundo inteiro. Paredes, pisos e tetos têm **2,8 m**
+  (7 x 7 quadrados de 0,4 m); o pilar ocupa 1 quadrado e tem 2,8 m de altura.
+- **Martelo:** mostra a peça "fantasma" (verde = cabe, vermelho = já tem peça ali).
+  - Clique constrói · **botão direito** troca a peça (parede → piso → teto → pilar) · **R** gira a parede ·
+    **Shift + clique** desmonta a peça mirada (fica vermelha).
+  - Encaixes: parede mirando um piso vai para a borda dele; mirando o topo de uma parede empilha;
+    piso mirando a borda de outro piso vai para o lado; teto mirando o topo de uma parede cobre o
+    cômodo do lado onde você está. Piso fica com o topo na grade (pisa-se nele); teto apoia em cima.
+- **Talhadeira:** realça o triângulo mirado e o clique tira ele. Cada quadrado são **2 triângulos**
+  (98 por peça), então dá para fazer janela, porta, seteira, janela em diamante... O buraco tira a
+  colisão também (dá para passar/atirar por ele) e as bordas mostram a espessura da peça.
+- Online o host confere (lugar livre, triângulo ainda existe) e manda para todos; quem entra
+  depois recebe todas as construções com os buracos.
+- Teste: `tests/test_building.gd`.
+
+## Animações dos outros jogadores
+- Quem joga online vê os golpes dos outros no corpo deles: os três arcos da espada/taco/colher,
+  soco (alternando os braços), chute, tiro (com recuo), cajado, martelo/talhadeira e dínamo;
+  e as poses contínuas: arma de mira apontada para onde a pessoa olha e bloqueio.
+
 ## Menus (`scripts/ui/legacy_gui.gd`)
 - Estilo dos menus padrão das versões antigas da Unity (GUI.Box/GUI.Button): caixa preta
   translúcida com o título, botões cinza em degradê com borda escura, campos de texto escuros.
@@ -224,6 +246,7 @@ scripts/combat/hit_info.gd    dados de um golpe (dano, osso, força, tipo CUT/BL
 scripts/net/net.gd            multiplayer LAN (autoload Network; use Net.i)
 scripts/ui/main_menu.gd       menu inicial (solo / multiplayer: lista, IP, criar)
 scripts/ui/legacy_gui.gd      visual dos menus (Unity antiga)
+scripts/building/             construção (peça com 98 triângulos, grade, martelo/talhadeira)
 shaders/retro_screen.gdshader
 tests/                 testes headless (ragdoll, juntas, jogo)
 ```

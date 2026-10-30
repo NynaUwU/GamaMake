@@ -50,6 +50,10 @@ static func build(id: StringName) -> Node3D:
 			_spoon(parts)
 		&"gancho":
 			_grapple(parts)
+		&"martelo":
+			_hammer(parts)
+		&"talhadeira":
+			_chisel(parts)
 		&"pistola":
 			_pistol(parts)
 		&"lanterna":
@@ -107,6 +111,30 @@ static func _mace(p: Dictionary) -> void:
 		var out := Vector3(cos(a), sin(a), 0)
 		_mb(p, IRON).box(Vector3(0, 0, -0.73) + out * 0.075, Vector3(0.03, 0.03, 0.18), Basis(out, Vector3(0, 0, 1).cross(out), Vector3(0, 0, 1)))
 	_mb(p, BRASS).lathe(PackedVector2Array([Vector2(0.034, 0.56), Vector2(0.034, 0.6)]), 8, AXIS_Z)
+
+
+## Martelo de construção: cabo reto de madeira, cabeça de ferro (face redonda
+## de um lado, unha de tirar prego do outro) e uma cinta de latão.
+static func _hammer(p: Dictionary) -> void:
+	_mb(p, WOOD).lathe(PackedVector2Array([Vector2(0.018, -0.06), Vector2(0.02, 0.34)]), 8, AXIS_Z)
+	_mb(p, LEATHER).lathe(PackedVector2Array([Vector2(0.023, -0.05), Vector2(0.023, 0.08)]), 8, AXIS_Z)
+	_mb(p, BRASS).lathe(PackedVector2Array([Vector2(0.024, 0.3), Vector2(0.024, 0.33)]), 8, AXIS_Z)
+	_mb(p, IRON).box(Vector3(0, 0, -0.36), Vector3(0.05, 0.16, 0.06)) # bloco da cabeça
+	_mb(p, IRON).lathe(PackedVector2Array([Vector2(0.03, 0.0), Vector2(0.03, 0.05), Vector2(0.026, 0.06)]), 8,
+			Basis.IDENTITY, Vector3(0, 0.08, -0.36)) # face de bater (para cima)
+	_mb(p, IRON).box(Vector3(0, -0.12, -0.35), Vector3(0.035, 0.09, 0.03), Basis(Vector3.RIGHT, 0.35)) # unha
+
+
+## Talhadeira: cabo de madeira curto, virola de latão e haste de aço chata
+## afinando até o fio.
+static func _chisel(p: Dictionary) -> void:
+	_mb(p, DARK_WOOD).lathe(PackedVector2Array([Vector2(0.018, -0.05), Vector2(0.022, 0.0), Vector2(0.022, 0.1)]), 8, AXIS_Z)
+	_mb(p, BRASS).lathe(PackedVector2Array([Vector2(0.024, 0.1), Vector2(0.024, 0.125)]), 8, AXIS_Z)
+	var blade := []
+	for s in [[-0.125, 0.012, 0.009], [-0.22, 0.014, 0.006], [-0.29, 0.017, 0.0015]]:
+		blade.append(MeshBuilder.ring(Vector3(0, 0, s[0]), s[1], s[2], 4.0, 4))
+	blade.reverse()
+	_mb(p, STEEL).loft(blade, true, true)
 
 
 ## Lançador do gancho: tubo de latão com carretel de corda, cabo de madeira

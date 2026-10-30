@@ -15,14 +15,18 @@ signal item_picked_up(item_id: StringName, amount: int) ## gancho para o invent�
 signal died
 signal weapon_changed(weapon_text: String) ## nome da arma (+ munição)
 
-enum WeaponType { FISTS, SWORD, BAT, STAFF, PISTOL, CHARGER, SPOON, GRAPPLE }
+enum WeaponType { FISTS, SWORD, BAT, STAFF, PISTOL, CHARGER, SPOON, GRAPPLE, HAMMER, CHISEL }
 const WEAPON_NAMES := {
 	WeaponType.FISTS: "Mãos", WeaponType.SWORD: "Espada", WeaponType.BAT: "Taco",
 	WeaponType.STAFF: "Cajado", WeaponType.PISTOL: "Pistola", WeaponType.CHARGER: "Carregador", WeaponType.SPOON: "Colherona", WeaponType.GRAPPLE: "Gancho",
+	WeaponType.HAMMER: "Martelo", WeaponType.CHISEL: "Talhadeira",
 }
 ## ItemDB "weapon" -> tipo de arma do player.
 const WEAPON_FROM_ITEM := {"sword": WeaponType.SWORD, "bat": WeaponType.BAT,
-	"staff": WeaponType.STAFF, "pistol": WeaponType.PISTOL, "charger": WeaponType.CHARGER, "spoon": WeaponType.SPOON, "grapple": WeaponType.GRAPPLE}
+	"staff": WeaponType.STAFF, "pistol": WeaponType.PISTOL, "charger": WeaponType.CHARGER, "spoon": WeaponType.SPOON, "grapple": WeaponType.GRAPPLE,
+	"hammer": WeaponType.HAMMER, "chisel": WeaponType.CHISEL}
+const HAMMER_REST := Vector3(0.24, -0.26, -0.44)
+const CHISEL_REST := Vector3(0.2, -0.22, -0.4)
 const PICKUP_SCENE := preload("res://scenes/props/pickup_item.tscn")
 const MISSILE_SCENE := preload("res://scenes/weapons/magic_missile.tscn")
 
@@ -243,6 +247,10 @@ var _rope_length := 0.0
 var _rope: MeshInstance3D
 var _grapple_left := 5
 var _grapple_idle := 0.0
+var hammer: Node3D ## martelo de construção na mão
+var chisel: Node3D ## talhadeira na mão
+var builder: Builder ## fantasma da peça / triângulo mirado (só o jogador local)
+var _tool_hit := 0.0 # 1 = acabou de bater com o martelo/talhadeira
 var charger: Node3D # carregador a dínamo na mão (modelo com Lever/Rotor/Needle)
 var _crank_rate := 0.0
 var _lever := 0.0
@@ -280,6 +288,12 @@ func _ready() -> void:
 	grapple.name = "Grapple"
 	grapple.position = Vector3(0.22, -0.24, -0.42)
 	camera.add_child(grapple)
+	hammer = Node3D.new()
+	hammer.name = "Hammer"
+	camera.add_child(hammer)
+	chisel = Node3D.new()
+	chisel.name = "Chisel"
+	camera.add_child(chisel)
 	_melee = {
 		WeaponType.SWORD: {"node": weapon, "damage": melee_damage, "force": melee_force, "speed": 1.0,
 			"cut": true, "length": 0.98, "trail": Color(1.0, 1.0, 0.95), "hitstop": 0.06},
@@ -310,6 +324,11 @@ func _ready() -> void:
 	stamina_changed.emit(stamina, max_stamina)
 	if is_puppet():
 		_setup_puppet()
+	else:
+		builder = Builder.new()
+		builder.name = "Builder"
+		builder.player = self
+		add_child(builder)
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -351,6 +370,14 @@ func _unhandled_input(event: InputEvent) -> void:
 				_crank()
 			elif _weapon_type == WeaponType.GRAPPLE:
 				_fire_grapple()
+			elif _weapon_type in [WeaponType.HAMMER, WeaponType.CHISEL]:
+				_use_tool()
+		elif event.is_action_pressed("block") and _weapon_type == WeaponType.HAMMER:
+			builder.cycle()
+			_emit_weapon_text()
+		elif event.is_action_pressed("reload") and _weapon_type == WeaponType.HAMMER:
+			builder.rotate()
+			_emit_weapon_text()
 		elif event.is_action_pressed("reload"):
 			_start_reload()
 		elif event.is_action_pressed("weapon_next"):
@@ -537,6 +564,7 @@ func _process(delta: float) -> void:
 	_update_staff(delta)
 	_update_pistol(delta)
 	_update_charger(delta)
+	_update_tools(delta)
 	_update_fp_arm()
 	_update_parkour_hands()
 	_update_rope()
@@ -560,6 +588,8 @@ func _install_weapon_models() -> void:
 	pistol.add_child(ItemModels.build(&"pistola"))
 	spoon.add_child(ItemModels.build(&"colher"))
 	grapple.add_child(ItemModels.build(&"gancho"))
+	hammer.add_child(ItemModels.build(&"martelo"))
+	chisel.add_child(ItemModels.build(&"talhadeira"))
 	_rope = MeshInstance3D.new()
 	_rope.name = "Rope"
 	var rope_mesh := CylinderMesh.new()
@@ -639,6 +669,10 @@ func _update_fp_arm() -> void:
 			grip = pistol.transform.translated_local(Vector3(0, -0.05, 0.03))
 		WeaponType.CHARGER:
 			grip = charger.transform.translated_local(Vector3(0, -0.05, 0.02))
+		WeaponType.HAMMER:
+			grip = hammer.transform.translated_local(Vector3(0, 0, 0.02))
+		WeaponType.CHISEL:
+			grip = chisel.transform.translated_local(Vector3(0, 0, 0.02))
 	_place_arm(_fp_arm, _fp_hand, FP_SHOULDER, grip)
 
 
@@ -670,7 +704,7 @@ func _update_parkour_hands() -> void:
 	if both:
 		if not _hands_busy and w > 0.3:
 			_hands_busy = true
-			for node in [weapon, bat, staff, pistol, charger, spoon, grapple]:
+			for node in [weapon, bat, staff, pistol, charger, spoon, grapple, hammer, chisel]:
 				node.visible = false
 		var rest_r := Vector3(0.2, -0.26, -0.38)
 		var planted_r: Vector3 = visible_point.call(to_camera * parkour.hand_targets[1])
@@ -727,6 +761,9 @@ func _show_weapon(type: WeaponType) -> void:
 		_release_grapple()
 	if charger:
 		charger.visible = type == WeaponType.CHARGER
+	if hammer:
+		hammer.visible = type == WeaponType.HAMMER
+		chisel.visible = type == WeaponType.CHISEL
 	_emit_weapon_text()
 
 
@@ -738,6 +775,8 @@ func _emit_weapon_text() -> void:
 		text += "  recarregando..." if _reload_timer > 0.0 else "  %d/%d" % [_ammo, magazine_size]
 	elif _weapon_type == WeaponType.GRAPPLE:
 		text += "  %d/%d" % [_grapple_left, grapple_charges] if _grapple_left > 0 else "  recarregando..."
+	elif _weapon_type == WeaponType.HAMMER and builder:
+		text += ": %s" % builder.tool_name()
 	weapon_changed.emit(text)
 
 
@@ -772,6 +811,7 @@ func _melee_attack() -> void:
 func _start_swing(index: int) -> void:
 	var stats: Dictionary = _melee[_weapon_type]
 	_swing_index = index % SWINGS.size()
+	Net.i.send_player_action("swing", _swing_index)
 	_swing_phase = SwingPhase.WINDUP
 	_swing_time = 0.0
 	_swing_start = stats.node.transform
@@ -955,6 +995,7 @@ func _update_staff(delta: float) -> void:
 
 func _cast_missile() -> void:
 	_cast_timer = cast_cooldown
+	Net.i.send_player_action("cast", 0)
 	_staff_kick = 1.0
 	staff_light.light_energy = 6.0
 	_shake = maxf(_shake, 0.04)
@@ -1016,6 +1057,7 @@ func _fire_pistol() -> void:
 		_start_reload()
 		return
 	_ammo -= 1
+	Net.i.send_player_action("shoot", 0)
 	_fire_timer = pistol_fire_rate
 	_pistol_kick = 1.0
 	head.rotation.x = minf(head.rotation.x + 0.012, deg_to_rad(85)) # recuo sobe a mira
@@ -1073,6 +1115,7 @@ func _kick() -> void:
 ## Perna sobe, "on_hit" roda no momento do impacto, perna volta.
 func _kick_animation(on_hit: Callable) -> void:
 	_busy = true
+	Net.i.send_player_action("kick", 0)
 	foot.visible = true
 	foot.transform = _foot_rest
 	var out := _foot_rest.translated_local(Vector3(0, 0.25, -0.6))
@@ -1201,7 +1244,7 @@ func enter_vehicle(car: VintageCar) -> void:
 	_vehicle_pitch = 0.0
 	# Primeira pessoa: guarda a arma; as mãos vão para o volante.
 	_release_grapple()
-	for node in [weapon, bat, staff, pistol, charger, spoon, grapple, foot]:
+	for node in [weapon, bat, staff, pistol, charger, spoon, grapple, hammer, chisel, foot]:
 		node.visible = false
 	_fp_arm_left.visible = true
 	_fp_hand_left.visible = true
@@ -1305,6 +1348,7 @@ func _punch() -> void:
 		return
 	_punch_timer = punch_rate
 	_punch_anim[_punch_side] = 1.0
+	Net.i.send_player_action("punch", _punch_side)
 	_punch_side = 1 - _punch_side
 	get_tree().create_timer(0.07).timeout.connect(_do_punch_hit)
 
@@ -1454,6 +1498,7 @@ func _crank() -> void:
 		return
 	_crank_rate = minf(_crank_rate + crank_per_click, 2.5)
 	_lever = 1.0
+	Net.i.send_player_action("crank", 0)
 
 
 func _update_charger(delta: float) -> void:
@@ -1471,6 +1516,41 @@ func _update_charger(delta: float) -> void:
 	var needle: Node3D = model.get_node("Needle")
 	var wanted := lerpf(0.9, -0.9, flashlight_charge) + sin(Time.get_ticks_msec() * 0.03) * 0.03 * _crank_rate
 	needle.rotation.z = lerpf(needle.rotation.z, wanted, 1.0 - exp(-10.0 * delta))
+
+
+# Construção ---------------------------------------------------------------------
+
+func _tool_kind() -> String:
+	match _weapon_type:
+		WeaponType.HAMMER:
+			return "hammer"
+		WeaponType.CHISEL:
+			return "chisel"
+	return ""
+
+
+## Clique com o martelo ou a talhadeira: a ferramenta bate e o Builder age.
+func _use_tool() -> void:
+	if _equip < 1.0 or _tool_hit > 0.4:
+		return
+	_tool_hit = 1.0
+	Net.i.send_player_action("tool", 0)
+	if builder.use(_tool_kind()):
+		_shake = maxf(_shake, 0.05)
+
+
+func _update_tools(delta: float) -> void:
+	_tool_hit = move_toward(_tool_hit, 0.0, delta * 4.0)
+	if builder:
+		builder.update(_tool_kind() if health > 0.0 and not ui_blocked else "")
+	# Batida: a ferramenta sobe e desce rápido para frente.
+	var swing := sin(_tool_hit * PI)
+	if _weapon_type == WeaponType.HAMMER:
+		hammer.position = HAMMER_REST + _bob_offset(0.8) + _equip_offset() + Vector3(0, 0.05, -0.05) * swing
+		hammer.rotation = Vector3(1.1 - 1.0 * swing, 0.15, 0) # de pé (cabeça para cima), desce batendo
+	elif _weapon_type == WeaponType.CHISEL:
+		chisel.position = CHISEL_REST + _bob_offset(0.8) + _equip_offset() + Vector3(0, 0, -0.12) * swing
+		chisel.rotation = Vector3(-0.1, 0.1, 0)
 
 
 func is_flashlight_on() -> bool:
@@ -1583,7 +1663,23 @@ func _net_send(delta: float) -> void:
 	_net_timer = 1.0 / 20.0
 	Net.i.send_player_state([global_position, rotation.y, head.rotation.x, velocity, is_on_floor() or vehicle != null,
 		parkour.crouching, int(parkour.move), String(vehicle.name) if vehicle else "", inventory.selected_id(),
-		is_flashlight_on(), health])
+		is_flashlight_on(), health, _arm_hold()])
+
+
+## Pose contínua dos braços que os outros veem: apontando a arma ou bloqueando.
+func _arm_hold() -> String:
+	if _blocking:
+		return "block"
+	if _weapon_type in [WeaponType.PISTOL, WeaponType.STAFF, WeaponType.GRAPPLE]:
+		return "aim"
+	return ""
+
+
+## Boneco remoto: o dono fez um golpe/soco/chute/tiro -> o corpo mostra.
+func play_net_action(action: String, arg: int) -> void:
+	var animator := $Body/Skeleton3D/Animator as PlayerBody
+	if animator:
+		animator.play(action, arg)
 
 
 func apply_net_state(state: Array) -> void:
@@ -1597,6 +1693,10 @@ func apply_net_state(state: Array) -> void:
 	_net_vehicle = state[7]
 	_net_light_on = state[9]
 	health = state[10]
+	var animator := $Body/Skeleton3D/Animator as PlayerBody
+	if animator and state.size() > 11:
+		animator.hold = state[11]
+		animator.aim_pitch = _net_pitch
 	if not _net_has:
 		_net_has = true
 		global_position = _net_pos
