@@ -6,7 +6,7 @@ extends Control
 ## numa janelinha que segue o mouse ao passar por cima.
 
 const SLOT_SIZE := Vector2(52, 52)
-const COLOR_SLOT := Color(0.06, 0.06, 0.06, 0.75)
+const COLOR_SLOT := LegacyGUI.SLOT
 const COLOR_SELECTED := Color(0.95, 0.85, 0.4, 1)
 const COLOR_PICKED := Color(0.5, 0.8, 1.0, 1)
 
@@ -21,6 +21,7 @@ var _tooltip: PanelContainer
 var _tooltip_title: Label
 var _tooltip_body: Label
 var _hovered := -1
+var _showing_controls := false
 
 
 func setup(p: Node) -> void:
@@ -51,6 +52,9 @@ func _unhandled_input(event: InputEvent) -> void:
 func _process(_delta: float) -> void:
 	if not _tooltip.visible:
 		return
+	# Shift mostra os controles do item (solta: volta para a descrição).
+	if Input.is_key_pressed(KEY_SHIFT) != _showing_controls:
+		_hover(_hovered)
 	# Segue o mouse, sem sair da tela.
 	var screen := get_viewport_rect().size
 	var pos := get_global_mouse_position() + Vector2(14, 14)
@@ -90,9 +94,9 @@ func _build_hotbar() -> void:
 func _build_backpack() -> void:
 	_backpack = PanelContainer.new()
 	var style := StyleBoxFlat.new()
-	style.bg_color = Color(0.03, 0.03, 0.03, 0.88)
+	style.bg_color = LegacyGUI.BG
 	style.set_border_width_all(1)
-	style.border_color = Color(0.4, 0.4, 0.4)
+	style.border_color = LegacyGUI.BG_BORDER
 	style.set_content_margin_all(10)
 	_backpack.add_theme_stylebox_override("panel", style)
 	_backpack.set_anchors_preset(Control.PRESET_CENTER)
@@ -169,7 +173,7 @@ func _make_slot(index: int) -> Button:
 func _build_tooltip() -> void:
 	_tooltip = PanelContainer.new()
 	var style := StyleBoxFlat.new()
-	style.bg_color = Color(0.04, 0.04, 0.05, 0.94)
+	style.bg_color = LegacyGUI.BG
 	style.set_border_width_all(1)
 	style.border_color = Color(0.95, 0.85, 0.4, 0.8)
 	style.set_content_margin_all(8)
@@ -212,6 +216,16 @@ func _hover(index: int) -> void:
 		lines.append("Quantidade: %d" % inventory.slots[index].amount)
 	lines.append("")
 	lines.append(ItemDB.description(id))
+	var controls: Array = item.get("controls", [])
+	_showing_controls = Input.is_key_pressed(KEY_SHIFT)
+	if not controls.is_empty():
+		if _showing_controls:
+			lines = ["Controles:"]
+			for line in controls:
+				lines.append("• " + line)
+		else:
+			lines.append("")
+			lines.append("[Shift] ver controles")
 	_tooltip_body.text = "\n".join(lines)
 	_tooltip.reset_size()
 	_tooltip.visible = true

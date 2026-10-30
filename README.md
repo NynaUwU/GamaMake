@@ -26,20 +26,36 @@ reação física a golpes e ragdoll (estilo Dying Light), visual de PC dos anos 
 
 ## Construção (`scripts/building/`)
 - Ferramentas na área inicial (no chão, ao lado da bancada): **martelo** e **talhadeira**.
+  No inventário (Tab), **segure Shift** com o mouse em cima de um item para ver os controles dele.
 - **Grade invisível** de **0,4 m** no mundo inteiro. Paredes, pisos e tetos têm **2,8 m**
   (7 x 7 quadrados de 0,4 m); o pilar ocupa 1 quadrado e tem 2,8 m de altura.
 - **Martelo:** mostra a peça "fantasma" (verde = cabe, vermelho = já tem peça ali).
-  - Clique constrói · **botão direito** troca a peça (parede → piso → teto → pilar) · **R** gira a parede ·
-    **Shift + clique** desmonta a peça mirada (fica vermelha).
+  - Clique constrói · **segure o botão direito** para abrir o menu de construção (abas +
+    slots com foto de cada peça, como o inventário; solte em cima do slot) · **R** gira a parede ·
+    **Shift + clique** desmonta a peça (ou tira a janela/porta) mirada.
   - Encaixes: parede mirando um piso vai para a borda dele; mirando o topo de uma parede empilha;
     piso mirando a borda de outro piso vai para o lado; teto mirando o topo de uma parede cobre o
     cômodo do lado onde você está. Piso fica com o topo na grade (pisa-se nele); teto apoia em cima.
-- **Talhadeira:** realça o triângulo mirado e o clique tira ele. Cada quadrado são **2 triângulos**
-  (98 por peça), então dá para fazer janela, porta, seteira, janela em diamante... O buraco tira a
-  colisão também (dá para passar/atirar por ele) e as bordas mostram a espessura da peça.
-- Online o host confere (lugar livre, triângulo ainda existe) e manda para todos; quem entra
-  depois recebe todas as construções com os buracos.
-- Teste: `tests/test_building.gd`.
+- **Talhadeira:** cada quadrado é cortado pelas **duas diagonais** (4 triângulos de quarto), então
+  dá para tirar meio quadrado em **"/" ou "\\"** (**R** troca a diagonal). Clique tira o triângulo
+  mirado; **clique e arraste** seleciona uma área retangular e tira tudo ao soltar. O buraco tira a
+  colisão também e as bordas mostram a espessura da peça.
+- **Janela** e **porta** (aba *Aberturas* do menu): mire um buraco feito pela talhadeira e ela
+  preenche o buraco **inteiro, em qualquer formato**. A janela tem vidro, batente, guarnição
+  saliente, peitoril e **frisos a cada 2 quadrados**; a **porta** precisa de um buraco que encoste na
+  base da parede, tem maçaneta e abre/fecha com **E**.
+- Online o host confere tudo (lugar livre, partes existem, buraco válido) e manda para todos; quem
+  entra depois recebe as construções com buracos, janelas e portas.
+- Testes: `tests/test_building.gd`, `tests/test_openings.gd`.
+
+## Desempenho dos zumbis
+- Corpo do zumbi numa **malha só** deformada pelo esqueleto (antes ~25 peças por zumbi): com 100
+  zumbis as chamadas de desenho caíram de ~11.700 para ~2.600 (incluindo o mapa).
+- Ossos do ragdoll ficam **fora da física** enquanto o zumbi está de pé.
+- Longe (> 30 m): sem sombra, animação a cada 2 quadros e hitboxes desligadas (o tiro acerta a
+  cápsula); > 70 m: animação a cada 4 quadros e IA a cada 2.
+- Zumbis não colidem fisicamente entre si (se afastam com uma grade de vizinhança).
+- A horda (H) nasce em lotes de 10 por quadro: o travão ao criar 100 caiu de ~275 ms para ~24 ms.
 
 ## Animações dos outros jogadores
 - Quem joga online vê os golpes dos outros no corpo deles: os três arcos da espada/taco/colher,

@@ -22,12 +22,35 @@ func color(c: Color) -> MeshBuilder:
 
 ## smooth = normais suaves (carroceria, pneus). false = arestas duras (peças mecânicas).
 func finish(material: Material = null, smooth := true) -> ArrayMesh:
+	var mesh: ArrayMesh
 	if smooth:
 		st.index()
-	st.generate_normals()
-	var mesh := st.commit()
-	if material:
+		st.generate_normals()
+		mesh = st.commit()
+	else:
+		mesh = _flat_mesh()
+	if material and mesh.get_surface_count() > 0:
 		mesh.surface_set_material(0, material)
+	return mesh
+
+
+## Arestas duras de verdade: uma normal por triângulo. (O generate_normals do
+## SurfaceTool suaviza vértices na mesma posição mesmo sem índice, o que
+## deixava "faixas" escuras nas bordas.)
+func _flat_mesh() -> ArrayMesh:
+	var arrays := st.commit_to_arrays()
+	var verts: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
+	var normals := PackedVector3Array()
+	normals.resize(verts.size())
+	for i in range(0, verts.size() - 2, 3):
+		var n := (verts[i + 2] - verts[i]).cross(verts[i + 1] - verts[i]).normalized()
+		normals[i] = n
+		normals[i + 1] = n
+		normals[i + 2] = n
+	arrays[Mesh.ARRAY_NORMAL] = normals
+	var mesh := ArrayMesh.new()
+	if not verts.is_empty():
+		mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
 	return mesh
 
 

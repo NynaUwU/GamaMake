@@ -373,10 +373,12 @@ func _unhandled_input(event: InputEvent) -> void:
 			elif _weapon_type in [WeaponType.HAMMER, WeaponType.CHISEL]:
 				_use_tool()
 		elif event.is_action_pressed("block") and _weapon_type == WeaponType.HAMMER:
-			builder.cycle()
-			_emit_weapon_text()
+			builder.open_menu() # segurando: menu de construção; soltando: escolhe
 		elif event.is_action_pressed("reload") and _weapon_type == WeaponType.HAMMER:
 			builder.rotate()
+			_emit_weapon_text()
+		elif event.is_action_pressed("reload") and _weapon_type == WeaponType.CHISEL:
+			builder.toggle_diagonal()
 			_emit_weapon_text()
 		elif event.is_action_pressed("reload"):
 			_start_reload()
@@ -777,6 +779,8 @@ func _emit_weapon_text() -> void:
 		text += "  %d/%d" % [_grapple_left, grapple_charges] if _grapple_left > 0 else "  recarregando..."
 	elif _weapon_type == WeaponType.HAMMER and builder:
 		text += ": %s" % builder.tool_name()
+	elif _weapon_type == WeaponType.CHISEL and builder:
+		text += ": diagonal %s  (R troca)" % builder.diag
 	weapon_changed.emit(text)
 
 

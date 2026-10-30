@@ -5,6 +5,10 @@ extends RefCounted
 ## cinza em degradê com borda escura e um brilho em cima, campos de texto
 ## escuros, texto branco pequeno com sombra.
 
+const BG := Color(0.27, 0.27, 0.28, 0.94) ## fundo cinza de todas as caixas/menus
+const BG_BORDER := Color(0.5, 0.5, 0.52)
+const SLOT := Color(0.17, 0.17, 0.18, 0.95) ## fundo dos slots (inventário, menu de construção)
+
 static var _theme: Theme
 
 
@@ -38,7 +42,7 @@ static func theme() -> Theme:
 	_theme.set_constant("shadow_offset_x", "Label", 1)
 	_theme.set_constant("shadow_offset_y", "Label", 1)
 	# Caixa (GUI.Box): preta translúcida, cantos arredondados.
-	_theme.set_stylebox("panel", "PanelContainer", _flat(Color(0, 0, 0, 0.58), Color(1, 1, 1, 0.1), 6, 14))
+	_theme.set_stylebox("panel", "PanelContainer", _flat(BG, BG_BORDER, 6, 14))
 	_theme.set_stylebox("panel", "ScrollContainer", StyleBoxEmpty.new())
 	return _theme
 

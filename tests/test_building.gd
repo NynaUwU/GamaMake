@@ -35,15 +35,13 @@ func _physics_process(_d: float) -> bool:
 		var piece: BuildPiece = manager.pieces.values()[0] if manager.pieces.size() > 0 else null
 		print("peças=", manager.pieces.size(), " tipo=", BuildPiece.NAMES[piece.kind] if piece else "-", " cell=", piece.cell if piece else null,
 			" mundo=", piece.global_position.snapped(Vector3.ONE * 0.01) if piece else null)
-		player.builder.cycle() # -> piso
+		player.builder.select(Builder.ENTRIES["Estrutura"][1]) # -> piso
 		_aim(Vector3(-14, 0, 14))
 	if frame == 44:
 		print("alvo piso: ", player.builder.target)
 		player._use_tool()
 	if frame == 60:
-		player.builder.cycle()
-		player.builder.cycle()
-		player.builder.cycle() # -> parede de novo
+		player.builder.select(Builder.ENTRIES["Estrutura"][0]) # -> parede de novo
 		var floor_piece: BuildPiece = manager.pieces.values()[1]
 		# Mira perto da borda de cima (z menor) do piso.
 		_aim(floor_piece.global_position + Vector3(1.4, 0, 0.3))
@@ -53,8 +51,7 @@ func _physics_process(_d: float) -> bool:
 		player._use_tool()
 	if frame == 80:
 		var wall: BuildPiece = manager.pieces.values()[2]
-		player.builder.cycle()
-		player.builder.cycle() # -> teto
+		player.builder.select(Builder.ENTRIES["Estrutura"][2]) # -> teto
 		_aim(wall.to_global(Vector3(1.4, BuildPiece.SIZE, 0)))
 	if frame == 84:
 		print("teto na parede: alvo=", player.builder.target)
@@ -74,7 +71,7 @@ func _physics_process(_d: float) -> bool:
 		player.equip_item(&"talhadeira")
 		_aim(Vector3(-10 + 0.0, 1.5, 10.4))
 	if frame == 130:
-		print("talhadeira mira: ", {"tri": player.builder.cut_target.get("triangle", -1)})
+		print("talhadeira mira (/): ", player.builder.cut_target.get("quarters", []))
 		player._use_tool()
 	if frame == 145:
 		var wall: BuildPiece = manager.pieces.values()[0]
@@ -95,7 +92,7 @@ func _physics_process(_d: float) -> bool:
 		print("raio na parte inteira bate? ", not hit.is_empty() and hit.collider == wall)
 		# Tira mais 13 (um quadrado de janela 2x... direto pelo manager).
 		for k in 14:
-			manager.request_cut(wall, 2 * (2 * BuildPiece.N + 2) + k)
+			manager.request_cut(wall, 4 * (2 * BuildPiece.N + 2) + k)
 	if frame == 150:
 		var wall: BuildPiece = manager.pieces.values()[0]
 		print("depois da janela: tirados=", wall.removed.count(1), " vértices da malha=", wall._mesh.mesh.get_faces().size())

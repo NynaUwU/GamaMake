@@ -121,6 +121,25 @@ func _render(ids: Array[StringName], folder: String) -> void:
 	studio.viewport.queue_free()
 
 
+## Foto de um modelo qualquer (peças de construção no menu do martelo). Mesmo
+## estúdio dos ícones, em 3/4 de cima. null sem GPU (testes headless).
+func render_model(model: Node3D, angle := Vector3(-0.5, 0.75, 0.0)) -> Texture2D:
+	if DisplayServer.get_name() == "headless":
+		model.free()
+		return null
+	var studio := _make_studio()
+	studio.pivot.rotation = angle
+	add_child(studio.viewport)
+	studio.pivot.add_child(model)
+	await get_tree().process_frame # peças montam a malha no _ready
+	_frame(model, studio.camera)
+	studio.viewport.render_target_update_mode = SubViewport.UPDATE_ONCE
+	await RenderingServer.frame_post_draw
+	var image: Image = studio.viewport.get_texture().get_image()
+	studio.viewport.queue_free()
+	return ImageTexture.create_from_image(image) if image and not image.is_empty() else null
+
+
 func _make_studio() -> Dictionary:
 	var viewport := SubViewport.new()
 	viewport.size = Vector2i(ICON_SIZE, ICON_SIZE)
