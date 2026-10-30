@@ -182,10 +182,12 @@ os ícones.
 ## Chinelo e bumerangue (`scripts/weapons/`)
 - **Chinelo** (no chão, ao lado da bancada): clique joga no zumbi mais perto do centro da mira e
   **sempre acerta a cabeça** (headshot): o zumbi cai **duro para trás**, braços e pernas juntos, como
-  uma tábua, e só no chão vira ragdoll. Dá para jogar de novo logo em seguida.
+  uma tábua, e só no chão vira ragdoll. Depois o chinelo **volta para a mão**; dá para ter **2 no ar**
+  (o HUD mostra quantos sobraram) e aí é preciso esperar um voltar.
 - **Bumerangue:** vai até o zumbi mirado e **ricocheteia** de zumbi em zumbi (até **5**, os mais perto
   num raio de 14 m). A cada acerto ele **sobe** e cai em arco no próximo; cada acerto tem **40% de
-  chance de atordoar** (o zumbi fica parado cambaleando ~2 s). Depois volta para a sua mão.
+  chance de atordoar** (o zumbi fica parado cambaleando ~2 s). Voa devagar, grande e com rastro para
+  dar para acompanhar; **só um por vez**: espere ele voltar para a mão (HUD: "voltando...").
 - Online os outros veem o arremesso no seu boneco e o chinelo/bumerangue voando.
 - Teste: `tests/test_throwables.gd`.
 

@@ -4,7 +4,7 @@ extends Node3D
 ## A cada acerto ele sobe e voa em arco para o próximo zumbi mais perto; cada
 ## acerto tem chance de atordoar. No fim volta para a mão de quem jogou.
 
-const SPEED := 20.0
+const SPEED := 11.0 ## devagar o bastante para dar para acompanhar com o olho
 const MAX_HITS := 5
 const CHAIN_RANGE := 14.0
 const DAMAGE := 18.0
@@ -27,7 +27,9 @@ var _life := 0.0
 
 func launch(start: Vector3, aim: Vector3, first: Zombie, from: Node3D) -> void:
 	_model = ItemModels.build(&"bumerangue")
+	_model.scale = Vector3.ONE * 2.3 # maior que o da mão: dá para ver de longe
 	add_child(_model)
+	_add_trail()
 	thrower = from
 	global_position = start
 	if first:
@@ -59,8 +61,8 @@ func _point(target: Node3D) -> Vector3:
 
 func _physics_process(delta: float) -> void:
 	_life += delta
-	_model.rotate_y(delta * 26.0)
-	if not is_instance_valid(_target) or _life > 10.0:
+	_model.rotate_y(delta * 13.0)
+	if not is_instance_valid(_target) or _life > 25.0:
 		if _returning or not is_instance_valid(thrower):
 			_finish()
 			return
@@ -81,6 +83,34 @@ func _physics_process(delta: float) -> void:
 		_go(next, 1.6) # bate, sobe e vai para o próximo
 	else:
 		_come_back()
+
+
+## Rastro de lascas/poeira atrás dele (fica no mundo, não acompanha o bumerangue).
+func _add_trail() -> void:
+	var trail := CPUParticles3D.new()
+	trail.amount = 40
+	trail.lifetime = 0.45
+	trail.local_coords = false
+	trail.direction = Vector3.UP
+	trail.spread = 180.0
+	trail.initial_velocity_min = 0.1
+	trail.initial_velocity_max = 0.4
+	trail.gravity = Vector3.ZERO
+	trail.scale_amount_min = 0.6
+	trail.scale_amount_max = 1.0
+	var curve := Curve.new()
+	curve.add_point(Vector2(0, 1))
+	curve.add_point(Vector2(1, 0))
+	trail.scale_amount_curve = curve
+	var mesh := BoxMesh.new()
+	mesh.size = Vector3.ONE * 0.07
+	var material := StandardMaterial3D.new()
+	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	material.albedo_color = Color(0.95, 0.8, 0.5)
+	mesh.material = material
+	trail.mesh = mesh
+	add_child(trail)
+	trail.emitting = true
 
 
 func _hit(zombie: Zombie) -> void:

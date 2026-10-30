@@ -254,6 +254,8 @@ var _grapple_idle := 0.0
 var slipper: Node3D ## chinelo na mão (some por um instante quando é jogado)
 var boomerang: Node3D ## bumerangue na mão (some até voltar)
 var _boomerang_out := false
+var _slippers_out := 0 ## chinelos no ar (no máximo 2; voltam para a mão)
+const MAX_SLIPPERS := 2
 var _throw_anim := 0.0 # 1 = acabou de arremessar
 var _throw_cooldown := 0.0
 var hammer: Node3D ## martelo de construção na mão
@@ -791,7 +793,7 @@ func _show_weapon(type: WeaponType) -> void:
 	if hammer:
 		hammer.visible = type == WeaponType.HAMMER
 		chisel.visible = type == WeaponType.CHISEL
-		slipper.visible = type == WeaponType.SLIPPER and _throw_cooldown <= 0.2
+		slipper.visible = type == WeaponType.SLIPPER and _slippers_out < MAX_SLIPPERS
 		boomerang.visible = type == WeaponType.BOOMERANG and not _boomerang_out
 	_emit_weapon_text()
 
@@ -804,6 +806,10 @@ func _emit_weapon_text() -> void:
 		text += "  recarregando..." if _reload_timer > 0.0 else "  %d/%d" % [_ammo, magazine_size]
 	elif _weapon_type == WeaponType.GRAPPLE:
 		text += "  %d/%d" % [_grapple_left, grapple_charges] if _grapple_left > 0 else "  recarregando..."
+	elif _weapon_type == WeaponType.SLIPPER:
+		text += "  %d/%d" % [MAX_SLIPPERS - _slippers_out, MAX_SLIPPERS]
+	elif _weapon_type == WeaponType.BOOMERANG and _boomerang_out:
+		text += "  (voltando...)"
 	elif _weapon_type == WeaponType.HAMMER and builder:
 		text += ": %s" % builder.tool_name()
 	elif _weapon_type == WeaponType.CHISEL and builder:
@@ -1581,19 +1587,22 @@ func _use_tool() -> void:
 
 # Arremessos ---------------------------------------------------------------------
 
-## Chinelo: sempre na cabeça do zumbi mais perto do centro da mira.
+## Chinelo: sempre na cabeça do zumbi mais perto do centro da mira. Volta para
+## a mão; com os 2 no ar, só joga de novo quando um voltar.
 func _throw_slipper() -> void:
-	if _equip < 1.0 or _throw_cooldown > 0.0:
+	if _equip < 1.0 or _throw_cooldown > 0.0 or _slippers_out >= MAX_SLIPPERS:
 		return
-	_throw_cooldown = 0.55
+	_slippers_out += 1
+	_throw_cooldown = 0.3
 	_throw_anim = 1.0
 	Net.i.send_player_action("throw", 0)
 	var aim := -camera.global_basis.z
 	var target := ThrownSlipper.pick_target(get_tree(), camera.global_position, aim)
 	var projectile := ThrownSlipper.new()
 	get_parent().add_child(projectile)
-	projectile.launch(slipper.global_position, aim, target)
+	projectile.launch(slipper.global_position, aim, target, self)
 	slipper.visible = false
+	_emit_weapon_text()
 	Net.i.fx("slipper", [slipper.global_position, aim, target.net_id if target else 0])
 
 
@@ -1602,6 +1611,7 @@ func _throw_boomerang() -> void:
 	if _equip < 1.0 or _boomerang_out:
 		return
 	_boomerang_out = true
+	_emit_weapon_text()
 	_throw_anim = 1.0
 	Net.i.send_player_action("throw", 0)
 	var aim := -camera.global_basis.z
@@ -1613,9 +1623,16 @@ func _throw_boomerang() -> void:
 	Net.i.fx("boomerang", [boomerang.global_position, aim, target.net_id if target else 0])
 
 
+## Um chinelo voltou para a mão.
+func catch_slipper() -> void:
+	_slippers_out = maxi(_slippers_out - 1, 0)
+	_emit_weapon_text()
+
+
 ## O bumerangue voltou (ou se perdeu): de novo na mão.
 func catch_boomerang() -> void:
 	_boomerang_out = false
+	_emit_weapon_text()
 	if _weapon_type == WeaponType.BOOMERANG:
 		boomerang.visible = true
 
@@ -1625,8 +1642,8 @@ func _update_throwables(delta: float) -> void:
 	_throw_cooldown -= delta
 	var swing := sin(_throw_anim * PI)
 	if _weapon_type == WeaponType.SLIPPER:
-		if _throw_cooldown <= 0.2 and not slipper.visible:
-			slipper.visible = true # outro chinelo na mão
+		var has_one := _slippers_out < MAX_SLIPPERS
+		slipper.visible = has_one and _throw_cooldown <= 0.15 # outro chinelo na mão (se sobrou)
 		slipper.position = SLIPPER_REST + _bob_offset(0.8) + _equip_offset() + Vector3(0, 0.12, 0.08) * swing
 		slipper.rotation = Vector3(0.5 + 0.8 * swing, 0.2, 0.1)
 	elif _weapon_type == WeaponType.BOOMERANG:

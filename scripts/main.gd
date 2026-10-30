@@ -189,7 +189,7 @@ func play_fx(kind: String, args: Array) -> void:
 				var copy := ThrownSlipper.new()
 				copy.cosmetic = true
 				add_child(copy)
-				copy.launch(args[0], args[1], target)
+				copy.launch(args[0], args[1], target, null)
 			else:
 				var copy := Boomerang.new()
 				copy.cosmetic = true

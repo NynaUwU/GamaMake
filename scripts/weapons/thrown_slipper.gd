@@ -1,22 +1,24 @@
 class_name ThrownSlipper
 extends Node3D
 ## Chinelo arremessado: faz uma curvinha girando e SEMPRE acerta a cabeça do
-## zumbi mirado (headshot): ele cai duro para trás. Sem zumbi na mira, voa
-## reto e cai no chão.
+## zumbi mirado (headshot): ele cai duro para trás. Depois VOLTA para a mão de
+## quem jogou, como o bumerangue (dá para ter até 2 no ar). Sem zumbi na mira,
+## vai reto uns 12 m e volta.
 
-const SPEED := 22.0
+const SPEED := 16.0
 const AIM_RANGE := 40.0
 const AIM_CONE := 0.9 ## dot mínimo entre a mira e a cabeça do zumbi
 
 var cosmetic := false ## cópia de outro jogador: só o visual
+var thrower: Node3D ## para onde volta (Player)
 var _target: Zombie
 var _start := Vector3.ZERO
 var _end := Vector3.ZERO
 var _t := 0.0
 var _duration := 1.0
+var _height := 0.35
 var _model: Node3D
-var _falling := false
-var _velocity := Vector3.ZERO
+var _returning := false
 var _life := 0.0
 
 
@@ -49,44 +51,59 @@ static func head_of(zombie: Zombie) -> Vector3:
 	return zombie.skeleton.global_transform * zombie.skeleton.get_bone_global_pose(bone).origin + Vector3.UP * 0.12
 
 
-func launch(start: Vector3, aim: Vector3, target: Zombie) -> void:
+func launch(start: Vector3, aim: Vector3, target: Zombie, from: Node3D = null) -> void:
 	_model = ItemModels.build(&"chinelo")
+	_model.scale = Vector3.ONE * 1.3
 	add_child(_model)
+	thrower = from
 	_start = start
 	_target = target
 	global_position = start
-	if target:
-		_end = head_of(target)
-	else:
-		_falling = true
-		_velocity = aim.normalized() * SPEED + Vector3.UP * 2.0
-	_duration = clampf(_start.distance_to(_end) / SPEED, 0.12, 1.6)
+	_end = head_of(target) if target else start + aim.normalized() * 12.0
+	_duration = clampf(_start.distance_to(_end) / SPEED, 0.15, 2.0)
 
 
 func _physics_process(delta: float) -> void:
 	_life += delta
-	if _life > 4.0:
-		queue_free()
+	_model.rotate_y(delta * 16.0) # gira no ar
+	if _life > 8.0:
+		_finish()
 		return
-	_model.rotate_y(delta * 22.0) # gira no ar
-	if _falling:
-		_velocity.y -= 9.8 * delta
-		var next := global_position + _velocity * delta
-		var query := PhysicsRayQueryParameters3D.create(global_position, next, 1)
-		if not get_world_3d().direct_space_state.intersect_ray(query).is_empty():
-			queue_free()
+	if _returning:
+		if not is_instance_valid(thrower):
+			_finish()
 			return
-		global_position = next
-		return
-	if is_instance_valid(_target):
+		_end = _hand_point()
+	elif is_instance_valid(_target):
 		_end = head_of(_target) # a cabeça anda: o chinelo segue
 	_t = minf(_t + delta / _duration, 1.0)
-	global_position = _start.lerp(_end, _t) + Vector3.UP * sin(_t * PI) * 0.35 * _duration
-	if _t >= 1.0:
-		var direction := (_end - _start).normalized()
-		if not cosmetic and is_instance_valid(_target):
-			_target.slipper_hit(direction)
-		# Quica para trás e cai.
-		_falling = true
-		_velocity = -direction * 3.0 + Vector3.UP * 3.5
-		_life = 3.0
+	global_position = _start.lerp(_end, _t) + Vector3.UP * sin(_t * PI) * _height * _duration
+	if _t < 1.0:
+		return
+	if _returning:
+		_finish()
+		return
+	if not cosmetic and is_instance_valid(_target):
+		_target.slipper_hit((_end - _start).normalized())
+	# Volta para a mão (a cópia de outro jogador some aqui).
+	if not is_instance_valid(thrower):
+		_finish()
+		return
+	_returning = true
+	_start = global_position
+	_end = _hand_point()
+	_height = 0.8
+	_t = 0.0
+	_duration = clampf(_start.distance_to(_end) / SPEED, 0.15, 2.5)
+
+
+func _hand_point() -> Vector3:
+	if thrower is Player:
+		return thrower.camera.global_position - Vector3.UP * 0.3
+	return thrower.global_position + Vector3.UP * 1.3
+
+
+func _finish() -> void:
+	if is_instance_valid(thrower) and thrower.has_method("catch_slipper"):
+		thrower.catch_slipper()
+	queue_free()

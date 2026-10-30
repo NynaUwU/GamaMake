@@ -29,14 +29,16 @@ func _physics_process(_d: float) -> bool:
 	if frame == 30:
 		_aim(z.global_position + Vector3(0.6, 1.0, 0)) # mira meio torta: o chinelo acha a cabeça igual
 		player._throw_slipper()
-	if frame == 33:
-		for n in main.get_children():
-			if n is ThrownSlipper:
-				print("DBG chinelo voando: alvo=", n._target, " fim=", n._end, " dur=", n._duration, " caindo=", n._falling)
-		print("DBG alvo direto=", ThrownSlipper.pick_target(main.get_tree(), player.camera.global_position, -player.camera.global_basis.z), " z=", z, " cooldown=", player._throw_cooldown, " equip=", player._equip, " tipo=", player._weapon_type)
-	if frame == 52:
+	if frame == 40:
+		player._throw_slipper()
+		player._throw_cooldown = 0.0
+		player._throw_slipper() # terceiro: não pode (2 no ar)
+		print("chinelos no ar=", player._slippers_out, " (máx 2)")
+	if frame == 75:
 		print("chinelo: estado=", Zombie.State.keys()[z.state], " inclinação (up·Y)=", snappedf(z.global_basis.y.dot(Vector3.UP), 0.01), " vida=", z.health)
-	if frame == 90:
+	if frame == 200:
+		print("chinelos voltaram: no ar=", player._slippers_out)
+	if frame == 205:
 		print("depois do tombo: estado=", Zombie.State.keys()[z.state], " ragdoll=", z.ragdoll.is_ragdolling(), " raiz de pé de novo=", snappedf(z.global_basis.y.dot(Vector3.UP), 0.01))
 		# Fila de 6 zumbis para o bumerangue.
 		var zs: Array = main.get_node("Enemies").get_children()
@@ -54,20 +56,26 @@ func _physics_process(_d: float) -> bool:
 			extra.global_position = player.global_position + Vector3(4.0 + i * 2.5, 0, -11.0)
 			row.append(extra)
 		player.equip_item(&"bumerangue")
-	if frame == 120:
+	if frame == 235:
 		_aim(row[0].global_position + Vector3.UP * 1.5)
 		player._throw_boomerang()
-	if frame == 130:
+	if frame == 245:
 		var b: Boomerang = null
 		for n in main.get_children():
 			if n is Boomerang:
 				b = n
 		print("bumerangue no ar: ", b != null, " fora da mão=", player._boomerang_out)
-	if frame == 420:
+		player._throw_boomerang()
+		var count := 0
+		for n in main.get_children():
+			if n is Boomerang:
+				count += 1
+		print("tentou jogar outro: bumerangues no ar=", count, " (só 1)")
+	if frame == 1000:
 		var hp := row.map(func(r): return snappedf(r.health, 1))
 		print("bumerangue: vida da fila=", hp, " voltou para a mão=", not player._boomerang_out)
 		quit()
-	if frame > 130 and frame < 420:
+	if frame > 245 and frame < 1000:
 		for r in row:
 			if r.state == Zombie.State.STUNNED and not r.has_meta("seen_stun"):
 				r.set_meta("seen_stun", true)
