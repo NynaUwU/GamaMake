@@ -43,6 +43,25 @@ reação física a golpes e ragdoll (estilo Dying Light), visual de PC dos anos 
   e o mouse gira só a cabeça (o corpo fica sentado). **Faróis** acendem ao entrar; **L** liga/desliga.
 - Atropelar derruba o zumbi (dano ~7 por m/s; rápido mata e pode arrancar membros).
 
+### Garagem: mais 6 carros (`scripts/vehicles/cars/`)
+Estacionados em duas fileiras ao lado do Monza. Cada um herda de `VintageCar` e só muda a
+**ficha** em `_configure()` (medidas, peso, curva de torque, aderência, banco/volante) e a
+carroceria em `_build_body()`.
+
+| Carro | Inspiração | 0–100 | Máx. | Como anda |
+|---|---|---|---|---|
+| Aero V12 | especial feito à mão com V12 de avião | ~6 s | ~180 km/h | pesado, puxa forte em alta, vira devagar (entre-eixos enorme) |
+| Brutus | BMW Brutus (V12 de avião num chassi de 1907) | ~3,5 s | ~170 km/h | **torque demais**: acelerando na curva a traseira sai de lado (~30°); volante reto ou contra-esterço trazem de volta |
+| Final Objective | Chevrolet Sports Coupe 1955 | ~6,5 s | ~160 km/h | cupê fechado, o mais equilibrado e previsível |
+| Darracq V8 | Darracq V8 de recorde (1905) | ~5 s | ~180 km/h | levíssimo, fraco embaixo e bravo no giro, direção nervosa, freio fraco |
+| Hall-Scott Four | especial de 1917 com motor Hall-Scott | ~9 s | ~125 km/h | muita força no arranque que acaba cedo |
+| Mormon Meteor | Duesenberg Special (1935) | ~8,5 s | ~225 km/h | sai devagar mas não para de puxar; estável, vira pouco em alta |
+
+- Curva de torque: `torque_low` / `torque_peak` / `torque_high` (fração da força no arranque,
+  onde fica o pico e quanto sobra na máxima). `wheelspin` tira aderência da traseira com o pé
+  no fundo; `drift_max` limita o quanto o carro fica de lado.
+- Teste: `tests/test_cars.gd` (arrancada e curva de cada carro; `CAR=brutus` testa só um).
+
 ## Estilo visual
 - **Seres vivos** (player, zumbis, animais no futuro) são em **blocos**.
 - **Todo o resto** é **poligonal estilo PS2**: poucos lados, sombreamento suave mas silhueta

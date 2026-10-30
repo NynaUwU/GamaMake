@@ -18,6 +18,12 @@
 [ext_resource type="Material" path="res://materials/tijolo.tres" id="m_tijolo"]
 [ext_resource type="Material" path="res://materials/madeira.tres" id="m_madeira"]
 [ext_resource type="Material" path="res://materials/metal.tres" id="m_metal"]
+[ext_resource type="Script" path="res://scripts/vehicles/cars/aero_v12.gd" id="20_aero_v12"]
+[ext_resource type="Script" path="res://scripts/vehicles/cars/brutus.gd" id="21_brutus"]
+[ext_resource type="Script" path="res://scripts/vehicles/cars/chevy_55.gd" id="22_chevy_55"]
+[ext_resource type="Script" path="res://scripts/vehicles/cars/darracq_v8.gd" id="23_darracq_v8"]
+[ext_resource type="Script" path="res://scripts/vehicles/cars/hall_scott.gd" id="24_hall_scott"]
+[ext_resource type="Script" path="res://scripts/vehicles/cars/mormon_meteor.gd" id="25_mormon_meteor"]
 
 [sub_resource type="ProceduralSkyMaterial" id="SkyMaterial_dusk"]
 sky_top_color = Color(0.16, 0.18, 0.26, 1)
@@ -301,6 +307,30 @@ position = Vector3(0, 0, 10)
 
 [node name="Carro" parent="." instance=ExtResource("11_car")]
 position = Vector3(2.6, 0.8, 13.5)
+
+[node name="Carro_AeroV12" type="VehicleBody3D" parent="."]
+position = Vector3(13.0, 0.9, 13.5)
+script = ExtResource("20_aero_v12")
+
+[node name="Carro_Brutus" type="VehicleBody3D" parent="."]
+position = Vector3(19.0, 0.9, 13.5)
+script = ExtResource("21_brutus")
+
+[node name="Carro_Chevy55" type="VehicleBody3D" parent="."]
+position = Vector3(25.0, 0.9, 13.5)
+script = ExtResource("22_chevy_55")
+
+[node name="Carro_DarracqV8" type="VehicleBody3D" parent="."]
+position = Vector3(15.0, 0.9, 3.5)
+script = ExtResource("23_darracq_v8")
+
+[node name="Carro_HallScott" type="VehicleBody3D" parent="."]
+position = Vector3(21.0, 0.9, 3.5)
+script = ExtResource("24_hall_scott")
+
+[node name="Carro_MormonMeteor" type="VehicleBody3D" parent="."]
+position = Vector3(27.0, 0.9, 3.5)
+script = ExtResource("25_mormon_meteor")
 
 [node name="Enemies" type="Node3D" parent="."]
 
