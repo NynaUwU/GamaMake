@@ -90,7 +90,7 @@ func eye_height(delta: float) -> float:
 
 ## Impacto na cabeça ao aterrissar (strength ~ velocidade da queda em m/s).
 func land(strength: float) -> void:
-	_dip_velocity -= clampf(strength, 0.0, 10.0) * 0.32
+	_dip_velocity -= clampf(strength, 0.0, 12.0) * 0.45 # pesado: a cabeça afunda mais
 
 
 func speed_factor(walk_speed: float) -> float:

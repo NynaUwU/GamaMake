@@ -60,8 +60,11 @@ enum SwingPhase { NONE, WINDUP, SLASH, RECOVER }
 @export_group("Movimento")
 @export var walk_speed := 4.0
 @export var sprint_speed := 6.5
-@export var jump_velocity := 4.6
-@export var acceleration := 12.0
+@export var jump_velocity := 5.0
+@export var acceleration := 7.0 ## mais baixo = mais pesado para ganhar velocidade
+@export var deceleration := 9.0 ## para de andar (sem input)
+@export var fall_gravity := 1.6 ## caindo, a gravidade pesa mais (pulo menos "flutuante")
+@export var head_bob := 0.035 ## sobe e desce da cabeça a cada passo
 @export var air_control := 0.3
 @export var mouse_sensitivity := 0.0025
 @export var push_force := 1.5 ## empurrar caixas e objetos físicos
@@ -95,6 +98,8 @@ enum SwingPhase { NONE, WINDUP, SLASH, RECOVER }
 @export var grapple_air_control := 9.0 ## m/s² de empurrão com WASD balançando
 @export var grapple_pull := 4.0 ## puxão inicial na direção do gancho
 @export var grapple_lift := 4.5 ## impulso inicial para cima ao prender
+@export var grapple_charges := 5 ## disparos antes de precisar recarregar
+@export var grapple_recharge := 6.0 ## s sem usar até recarregar todas (usar de novo reinicia o tempo)
 
 @export_group("Empalar")
 ## Correndo com a espada, segure o ataque: a lâmina vai para frente e espeta
@@ -236,6 +241,8 @@ var _grapple_active := false
 var _anchor := Vector3.ZERO
 var _rope_length := 0.0
 var _rope: MeshInstance3D
+var _grapple_left := 5
+var _grapple_idle := 0.0
 var charger: Node3D # carregador a dínamo na mão (modelo com Lever/Rotor/Needle)
 var _crank_rate := 0.0
 var _lever := 0.0
@@ -248,6 +255,7 @@ var _impaled: Array = []
 func _ready() -> void:
 	health = max_health
 	stamina = max_stamina
+	_grapple_left = grapple_charges
 	_ammo = magazine_size
 	spoon = Node3D.new()
 	spoon.name = "Spoon"
@@ -365,7 +373,7 @@ func _physics_process(delta: float) -> void:
 		return
 	var sprinting := _is_sprinting()
 	if not is_on_floor():
-		velocity.y -= _gravity * delta
+		velocity.y -= _gravity * delta * (fall_gravity if velocity.y < 0.0 else 1.0)
 	elif Input.is_action_just_pressed("jump") and not ui_blocked:
 		if not parkour.try_traverse(sprinting):
 			velocity.y = jump_velocity
@@ -380,7 +388,7 @@ func _physics_process(delta: float) -> void:
 	if _blocking:
 		speed *= block_speed_factor
 	var target := direction * speed
-	var accel := acceleration if is_on_floor() else acceleration * air_control
+	var accel := (acceleration if direction != Vector3.ZERO else deceleration) if is_on_floor() else acceleration * air_control
 	var t := 1.0 - exp(-accel * delta)
 	var flat := Vector2(velocity.x, velocity.z)
 	if not is_on_floor() and flat.length() > speed:
@@ -493,8 +501,13 @@ func _process(delta: float) -> void:
 	for i in 2:
 		_punch_anim[i] = move_toward(_punch_anim[i], 0.0, delta * 6.0)
 	_equip = minf(_equip + delta / equip_time, 1.0)
-	var moving := Vector2(velocity.x, velocity.z).length() / walk_speed
-	_bob += delta * (2.0 + moving * 7.0)
+	# Ritmo dos passos com limite: voando de gancho/caindo rápido não "pedala" o braço.
+	var moving := minf(Vector2(velocity.x, velocity.z).length() / walk_speed, 1.6) if is_on_floor() else 0.2
+	_bob += delta * (2.0 + moving * 6.0)
+	# Peso: a cabeça sobe e desce e balança de leve a cada passo.
+	var step := minf(Vector2(velocity.x, velocity.z).length() / walk_speed, 1.6) if is_on_floor() else 0.0
+	head.position.y += absf(sin(_bob)) * head_bob * step - head_bob * 0.5 * step
+	head.rotation.z = sin(_bob) * 0.006 * step
 	_update_swing(delta)
 	_update_staff(delta)
 	_update_pistol(delta)
@@ -502,6 +515,12 @@ func _process(delta: float) -> void:
 	_update_fp_arm()
 	_update_parkour_hands()
 	_update_rope()
+	# Gancho: recarrega todas as cargas depois de um tempo sem usar.
+	if _grapple_left < grapple_charges:
+		_grapple_idle += delta
+		if _grapple_idle >= grapple_recharge:
+			_grapple_left = grapple_charges
+			_emit_weapon_text()
 	if _weapon_type == WeaponType.GRAPPLE:
 		grapple.position = Vector3(0.22, -0.24, -0.42) + _bob_offset(0.8) + _equip_offset()
 
@@ -692,6 +711,8 @@ func _emit_weapon_text() -> void:
 		text = ItemDB.display_name(inventory.selected_id())
 	if _weapon_type == WeaponType.PISTOL:
 		text += "  recarregando..." if _reload_timer > 0.0 else "  %d/%d" % [_ammo, magazine_size]
+	elif _weapon_type == WeaponType.GRAPPLE:
+		text += "  %d/%d" % [_grapple_left, grapple_charges] if _grapple_left > 0 else "  recarregando..."
 	weapon_changed.emit(text)
 
 
@@ -705,7 +726,7 @@ func _equip_offset() -> Vector3:
 
 
 func _bob_offset(scale: float) -> Vector3:
-	var moving := Vector2(velocity.x, velocity.z).length() / walk_speed
+	var moving := minf(Vector2(velocity.x, velocity.z).length() / walk_speed, 1.6) if is_on_floor() else 0.2
 	return Vector3(cos(_bob) * 0.01, absf(sin(_bob)) * 0.015, 0) * (0.3 + moving) * scale
 
 
@@ -1317,6 +1338,12 @@ func _toggle_flashlight() -> void:
 func _fire_grapple() -> void:
 	if _equip < 1.0 or _grapple_active:
 		return
+	if _grapple_left <= 0:
+		_shake = 0.02 # sem carga: espere recarregar
+		return
+	_grapple_left -= 1
+	_grapple_idle = 0.0
+	_emit_weapon_text()
 	var origin := camera.global_position
 	var forward := -camera.global_basis.z
 	var query := PhysicsRayQueryParameters3D.create(origin, origin + forward * grapple_range, 1, [get_rid()])

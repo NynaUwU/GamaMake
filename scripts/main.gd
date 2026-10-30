@@ -41,9 +41,26 @@ func _bake_navigation() -> void:
 func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("spawn_zombie"):
 		_spawn_zombie_in_front()
+	elif event.is_action_pressed("spawn_horde"):
+		_spawn_horde(100)
 	elif event.is_action_pressed("restart"):
 		Engine.time_scale = 1.0
 		get_tree().reload_current_scene()
+
+
+## Teste: muitos zumbis em volta do player (anel de 12 a 45 m).
+func _spawn_horde(count: int) -> void:
+	var terrain := get_node_or_null("Terrain") as TerrainWorld
+	for i in count:
+		var a := randf() * TAU
+		var r := randf_range(12.0, 45.0)
+		var pos := player.global_position + Vector3(cos(a) * r, 0, sin(a) * r)
+		if terrain:
+			pos.y = terrain.height_at(pos.x, pos.z) + 0.3
+		var zombie: Zombie = ZOMBIE_SCENE.instantiate()
+		zombie.position = pos
+		zombie.target = player
+		enemies.add_child(zombie)
 
 
 func _spawn_zombie_in_front() -> void:

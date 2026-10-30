@@ -27,7 +27,8 @@ func _process(delta: float) -> void:
 	var speed := _move.length()
 	var amount := clampf(speed / 4.0, 0.0, 1.5)
 	var airborne := not _player.is_on_floor()
-	_phase += delta * (2.0 + speed * 2.2)
+	# Ritmo limitado (não "pedala" voando de gancho ou caindo).
+	_phase += delta * (2.0 + minf(speed, 6.5) * 2.2) if _player.is_on_floor() else delta * 1.5
 	var s := sin(_phase)
 	var dir := _move.normalized() if speed > 0.1 else Vector2(0, -1)
 
