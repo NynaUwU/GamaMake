@@ -4,42 +4,36 @@ extends CanvasLayer
 ## Recomeçar / Sair. Continuar (ou ESC de novo) volta e prende o mouse de novo,
 ## inclusive dirigindo o carro.
 
-var _panel: PanelContainer
+var _title: Label
 var _restart_button: Button
+var _lan_button: Button
 
 
 func _ready() -> void:
 	layer = 10
 	process_mode = Node.PROCESS_MODE_ALWAYS # funciona com o jogo pausado
 	var dim := ColorRect.new()
-	dim.color = Color(0, 0, 0, 0.55)
+	dim.color = Color(0, 0, 0, 0.35)
 	dim.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	add_child(dim)
-	_panel = PanelContainer.new()
-	var style := StyleBoxFlat.new()
-	style.bg_color = Color(0.05, 0.05, 0.05, 0.92)
-	style.set_border_width_all(1)
-	style.border_color = Color(0.5, 0.45, 0.35)
-	style.set_content_margin_all(16)
-	_panel.add_theme_stylebox_override("panel", style)
-	_panel.set_anchors_preset(Control.PRESET_CENTER)
-	_panel.grow_horizontal = Control.GROW_DIRECTION_BOTH
-	_panel.grow_vertical = Control.GROW_DIRECTION_BOTH
-	dim.add_child(_panel)
-	var column := VBoxContainer.new()
-	column.add_theme_constant_override("separation", 8)
-	column.custom_minimum_size = Vector2(220, 0)
-	_panel.add_child(column)
-	var title := Label.new()
-	title.text = "Pausado"
-	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	title.add_theme_font_size_override("font_size", 22)
-	column.add_child(title)
-	_button(column, "Continuar", close)
-	_restart_button = _button(column, "Recomeçar", _restart)
-	_button(column, "Sair para o menu", func(): Net.i.leave())
-	_button(column, "Sair do jogo", func(): get_tree().quit())
+	var center := CenterContainer.new()
+	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	dim.add_child(center)
+	# Caixa no estilo dos menus antigos da Unity (LegacyGUI).
+	var column := LegacyGUI.box(center, "Pausado", 230.0)
+	_title = column.get_child(0)
+	LegacyGUI.button(column, "Continuar", close)
+	_lan_button = LegacyGUI.button(column, "Abrir para LAN", _open_to_lan)
+	_restart_button = LegacyGUI.button(column, "Recomeçar", _restart)
+	LegacyGUI.button(column, "Sair para o menu", func(): Net.i.leave())
+	LegacyGUI.button(column, "Sair do jogo", func(): get_tree().quit())
 	visible = false
+
+
+## Como no Minecraft: a partida solo vira servidor na hora (os outros entram pelo menu).
+func _open_to_lan() -> void:
+	Net.i.open_to_lan()
+	close()
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -59,6 +53,8 @@ func open() -> void:
 	visible = true
 	get_tree().paused = not Net.i.online() # online o mundo continua (é de todo mundo)
 	_restart_button.visible = Net.i.is_host() # online só o host recomeça a partida
+	_lan_button.visible = not Net.i.online()
+	_title.text = "Pausado" if not Net.i.online() else "Menu"
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 
 
@@ -75,12 +71,3 @@ func _restart() -> void:
 		return
 	Engine.time_scale = 1.0
 	get_tree().reload_current_scene()
-
-
-func _button(parent: Control, text: String, action: Callable) -> Button:
-	var button := Button.new()
-	button.text = text
-	button.custom_minimum_size = Vector2(0, 34)
-	button.pressed.connect(action)
-	parent.add_child(button)
-	return button

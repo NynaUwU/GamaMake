@@ -8,17 +8,27 @@ reação física a golpes e ragdoll (estilo Dying Light), visual de PC dos anos 
 2. **F5** para rodar. Abre o **menu**: jogar sozinho, criar servidor na rede local ou entrar num.
 
 ## Multiplayer na rede local (até 32 jogadores)
-- **Criar servidor:** no menu, digite seu nome (e uma semente, se quiser outro mapa) e clique em
-  *Criar servidor*. Quem cria é o **host**.
-- **Entrar:** os servidores da rede aparecem sozinhos na lista do menu (descoberta por broadcast
-  UDP). Também dá para digitar o IP do host. Dá para entrar no meio da partida.
-- Portas: **UDP 7777** (jogo) e **UDP 7778** (descoberta). Libere no firewall do host se não aparecer.
+- **Criar:** menu → *Multiplayer (rede local)* → *Criar servidor*. Ou, como no Minecraft, no meio
+  de uma partida solo: **Esc → Abrir para LAN** (vira servidor na hora, sem recarregar).
+- **Entrar:** menu → *Multiplayer*: as partidas da rede aparecem na lista (clique para entrar).
+  Também dá para digitar o IP (`192.168.0.10` ou `192.168.0.10:7779`). Dá para entrar no meio.
+- **Firewall:** igual ao Minecraft. Quem **entra não precisa liberar nada**: o cliente *pergunta*
+  na rede "tem partida aí?" e o host responde direto para ele (resposta a uma pergunta que o
+  próprio PC fez passa pelo firewall). Só o **host** recebe conexões, e o Windows pergunta uma
+  vez "Permitir acesso?" para o jogo, como faz com o Java do Minecraft: clique em Permitir.
+  Se a porta 7777 estiver ocupada (outro servidor no mesmo PC), usa a próxima livre.
 - **Só o host** usa as teclas de admin: **Z** (zumbi), **H** (100 zumbis) e **Backspace**
   (recomeça a partida para todo mundo; também em Esc → Recomeçar). Nos outros, Backspace só
   **renasce** quando morre.
 - Online o Esc **não pausa** o jogo (o mundo é de todos) e o "congelamento" dos golpes fica desligado.
 - Os outros jogadores aparecem com o nome em cima, o item da mão, a lanterna acesa e uma bolinha
-  azul no minimapa/mapa. O canto de cima à esquerda mostra quem está online.
+  azul no minimapa/mapa. Em cima, no meio da tela, aparece quem está online.
+
+## Menus (`scripts/ui/legacy_gui.gd`)
+- Estilo dos menus padrão das versões antigas da Unity (GUI.Box/GUI.Button): caixa preta
+  translúcida com o título, botões cinza em degradê com borda escura, campos de texto escuros.
+- O menu inicial fica na frente de uma cena 3D (carro e zumbi, câmera balançando). O menu de
+  pausa usa o mesmo visual.
 
 ### Como funciona (`scripts/net/net.gd`, autoload `Network`, acesso por `Net.i`)
 - **Mundo:** todo mundo gera o mesmo mapa pela mesma semente (terreno, cidades, pista, frutas).
@@ -212,7 +222,8 @@ scripts/weapons/           míssil mágico e explosão
 scripts/effects/impact_fx.gd  sangue, faíscas, rastro de bala
 scripts/combat/hit_info.gd    dados de um golpe (dano, osso, força, tipo CUT/BLUNT/PIERCE, bias)
 scripts/net/net.gd            multiplayer LAN (autoload Network; use Net.i)
-scripts/ui/main_menu.gd       menu inicial (solo / criar / entrar)
+scripts/ui/main_menu.gd       menu inicial (solo / multiplayer: lista, IP, criar)
+scripts/ui/legacy_gui.gd      visual dos menus (Unity antiga)
 shaders/retro_screen.gdshader
 tests/                 testes headless (ragdoll, juntas, jogo)
 ```

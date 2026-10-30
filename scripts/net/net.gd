@@ -21,8 +21,9 @@ signal peers_changed
 signal servers_changed
 signal message(text: String) ## avisos para o HUD (entrou, saiu, conexão)
 
-const PORT := 7777
-const DISCOVERY_PORT := 7778
+const PORT := 7777 ## primeira porta tentada (se estiver ocupada, tenta as próximas)
+const DISCOVERY_PORT := 7778 ## onde o host responde "quem está aí?" (também tenta as próximas)
+const PORT_TRIES := 6
 const MAX_PLAYERS := 32
 const GAME_ID := "GAMAMAKE1"
 const MAIN_SCENE := "res://scenes/main.tscn"
@@ -32,9 +33,10 @@ const CAR_SNAP_RATE := 1.0 / 20.0
 const RELEVANCE := 170.0 ## zumbis mais longe que isso de um jogador não são enviados a ele
 
 var player_name := "Jogador"
+var port := PORT ## porta do jogo deste host
 var world_seed := 0 ## 0 = semente padrão da cena
 var peers := {} ## id -> nome (todos, inclusive o host)
-var servers := {} ## ip -> {"name", "players", "max", "seen"} (achados na LAN)
+var servers := {} ## "nome|porta" -> {"ip", "port", "name", "players", "max", "seen"} (achados na LAN)
 var taken := {} ## chaves de itens que já foram pegos
 var world: Node ## cena principal ativa (main.gd)
 
@@ -44,9 +46,9 @@ var _pickups := {} # chave -> PickupItem
 var _drops := {} # chave -> [item_id, amount] (soltos durante a partida, para quem entrar depois)
 var _next_drop := 1
 var _pending_ready: Array[int] = [] # clientes que pediram o estado antes do mundo do host existir
-var _udp: PacketPeerUDP
-var _listen: PacketPeerUDP
-var _broadcast_timer := 0.0
+var _answer: PacketPeerUDP # host: responde as perguntas dos clientes
+var _listen: PacketPeerUDP # cliente: pergunta na rede e recebe as respostas
+var _query_timer := 0.0
 var _zombie_timer := 0.0
 var _car_timer := 0.0
 var _idle_car_timer := 0.0
@@ -98,30 +100,69 @@ func player_count() -> int:
 
 # --- Conectar ----------------------------------------------------------------
 
+## Cria a partida e entra nela (menu → "Criar servidor").
 func host_game(name: String, seed := 0) -> Error:
 	leave(false)
 	player_name = name
 	world_seed = seed
+	var err := _start_server()
+	if err == OK:
+		get_tree().change_scene_to_file(MAIN_SCENE)
+	return err
+
+
+## Como o "Abrir para LAN" do Minecraft: transforma a partida solo que está
+## rodando em servidor, sem recarregar nada.
+func open_to_lan() -> Error:
+	if online() or world == null:
+		return ERR_UNAVAILABLE
+	var terrain := world.get_node_or_null("Terrain")
+	if terrain:
+		world_seed = terrain.seed # quem entrar gera exatamente este mapa
+	# Itens soltos antes de abrir ganham nome de rede (quem entrar também vê).
+	for item in world.get_tree().get_nodes_in_group("interactable"):
+		if item is PickupItem and item.net_key == "" and not item.is_queued_for_deletion():
+			item.net_key = "d%d" % _next_drop
+			_next_drop += 1
+			_drops[item.net_key] = [item.item_id, item.amount]
+			_pickups[item.net_key] = item
+	var err := _start_server()
+	if err == OK:
+		message.emit("Partida aberta na rede local (porta %d)" % port)
+	return err
+
+
+func _start_server() -> Error:
 	var peer := ENetMultiplayerPeer.new()
-	var err := peer.create_server(PORT, MAX_PLAYERS - 1)
+	var err := ERR_CANT_CREATE
+	for k in PORT_TRIES:
+		err = peer.create_server(PORT + k * 2, MAX_PLAYERS - 1)
+		if err == OK:
+			port = PORT + k * 2
+			break
 	if err != OK:
-		message.emit("Não deu para abrir o servidor na porta %d." % PORT)
+		message.emit("Não deu para abrir o servidor (portas %d a %d ocupadas)." % [PORT, PORT + PORT_TRIES * 2])
 		return err
 	multiplayer.multiplayer_peer = peer
-	peers = {1: name}
-	_udp = PacketPeerUDP.new()
-	_udp.set_broadcast_enabled(true)
-	_udp.set_dest_address("255.255.255.255", DISCOVERY_PORT)
+	peers = {1: player_name}
+	# Responde quem perguntar "tem partida aí?" (resposta direta, não precisa de broadcast).
+	_answer = PacketPeerUDP.new()
+	for k in PORT_TRIES:
+		if _answer.bind(DISCOVERY_PORT + k * 2) == OK:
+			break
 	peers_changed.emit()
-	get_tree().change_scene_to_file(MAIN_SCENE)
 	return OK
 
 
-func join_game(ip: String, name: String) -> Error:
+## Entra numa partida. "ip" pode ser "192.168.0.10" ou "192.168.0.10:7779".
+func join_game(ip: String, name: String, game_port := PORT) -> Error:
+	if ip.contains(":"):
+		game_port = int(ip.get_slice(":", 1))
+		ip = ip.get_slice(":", 0)
 	leave(false)
 	player_name = name
 	var peer := ENetMultiplayerPeer.new()
-	var err := peer.create_client(ip, PORT)
+	var err := peer.create_client(ip, game_port)
 	if err != OK:
 		message.emit("Endereço inválido: %s" % ip)
 		return err
@@ -135,7 +176,9 @@ func leave(to_menu := true) -> void:
 	if multiplayer.multiplayer_peer and not (multiplayer.multiplayer_peer is OfflineMultiplayerPeer):
 		multiplayer.multiplayer_peer.close()
 	multiplayer.multiplayer_peer = OfflineMultiplayerPeer.new()
-	_udp = null
+	if _answer:
+		_answer.close()
+	_answer = null
 	peers.clear()
 	taken.clear()
 	_drops.clear()
@@ -302,13 +345,20 @@ func _process(delta: float) -> void:
 
 # --- Descoberta na LAN ---------------------------------------------------------
 
-## Começa a ouvir servidores na rede (menu).
+## Como o Minecraft acha partidas na LAN, mas ao contrário: o cliente PERGUNTA
+## (broadcast saindo de uma porta qualquer) e o host RESPONDE direto para ele.
+## Resposta a uma pergunta que o próprio cliente fez passa pelo firewall sem
+## regra nenhuma, então quem entra não precisa liberar nada. Só o host recebe
+## conexões (o Windows pergunta uma vez "Permitir acesso?" para o jogo, igual
+## acontece com o Java do Minecraft).
 func start_listening() -> void:
 	if _listen:
 		return
 	_listen = PacketPeerUDP.new()
-	if _listen.bind(DISCOVERY_PORT) != OK:
+	_listen.set_broadcast_enabled(true)
+	if _listen.bind(0) != OK: # porta aleatória só para as respostas
 		_listen = null
+	_query_timer = 0.0
 
 
 func stop_listening() -> void:
@@ -318,26 +368,55 @@ func stop_listening() -> void:
 	servers.clear()
 
 
+## Endereços para perguntar: broadcast geral, broadcast de cada rede deste PC
+## (roteadores que bloqueiam o geral) e o próprio PC (host e cliente juntos).
+func _query_targets() -> Array[String]:
+	var targets: Array[String] = ["255.255.255.255", "127.0.0.1"]
+	for iface in IP.get_local_interfaces():
+		for address: String in iface.addresses:
+			var parts := address.split(".")
+			if parts.size() == 4 and not address.begins_with("127."):
+				var subnet := "%s.%s.%s.255" % [parts[0], parts[1], parts[2]]
+				if subnet not in targets:
+					targets.append(subnet)
+	return targets
+
+
 func _poll_discovery(delta: float) -> void:
-	if _udp and online() and multiplayer.is_server():
-		_broadcast_timer -= delta
-		if _broadcast_timer <= 0.0:
-			_broadcast_timer = 1.0
-			var text := "%s|%s|%d|%d" % [GAME_ID, player_name, peers.size(), MAX_PLAYERS]
-			_udp.put_packet(text.to_utf8_buffer())
+	# Host: responde quem perguntou.
+	if _answer and online() and multiplayer.is_server():
+		while _answer.get_available_packet_count() > 0:
+			var question := _answer.get_packet().get_string_from_utf8()
+			if question == GAME_ID + "?":
+				var reply := "%s|%s|%d|%d|%d" % [GAME_ID, player_name, peers.size(), MAX_PLAYERS, port]
+				_answer.set_dest_address(_answer.get_packet_ip(), _answer.get_packet_port())
+				_answer.put_packet(reply.to_utf8_buffer())
 	if _listen == null:
 		return
+	# Cliente: pergunta a cada segundo e junta as respostas.
+	_query_timer -= delta
+	if _query_timer <= 0.0:
+		_query_timer = 1.0
+		for target in _query_targets():
+			for k in PORT_TRIES:
+				_listen.set_dest_address(target, DISCOVERY_PORT + k * 2)
+				_listen.put_packet((GAME_ID + "?").to_utf8_buffer())
 	var changed := false
 	while _listen.get_available_packet_count() > 0:
 		var text := _listen.get_packet().get_string_from_utf8()
 		var ip := _listen.get_packet_ip()
 		var parts := text.split("|")
-		if parts.size() == 4 and parts[0] == GAME_ID:
-			changed = changed or not servers.has(ip)
-			servers[ip] = {"name": parts[1], "players": int(parts[2]), "max": int(parts[3]), "seen": Time.get_ticks_msec()}
-	for ip in servers.keys():
-		if Time.get_ticks_msec() - servers[ip].seen > 4000:
-			servers.erase(ip)
+		if parts.size() == 5 and parts[0] == GAME_ID:
+			# O mesmo host responde por vários caminhos (rede e 127.0.0.1): uma entrada só.
+			var key := "%s|%s" % [parts[1], parts[4]]
+			if not servers.has(key):
+				changed = true
+				servers[key] = {"ip": ip}
+			servers[key].merge({"name": parts[1], "players": int(parts[2]), "max": int(parts[3]),
+				"port": int(parts[4]), "seen": Time.get_ticks_msec()}, true)
+	for key in servers.keys():
+		if Time.get_ticks_msec() - servers[key].seen > 4000:
+			servers.erase(key)
 			changed = true
 	if changed:
 		servers_changed.emit()
@@ -451,8 +530,9 @@ func _send_zombie_snapshots() -> void:
 			var zombie: Zombie = _zombies[net_id]
 			if is_instance_valid(zombie) and zombie.global_position.distance_to(center) < RELEVANCE:
 				list.append(zombie.snapshot())
-		if not list.is_empty():
-			_zsnap.rpc_id(peer, list)
+		# Até 8 zumbis por pacote: cabe num pacote UDP (~1400 bytes) sem ser picotado.
+		for start in range(0, list.size(), 8):
+			_zsnap.rpc_id(peer, list.slice(start, start + 8))
 
 
 @rpc("authority", "unreliable_ordered")
@@ -483,6 +563,8 @@ func unregister_pickup(item: PickupItem) -> void:
 func request_pickup(item: PickupItem) -> void:
 	if not online() or item.net_key == "":
 		item.take_locally(world.player if world else null)
+		if item.net_key != "" and item.is_queued_for_deletion():
+			taken[item.net_key] = true # se abrir para LAN depois, quem entrar já não vê
 		return
 	if multiplayer.is_server():
 		_try_take(1, item.net_key, item.item_id, item.amount)

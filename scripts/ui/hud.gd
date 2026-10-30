@@ -40,7 +40,11 @@ func _ready() -> void:
 	map.setup(player, player.get_parent().get_node_or_null("Terrain"))
 	# Online: quem está na partida (canto de cima à esquerda).
 	_players_label = Label.new()
-	_players_label.position = Vector2(8, 6)
+	_players_label.set_anchors_and_offsets_preset(Control.PRESET_CENTER_TOP)
+	_players_label.offset_left = -240.0
+	_players_label.offset_right = 240.0
+	_players_label.offset_top = 6.0
+	_players_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_players_label.add_theme_font_size_override("font_size", 11)
 	_players_label.modulate = Color(1, 1, 1, 0.75)
 	$Root.add_child(_players_label)
