@@ -33,3 +33,17 @@ static func make(damage_: float, bone_: StringName, point_: Vector3, direction_:
 
 func bias_for(kind: String) -> float:
 	return limb_bias.get(kind, 1.0)
+
+
+## Para mandar pela rede (o host aplica golpes de outros jogadores).
+func to_dict() -> Dictionary:
+	return {"damage": damage, "bone": bone, "point": point, "direction": direction, "force": force,
+		"type": type, "knockdown": knockdown, "launch": launch, "bias": limb_bias}
+
+
+static func from_dict(d: Dictionary) -> HitInfo:
+	var hit := make(d.damage, d.bone, d.point, d.direction, d.force, d.type)
+	hit.knockdown = d.knockdown
+	hit.launch = d.launch
+	hit.limb_bias = d.bias
+	return hit

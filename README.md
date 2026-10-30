@@ -5,7 +5,37 @@ reação física a golpes e ragdoll (estilo Dying Light), visual de PC dos anos 
 
 ## Como abrir
 1. Godot 4.7.2 → **Importar** → selecione `project.godot`.
-2. **F5** para rodar.
+2. **F5** para rodar. Abre o **menu**: jogar sozinho, criar servidor na rede local ou entrar num.
+
+## Multiplayer na rede local (até 32 jogadores)
+- **Criar servidor:** no menu, digite seu nome (e uma semente, se quiser outro mapa) e clique em
+  *Criar servidor*. Quem cria é o **host**.
+- **Entrar:** os servidores da rede aparecem sozinhos na lista do menu (descoberta por broadcast
+  UDP). Também dá para digitar o IP do host. Dá para entrar no meio da partida.
+- Portas: **UDP 7777** (jogo) e **UDP 7778** (descoberta). Libere no firewall do host se não aparecer.
+- **Só o host** usa as teclas de admin: **Z** (zumbi), **H** (100 zumbis) e **Backspace**
+  (recomeça a partida para todo mundo; também em Esc → Recomeçar). Nos outros, Backspace só
+  **renasce** quando morre.
+- Online o Esc **não pausa** o jogo (o mundo é de todos) e o "congelamento" dos golpes fica desligado.
+- Os outros jogadores aparecem com o nome em cima, o item da mão, a lanterna acesa e uma bolinha
+  azul no minimapa/mapa. O canto de cima à esquerda mostra quem está online.
+
+### Como funciona (`scripts/net/net.gd`, autoload `Network`, acesso por `Net.i`)
+- **Mundo:** todo mundo gera o mesmo mapa pela mesma semente (terreno, cidades, pista, frutas).
+  Só passa pela rede o que muda.
+- **Zumbis:** a IA roda **só no host**. Nos clientes eles são marionetes que seguem a posição e o
+  estado (~15x/s, só os que estão a até 170 m) e repetem os eventos visuais (ragdoll, membro
+  arrancado, braço quebrado, levantar, arma). O host gera zumbis, terreno e cidades em volta de
+  **todos** os jogadores, e cada zumbi persegue o jogador mais perto.
+- **Golpes:** quem bate calcula o acerto na hora (sem atraso) e manda o golpe para o host aplicar
+  (espada, taco, colher, tiro, chute, explosão, atropelar, deslizar, empalar). O dano dos zumbis
+  nos jogadores vai para o dono do boneco, que decide se bloqueou.
+- **Itens:** o host decide quem pegou primeiro; o item some para todos. Itens soltos e armas que
+  zumbis largam aparecem para todos.
+- **Carros:** quem dirige simula a física e manda a posição (~20x/s); nos outros o carro só segue.
+  Só uma pessoa dirige cada carro. Se o dono sair do jogo, o host assume o carro.
+- Teste com dois processos: rode `tests/net_host.gd` e, logo depois, `tests/net_client.gd`
+  (atalho por linha de comando: `godot -- --host --name=Fulano` ou `-- --join=IP`).
 
 ## Controles
 | Tecla | Ação |
@@ -24,7 +54,7 @@ reação física a golpes e ragdoll (estilo Dying Light), visual de PC dos anos 
 | L | lanterna (precisa estar no inventário e ter bateria) |
 | R | recarregar a pistola |
 | E (no carro) | entrar/sair. Dirigindo: W/S acelera/ré, A/D vira, Espaço freio de mão |
-| Z / H | novo zumbi / **100 zumbis** em volta (teste) · Backspace recomeça · **Esc pausa** (Continuar / Recomeçar / Sair) |
+| Z / H | novo zumbi / **100 zumbis** em volta (teste, só o host online) · Backspace recomeça · **Esc pausa** (Continuar / Recomeçar / Sair) |
 
 ## Área inicial e carro
 - Ao lado de onde você nasce: uma bancada coberta (com lâmpada) com **um exemplar de cada arma**
@@ -181,6 +211,8 @@ scripts/player/player.gd   player, espada, cajado, chute, interação
 scripts/weapons/           míssil mágico e explosão
 scripts/effects/impact_fx.gd  sangue, faíscas, rastro de bala
 scripts/combat/hit_info.gd    dados de um golpe (dano, osso, força, tipo CUT/BLUNT/PIERCE, bias)
+scripts/net/net.gd            multiplayer LAN (autoload Network; use Net.i)
+scripts/ui/main_menu.gd       menu inicial (solo / criar / entrar)
 shaders/retro_screen.gdshader
 tests/                 testes headless (ragdoll, juntas, jogo)
 ```

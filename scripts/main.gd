@@ -1,20 +1,47 @@
 extends Node3D
-## Cena principal: atalhos de teste (novo zumbi, recomeçar).
+## Cena principal: atalhos de teste (novo zumbi, horda, recomeçar — só o host)
+## e a ponte com o multiplayer (Net): bonecos dos outros jogadores, zumbis e
+## itens que chegam pela rede, efeitos de tiro/míssil dos outros.
 
 const ZOMBIE_SCENE := preload("res://scenes/zombie.tscn")
+const PLAYER_SCENE := preload("res://scenes/player.tscn")
+const PICKUP_SCENE := preload("res://scenes/props/pickup_item.tscn")
+const MISSILE_SCENE := preload("res://scenes/weapons/magic_missile.tscn")
 
 @onready var player: Player = $Player
 @onready var enemies: Node3D = $Enemies
+
+var puppets := {} ## peer -> Player (boneco de outro jogador)
+var _players_root: Node3D
 
 
 func _ready() -> void:
 	var pause := PauseMenu.new()
 	pause.name = "PauseMenu"
 	add_child(pause)
+	_players_root = Node3D.new()
+	_players_root.name = "RemotePlayers"
+	add_child(_players_root)
+	if Net.i.online():
+		# Cada jogador nasce um pouco ao lado do outro.
+		var slot: int = Net.i.my_id() % 16 if not Net.i.is_host() else 0
+		player.position += Vector3((slot % 4) * 1.6 - 2.4, 0, (slot / 4) * 1.6)
+		player.notify.emit.call_deferred("Multiplayer: %d jogador(es)%s" % [Net.i.player_count(), " · você é o host" if Net.i.is_host() else ""])
+	player.spawn_point = player.global_position
+	Net.i.message.connect(_on_net_message)
+	Net.i.register_world(self)
 	# O CSG monta a geometria só depois do primeiro frame: espera para gerar a navegação.
 	await get_tree().process_frame
 	await get_tree().physics_frame
 	_bake_navigation()
+
+
+func _exit_tree() -> void:
+	Net.i.unregister_world(self)
+
+
+func _on_net_message(text: String) -> void:
+	player.notify.emit(text)
 
 
 ## Gera o NavigationMesh a partir da fase (CSG do nó Level) para os zumbis
@@ -39,13 +66,19 @@ func _bake_navigation() -> void:
 
 
 func _unhandled_input(event: InputEvent) -> void:
-	if event.is_action_pressed("spawn_zombie"):
+	var admin: bool = Net.i.is_host() # teclas de teste/admin: só o host
+	if event.is_action_pressed("spawn_zombie") and admin:
 		_spawn_zombie_in_front()
-	elif event.is_action_pressed("spawn_horde"):
+	elif event.is_action_pressed("spawn_horde") and admin:
 		_spawn_horde(100)
 	elif event.is_action_pressed("restart"):
-		Engine.time_scale = 1.0
-		get_tree().reload_current_scene()
+		if not Net.i.online():
+			Engine.time_scale = 1.0
+			get_tree().reload_current_scene()
+		elif player.health <= 0.0:
+			player.respawn() # online: morto renasce (sem recomeçar a partida)
+		elif admin:
+			Net.i.restart_world()
 
 
 ## Teste: muitos zumbis em volta do player (anel de 12 a 45 m).
@@ -69,3 +102,75 @@ func _spawn_zombie_in_front() -> void:
 	zombie.position = player.global_position + forward * 6.0
 	zombie.target = player
 	enemies.add_child(zombie)
+
+
+# --- Multiplayer ----------------------------------------------------------------
+
+## Estado de outro jogador chegou: cria o boneco dele na primeira vez.
+func update_puppet(peer: int, state: Array) -> void:
+	var puppet: Player = puppets.get(peer)
+	if puppet == null:
+		puppet = PLAYER_SCENE.instantiate()
+		puppet.remote_peer = peer
+		puppet.name = "Remote_%d" % peer
+		puppet.display_name = Net.i.peers.get(peer, "Jogador %d" % peer)
+		_players_root.add_child(puppet)
+		puppets[peer] = puppet
+	puppet.apply_net_state(state)
+
+
+func remove_puppet(peer: int) -> void:
+	var puppet: Player = puppets.get(peer)
+	puppets.erase(peer)
+	if is_instance_valid(puppet):
+		puppet.queue_free()
+
+
+## Onde está o jogador "peer" (host: para saber quais zumbis mandar a ele).
+func puppet_position(peer: int) -> Vector3:
+	var puppet: Player = puppets.get(peer)
+	return puppet.global_position if is_instance_valid(puppet) else Vector3(1e9, 0, 0)
+
+
+## Posições de todos os jogadores (o host gera terreno/cidades/zumbis em volta de todos).
+func player_positions() -> Array[Vector3]:
+	var list: Array[Vector3] = [player.global_position]
+	if Net.i.online() and Net.i.is_host():
+		for peer in puppets:
+			if is_instance_valid(puppets[peer]):
+				list.append(puppets[peer].global_position)
+	return list
+
+
+func spawn_puppet_zombie(net_id: int, data: Dictionary) -> void:
+	var zombie: Zombie = ZOMBIE_SCENE.instantiate()
+	zombie.puppet = true
+	zombie.net_id = net_id
+	zombie.setup_from_net(data)
+	enemies.add_child(zombie)
+
+
+func spawn_pickup(key: String, item_id: StringName, amount: int, where: Transform3D, impulse: Vector3) -> void:
+	var item: PickupItem = PICKUP_SCENE.instantiate()
+	item.item_id = item_id
+	item.amount = amount
+	item.net_key = key
+	add_child(item)
+	item.global_transform = where
+	if impulse != Vector3.ZERO:
+		item.apply_central_impulse(impulse)
+
+
+## Efeitos dos outros jogadores (só visuais: o dano já foi aplicado por quem atirou).
+func play_fx(kind: String, args: Array) -> void:
+	match kind:
+		"tracer":
+			ImpactFX.tracer(self, args[0], args[1])
+		"burst":
+			ImpactFX.burst(self, args[0], args[1], args[2], args[3], args[4])
+		"missile":
+			var missile: MagicMissile = MISSILE_SCENE.instantiate()
+			missile.cosmetic = true
+			add_child(missile)
+			missile.global_position = args[0]
+			missile.launch(args[1], null)

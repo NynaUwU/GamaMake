@@ -123,6 +123,19 @@ var _climb_mode := false # vai em linha reta e escala o que estiver no caminho
 var _climb_points: Array[Vector3] = []
 var _climb_duration := 1.0
 
+# Multiplayer: no host o zumbi pensa; nos clientes é uma marionete que segue o host.
+var net_id := 0
+var puppet := false ## true = cópia de um zumbi do host (sem IA)
+var _snap_pos := Vector3.ZERO
+var _snap_yaw := 0.0
+var _snap_attack := 0.0
+var _snap_swing := 0.0
+var _snap_getup := 0.0
+var _has_snap := false
+var _state_hold := 0.0 # marionete: ignora o estado do host por um instante (empalou agora)
+var _retarget := 0.0
+var _net_spawn := {}
+
 @onready var collision: CollisionShape3D = $CollisionShape3D
 @onready var skeleton: Skeleton3D = $Skeleton3D
 @onready var locomotion: ZombieLocomotion = $Skeleton3D/Locomotion
@@ -132,8 +145,12 @@ var _climb_duration := 1.0
 
 
 func _ready() -> void:
+	if not puppet and not Net.i.is_host():
+		queue_free() # online, os zumbis do cliente vêm todos do host
+		return
 	health = max_health
-	move_speed *= randf_range(0.85, 1.25)
+	if _net_spawn.is_empty():
+		move_speed *= randf_range(0.85, 1.25)
 	for limb in LIMBS:
 		_limb_state[limb] = LimbState.OK
 		_limb_hp[limb] = {"head": head_health, "arm": arm_health, "leg": leg_health}[LIMBS[limb].kind]
@@ -141,17 +158,31 @@ func _ready() -> void:
 	_standing_shape_transform = collision.transform
 	ragdoll.blend_finished.connect(_on_ragdoll_blended_out)
 	if target == null:
-		target = get_tree().get_first_node_in_group("player")
-	if weapon_id == &"" and randf() < weapon_chance:
+		target = _nearest_player()
+	if not puppet and weapon_id == &"" and randf() < weapon_chance:
 		weapon_id = ItemDB.ZOMBIE_WEAPONS.pick_random()
 	if weapon_id != &"":
 		_equip_weapon.call_deferred(weapon_id)
 	_setup_navigation()
+	Net.i.register_zombie(self)
+	if puppet:
+		_apply_spawn_state.call_deferred()
+
+
+func _exit_tree() -> void:
+	Net.i.unregister_zombie(self)
 
 
 func _physics_process(delta: float) -> void:
+	if puppet:
+		_puppet_physics(delta)
+		return
 	_state_time += delta
 	_cooldown -= delta
+	_retarget -= delta
+	if _retarget <= 0.0 and (not _alerted or _target_dead()):
+		_retarget = 0.5
+		target = _nearest_player() # online: persegue o jogador mais perto
 	match state:
 		State.IDLE:
 			_update_idle(delta)
@@ -266,6 +297,9 @@ func _update_getting_up(delta: float) -> void:
 
 ## Chamado pelas armas do player.
 func take_hit(hit: HitInfo) -> void:
+	if puppet:
+		Net.i.zombie_call(self, "take_hit", [hit.to_dict()])
+		return
 	if hit.bone in _cut_bones:
 		return
 	var limb := _limb_of(hit.bone)
@@ -280,12 +314,12 @@ func take_hit(hit: HitInfo) -> void:
 	if state == State.IMPALED:
 		# Espetado: apanha, mas continua na lâmina até o player soltar.
 		_hurt(hit.damage * BONE_DAMAGE.get(hit.bone, 1.0))
-		ragdoll.apply_hit(hit.bone, hit.direction * hit.force, hit.point)
+		_rag_hit(hit.bone, hit.direction * hit.force, hit.point)
 		return
 	if state == State.DEAD:
 		if hit.type == HitInfo.Type.CUT and limb != &"":
 			_damage_limb(limb, hit) # dá para arrancar pedaços do corpo caído
-		ragdoll.apply_hit(hit.bone, hit.direction * hit.force, hit.point)
+		_rag_hit(hit.bone, hit.direction * hit.force, hit.point)
 		return
 	var body_damage: float = hit.damage * BONE_DAMAGE.get(hit.bone, 1.0)
 	if limb != &"" and _limb_state[limb] == LimbState.BROKEN:
@@ -303,7 +337,7 @@ func take_hit(hit: HitInfo) -> void:
 		# Bateu no zumbi caído: ele volta (ou continua) no chão.
 		_knock_down(hit.bone, hit.point, hit.direction * hit.force)
 		return
-	hit_reaction.add_hit(hit.bone, hit.direction, clampf(hit.force / 25.0, 0.4, 2.5))
+	_flinch(hit.bone, hit.direction, clampf(hit.force / 25.0, 0.4, 2.5))
 
 	# Tronco é jogado na direção do golpe e volta como mola (pés ficam no lugar).
 	_lean_velocity += _to_local_flat(hit.direction) * hit.force * 0.09
@@ -339,6 +373,9 @@ func _balance_loss(hit: HitInfo) -> float:
 
 ## Explosão: joga o zumbi longe (ragdoll). Se matar, despedaça o corpo inteiro.
 func take_explosion(center: Vector3, damage: float, force: float) -> void:
+	if puppet:
+		Net.i.zombie_call(self, "take_explosion", [center, damage, force])
+		return
 	if state == State.IMPALED and _impale_died:
 		_set_state(State.DEAD)
 	if state != State.DEAD:
@@ -352,7 +389,7 @@ func take_explosion(center: Vector3, damage: float, force: float) -> void:
 			_dismember_all(center, force)
 		else:
 			_set_state(State.DOWN)
-	ragdoll.apply_explosion(center, force)
+	_rag_explode(center, force)
 
 
 func _stagger(direction: Vector3, force: float) -> void:
@@ -381,7 +418,7 @@ func _stumble(direction: Vector3, force: float) -> void:
 func _knock_down(bone: StringName, point: Vector3, impulse: Vector3) -> void:
 	_end_attack()
 	_enter_ragdoll()
-	ragdoll.apply_hit(bone, impulse, point)
+	_rag_hit(bone, impulse, point)
 	_set_state(State.DOWN)
 
 
@@ -389,12 +426,13 @@ func _die(bone: StringName, point: Vector3, impulse: Vector3) -> void:
 	_drop_weapon()
 	_end_attack()
 	_enter_ragdoll()
-	ragdoll.apply_hit(bone, impulse, point)
+	_rag_hit(bone, impulse, point)
 	_set_state(State.DEAD)
 	died.emit(self)
 
 
 func _enter_ragdoll() -> void:
+	_rep("enter_ragdoll", [Vector3(velocity.x, 0, velocity.z)])
 	ragdoll.start(Vector3(velocity.x, 0, velocity.z))
 	velocity = Vector3.ZERO
 	balance = 0.0
@@ -427,16 +465,25 @@ func can_be_impaled(from_direction := Vector3.ZERO) -> bool:
 
 ## A espada atravessou o zumbi: vira ragdoll preso pela lâmina.
 func impale(damage: float, point: Vector3, direction: Vector3) -> void:
+	if puppet:
+		state = State.IMPALED # já fica espetado aqui (o host confirma em seguida)
+		_state_hold = 0.4
+		Net.i.zombie_call(self, "impale", [damage, point, direction, _impale_from_back])
+		return
 	_end_attack()
 	_enter_ragdoll()
 	_set_state(State.IMPALED)
 	_impale_died = false
 	_hurt(damage)
-	ImpactFX.burst(get_parent(), point, -direction + Vector3.UP * 0.5, ImpactFX.BLOOD, 24, 3.0)
+	_burst(point, -direction + Vector3.UP * 0.5, ImpactFX.BLOOD, 24, 3.0)
 
 
 ## Chamado a cada frame de física pelo player: puxa o peito até a lâmina.
 func hold_impaled(target_point: Vector3, carrier_velocity: Vector3, blade_direction := Vector3.ZERO) -> void:
+	if puppet:
+		# Segura a cópia aqui (para quem empala ver na hora) e manda o host segurar o de verdade.
+		_state_hold = 0.4
+		Net.i.zombie_call(self, "hold_impaled", [target_point, carrier_velocity, blade_direction], false)
 	var chest := ragdoll.get_bone_body(&"Chest")
 	if chest == null:
 		return
@@ -458,11 +505,15 @@ func hold_impaled(target_point: Vector3, carrier_velocity: Vector3, blade_direct
 
 ## Chutado para fora da lâmina.
 func release_impaled(impulse: Vector3) -> void:
+	if puppet:
+		_state_hold = 0.0
+		Net.i.zombie_call(self, "release_impaled", [impulse])
+		return
 	if state != State.IMPALED:
 		return
 	_set_state(State.DEAD if _impale_died else State.DOWN)
 	var chest := ragdoll.get_bone_body(&"Chest")
-	ragdoll.apply_hit(&"Chest", impulse, chest.global_position if chest else global_position)
+	_rag_hit(&"Chest", impulse, chest.global_position if chest else global_position)
 
 
 func _hurt(amount: float) -> void:
@@ -479,11 +530,14 @@ func _hurt(amount: float) -> void:
 
 ## Atropelado: voa na direção do carro. Rápido o bastante, morre (e pode perder pedaços).
 func hit_by_vehicle(car_velocity: Vector3, _car_position: Vector3) -> void:
+	if puppet:
+		Net.i.zombie_call(self, "hit_by_vehicle", [car_velocity, _car_position])
+		return
 	var speed := car_velocity.length()
 	var direction := car_velocity.normalized()
 	var center := global_position + Vector3.UP * 0.9 - direction * 1.0
 	if state == State.DEAD:
-		ragdoll.apply_explosion(center, speed * 20.0)
+		_rag_explode(center, speed * 20.0)
 		return
 	if state == State.IMPALED:
 		return
@@ -500,7 +554,7 @@ func hit_by_vehicle(car_velocity: Vector3, _car_position: Vector3) -> void:
 					_cut(limb, direction * speed * 0.4 + Vector3.UP * 2.0)
 	else:
 		_set_state(State.DOWN)
-	ragdoll.apply_explosion(center, speed * 22.0)
+	_rag_explode(center, speed * 22.0)
 
 
 ## Arremessado (colherona): voa longe, girando, em ragdoll.
@@ -515,12 +569,15 @@ func _launch(hit: HitInfo) -> void:
 		_set_state(State.DOWN)
 	var dir := Vector3(hit.direction.x, 0, hit.direction.z).normalized()
 	# Centro da "explosão" atrás e abaixo do zumbi: empurra para frente e para cima.
-	ragdoll.apply_explosion(global_position + Vector3.UP * 0.4 - dir * 1.0, hit.launch)
-	ragdoll.apply_hit(&"Chest", Vector3.UP * hit.launch * 0.15, global_position + Vector3.UP * 1.3)
+	_rag_explode(global_position + Vector3.UP * 0.4 - dir * 1.0, hit.launch)
+	_rag_hit(&"Chest", Vector3.UP * hit.launch * 0.15, global_position + Vector3.UP * 1.3)
 
 
 ## Player deslizou por baixo: as pernas vão para frente e o zumbi cai.
 func trip(direction: Vector3, force: float) -> void:
+	if puppet:
+		Net.i.zombie_call(self, "trip", [direction, force])
+		return
 	if state in [State.DOWN, State.DEAD, State.IMPALED, State.GETTING_UP] or crawler:
 		return
 	_end_attack()
@@ -530,12 +587,15 @@ func trip(direction: Vector3, force: float) -> void:
 	for bone in [&"LowerLeg.L", &"LowerLeg.R"]:
 		var body := ragdoll.get_bone_body(bone)
 		if body:
-			ragdoll.apply_hit(bone, (flat + Vector3.UP * 0.6) * force * 0.25, body.global_position)
-	ragdoll.apply_hit(&"Chest", -flat * force * 0.3, global_position + Vector3.UP * 1.3)
+			_rag_hit(bone, (flat + Vector3.UP * 0.6) * force * 0.25, body.global_position)
+	_rag_hit(&"Chest", -flat * force * 0.3, global_position + Vector3.UP * 1.3)
 
 
 ## O player bloqueou o golpe. Parry (na hora certa) desequilibra muito.
 func on_blocked(parry: bool, push_direction: Vector3) -> void:
+	if puppet:
+		Net.i.zombie_call(self, "on_blocked", [parry, push_direction])
+		return
 	if state in [State.DOWN, State.DEAD, State.IMPALED]:
 		return
 	_end_attack()
@@ -550,6 +610,9 @@ func on_blocked(parry: bool, push_direction: Vector3) -> void:
 
 ## Lanterna na cara: vem atrás do player de qualquer distância.
 func alert(who: Node3D) -> void:
+	if puppet:
+		Net.i.zombie_call(self, "alert", [])
+		return
 	target = who
 	_alerted = true
 	if state == State.IDLE:
@@ -586,7 +649,7 @@ func _bump_others() -> void:
 func bumped(direction: Vector3, strength: float) -> void:
 	if state not in [State.IDLE, State.CHASE, State.ATTACK]:
 		return
-	hit_reaction.add_hit(&"Chest", direction, 0.5 * strength)
+	_flinch(&"Chest", direction, 0.5 * strength)
 	_lean_velocity += _to_local_flat(direction) * 1.5 * strength
 	balance += 0.15 * strength
 	_stagger(direction, 18.0 * strength)
@@ -712,6 +775,7 @@ func _update_climb(_delta: float) -> void:
 # --- Arma na mão ------------------------------------------------------------
 
 func _equip_weapon(id: StringName) -> void:
+	_rep("equip", [id])
 	var hand := skeleton.get_node_or_null(HumanoidRig.attachment_name("LowerArm.R")) as Node3D
 	if hand == null:
 		return
@@ -725,12 +789,12 @@ func _equip_weapon(id: StringName) -> void:
 func _drop_weapon() -> void:
 	if _held_weapon == null:
 		return
-	var item: PickupItem = load("res://scenes/props/pickup_item.tscn").instantiate()
-	item.item_id = weapon_id
-	get_parent().add_child(item)
-	item.global_transform = _held_weapon.global_transform
+	_rep("unequip", [])
+	if not puppet:
+		Net.i.drop_item(weapon_id, 1, _held_weapon.global_transform, Vector3.ZERO)
 	_held_weapon.queue_free()
 	_held_weapon = null
+	weapon_id = &""
 
 
 # --- Levantar --------------------------------------------------------------
@@ -749,12 +813,17 @@ func _get_up() -> void:
 	torso.y = 0.0
 	if torso.length() > 0.05:
 		rotation.y = atan2(-torso.x, -torso.z) if face_down else atan2(torso.x, torso.z)
+	_rep("getup", [global_position, rotation.y, face_down, crawler])
+	_begin_getup_visual(face_down)
+
+
+func _begin_getup_visual(face_down: bool) -> void:
 	_getup_progress = 0.0
 	if crawler:
 		locomotion.mode = ZombieLocomotion.Mode.CRAWL
 	else:
 		locomotion.begin_getup(face_down)
-	limp_limbs.reset()
+	_limp_reset()
 	ragdoll.blend_out(getup_blend_time)
 
 
@@ -764,6 +833,7 @@ func _on_ragdoll_blended_out() -> void:
 
 
 func _finish_get_up() -> void:
+	_rep("stand", [crawler])
 	locomotion.mode = ZombieLocomotion.Mode.CRAWL if crawler else ZombieLocomotion.Mode.WALK
 	_apply_body_shape()
 	collision.set_deferred("disabled", false)
@@ -810,9 +880,9 @@ func _damage_limb(limb: StringName, hit: HitInfo) -> void:
 		# Osso quebrado: o membro inteiro fica mole, balançando.
 		var bones: Array[StringName] = []
 		bones.assign(LIMBS[limb].bones)
-		limp_limbs.make_limp(bones)
+		_limp(bones)
 		_limb_state[limb] = LimbState.BROKEN
-		ImpactFX.burst(get_parent(), hit.point, -hit.direction + Vector3.UP, ImpactFX.BLOOD, 8, 1.5)
+		_burst(hit.point, -hit.direction + Vector3.UP, ImpactFX.BLOOD, 8, 1.5)
 	if limb == &"ArmR":
 		_drop_weapon()
 	match kind:
@@ -827,6 +897,7 @@ func _damage_limb(limb: StringName, hit: HitInfo) -> void:
 func _cut(bone: StringName, impulse: Vector3) -> void:
 	if bone in _cut_bones or not skeleton.has_method("detach_limb"):
 		return
+	_rep("cut", [bone, impulse])
 	var removed: Array[StringName] = skeleton.detach_limb(bone, impulse)
 	_cut_bones.append_array(removed)
 	ragdoll.remove_bones(removed)
@@ -842,7 +913,7 @@ func _dismember_all(center: Vector3, force: float) -> void:
 		var away := (bone_pos - center).normalized() + Vector3.UP * 0.8
 		_cut(bone, away.normalized() * force * 0.03)
 		_limb_state[limb] = LimbState.CUT
-	ImpactFX.burst(get_parent(), skeleton.global_position + Vector3.UP, Vector3.UP, ImpactFX.BLOOD, 40, 5.0, 0.07)
+	_burst(skeleton.global_position + Vector3.UP, Vector3.UP, ImpactFX.BLOOD, 40, 5.0, 0.07)
 
 
 ## Braços que ainda funcionam (sem braços o zumbi ainda morde, mas fraco).
@@ -948,3 +1019,227 @@ func _find_floor_height(from: Vector3) -> float:
 	var query := PhysicsRayQueryParameters3D.create(from + Vector3.UP * 0.5, from + Vector3.DOWN * 3.0, 1)
 	var hit := get_world_3d().direct_space_state.intersect_ray(query)
 	return hit.position.y if hit else from.y - 0.2
+
+
+# --- Multiplayer ---------------------------------------------------------------
+
+func _target_dead() -> bool:
+	if not is_instance_valid(target):
+		return true
+	var hp = target.get("health")
+	return hp != null and hp <= 0.0
+
+
+## Jogador mais perto (vivo) entre o local e os bonecos dos outros.
+func _nearest_player() -> Node3D:
+	var best: Node3D = null
+	var best_d := INF
+	for group in [&"player", &"remote_player"]:
+		for p in get_tree().get_nodes_in_group(group):
+			if p.get("health") != null and p.health <= 0.0:
+				continue
+			var d: float = global_position.distance_squared_to(p.global_position)
+			if d < best_d:
+				best_d = d
+				best = p
+	return best if best else target
+
+
+## Host: conta para os clientes um evento visual (ragdoll, membro, levantar...).
+func _rep(event: String, args: Array) -> void:
+	if not puppet:
+		Net.i.zombie_event(self, event, args)
+
+
+func _rag_hit(bone: StringName, impulse: Vector3, point: Vector3) -> void:
+	_rep("rag_hit", [bone, impulse, point])
+	ragdoll.apply_hit(bone, impulse, point)
+
+
+func _rag_explode(center: Vector3, force: float) -> void:
+	_rep("rag_explode", [center, force])
+	ragdoll.apply_explosion(center, force)
+
+
+func _flinch(bone: StringName, direction: Vector3, strength: float) -> void:
+	_rep("flinch", [bone, direction, strength])
+	hit_reaction.add_hit(bone, direction, strength)
+
+
+func _limp(bones: Array[StringName]) -> void:
+	_rep("limp", [bones])
+	limp_limbs.make_limp(bones)
+
+
+func _limp_reset() -> void:
+	limp_limbs.reset()
+
+
+func _burst(position: Vector3, normal: Vector3, color: Color, amount := 16, speed := 3.0, size := 0.05) -> void:
+	_rep("burst", [position, normal, color, amount, speed, size])
+	ImpactFX.burst(get_parent(), position, normal, color, amount, speed, size)
+
+
+# Eventos recebidos pela marionete (mesmos nomes de _rep, com "_ev_" na frente).
+func _ev_enter_ragdoll(inherited: Vector3) -> void:
+	velocity = inherited
+	_enter_ragdoll()
+
+
+func _ev_rag_hit(bone: StringName, impulse: Vector3, point: Vector3) -> void:
+	ragdoll.apply_hit(bone, impulse, point)
+
+
+func _ev_rag_explode(center: Vector3, force: float) -> void:
+	ragdoll.apply_explosion(center, force)
+
+
+func _ev_flinch(bone: StringName, direction: Vector3, strength: float) -> void:
+	hit_reaction.add_hit(bone, direction, strength)
+
+
+func _ev_limp(bones: Array) -> void:
+	var list: Array[StringName] = []
+	list.assign(bones)
+	limp_limbs.make_limp(list)
+
+
+func _ev_burst(position: Vector3, normal: Vector3, color: Color, amount: int, speed: float, size: float) -> void:
+	ImpactFX.burst(get_parent(), position, normal, color, amount, speed, size)
+
+
+func _ev_cut(bone: StringName, impulse: Vector3) -> void:
+	_cut(bone, impulse)
+
+
+func _ev_getup(pos: Vector3, yaw: float, face_down: bool, is_crawler: bool) -> void:
+	crawler = is_crawler
+	state = State.GETTING_UP
+	global_position = pos
+	rotation.y = yaw
+	_snap_pos = pos
+	_snap_yaw = yaw
+	_begin_getup_visual(face_down)
+
+
+func _ev_stand(is_crawler: bool) -> void:
+	crawler = is_crawler
+	_finish_get_up()
+
+
+func _ev_equip(id: StringName) -> void:
+	if _held_weapon == null:
+		_equip_weapon(id)
+
+
+func _ev_unequip() -> void:
+	if _held_weapon:
+		_held_weapon.queue_free()
+		_held_weapon = null
+
+
+## Host: um cliente bateu/empurrou a cópia dele deste zumbi.
+func call_from_peer(peer: int, method: String, args: Array) -> void:
+	match method:
+		"take_hit":
+			take_hit(HitInfo.from_dict(args[0]))
+		"take_explosion":
+			take_explosion(args[0], args[1], args[2])
+		"impale":
+			if can_be_impaled():
+				_impale_from_back = args[3]
+				impale(args[0], args[1], args[2])
+		"hold_impaled":
+			if state == State.IMPALED:
+				hold_impaled(args[0], args[1], args[2])
+		"release_impaled":
+			release_impaled(args[0])
+		"hit_by_vehicle":
+			hit_by_vehicle(args[0], args[1])
+		"trip":
+			trip(args[0], args[1])
+		"on_blocked":
+			on_blocked(args[0], args[1])
+		"alert":
+			var who: Node3D = Net.i.world.puppets.get(peer) if Net.i.world else null
+			if who:
+				alert(who)
+
+
+## Host: estado compacto mandado ~15x por segundo para quem está perto.
+func snapshot() -> Array:
+	return [net_id, global_position, rotation.y, state, crawler, locomotion.attack, locomotion.swing,
+		_getup_progress, _lean, balance]
+
+
+func apply_snapshot(entry: Array) -> void:
+	_snap_pos = entry[1]
+	_snap_yaw = entry[2]
+	if _state_hold <= 0.0:
+		state = entry[3]
+	crawler = entry[4]
+	_snap_attack = entry[5]
+	_snap_swing = entry[6]
+	_snap_getup = entry[7]
+	_lean = entry[8]
+	balance = entry[9]
+	if not _has_snap:
+		_has_snap = true
+		global_position = _snap_pos
+		rotation.y = _snap_yaw
+
+
+## Host: tudo para criar a cópia (inclusive para quem entra no meio da partida).
+func spawn_data() -> Dictionary:
+	return {"pos": global_position, "yaw": rotation.y, "weapon": weapon_id,
+		"speed": move_speed, "state": state, "crawler": crawler, "cut": _cut_bones.duplicate(),
+		"ragdoll": ragdoll.is_ragdolling() if ragdoll else false}
+
+
+func setup_from_net(data: Dictionary) -> void:
+	_net_spawn = data
+	position = data.pos
+	rotation.y = data.yaw
+	weapon_id = data.weapon
+	move_speed = data.speed
+	crawler = data.crawler
+	state = data.state
+	_snap_pos = data.pos
+	_snap_yaw = data.yaw
+
+
+## Cópia criada no meio da partida: membros já arrancados, já caído...
+func _apply_spawn_state() -> void:
+	if _net_spawn.is_empty():
+		return
+	for bone in _net_spawn.cut:
+		_cut(bone, Vector3.ZERO)
+	if crawler:
+		locomotion.mode = ZombieLocomotion.Mode.CRAWL
+		_apply_body_shape()
+	if _net_spawn.ragdoll:
+		_enter_ragdoll()
+
+
+## Marionete: segue a posição/estado do host e anima com isso (sem IA).
+func _puppet_physics(delta: float) -> void:
+	_state_time += delta
+	_state_hold -= delta
+	var ragdolled := ragdoll.is_ragdolling() and ragdoll.influence >= 1.0
+	if not ragdolled and _has_snap:
+		var t := 1.0 - exp(-12.0 * delta)
+		var before := global_position
+		if global_position.distance_to(_snap_pos) > 4.0:
+			global_position = _snap_pos
+		else:
+			global_position = global_position.lerp(_snap_pos, t)
+		rotation.y = lerp_angle(rotation.y, _snap_yaw, t)
+		velocity = (global_position - before) / maxf(delta, 0.001)
+	else:
+		velocity = Vector3.ZERO
+	locomotion.attack = _snap_attack
+	locomotion.swing = _snap_swing
+	if state == State.GETTING_UP and not crawler:
+		_getup_progress = _snap_getup
+		locomotion.getup_t = _snap_getup
+	_update_body_pose(delta)

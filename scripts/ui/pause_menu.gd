@@ -5,6 +5,7 @@ extends CanvasLayer
 ## inclusive dirigindo o carro.
 
 var _panel: PanelContainer
+var _restart_button: Button
 
 
 func _ready() -> void:
@@ -35,7 +36,8 @@ func _ready() -> void:
 	title.add_theme_font_size_override("font_size", 22)
 	column.add_child(title)
 	_button(column, "Continuar", close)
-	_button(column, "Recomeçar", _restart)
+	_restart_button = _button(column, "Recomeçar", _restart)
+	_button(column, "Sair para o menu", func(): Net.i.leave())
 	_button(column, "Sair do jogo", func(): get_tree().quit())
 	visible = false
 
@@ -55,7 +57,8 @@ func _unhandled_input(event: InputEvent) -> void:
 
 func open() -> void:
 	visible = true
-	get_tree().paused = true
+	get_tree().paused = not Net.i.online() # online o mundo continua (é de todo mundo)
+	_restart_button.visible = Net.i.is_host() # online só o host recomeça a partida
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 
 
@@ -67,13 +70,17 @@ func close() -> void:
 
 func _restart() -> void:
 	close()
+	if Net.i.online():
+		Net.i.restart_world()
+		return
 	Engine.time_scale = 1.0
 	get_tree().reload_current_scene()
 
 
-func _button(parent: Control, text: String, action: Callable) -> void:
+func _button(parent: Control, text: String, action: Callable) -> Button:
 	var button := Button.new()
 	button.text = text
 	button.custom_minimum_size = Vector2(0, 34)
 	button.pressed.connect(action)
 	parent.add_child(button)
+	return button

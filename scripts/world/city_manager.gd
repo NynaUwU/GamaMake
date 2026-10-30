@@ -45,10 +45,15 @@ func _process(delta: float) -> void:
 
 ## Cria/apaga cidades pela distância. build_all = constrói tudo agora (testes).
 func _update_cities(build_all := false) -> void:
-	var here := Vector2(_player.global_position.x, _player.global_position.z)
+	# Host online: cidades em volta de todos os jogadores (os zumbis de lá precisam das casas).
+	var centers: Array[Vector3] = [_player.global_position]
+	if Net.i.world:
+		centers.assign(Net.i.world.player_positions())
 	for i in _terrain.cities.size():
 		var city: Dictionary = _terrain.cities[i]
-		var distance: float = here.distance_to(city.center) - city.radius
+		var distance := INF
+		for c in centers:
+			distance = minf(distance, Vector2(c.x, c.z).distance_to(city.center) - city.radius)
 		if distance < build_distance and not _built.has(i):
 			var node := Node3D.new()
 			node.name = "City_%d_%s" % [i, city.size]
@@ -80,6 +85,8 @@ func _add_house(city_node: Node3D, city: Dictionary, lot: Dictionary) -> void:
 
 
 func _spawn_zombies(city_node: Node3D, city: Dictionary) -> void:
+	if not Net.i.is_host():
+		return # online os zumbis vêm do host
 	var rng := RandomNumberGenerator.new()
 	rng.seed = city.seed + 5
 	for k in ZOMBIES[city.size]:

@@ -7,10 +7,13 @@ const PROP_MASK := 1 | (1 << 5) # mundo e itens (só os RigidBody3D reagem)
 const COLOR_CORE := Color(1.0, 0.85, 1.0)
 const COLOR_GLOW := Color(0.65, 0.3, 1.0)
 
+var cosmetic := false ## explosão de um míssil de outro jogador: não dá dano
+
 
 ## kill_radius: quem estiver a essa distância do impacto morre na hora (e despedaça).
 func detonate(radius: float, damage: float, force: float, kill_radius := 1.3) -> void:
-	_hit_enemies(radius, damage, force, kill_radius)
+	if not cosmetic:
+		_hit_enemies(radius, damage, force, kill_radius)
 	_push_props(radius, force)
 	_feedback_player(radius)
 	_spawn_visuals(radius)

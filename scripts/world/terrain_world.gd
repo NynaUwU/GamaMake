@@ -25,6 +25,7 @@ signal chunk_loaded(coord: Vector2i)
 @export var view_distance := 220.0 ## além da neblina mais longa
 @export var chunks_per_frame := 1
 @export var town_radius := 45.0 ## área plana da cidade no centro
+@export var remote_view_distance := 130.0 ## host online: terreno em volta dos outros jogadores
 @export var player_path: NodePath
 
 const COLOR_GRASS := Color(0.32, 0.42, 0.2)
@@ -58,6 +59,8 @@ var _player: Node3D
 func _ready() -> void:
 	if randomize_seed:
 		seed = randi()
+	if Net.i.world_seed != 0:
+		seed = Net.i.world_seed # multiplayer: todo mundo gera o mesmo mapa
 	_setup_noise()
 	cities = CityGen.place_cities(self)
 	avenues = CityGen.connect_cities(cities)
@@ -260,14 +263,43 @@ func _process(_delta: float) -> void:
 		_player = get_tree().get_first_node_in_group("player")
 		if _player == null:
 			return
-	update_around(_player.global_position, chunks_per_frame)
+	var others: Array[Vector3] = []
+	if Net.i.online() and Net.i.is_host() and Net.i.world:
+		others.assign(Net.i.world.player_positions())
+		others.remove_at(0)
+	if others.is_empty():
+		update_around(_player.global_position, chunks_per_frame)
+	else:
+		_stream_many(_player.global_position, others)
+
+
+## Host online: terreno em volta dele e (mais perto) em volta dos outros
+## jogadores, para os zumbis de lá terem chão e colisão.
+func _stream_many(center: Vector3, others: Array[Vector3]) -> void:
+	var wanted := _wanted_chunks(center, view_distance)
+	var seen := {}
+	for coord in wanted:
+		seen[coord] = true
+	for other in others:
+		for coord in _wanted_chunks(other, remote_view_distance):
+			if not seen.has(coord):
+				seen[coord] = true
+				wanted.append(coord)
+	_stream(wanted, seen, chunks_per_frame * 2)
 
 
 ## Cria os chunks que faltam perto de "center" (até "budget" por chamada) e
 ## apaga os longe. budget < 0 = cria todos de uma vez (usado no início).
 func update_around(center: Vector3, budget := -1, radius := -1.0) -> void:
 	var wanted := _wanted_chunks(center, view_distance if radius < 0.0 else radius)
-	var keep := wanted if radius < 0.0 else _wanted_chunks(center, view_distance)
+	var keep_list := wanted if radius < 0.0 else _wanted_chunks(center, view_distance)
+	var keep := {}
+	for coord in keep_list:
+		keep[coord] = true
+	_stream(wanted, keep, budget)
+
+
+func _stream(wanted: Array, keep: Dictionary, budget: int) -> void:
 	for coord in _chunks.keys():
 		if not is_instance_valid(_chunks[coord]):
 			_chunks.erase(coord) # alguém já liberou

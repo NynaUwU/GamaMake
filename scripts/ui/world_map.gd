@@ -11,6 +11,7 @@ const MINIMAP_RANGE := 320.0 ## metros mostrados de lado a lado no minimapa
 const COLOR_PLAYER := Color(1.0, 0.95, 0.4)
 const COLOR_CAR := Color(1.0, 0.5, 0.15)
 const COLOR_ZOMBIE := Color(0.9, 0.15, 0.1)
+const COLOR_OTHER := Color(0.3, 0.7, 1.0) ## outros jogadores (online)
 
 var player: Node3D
 var terrain: TerrainWorld
@@ -147,6 +148,7 @@ func _draw_minimap() -> void:
 		if rect.has_point(pos):
 			_minimap.draw_rect(Rect2(pos - Vector2(2, 2), Vector2(4, 4)), COLOR_ZOMBIE)
 	_draw_car(_minimap, to_screen, rect)
+	_draw_others(_minimap, to_screen, rect)
 	_draw_arrow(_minimap, rect.size * 0.5, 7.0)
 	_minimap.draw_string(get_theme_default_font(), Vector2(4, 12), "N", HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color(1, 1, 1, 0.8))
 
@@ -165,6 +167,7 @@ func _draw_world() -> void:
 	var to_screen := func(world: Vector2) -> Vector2:
 		return rect.position + (world / terrain.world_size + Vector2(0.5, 0.5)) * side
 	_draw_car(_big, to_screen, rect)
+	_draw_others(_big, to_screen, rect, true)
 	_draw_arrow(_big, to_screen.call(Vector2(player.global_position.x, player.global_position.z)), 8.0)
 	_big.draw_string(font, rect.position + Vector2(0, -8), "Mapa  ·  M fechar  ·  norte para cima", HORIZONTAL_ALIGNMENT_LEFT, -1, 14)
 	_big.draw_rect(Rect2(rect.position + Vector2(4, rect.size.y - 80), Vector2(92, 76)), Color(0, 0, 0, 0.6))
@@ -184,6 +187,18 @@ func _draw_car(target: Control, to_screen: Callable, clip: Rect2) -> void:
 		if clip.has_point(pos):
 			target.draw_rect(Rect2(pos - Vector2(4, 3), Vector2(8, 6)), COLOR_CAR)
 			target.draw_rect(Rect2(pos - Vector2(4, 3), Vector2(8, 6)), Color.BLACK, false, 1.0)
+
+
+## Outros jogadores (online): bolinha azul (no mapa grande, com o nome).
+func _draw_others(target: Control, to_screen: Callable, clip: Rect2, names := false) -> void:
+	for other in get_tree().get_nodes_in_group("remote_player"):
+		var pos: Vector2 = to_screen.call(Vector2(other.global_position.x, other.global_position.z))
+		if not clip.has_point(pos):
+			continue
+		target.draw_circle(pos, 4.0, COLOR_OTHER)
+		target.draw_arc(pos, 4.0, 0.0, TAU, 12, Color.BLACK, 1.0)
+		if names:
+			target.draw_string(get_theme_default_font(), pos + Vector2(6, 4), other.display_name, HORIZONTAL_ALIGNMENT_LEFT, -1, 11)
 
 
 ## Seta apontando para onde a câmera olha (norte = -Z = para cima).

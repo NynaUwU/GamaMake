@@ -13,6 +13,7 @@ extends CanvasLayer
 @onready var weapon_label: Label = %WeaponLabel
 
 var _message_tween: Tween
+var _players_label: Label
 
 
 func _ready() -> void:
@@ -37,6 +38,23 @@ func _ready() -> void:
 	map.name = "WorldMap"
 	$Root.add_child(map)
 	map.setup(player, player.get_parent().get_node_or_null("Terrain"))
+	# Online: quem está na partida (canto de cima à esquerda).
+	_players_label = Label.new()
+	_players_label.position = Vector2(8, 6)
+	_players_label.add_theme_font_size_override("font_size", 11)
+	_players_label.modulate = Color(1, 1, 1, 0.75)
+	$Root.add_child(_players_label)
+	Net.i.peers_changed.connect(_refresh_players)
+	_refresh_players()
+
+
+func _refresh_players() -> void:
+	# Teclas de admin (Z, H, Backspace recomeçar) só aparecem para o host.
+	var controls := get_node_or_null("Root/Controls") as Label
+	if controls and Net.i.online() and not Net.i.is_host():
+		controls.text = controls.text.replace("Z novo zumbi  H 100 zumbis  Backspace recomeçar", "Backspace renascer (morto)")
+	_players_label.visible = Net.i.online()
+	_players_label.text = "Online (%d): %s" % [Net.i.player_count(), ", ".join(Net.i.peers.values())]
 
 
 func _on_health_changed(current: float, maximum: float) -> void:

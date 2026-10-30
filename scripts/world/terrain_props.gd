@@ -61,9 +61,11 @@ func plan(world: TerrainWorld, coord: Vector2i, origin: Vector2) -> Dictionary:
 func apply(data: Dictionary, chunk: Node3D, body: StaticBody3D) -> void:
 	for c in data.collisions:
 		_add_collision(body, c[0], c[1], c[2])
-	for pos in data.fruits:
+	for i in data.fruits.size():
+		var pos: Vector3 = data.fruits[i]
 		var fruit: PickupItem = PICKUP_SCENE.instantiate()
 		fruit.item_id = &"fruta"
+		fruit.net_key = "%s_f%d" % [chunk.name, i] # igual em todos os jogadores
 		fruit.freeze = true # fica presa no galho até alguém pegar
 		chunk.add_child(fruit)
 		fruit.position = pos

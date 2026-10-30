@@ -3,6 +3,7 @@ extends Node
 ## Mantém zumbis espalhados pelo mapa aberto em volta do player: nascem entre
 ## spawn_min e spawn_max metros (dentro da neblina, sem "pipocar" na frente) e
 ## somem quando ficam longe demais. No inverno aparecem mais.
+## Online só o host cria zumbis, em volta de cada jogador.
 
 const ZOMBIE_SCENE := preload("res://scenes/zombie.tscn")
 
@@ -32,18 +33,33 @@ func _process(delta: float) -> void:
 	if _timer > 0.0:
 		return
 	_timer = check_interval
-	var here := _player.global_position
+	if not Net.i.is_host():
+		return
+	var centers: Array[Vector3] = [_player.global_position]
+	if Net.i.world:
+		centers.assign(Net.i.world.player_positions())
 	_zombies = _zombies.filter(func(z): return is_instance_valid(z))
 	for z in _zombies.duplicate():
-		if z.global_position.distance_to(here) > despawn_distance:
+		var near := false
+		for here in centers:
+			if z.global_position.distance_to(here) <= despawn_distance:
+				near = true
+				break
+		if not near:
 			_zombies.erase(z)
 			z.queue_free()
-	var biome := _terrain.biome_at(here.x, here.z)
-	var wanted := int(max_zombies * (0.7 + biome.winter * 0.6))
-	for i in 2: # no máximo 2 por checagem
-		if _zombies.size() >= wanted:
-			break
-		_spawn_near(here)
+	for here in centers:
+		var biome := _terrain.biome_at(here.x, here.z)
+		var wanted := int(max_zombies * (0.7 + biome.winter * 0.6))
+		var around := 0
+		for z in _zombies:
+			if z.global_position.distance_to(here) < spawn_max + 20.0:
+				around += 1
+		for i in 2: # no máximo 2 por checagem (por jogador)
+			if around >= wanted:
+				break
+			_spawn_near(here)
+			around += 1
 
 
 func _spawn_near(center: Vector3) -> void:

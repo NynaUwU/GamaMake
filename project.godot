@@ -12,12 +12,13 @@ config_version=5
 
 config/name="Zumbi FPS - Prototipo"
 config/version="0.7.0"
-run/main_scene="res://scenes/main.tscn"
+run/main_scene="res://scenes/ui/main_menu.tscn"
 config/features=PackedStringArray("4.7", "Forward Plus")
 
 [autoload]
 
 ItemIcons="*res://scripts/items/item_icons.gd"
+Network="*res://scripts/net/net.gd"
 
 [display]
 

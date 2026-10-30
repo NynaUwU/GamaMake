@@ -105,6 +105,9 @@ func _ready() -> void:
 	seat.position = seat_offset # Monza: banco da direita (o carro anda para +Z: direita = -X)
 	seat.rotation = Vector3(0, PI, 0) # o player olha para -Z; o carro anda para +Z
 	add_child(seat)
+	freeze_mode = RigidBody3D.FREEZE_MODE_KINEMATIC
+	if not Net.i.is_host():
+		freeze = true # online: no começo quem simula os carros é o host
 
 
 ## Outros carros sobrescrevem para mudar a ficha (medidas, motor, pneus, banco).
@@ -115,12 +118,58 @@ func _configure() -> void:
 # --- Interação ---------------------------------------------------------------
 
 func get_interact_text() -> String:
-	return "[E] Dirigir" if driver == null else ""
+	return "[E] Dirigir" if driver == null and driver_peer == 0 else ""
 
 
 func interact(player: Node) -> void:
-	if driver == null and player.has_method("enter_vehicle"):
-		player.enter_vehicle(self)
+	if driver == null and driver_peer == 0 and player.has_method("enter_vehicle"):
+		Net.i.request_car(self) # online o host confere se ninguém pegou antes
+
+
+# --- Multiplayer ---------------------------------------------------------------
+# Quem dirige (ou dirigiu por último) simula o carro e manda a posição; nos
+# outros jogadores o carro fica congelado seguindo essa posição.
+
+var net_owner := 1 ## peer que simula este carro
+var driver_peer := 0 ## peer dirigindo agora (0 = ninguém)
+var _snap_xform := Transform3D()
+var _snap_velocity := Vector3.ZERO
+var _has_snap := false
+
+
+func set_net_owner(owner: int, driving: int) -> void:
+	net_owner = owner
+	driver_peer = driving
+	var mine: bool = owner == Net.i.my_id()
+	if mine and freeze:
+		freeze = false
+		linear_velocity = _snap_velocity
+	elif not mine:
+		freeze = true
+		_has_snap = false
+
+
+func apply_snapshot(xform: Transform3D, velocity: Vector3, steer: float, lights: bool) -> void:
+	_snap_xform = xform
+	_snap_velocity = velocity
+	steering = steer
+	if lights != headlights_on:
+		set_headlights(lights)
+	if not _has_snap:
+		_has_snap = true
+		global_transform = xform
+
+
+func _is_copy() -> bool:
+	return Net.i.online() and net_owner != Net.i.my_id()
+
+
+## Cópia: segue a posição do dono (andando um pouco para frente entre as mensagens).
+func _follow_owner(delta: float) -> void:
+	if not _has_snap:
+		return
+	_snap_xform.origin += _snap_velocity * delta
+	global_transform = global_transform.interpolate_with(_snap_xform, 1.0 - exp(-15.0 * delta))
 
 
 func set_driver(who: Node3D) -> void:
@@ -149,6 +198,9 @@ func hand_points() -> Array:
 # --- Direção -----------------------------------------------------------------
 
 func _physics_process(delta: float) -> void:
+	if _is_copy():
+		_follow_owner(delta)
+		return
 	var forward := global_basis.z
 	var speed := linear_velocity.dot(forward)
 	_air_control(delta)
@@ -307,7 +359,7 @@ func _build_bumper() -> void:
 
 
 func _on_bumper_body(body: Node) -> void:
-	if not body.has_method("hit_by_vehicle"):
+	if not body.has_method("hit_by_vehicle") or _is_copy():
 		return
 	var speed := linear_velocity.length()
 	var now := Time.get_ticks_msec()

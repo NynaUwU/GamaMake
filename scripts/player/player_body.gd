@@ -6,7 +6,7 @@ extends Node
 
 @export var player_path: NodePath = ^"../../.."
 
-var _player: CharacterBody3D
+var _player: Player
 var _skeleton: Skeleton3D
 var _b := {}
 var _phase := 0.0
@@ -15,7 +15,7 @@ var _move := Vector2.ZERO # suavizado, espaço local (x = lado, y = frente(-)/tr
 
 func _ready() -> void:
 	_skeleton = get_parent() as Skeleton3D
-	_player = get_node(player_path) as CharacterBody3D
+	_player = get_node(player_path) as Player
 	for bone_name in ["Hips", "Spine", "Chest", "Head", "UpperArm.L", "LowerArm.L",
 			"UpperArm.R", "LowerArm.R", "UpperLeg.L", "LowerLeg.L", "UpperLeg.R", "LowerLeg.R"]:
 		_b[bone_name] = _skeleton.find_bone(bone_name)
@@ -26,9 +26,9 @@ func _process(delta: float) -> void:
 	_move = _move.lerp(Vector2(local.x, local.z), 1.0 - exp(-10.0 * delta))
 	var speed := _move.length()
 	var amount := clampf(speed / 4.0, 0.0, 1.5)
-	var airborne := not _player.is_on_floor()
+	var airborne := not _player.grounded()
 	# Ritmo limitado (não "pedala" voando de gancho ou caindo).
-	_phase += delta * (2.0 + minf(speed, 6.5) * 2.2) if _player.is_on_floor() else delta * 1.5
+	_phase += delta * (2.0 + minf(speed, 6.5) * 2.2) if _player.grounded() else delta * 1.5
 	var s := sin(_phase)
 	var dir := _move.normalized() if speed > 0.1 else Vector2(0, -1)
 

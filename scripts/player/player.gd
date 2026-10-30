@@ -247,6 +247,22 @@ var charger: Node3D # carregador a dínamo na mão (modelo com Lever/Rotor/Needl
 var _crank_rate := 0.0
 var _lever := 0.0
 
+# Multiplayer: este mesmo script também é o boneco dos outros jogadores.
+var remote_peer := 0 ## != 0: boneco de outro jogador (só segue o que chega pela rede)
+var display_name := ""
+var spawn_point := Vector3.INF ## onde renasce (online)
+var _net_timer := 0.0
+var _net_pos := Vector3.ZERO
+var _net_yaw := 0.0
+var _net_pitch := 0.0
+var _net_floor := true
+var _net_vehicle := ""
+var _net_item: StringName = &""
+var _net_light_on := false
+var _net_has := false
+var _net_held: Node3D
+var _net_light: SpotLight3D
+
 var _charging := false # correndo com a espada para frente
 var _charge_time := 0.0
 var _impaled: Array = []
@@ -272,7 +288,8 @@ func _ready() -> void:
 		WeaponType.SPOON: {"node": spoon, "damage": spoon_damage, "force": spoon_force, "speed": spoon_speed,
 			"cut": false, "length": 1.5, "trail": Color(0.9, 0.9, 0.95), "hitstop": 0.12},
 	}
-	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+	if not is_puppet():
+		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 	foot.visible = false
 	muzzle_flash.visible = false
 	inventory = Inventory.new()
@@ -291,6 +308,8 @@ func _ready() -> void:
 	_show_weapon(_weapon_type)
 	health_changed.emit(health, max_health)
 	stamina_changed.emit(stamina, max_stamina)
+	if is_puppet():
+		_setup_puppet()
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -354,6 +373,7 @@ func _unhandled_input(event: InputEvent) -> void:
 
 
 func _physics_process(delta: float) -> void:
+	_net_send(delta)
 	if health <= 0.0:
 		return
 	if vehicle:
@@ -488,6 +508,9 @@ func _release_impaled() -> void:
 
 
 func _process(delta: float) -> void:
+	if is_puppet():
+		_puppet_process(delta)
+		return
 	if vehicle:
 		head.position.y = vehicle.eye_height
 		global_transform = vehicle.seat.global_transform
@@ -945,6 +968,7 @@ func _cast_missile() -> void:
 	get_parent().add_child(missile)
 	missile.global_position = start
 	missile.launch(aim_point - start, self)
+	Net.i.fx("missile", [start, aim_point - start])
 
 
 ## Ponto no centro da tela (o que a mira está apontando).
@@ -1006,6 +1030,7 @@ func _fire_pistol() -> void:
 	var hit := get_world_3d().direct_space_state.intersect_ray(query)
 	var end: Vector3 = hit.position if hit else origin + direction * pistol_range
 	ImpactFX.tracer(get_parent(), muzzle.global_position, end)
+	Net.i.fx("tracer", [muzzle.global_position, end])
 	if hit:
 		var collider: Object = hit.collider
 		if collider.has_meta("enemy"):
@@ -1014,6 +1039,7 @@ func _fire_pistol() -> void:
 				enemy.take_hit(HitInfo.make(pistol_damage, collider.get_meta("bone"), hit.position,
 						direction, pistol_force, HitInfo.Type.PIERCE))
 				ImpactFX.burst(get_parent(), hit.position, -direction + hit.normal, ImpactFX.BLOOD, 14, 2.5)
+				Net.i.fx("burst", [hit.position, -direction + hit.normal, ImpactFX.BLOOD, 14, 2.5])
 		else:
 			if collider is RigidBody3D:
 				collider.apply_impulse(direction * pistol_force * 0.5, hit.position - collider.global_position)
@@ -1103,6 +1129,9 @@ func _do_kick() -> void:
 func take_damage(amount: float, from_direction := Vector3.ZERO, attacker: Node = null) -> void:
 	if health <= 0.0:
 		return
+	if is_puppet():
+		Net.i.damage_player(remote_peer, amount, from_direction, attacker) # quem decide o bloqueio é o dono
+		return
 	if _blocking and _is_facing_attack(from_direction):
 		var parry := _block_time <= parry_window
 		amount *= 0.0 if parry else block_damage_factor
@@ -1120,7 +1149,7 @@ func take_damage(amount: float, from_direction := Vector3.ZERO, attacker: Node =
 	_shake = 0.2
 	velocity += from_direction * 3.0
 	if health <= 0.0:
-		notify.emit("Você morreu - aperte Backspace para recomeçar")
+		notify.emit("Você morreu - aperte Backspace para %s" % ("renascer" if Net.i.online() else "recomeçar"))
 		died.emit()
 
 
@@ -1131,6 +1160,8 @@ func heal(amount: float) -> void:
 
 ## Congela o jogo por um instante no impacto: dá peso ao golpe.
 func _hitstop(duration: float) -> void:
+	if Net.i.online():
+		return # online o tempo não pode parar (ele é de todo mundo)
 	_hitstops += 1
 	Engine.time_scale = 0.05
 	await get_tree().create_timer(duration, true, false, true).timeout
@@ -1203,6 +1234,7 @@ func exit_vehicle() -> void:
 	var car := vehicle
 	var exit := car.exit_point()
 	car.set_driver(null)
+	Net.i.leave_car(car)
 	vehicle = null
 	global_position = exit
 	rotation = Vector3(0, car.rotation.y + PI, 0)
@@ -1241,12 +1273,8 @@ func _drop_selected() -> void:
 	if inventory.selected_id() == &"" or _swing_phase != SwingPhase.NONE or _charging:
 		return
 	var taken := inventory.take(inventory.selected, 999)
-	var item: PickupItem = PICKUP_SCENE.instantiate()
-	item.item_id = taken.id
-	item.amount = taken.amount
-	get_parent().add_child(item)
-	item.global_position = camera.global_position - camera.global_basis.z * 0.7
-	item.apply_central_impulse(-camera.global_basis.z * 2.0 + Vector3.UP)
+	var where := Transform3D(global_basis, camera.global_position - camera.global_basis.z * 0.7)
+	Net.i.drop_item(taken.id, taken.amount, where, -camera.global_basis.z * 2.0 + Vector3.UP)
 	notify.emit("Soltou: %s" % ItemDB.display_name(taken.id))
 
 
@@ -1518,3 +1546,128 @@ func _update_camera_shake(delta: float) -> void:
 	camera.v_offset = randf_range(-amount, amount)
 	camera.rotation.z = lerpf(camera.rotation.z, _roll + parkour.camera_roll, 1.0 - exp(-14.0 * delta))
 	camera.rotation.x = lerpf(camera.rotation.x, parkour.camera_pitch, 1.0 - exp(-14.0 * delta))
+
+
+# --- Multiplayer ----------------------------------------------------------------
+
+func is_puppet() -> bool:
+	return remote_peer != 0
+
+
+## No chão? (o boneco remoto usa o que o dono mandou).
+func grounded() -> bool:
+	return _net_floor if is_puppet() else is_on_floor()
+
+
+## Renasce no ponto de início com a vida cheia (online, depois de morrer).
+func respawn() -> void:
+	if vehicle:
+		exit_vehicle()
+	health = max_health
+	stamina = max_stamina
+	velocity = Vector3.ZERO
+	if spawn_point != Vector3.INF:
+		global_position = spawn_point
+	health_changed.emit(health, max_health)
+	stamina_changed.emit(stamina, max_stamina)
+	notify.emit("Você renasceu")
+
+
+## Manda o estado do próprio boneco para os outros (~20x por segundo).
+func _net_send(delta: float) -> void:
+	if is_puppet() or not Net.i.online():
+		return
+	_net_timer -= delta
+	if _net_timer > 0.0:
+		return
+	_net_timer = 1.0 / 20.0
+	Net.i.send_player_state([global_position, rotation.y, head.rotation.x, velocity, is_on_floor() or vehicle != null,
+		parkour.crouching, int(parkour.move), String(vehicle.name) if vehicle else "", inventory.selected_id(),
+		is_flashlight_on(), health])
+
+
+func apply_net_state(state: Array) -> void:
+	_net_pos = state[0]
+	_net_yaw = state[1]
+	_net_pitch = state[2]
+	velocity = state[3]
+	_net_floor = state[4]
+	parkour.crouching = state[5]
+	parkour.move = state[6]
+	_net_vehicle = state[7]
+	_net_light_on = state[9]
+	health = state[10]
+	if not _net_has:
+		_net_has = true
+		global_position = _net_pos
+		rotation.y = _net_yaw
+	if state[8] != _net_item:
+		_net_item = state[8]
+		_set_held_item(_net_item)
+
+
+func _setup_puppet() -> void:
+	remove_from_group("player")
+	add_to_group("remote_player")
+	set_physics_process(false)
+	set_process_unhandled_input(false)
+	camera.current = false
+	camera.visible = false # armas e braços de primeira pessoa são só do dono
+	var rig := $Body/Skeleton3D
+	if rig.has_method("set_shadow_only"):
+		rig.set_shadow_only(false) # os outros veem o corpo inteiro
+	var tag := Label3D.new()
+	tag.text = display_name
+	tag.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	tag.position = Vector3(0, 2.15, 0)
+	tag.font_size = 48
+	tag.pixel_size = 0.004
+	tag.outline_size = 10
+	tag.modulate = Color(1.0, 0.95, 0.8)
+	add_child(tag)
+	_net_light = SpotLight3D.new()
+	_net_light.light_color = Color(1.0, 0.95, 0.8)
+	_net_light.light_energy = 2.0
+	_net_light.spot_range = flashlight_range
+	_net_light.spot_angle = 22.0
+	_net_light.position = Vector3(-0.18, -0.12, -0.1)
+	_net_light.visible = false
+	head.add_child(_net_light)
+
+
+func _puppet_process(delta: float) -> void:
+	var main := get_parent().get_parent()
+	var car := main.get_node_or_null(_net_vehicle) as VintageCar if _net_vehicle != "" else null
+	vehicle = car
+	var t := 1.0 - exp(-14.0 * delta)
+	if car:
+		global_transform = car.seat.global_transform
+	elif global_position.distance_to(_net_pos) > 6.0:
+		global_position = _net_pos
+	else:
+		global_position = global_position.lerp(_net_pos, t)
+		rotation = Vector3(0, lerp_angle(rotation.y, _net_yaw, t), 0)
+	head.rotation.x = lerpf(head.rotation.x, _net_pitch, t)
+	head.position.y = 1.0 if parkour.crouching else (0.65 if parkour.move == Parkour.Move.SLIDE else 1.6)
+	_net_light.visible = _net_light_on and health > 0.0
+	# Morto: corpo deitado no chão.
+	var body := $Body as Node3D
+	body.rotation.x = -PI / 2 if health <= 0.0 else 0.0
+	body.position.y = 0.15 if health <= 0.0 else 0.0
+	$CollisionShape3D.disabled = health <= 0.0 or car != null
+
+
+## Arma/item na mão do boneco remoto (o mesmo modelo do chão).
+func _set_held_item(id: StringName) -> void:
+	if _net_held:
+		_net_held.queue_free()
+		_net_held = null
+	if id == &"" or not ItemDB.has(id):
+		return
+	var hand := $Body/Skeleton3D.get_node_or_null(HumanoidRig.attachment_name("LowerArm.R")) as Node3D
+	if hand == null:
+		return
+	_net_held = ItemDB.make_mesh(id)
+	hand.add_child(_net_held)
+	_net_held.position = Vector3(0, -0.3, 0)
+	_net_held.rotation.x = -PI / 2 # a arma (montada em -Z) segue o antebraço
