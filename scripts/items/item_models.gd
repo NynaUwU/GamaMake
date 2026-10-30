@@ -423,6 +423,9 @@ static func _material(color: Color) -> StandardMaterial3D:
 	var material := StandardMaterial3D.new()
 	material.albedo_color = color
 	material.roughness = 0.9
+	# Peças torneadas abertas nas pontas (cabos, tubos): sem isso dá para ver
+	# "através" delas por dentro (faces de trás sumiam).
+	material.cull_mode = BaseMaterial3D.CULL_DISABLED
 	match color:
 		STEEL:
 			material.metallic = 0.25

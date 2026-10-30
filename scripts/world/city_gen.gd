@@ -252,7 +252,54 @@ static func material() -> StandardMaterial3D:
 		_material = StandardMaterial3D.new()
 		_material.vertex_color_use_as_albedo = true
 		_material.roughness = 0.95
+		_material.cull_mode = BaseMaterial3D.CULL_DISABLED # ruínas abertas: sem faces "furadas"
 	return _material
+
+
+## Poste de rua de ferro com lampião (alguns tortos; luz opcional).
+static func build_lamp(rng: RandomNumberGenerator, lit: bool, tilt: float) -> Node3D:
+	var root := Node3D.new()
+	root.name = "Poste"
+	var mb := MeshBuilder.new()
+	var iron := Color(0.16, 0.15, 0.15)
+	mb.color(iron)
+	mb.tube(PackedVector3Array([Vector3.ZERO, Vector3(0, 3.4, 0)]), 0.06, 6)
+	mb.box(Vector3(0, 0.15, 0), Vector3(0.22, 0.3, 0.22))
+	mb.tube(PackedVector3Array([Vector3(0, 3.3, 0), Vector3(0.25, 3.5, 0), Vector3(0.55, 3.45, 0)]), 0.035, 5)
+	mb.color(Color(0.5, 0.42, 0.25)) # lampião de latão
+	mb.box(Vector3(0.55, 3.32, 0), Vector3(0.24, 0.05, 0.24))
+	mb.box(Vector3(0.55, 3.08, 0), Vector3(0.2, 0.04, 0.2))
+	var glass := Color(1.0, 0.85, 0.5) if lit else Color(0.25, 0.25, 0.22)
+	mb.color(glass)
+	mb.box(Vector3(0.55, 3.2, 0), Vector3(0.18, 0.2, 0.18))
+	var mesh := MeshInstance3D.new()
+	mesh.mesh = mb.finish(material(), false)
+	root.add_child(mesh)
+	var body := StaticBody3D.new()
+	var shape := CollisionShape3D.new()
+	var cylinder := CylinderShape3D.new()
+	cylinder.radius = 0.08
+	cylinder.height = 3.4
+	shape.shape = cylinder
+	shape.position = Vector3(0, 1.7, 0)
+	body.add_child(shape)
+	root.add_child(body)
+	if lit:
+		var light := OmniLight3D.new()
+		light.name = "Light"
+		light.position = Vector3(0.55, 3.05, 0)
+		light.light_color = Color(1.0, 0.78, 0.45)
+		light.light_energy = 1.4
+		light.omni_range = 10.0
+		light.omni_attenuation = 1.2
+		light.shadow_enabled = false
+		light.distance_fade_enabled = true # longe some (não pesa)
+		light.distance_fade_begin = 70.0
+		light.distance_fade_length = 20.0
+		root.add_child(light)
+	if tilt != 0.0:
+		root.rotation = Vector3(tilt * 0.6, 0, tilt) # torto: bateram nele ou o chão cedeu
+	return root
 
 
 ## Casa pronta (malha + colisão) com a base na origem; posicione pelo lote.

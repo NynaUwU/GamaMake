@@ -16,6 +16,9 @@ var _terrain: TerrainWorld
 var _player: Node3D
 var _built := {} # índice da cidade -> {"node": Node3D, "next": int}
 var _timer := 0.0
+var _flickering: Array = [] # luzes de poste com mau contato
+var _flicker_time := 0.0
+const MAX_LAMP_LIGHTS := 45 ## por cidade (o resto dos postes fica apagado)
 
 
 func _ready() -> void:
@@ -26,6 +29,7 @@ func _ready() -> void:
 func _process(delta: float) -> void:
 	if _terrain == null or _player == null:
 		return
+	_flicker(delta)
 	_timer -= delta
 	if _timer <= 0.0:
 		_timer = 0.5
@@ -63,6 +67,7 @@ func _update_cities(build_all := false) -> void:
 			var plaza_pos: Vector2 = CityGen.to_world(city, city.plaza) - city.center
 			plaza.position = Vector3(plaza_pos.x, 0, plaza_pos.y)
 			node.add_child(plaza)
+			_add_lamps(node, city)
 			_built[i] = {"node": node, "next": 0}
 		elif distance > build_distance + 120.0 and _built.has(i):
 			_built[i].node.queue_free()
@@ -74,6 +79,48 @@ func _update_cities(build_all := false) -> void:
 			while entry.next < city.lots.size():
 				_add_house(entry.node, city, city.lots[entry.next])
 				entry.next += 1
+
+
+## Postes ao longo das ruas, alternando os lados. Cenário de fim de mundo:
+## alguns tortos, alguns piscando e alguns quebrados (apagados).
+func _add_lamps(city_node: Node3D, city: Dictionary) -> void:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = city.seed + 11
+	var lights := 0
+	var spacing := 24.0 if city.size != "small" else 34.0
+	for street: Dictionary in city.streets:
+		var a: Vector2 = street.a
+		var b: Vector2 = street.b
+		var length := a.distance_to(b)
+		var dir := (b - a).normalized()
+		var side := Vector2(-dir.y, dir.x)
+		var count := int(length / spacing)
+		for k in count:
+			if rng.randf() > 0.7:
+				continue # poste caído/levado: falta
+			var flip := 1.0 if k % 2 == 0 else -1.0
+			var p: Vector2 = a + dir * (spacing * (k + 0.5)) + side * flip * (street.width * 0.5 + 0.7) - city.center
+			var lit := rng.randf() > 0.2 and lights < MAX_LAMP_LIGHTS
+			var tilt := rng.randf_range(0.12, 0.3) * (1.0 if rng.randf() < 0.5 else -1.0) if rng.randf() < 0.2 else 0.0
+			var lamp := CityGen.build_lamp(rng, lit, tilt)
+			lamp.position = Vector3(p.x, 0, p.y)
+			lamp.rotation.y = atan2(side.x * flip, side.y * flip) + PI * 0.5
+			city_node.add_child(lamp)
+			if lit:
+				lights += 1
+				var light: OmniLight3D = lamp.get_node("Light")
+				if rng.randf() < 0.25:
+					_flickering.append(light) # mau contato: pisca
+
+
+func _flicker(delta: float) -> void:
+	_flicker_time += delta
+	_flickering = _flickering.filter(func(l): return is_instance_valid(l))
+	for light: OmniLight3D in _flickering:
+		var seed := float(light.get_instance_id() % 997)
+		var n := sin(_flicker_time * 23.0 + seed) * sin(_flicker_time * 7.3 + seed * 1.7)
+		# Fica quase sempre aceso e de vez em quando apaga/treme.
+		light.light_energy = 0.05 if n > 0.55 else (0.8 if n > 0.3 else 1.4)
 
 
 func _add_house(city_node: Node3D, city: Dictionary, lot: Dictionary) -> void:

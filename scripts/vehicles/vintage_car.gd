@@ -105,6 +105,7 @@ func _ready() -> void:
 	seat.position = seat_offset # Monza: banco da direita (o carro anda para +Z: direita = -X)
 	seat.rotation = Vector3(0, PI, 0) # o player olha para -Z; o carro anda para +Z
 	add_child(seat)
+	set_headlights(false) # começa apagado (lentes escuras)
 	freeze_mode = RigidBody3D.FREEZE_MODE_KINEMATIC
 	if not Net.i.is_host():
 		freeze = true # online: no começo quem simula os carros é o host
@@ -175,7 +176,7 @@ func _follow_owner(delta: float) -> void:
 func set_driver(who: Node3D) -> void:
 	driver = who
 	set_see_through(who != null)
-	set_headlights(who != null) # entra: faróis acendem; sai: apagam
+	# Faróis só mudam com o L (dirigindo); sair do carro não apaga.
 	if who == null:
 		engine_force = 0.0
 		steering = 0.0
@@ -787,7 +788,7 @@ func _add(parent: Node, mesh: Mesh) -> MeshInstance3D:
 	return instance
 
 
-func _material(key: String, color: Color, roughness: float, metallic: float, double_sided := false) -> StandardMaterial3D:
+func _material(key: String, color: Color, roughness: float, metallic: float, _double_sided := false) -> StandardMaterial3D:
 	if _materials.has(key):
 		return _materials[key]
 	var material := StandardMaterial3D.new()
@@ -795,8 +796,8 @@ func _material(key: String, color: Color, roughness: float, metallic: float, dou
 	material.albedo_color = color.darkened(0.12) if key in ["paint", "chrome"] else color
 	material.roughness = maxf(roughness, 0.78)
 	material.metallic = minf(metallic, 0.25)
-	if double_sided:
-		material.cull_mode = BaseMaterial3D.CULL_DISABLED
+	# Sempre dos dois lados: canos, eixos e para-lamas abertos não ficam "furados".
+	material.cull_mode = BaseMaterial3D.CULL_DISABLED
 	if color.a < 1.0:
 		material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	if key == "dial":
