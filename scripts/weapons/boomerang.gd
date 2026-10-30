@@ -30,6 +30,7 @@ func launch(start: Vector3, aim: Vector3, first: Zombie, from: Node3D) -> void:
 	_model.scale = Vector3.ONE * 2.3 # maior que o da mão: dá para ver de longe
 	add_child(_model)
 	_add_trail()
+	Sfx.loop_player("whirr", self).play()
 	thrower = from
 	global_position = start
 	if first:
@@ -115,6 +116,7 @@ func _add_trail() -> void:
 
 func _hit(zombie: Zombie) -> void:
 	hits.append(zombie)
+	Sfx.play_at("knock", global_position, 2.0, 0.8)
 	if cosmetic:
 		return
 	var direction := (_point(zombie) - _from).normalized()

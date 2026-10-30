@@ -29,6 +29,8 @@ func _ready() -> void:
 		player.notify.emit.call_deferred("Multiplayer: %d jogador(es)%s" % [Net.i.player_count(), " · você é o host" if Net.i.is_host() else ""])
 	player.spawn_point = player.global_position
 	Net.i.message.connect(_on_net_message)
+	# Vento de fundo baixinho (preso no jogador).
+	Sfx.loop_player("wind", player).play()
 	Net.i.register_world(self)
 	# O CSG monta a geometria só depois do primeiro frame: espera para gerar a navegação.
 	await get_tree().process_frame
@@ -181,6 +183,7 @@ func play_fx(kind: String, args: Array) -> void:
 	match kind:
 		"tracer":
 			ImpactFX.tracer(self, args[0], args[1])
+			Sfx.play_at("shot", args[0])
 		"burst":
 			ImpactFX.burst(self, args[0], args[1], args[2], args[3], args[4])
 		"slipper", "boomerang":

@@ -335,11 +335,35 @@ func set_see_through(enabled: bool) -> void:
 		material.albedo_color.a = 0.45 if enabled else 1.0
 
 
-func _process(_delta: float) -> void:
+func _process(delta: float) -> void:
 	# Volante gira com a direção; ponteiro do velocímetro segue a velocidade.
 	steering_wheel.rotation.z = -steering * 2.2
-	var kmh := absf(linear_velocity.dot(global_basis.z)) * 3.6
+	var velocity := _snap_velocity if _is_copy() else linear_velocity
+	var kmh := absf(velocity.dot(global_basis.z)) * 3.6
 	_needle.rotation.z = lerpf(2.3, -2.3, clampf(kmh / speedo_max, 0.0, 1.0))
+	_engine_sound(kmh, delta)
+
+
+## Motor: liga com alguém dirigindo; o tom sobe com a velocidade (e acelerando).
+var _engine: AudioStreamPlayer3D
+var _rev := 0.0
+
+
+func _engine_sound(kmh: float, delta: float) -> void:
+	var running := driver != null or driver_peer != 0
+	if _engine == null:
+		if not running:
+			return
+		_engine = Sfx.loop_player("engine", self, -4.0)
+	if running and not _engine.playing:
+		_engine.play()
+	elif not running and _engine.playing:
+		_engine.stop()
+	if running:
+		var effort := absf(engine_force) / max_engine_force
+		_rev = lerpf(_rev, clampf(kmh / speedo_max, 0.0, 1.0) + effort * 0.25, minf(delta * 4.0, 1.0))
+		_engine.pitch_scale = 0.7 + _rev * 1.6
+		_engine.volume_db = -6.0 + _rev * 6.0
 
 
 # --- Atropelar ---------------------------------------------------------------

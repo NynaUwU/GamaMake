@@ -273,6 +273,7 @@ func set_door_open(index: int, open: bool) -> void:
 		var node: BuildFill = _fill_nodes[index] if index < _fill_nodes.size() else null
 		if node:
 			node.open = open
+			Sfx.play_at("creak", node.global_position + node.global_basis * Vector3(0.4, 1.0, 0), 0.0, 1.1 if open else 0.9)
 			var tween := node.create_tween()
 			tween.tween_property(node, "rotation:y", -1.75 if open else 0.0, 0.35).set_trans(Tween.TRANS_SINE)
 

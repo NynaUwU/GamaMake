@@ -63,12 +63,14 @@ func host_apply(action: String, args: Array) -> Array:
 			var id := _next_id
 			_next_id += 1
 			_spawn(id, kind, cell, rot, PackedByteArray())
+			_sound(pieces[id], "knock")
 			return [id, kind, cell, rot]
 		"cut":
 			var piece: BuildPiece = pieces.get(args[0])
 			if piece == null or args[1] < 0 or args[1] >= BuildPiece.TRIS or piece.removed[args[1]] == 1:
 				return []
 			piece.remove_triangle(args[1])
+			_sound(piece, "ping")
 			return args
 		"remove":
 			if not pieces.has(args[0]):
@@ -87,6 +89,7 @@ func host_apply(action: String, args: Array) -> Array:
 			if cut.is_empty():
 				return []
 			piece.rebuild()
+			_sound(piece, "ping")
 			return [args[0], cut]
 		"fill":
 			var piece: BuildPiece = pieces.get(args[0])
@@ -99,6 +102,7 @@ func host_apply(action: String, args: Array) -> Array:
 			if args[1] == "door" and (piece.kind != BuildPiece.Kind.WALL or not BuildPiece.touches_bottom(tris)):
 				return []
 			piece.add_fill(args[1], tris)
+			_sound(piece, "knock")
 			return args
 		"door":
 			var piece: BuildPiece = pieces.get(args[0])
@@ -121,6 +125,7 @@ func apply_remote(action: String, args: Array) -> void:
 		"place":
 			if not pieces.has(args[0]):
 				_spawn(args[0], args[1], args[2], args[3], PackedByteArray())
+				_sound(pieces[args[0]], "knock")
 		"cut":
 			var piece: BuildPiece = pieces.get(args[0])
 			if piece:
@@ -133,6 +138,7 @@ func apply_remote(action: String, args: Array) -> void:
 				for t in args[1]:
 					piece.removed[t] = 1
 				piece.rebuild()
+				_sound(piece, "ping")
 		"fill":
 			var piece: BuildPiece = pieces.get(args[0])
 			if piece:
@@ -163,6 +169,12 @@ func load_state(list: Array) -> void:
 				for fill in entry[5]:
 					pieces[entry[0]].add_fill(fill.type, fill.tris, fill.open)
 		_next_id = maxi(_next_id, entry[0] + 1)
+
+
+## Som da obra no lugar da peça (todos os jogadores ouvem).
+func _sound(piece: BuildPiece, name: String) -> void:
+	if is_instance_valid(piece) and piece.is_inside_tree():
+		Sfx.play_at(name, piece.global_position + piece.global_basis * Vector3(1.4, 1.2, 0))
 
 
 func _spawn(id: int, kind: int, cell: Vector3i, rot: int, removed: PackedByteArray) -> void:

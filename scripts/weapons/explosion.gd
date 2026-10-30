@@ -17,6 +17,7 @@ func detonate(radius: float, damage: float, force: float, kill_radius := 1.3) ->
 	_push_props(radius, force)
 	_feedback_player(radius)
 	_spawn_visuals(radius)
+	Sfx.play_at("explosion", global_position, 0.0, 1.0, 0.12)
 	get_tree().create_timer(1.5).timeout.connect(queue_free)
 
 

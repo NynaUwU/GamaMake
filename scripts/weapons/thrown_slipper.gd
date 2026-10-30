@@ -83,6 +83,7 @@ func _physics_process(delta: float) -> void:
 	if _returning:
 		_finish()
 		return
+	Sfx.play_at("slap", global_position, 2.0)
 	if not cosmetic and is_instance_valid(_target):
 		_target.slipper_hit((_end - _start).normalized())
 	# Volta para a mão (a cópia de outro jogador some aqui).

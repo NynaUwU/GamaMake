@@ -24,6 +24,16 @@ reação física a golpes e ragdoll (estilo Dying Light), visual de PC dos anos 
 - Os outros jogadores aparecem com o nome em cima, o item da mão, a lanterna acesa e uma bolinha
   azul no minimapa/mapa. Em cima, no meio da tela, aparece quem está online.
 
+## Som (`scripts/audio/sfx.gd`)
+
+Todos os sons são **sintetizados no código** ao abrir o jogo (sem arquivos de áudio): ruído filtrado, tons e "vozes" com formantes para os zumbis. Ficam em cache depois da primeira vez.
+
+- **Combate:** golpe no ar, pancada, corte de membro, corpo caindo, tiro, explosão, tapa do chinelo, zumbido do bumerangue.
+- **Zumbis:** gemem de vez em quando (só os próximos), rosnam ao atacar, último gemido ao morrer. Funciona também nas cópias do multiplayer.
+- **Mundo:** passos (terra fofa x construção/rua dura), motor dos carros (o tom sobe com a velocidade), porta rangendo, marteladas e talhadeira na construção, pegar item, comer, vento de fundo.
+- Sons 3D usam um conjunto de 40 tocadores reaproveitados (`Sfx.play_at`); loops (motor, vento, bumerangue) com `Sfx.loop_player`.
+- Teste: `tests/test_sfx.gd` gera todos e mostra duração/pico.
+
 ## Construção (`scripts/building/`)
 - Ferramentas na área inicial (no chão, ao lado da bancada): **martelo** e **talhadeira**.
   No inventário (Tab), **segure Shift** com o mouse em cima de um item para ver os controles dele.

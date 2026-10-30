@@ -579,6 +579,7 @@ func _process(delta: float) -> void:
 	# Ritmo dos passos com limite: voando de gancho/caindo rápido não "pedala" o braço.
 	var moving := minf(Vector2(velocity.x, velocity.z).length() / walk_speed, 1.6) if is_on_floor() else 0.2
 	_bob += delta * (2.0 + moving * 6.0)
+	_footsteps()
 	# Peso: a cabeça sobe e desce e balança de leve a cada passo.
 	var step := minf(Vector2(velocity.x, velocity.z).length() / walk_speed, 1.6) if is_on_floor() else 0.0
 	head.position.y += absf(sin(_bob)) * head_bob * step - head_bob * 0.5 * step
@@ -849,6 +850,7 @@ func _start_swing(index: int) -> void:
 	var stats: Dictionary = _melee[_weapon_type]
 	_swing_index = index % SWINGS.size()
 	Net.i.send_player_action("swing", _swing_index)
+	Sfx.play_at("swing", camera.global_position - camera.global_basis.z * 0.6, 0.0, 1.2 / stats.speed)
 	_swing_phase = SwingPhase.WINDUP
 	_swing_time = 0.0
 	_swing_start = stats.node.transform
@@ -1095,6 +1097,7 @@ func _fire_pistol() -> void:
 		return
 	_ammo -= 1
 	Net.i.send_player_action("shoot", 0)
+	Sfx.play_at("shot", muzzle.global_position)
 	_fire_timer = pistol_fire_rate
 	_pistol_kick = 1.0
 	head.rotation.x = minf(head.rotation.x + 0.012, deg_to_rad(85)) # recuo sobe a mira
@@ -1162,6 +1165,7 @@ func _kick() -> void:
 func _kick_animation(on_hit: Callable) -> void:
 	_busy = true
 	Net.i.send_player_action("kick", 0)
+	Sfx.play_at("swing", global_position + Vector3.UP * 0.6, -4.0, 0.9)
 	foot.visible = true
 	foot.transform = _foot_rest
 	var out := _foot_rest.translated_local(Vector3(0, 0.25, -0.6))
@@ -1343,6 +1347,7 @@ func _eat_selected() -> void:
 		return
 	inventory.take(inventory.selected, 1)
 	heal(heal_amount)
+	Sfx.play("crunch")
 	notify.emit("Comeu %s (+%d vida)" % [ItemDB.display_name(id), heal_amount])
 
 
@@ -1353,6 +1358,7 @@ func pick_up(item_id: StringName, display_name: String, amount: int) -> int:
 		notify.emit("Inventário cheio")
 		return left
 	item_picked_up.emit(item_id, amount - left)
+	Sfx.play("pickup")
 	notify.emit("Pegou: %s x%d" % [display_name, amount - left])
 	return left
 
@@ -1395,6 +1401,7 @@ func _punch() -> void:
 	_punch_timer = punch_rate
 	_punch_anim[_punch_side] = 1.0
 	Net.i.send_player_action("punch", _punch_side)
+	Sfx.play_at("swing", camera.global_position, -6.0, 1.6)
 	_punch_side = 1 - _punch_side
 	get_tree().create_timer(0.07).timeout.connect(_do_punch_hit)
 
@@ -1743,6 +1750,26 @@ func _update_camera_shake(delta: float) -> void:
 
 # --- Multiplayer ----------------------------------------------------------------
 
+## Passo a cada meia volta do balanço da cabeça (no chão e andando). Construção
+## e pedra soam "duro"; terra, grama e areia, "fofo".
+var _last_step := 0
+
+
+func _footsteps() -> void:
+	var step := int(_bob / PI)
+	if step == _last_step:
+		return
+	_last_step = step
+	var speed := Vector2(velocity.x, velocity.z).length()
+	if not grounded() or speed < 0.8 or vehicle:
+		return
+	var query := PhysicsRayQueryParameters3D.create(global_position + Vector3.UP * 0.2, global_position + Vector3.DOWN * 0.4, 1, [get_rid()])
+	var hit := get_world_3d().direct_space_state.intersect_ray(query)
+	# Terreno (chão do chunk) é fofo; construção, rua, pedra e carro são duros.
+	var hard: bool = hit and not (hit.collider.get_parent() and hit.collider.get_parent().get_parent() is TerrainWorld)
+	Sfx.play_at("step_hard" if hard else "step_soft", global_position, minf(speed - 4.0, 4.0), 1.0 if speed < 5.0 else 1.15)
+
+
 func is_puppet() -> bool:
 	return remote_peer != 0
 
@@ -1793,6 +1820,8 @@ func play_net_action(action: String, arg: int) -> void:
 	var animator := $Body/Skeleton3D/Animator as PlayerBody
 	if animator:
 		animator.play(action, arg)
+	if action in ["swing", "punch", "kick", "throw"]:
+		Sfx.play_at("swing", global_position + Vector3.UP * 1.3, -2.0 if action == "swing" else -6.0)
 
 
 func apply_net_state(state: Array) -> void:
@@ -1861,6 +1890,8 @@ func _puppet_process(delta: float) -> void:
 		global_position = global_position.lerp(_net_pos, t)
 		rotation = Vector3(0, lerp_angle(rotation.y, _net_yaw, t), 0)
 	head.rotation.x = lerpf(head.rotation.x, _net_pitch, t)
+	_bob += delta * (2.0 + minf(Vector2(velocity.x, velocity.z).length() / walk_speed, 1.6) * 6.0)
+	_footsteps()
 	head.position.y = 1.0 if parkour.crouching else (0.65 if parkour.move == Parkour.Move.SLIDE else 1.6)
 	_net_light.visible = _net_light_on and health > 0.0
 	# Morto: corpo deitado no chão.

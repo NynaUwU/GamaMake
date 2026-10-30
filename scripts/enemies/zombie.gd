@@ -246,6 +246,7 @@ func _physics_process(delta: float) -> void:
 	_update_balance(delta)
 	_update_body_pose(delta)
 	_bump_others()
+	_groans(delta)
 
 
 # --- Estados ---------------------------------------------------------------
@@ -474,6 +475,7 @@ func _die(bone: StringName, point: Vector3, impulse: Vector3) -> void:
 func _enter_ragdoll() -> void:
 	_rep("enter_ragdoll", [Vector3(velocity.x, 0, velocity.z)])
 	ragdoll.start(Vector3(velocity.x, 0, velocity.z))
+	Sfx.play_at("thud", global_position + Vector3.UP * 0.5, -2.0, 1.0, 0.15)
 	if _stiff_axis != Vector3.ZERO:
 		# Caiu duro: os ossos já ficaram deitados; a raiz volta a ficar de pé (para levantar).
 		_stiff_axis = Vector3.ZERO
@@ -944,6 +946,8 @@ func _cut(bone: StringName, impulse: Vector3) -> void:
 	if bone in _cut_bones or not skeleton.has_method("detach_limb"):
 		return
 	_rep("cut", [bone, impulse])
+	if impulse != Vector3.ZERO:
+		Sfx.play_at("slice", global_position + Vector3.UP * 1.2)
 	var removed: Array[StringName] = skeleton.detach_limb(bone, impulse)
 	_cut_bones.append_array(removed)
 	ragdoll.remove_bones(removed)
@@ -993,6 +997,8 @@ func _end_attack() -> void:
 
 
 func _set_state(new_state: State) -> void:
+	if new_state != state:
+		_state_sound(new_state)
 	state = new_state
 	_state_time = 0.0
 	if new_state == State.ATTACK:
@@ -1190,6 +1196,30 @@ func _separation() -> Vector3:
 	return push
 
 
+## Rosnado ao atacar e último gemido ao morrer (host e cópias).
+func _state_sound(new_state: int) -> void:
+	if _lod >= 2:
+		return
+	match new_state:
+		State.ATTACK:
+			Sfx.play_at("growl", global_position + Vector3.UP * 1.6, 0.0, randf_range(0.85, 1.15))
+		State.DEAD:
+			Sfx.play_at("death", global_position + Vector3.UP * 1.0, 0.0, randf_range(0.85, 1.1))
+
+
+## Gemidos de vez em quando, só perto do jogador (até 30 m).
+var _groan_timer := randf_range(2.0, 9.0)
+
+
+func _groans(delta: float) -> void:
+	_groan_timer -= delta
+	if _groan_timer > 0.0:
+		return
+	_groan_timer = randf_range(5.0, 12.0)
+	if _lod == 0 and state in [State.IDLE, State.CHASE, State.STUNNED, State.STUMBLE]:
+		Sfx.play_at("groan", global_position + Vector3.UP * 1.6, 0.0, randf_range(0.8, 1.2))
+
+
 ## Detalhe pela distância: sombra só perto; animação e IA mais espaçadas longe.
 func _update_lod() -> void:
 	var level := 0 if _lod_distance < 30.0 else (1 if _lod_distance < 70.0 else 2)
@@ -1242,6 +1272,7 @@ func _rag_explode(center: Vector3, force: float) -> void:
 func _flinch(bone: StringName, direction: Vector3, strength: float) -> void:
 	_rep("flinch", [bone, direction, strength])
 	hit_reaction.add_hit(bone, direction, strength)
+	Sfx.play_at("hit", global_position + Vector3.UP * 1.3, minf(strength * 3.0 - 3.0, 3.0))
 
 
 func _limp(bones: Array[StringName]) -> void:
@@ -1274,6 +1305,7 @@ func _ev_rag_explode(center: Vector3, force: float) -> void:
 
 func _ev_flinch(bone: StringName, direction: Vector3, strength: float) -> void:
 	hit_reaction.add_hit(bone, direction, strength)
+	Sfx.play_at("hit", global_position + Vector3.UP * 1.3, minf(strength * 3.0 - 3.0, 3.0))
 
 
 func _ev_limp(bones: Array) -> void:
@@ -1358,6 +1390,8 @@ func apply_snapshot(entry: Array) -> void:
 	_snap_pos = entry[1]
 	_snap_yaw = entry[2]
 	if _state_hold <= 0.0:
+		if entry[3] != state:
+			_state_sound(entry[3])
 		state = entry[3]
 	crawler = entry[4]
 	_snap_attack = entry[5]
@@ -1432,6 +1466,7 @@ func _puppet_physics(delta: float) -> void:
 		velocity = Vector3.ZERO
 	locomotion.attack = _snap_attack
 	locomotion.swing = _snap_swing
+	_groans(delta)
 	if state == State.GETTING_UP and not crawler:
 		_getup_progress = _snap_getup
 		locomotion.getup_t = _snap_getup
