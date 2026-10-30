@@ -70,7 +70,11 @@ func _show_main() -> void:
 	var column := _new_page("Zumbi FPS")
 	var name_edit := LegacyGUI.field(column, "Nome:", _name)
 	name_edit.text_changed.connect(func(text: String): _name = text)
-	LegacyGUI.button(column, "Jogar sozinho", _on_solo)
+	var saves := SaveGame.list()
+	if not saves.is_empty():
+		LegacyGUI.button(column, "Continuar (%s)" % saves[0].name, func(): SaveGame.load_world(saves[0].name))
+		LegacyGUI.button(column, "Carregar mundo...", _show_saves)
+	LegacyGUI.button(column, "Novo mundo (sozinho)", _on_solo)
 	LegacyGUI.button(column, "Multiplayer (rede local)", _show_multiplayer)
 	LegacyGUI.button(column, "Sair", func(): get_tree().quit())
 	_add_status(column)
@@ -105,6 +109,35 @@ func _show_multiplayer() -> void:
 	_add_status(column)
 	Net.i.start_listening()
 	_refresh_servers()
+
+
+## Mundos salvos: carregar ou apagar (apagar pede um segundo clique).
+func _show_saves() -> void:
+	var column := _new_page("Mundos salvos")
+	var scroll := ScrollContainer.new()
+	scroll.custom_minimum_size = Vector2(0, 200)
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	column.add_child(scroll)
+	var list := VBoxContainer.new()
+	list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	list.add_theme_constant_override("separation", 4)
+	scroll.add_child(list)
+	for info in SaveGame.list():
+		var row := HBoxContainer.new()
+		list.add_child(row)
+		var local_time := int(info.time) + int(Time.get_time_zone_from_system().get("bias", 0)) * 60
+		var when := Time.get_datetime_string_from_unix_time(local_time, true)
+		var open := LegacyGUI.button(row, "%s   %s" % [info.name, when.substr(0, 16)], func(): SaveGame.load_world(info.name))
+		open.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		var remove := LegacyGUI.button(row, "Apagar", func(): pass)
+		remove.pressed.connect(func():
+			if remove.text == "Apagar":
+				remove.text = "Certeza?"
+			else:
+				SaveGame.delete(info.name)
+				_show_saves())
+	LegacyGUI.button(column, "Voltar", _show_main)
+	_add_status(column)
 
 
 func _add_status(column: VBoxContainer) -> void:
@@ -149,11 +182,13 @@ func _on_solo() -> void:
 	Net.i.leave(false)
 	Net.i.player_name = _player_name()
 	Net.i.world_seed = _seed_value()
+	SaveGame.start_new()
 	get_tree().change_scene_to_file(Net.i.MAIN_SCENE)
 
 
 func _on_host() -> void:
 	_on_message("Abrindo servidor...")
+	SaveGame.start_new()
 	Net.i.host_game(_player_name(), _seed_value())
 
 

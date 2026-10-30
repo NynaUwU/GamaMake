@@ -24,6 +24,16 @@ reação física a golpes e ragdoll (estilo Dying Light), visual de PC dos anos 
 - Os outros jogadores aparecem com o nome em cima, o item da mão, a lanterna acesa e uma bolinha
   azul no minimapa/mapa. Em cima, no meio da tela, aparece quem está online.
 
+## Salvar e carregar (`scripts/save/save_game.gd`)
+
+- **Menu inicial:** "Continuar (Mundo N)" abre o último save; "Carregar mundo..." lista todos (com data) e deixa apagar (clique duas vezes em Apagar). "Novo mundo" começa do zero.
+- **Pausa (ESC):** botão "Salvar". "Sair para o menu" salva antes de sair. **Autosave a cada 2 minutos.**
+- **O que é salvo:** semente do mapa, itens já pegos, itens soltos no chão, construções (peças, recortes, portas/janelas abertas), carros (posição e faróis), jogador (posição, direção, vida, inventário).
+- **Multiplayer:** só o host salva (o mundo fica no computador dele). Ao salvar, o host pede o estado de cada cliente e guarda pelo **nome**: quem entrar de novo com o mesmo nome volta com posição, vida e inventário.
+- Arquivos em `user://saves/<nome>.save` (no Linux: `~/.local/share/godot/app_userdata/<projeto>/saves`).
+- Sistemas novos se salvam sozinhos: basta entrar no grupo `persist` e ter `persist_key()`, `save_data()` e `load_data()`.
+- Teste: `tests/test_save.gd`.
+
 ## Som (`scripts/audio/sfx.gd`)
 
 Todos os sons são **sintetizados no código** ao abrir o jogo (sem arquivos de áudio): ruído filtrado, tons e "vozes" com formantes para os zumbis. Ficam em cache depois da primeira vez.

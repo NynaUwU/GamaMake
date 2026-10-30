@@ -32,6 +32,7 @@ func _ready() -> void:
 	# Vento de fundo baixinho (preso no jogador).
 	Sfx.loop_player("wind", player).play()
 	Net.i.register_world(self)
+	SaveGame.apply(self)
 	# O CSG monta a geometria só depois do primeiro frame: espera para gerar a navegação.
 	await get_tree().process_frame
 	await get_tree().physics_frame
@@ -92,7 +93,25 @@ func _spawn_horde(count: int) -> void:
 	_horde_left += count
 
 
-func _process(_delta: float) -> void:
+## Autosave (solo e host) a cada SaveGame.AUTOSAVE segundos.
+var _autosave := SaveGame.AUTOSAVE
+
+
+func save_now() -> bool:
+	Net.i.request_player_saves()
+	var ok := SaveGame.save(self)
+	if ok:
+		player.notify.emit("Jogo salvo (%s)" % SaveGame.current)
+	return ok
+
+
+func _process(delta: float) -> void:
+	if Net.i.is_host():
+		_autosave -= delta
+		if _autosave <= 0.0:
+			_autosave = SaveGame.AUTOSAVE
+			if player.health > 0.0:
+				save_now()
 	if _horde_left > 0:
 		var batch := mini(_horde_left, 10)
 		_horde_left -= batch

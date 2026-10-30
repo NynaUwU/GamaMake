@@ -17,8 +17,11 @@ func _process(delta: float) -> bool:
 		print("HOST t=18 puppets=", main.puppets.size(), " ", items)
 		var chasing := main.get_tree().get_nodes_in_group("enemy").filter(func(z): return z.target and z.target.is_in_group("remote_player")).size()
 		print("HOST zombies chasing remote players=", chasing)
+	if current_scene and current_scene.name == "Main" and int(t) == 19 and int(t - delta) == 18:
+		Net.i.request_player_saves() # o host vai salvar: pede o estado de cada cliente
 	if t > 34.0:
 		var main: Node = current_scene
+		print("HOST player_saves=", Net.i.player_saves.keys(), " slots ok=", Net.i.player_saves.values().all(func(d): return d.slots.size() == 20))
 		var zombies: Array = main.get_tree().get_nodes_in_group("enemy")
 		var dead := zombies.filter(func(z): return z.state == Zombie.State.DEAD).size()
 		var car: VintageCar = main.get_node("Carro")

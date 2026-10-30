@@ -7,6 +7,7 @@ extends CanvasLayer
 var _title: Label
 var _restart_button: Button
 var _lan_button: Button
+var _save_button: Button
 
 
 func _ready() -> void:
@@ -23,9 +24,13 @@ func _ready() -> void:
 	var column := LegacyGUI.box(center, "Pausado", 230.0)
 	_title = column.get_child(0)
 	LegacyGUI.button(column, "Continuar", close)
+	_save_button = LegacyGUI.button(column, "Salvar", _save)
 	_lan_button = LegacyGUI.button(column, "Abrir para LAN", _open_to_lan)
 	_restart_button = LegacyGUI.button(column, "Recomeçar", _restart)
-	LegacyGUI.button(column, "Sair para o menu", func(): Net.i.leave())
+	LegacyGUI.button(column, "Sair para o menu", func():
+		if Net.i.is_host():
+			_save()
+		Net.i.leave())
 	LegacyGUI.button(column, "Sair do jogo", func(): get_tree().quit())
 	visible = false
 
@@ -54,6 +59,7 @@ func open() -> void:
 	get_tree().paused = not Net.i.online() # online o mundo continua (é de todo mundo)
 	_restart_button.visible = Net.i.is_host() # online só o host recomeça a partida
 	_lan_button.visible = not Net.i.online()
+	_save_button.visible = Net.i.is_host() # o mundo é salvo no computador do host
 	_title.text = "Pausado" if not Net.i.online() else "Menu"
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 
@@ -62,6 +68,13 @@ func close() -> void:
 	visible = false
 	get_tree().paused = false
 	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+
+
+func _save() -> void:
+	var main := get_tree().current_scene
+	if main and main.has_method("save_now"):
+		_save_button.text = "Salvo!" if main.save_now() else "Erro ao salvar"
+		get_tree().create_timer(1.5, true).timeout.connect(func(): _save_button.text = "Salvar")
 
 
 func _restart() -> void:

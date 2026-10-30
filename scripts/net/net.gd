@@ -38,6 +38,7 @@ var world_seed := 0 ## 0 = semente padrão da cena
 var peers := {} ## id -> nome (todos, inclusive o host)
 var servers := {} ## "nome|porta" -> {"ip", "port", "name", "players", "max", "seen"} (achados na LAN)
 var taken := {} ## chaves de itens que já foram pegos
+var player_saves := {} ## host: nome -> último estado salvo de cada jogador (SaveGame)
 var world: Node ## cena principal ativa (main.gd)
 
 var _zombies := {} # net_id -> Zombie
@@ -292,9 +293,41 @@ func _send_world_state(id: int) -> void:
 			_pspawn.rpc_id(id, key, _drops[key][0], _drops[key][1], item.global_transform, Vector3.ZERO)
 	if world.get_node_or_null("Building"):
 		_build_state.rpc_id(id, world.get_node("Building").state())
+	# Voltou para um mundo salvo: recebe posição, vida e inventário que tinha.
+	var saved: Dictionary = player_saves.get(peers.get(id, ""), {})
+	if not saved.is_empty():
+		_restore_player.rpc_id(id, saved)
+	for node in world.get_tree().get_nodes_in_group("persist"):
+		if node.has_method("net_sync_to"):
+			node.net_sync_to(id)
 	for car in _cars():
 		_car_owner.rpc_id(id, String(car.name), car.net_owner, car.driver_peer)
 		_csnap.rpc_id(id, String(car.name), car.global_transform, car.linear_velocity, car.steering, car.headlights_on)
+
+
+@rpc("authority", "reliable")
+func _restore_player(data: Dictionary) -> void:
+	if world:
+		SaveGame.apply_player(world.player, data)
+
+
+## Host vai salvar: pede a cada cliente o estado do próprio jogador.
+func request_player_saves() -> void:
+	if online() and multiplayer.is_server():
+		_req_psave.rpc()
+
+
+@rpc("authority", "reliable")
+func _req_psave() -> void:
+	if world:
+		_psave.rpc_id(1, SaveGame.player_data(world.player))
+
+
+@rpc("any_peer", "reliable")
+func _psave(data: Dictionary) -> void:
+	var id := multiplayer.get_remote_sender_id()
+	if peers.has(id) and data.get("slots") is Array:
+		player_saves[peers[id]] = data
 
 
 @rpc("authority", "reliable")
