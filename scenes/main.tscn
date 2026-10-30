@@ -308,6 +308,15 @@ position = Vector3(-4.3, 0.1, 11.5)
 rotation = Vector3(0, -0.3, 0)
 item_id = &"talhadeira"
 
+[node name="Chinelo" parent="Props" instance=ExtResource("7_pickup")]
+position = Vector3(-4.3, 0.05, 12.6)
+rotation = Vector3(0, 0.8, 0)
+item_id = &"chinelo"
+
+[node name="Bumerangue" parent="Props" instance=ExtResource("7_pickup")]
+position = Vector3(-4.4, 0.05, 9.3)
+item_id = &"bumerangue"
+
 [node name="Lanterna" parent="Props" instance=ExtResource("7_pickup")]
 position = Vector3(-3.1, 0.92, 12.35)
 rotation = Vector3(0, 1.2, 0)

@@ -43,11 +43,20 @@ func build(type_: String, tris: PackedInt32Array, open_: bool) -> void:
 	var faces := PackedVector3Array()
 	var max_u := -INF
 	var max_v := -INF
+	var pane := _door_pane(set) if type == "door" else {}
 	for index in tris:
 		var c := BuildPiece.triangle_uv(index)
 		for p in c:
 			max_u = maxf(max_u, p.x)
 			max_v = maxf(max_v, p.y)
+		if pane.has(index):
+			# Vidraça da porta (na altura dos olhos), com moldurinha onde encosta na madeira.
+			_tri(glass, faces, _p(c[0], mid + 0.01, origin), _p(c[1], mid + 0.01, origin), _p(c[2], mid + 0.01, origin), Color.WHITE)
+			_tri(glass, faces, _p(c[0], mid - 0.01, origin), _p(c[2], mid - 0.01, origin), _p(c[1], mid - 0.01, origin), Color.WHITE)
+			for e in 3:
+				if not pane.has(piece._neighbor_index(index, e)):
+					_window_frame(wood, faces, c[e], c[(e + 1) % 3], (c[0] + c[1] + c[2]) / 3.0, Vector2(mid - 0.05, mid + 0.05), origin, false)
+			continue
 		if type == "window":
 			# Vidro fininho no meio.
 			_tri(glass, faces, _p(c[0], mid + 0.015, origin), _p(c[1], mid + 0.015, origin), _p(c[2], mid + 0.015, origin), Color.WHITE)
@@ -58,7 +67,8 @@ func build(type_: String, tris: PackedInt32Array, open_: bool) -> void:
 			_tri(wood, faces, _p(c[0], mid - 0.05, origin), _p(c[2], mid - 0.05, origin), _p(c[1], mid - 0.05, origin), shade)
 		# Borda do buraco: moldura (janela) ou lateral da folha (porta).
 		for e in 3:
-			if set.has(piece._neighbor_index(index, e)):
+			var other := piece._neighbor_index(index, e)
+			if set.has(other) and not pane.has(other):
 				continue
 			var a: Vector2 = c[e]
 			var b: Vector2 = c[(e + 1) % 3]
@@ -77,15 +87,12 @@ func build(type_: String, tris: PackedInt32Array, open_: bool) -> void:
 		for side in [1.0, -1.0]:
 			wood.color(Color(0.6, 0.48, 0.25))
 			wood.box(_p(at, mid + side * 0.08, origin), Vector3(0.05, 0.05, 0.06))
-	var meshes := MeshInstance3D.new()
-	var mesh := wood.finish(_wood_material(), false)
-	if type == "window":
-		mesh = glass.finish(_glass_material(), false)
-		var frame_instance := MeshInstance3D.new()
-		frame_instance.mesh = wood.finish(_wood_material(), false)
-		add_child(frame_instance)
-	meshes.mesh = mesh
-	add_child(meshes)
+	var wood_instance := MeshInstance3D.new()
+	wood_instance.mesh = wood.finish(_wood_material(), false)
+	add_child(wood_instance)
+	var glass_instance := MeshInstance3D.new()
+	glass_instance.mesh = glass.finish(_glass_material(), false)
+	add_child(glass_instance)
 	var shape := CollisionShape3D.new()
 	var concave := ConcavePolygonShape3D.new()
 	concave.backface_collision = true
@@ -97,7 +104,7 @@ func build(type_: String, tris: PackedInt32Array, open_: bool) -> void:
 ## Moldura numa aresta da borda do buraco: batente (forra a espessura), guarnição
 ## saliente dos dois lados (um pouco por cima da parede e do vidro) e, na base
 ## de uma janela de parede, um peitoril saindo para fora.
-func _window_frame(wood: MeshBuilder, faces: PackedVector3Array, a: Vector2, b: Vector2, center: Vector2, w: Vector2, origin: Vector3) -> void:
+func _window_frame(wood: MeshBuilder, faces: PackedVector3Array, a: Vector2, b: Vector2, center: Vector2, w: Vector2, origin: Vector3, sill := true) -> void:
 	var lining := Color(0.42, 0.29, 0.17)
 	var trim := Color(0.3, 0.2, 0.12)
 	# Batente.
@@ -116,13 +123,36 @@ func _window_frame(wood: MeshBuilder, faces: PackedVector3Array, a: Vector2, b: 
 		_quad(wood, _p(o0, face, origin), _p(o1, face, origin), _p(o1, top, origin), _p(o0, top, origin), trim.darkened(0.2))
 		_quad(wood, _p(i0, face, origin), _p(i1, face, origin), _p(i1, top, origin), _p(i0, top, origin), trim.darkened(0.2))
 	# Peitoril: aresta horizontal com o vidro em cima (só em parede).
-	if piece.kind == BuildPiece.Kind.WALL and absf(a.y - b.y) < 0.001 and center.y > a.y:
+	if sill and piece.kind == BuildPiece.Kind.WALL and absf(a.y - b.y) < 0.001 and center.y > a.y:
 		var left := minf(a.x, b.x) - 0.04
 		var right := maxf(a.x, b.x) + 0.04
 		var y := a.y
-		var sill := Color(0.36, 0.24, 0.13)
-		wood.color(sill)
+		var sill_color := Color(0.36, 0.24, 0.13)
+		wood.color(sill_color)
 		wood.box(_p(Vector2((left + right) * 0.5, y - 0.03), 0.0, origin), Vector3(right - left, 0.06, BuildPiece.THICK + 0.16))
+
+
+## Vidraça da porta: um quadrado de largura no meio da porta, de 1,2 a 2,0 m
+## (fileiras 3 e 4: os olhos ficam a 1,6 m). Só se esses quadrados estiverem
+## inteiros na porta e sobrar madeira dos dois lados. Devolve os quartos dela.
+func _door_pane(set: Dictionary) -> Dictionary:
+	var n := BuildPiece.N
+	var columns := {}
+	for index in set:
+		columns[(index / 4) % n] = true
+	var cols: Array = columns.keys()
+	cols.sort()
+	if cols.size() < 3:
+		return {}
+	var middle: int = cols[cols.size() / 2]
+	var pane := {}
+	for j in [3, 4]:
+		for q in 4:
+			var index: int = (j * n + middle) * 4 + q
+			if not set.has(index):
+				return {}
+			pane[index] = true
+	return pane
 
 
 ## Frisos: travessas de madeira a cada 2 quadrados dividindo o vidro (só onde

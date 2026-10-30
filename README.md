@@ -32,7 +32,8 @@ reação física a golpes e ragdoll (estilo Dying Light), visual de PC dos anos 
 - **Martelo:** mostra a peça "fantasma" (verde = cabe, vermelho = já tem peça ali).
   - Clique constrói · **segure o botão direito** para abrir o menu de construção (abas +
     slots com foto de cada peça, como o inventário; solte em cima do slot) · **R** gira a parede ·
-    **Shift + clique** desmonta a peça (ou tira a janela/porta) mirada.
+    **Shift + clique** desmonta a peça (ou tira a janela/porta) mirada. Ao soltar o botão direito
+    o menu escolhe o slot que estiver embaixo do mouse.
   - Encaixes: parede mirando um piso vai para a borda dele; mirando o topo de uma parede empilha;
     piso mirando a borda de outro piso vai para o lado; teto mirando o topo de uma parede cobre o
     cômodo do lado onde você está. Piso fica com o topo na grade (pisa-se nele); teto apoia em cima.
@@ -43,7 +44,8 @@ reação física a golpes e ragdoll (estilo Dying Light), visual de PC dos anos 
 - **Janela** e **porta** (aba *Aberturas* do menu): mire um buraco feito pela talhadeira e ela
   preenche o buraco **inteiro, em qualquer formato**. A janela tem vidro, batente, guarnição
   saliente, peitoril e **frisos a cada 2 quadrados**; a **porta** precisa de um buraco que encoste na
-  base da parede, tem maçaneta e abre/fecha com **E**.
+  base da parede, tem maçaneta, uma **vidraça na altura dos olhos** (porta com 3+ quadrados de largura)
+  e abre/fecha com **E**.
 - Online o host confere tudo (lugar livre, partes existem, buraco válido) e manda para todos; quem
   entra depois recebe as construções com buracos, janelas e portas.
 - Testes: `tests/test_building.gd`, `tests/test_openings.gd`.
@@ -96,7 +98,7 @@ reação física a golpes e ragdoll (estilo Dying Light), visual de PC dos anos 
 | Shift + segurar clique (espada) | **empalar** até 3 zumbis (só de frente ou de costas); parou → chuta todos |
 | F | chute em área |
 | 1–5 / Q / roda | escolher slot da hotbar |
-| Tab | mochila (clique em dois slots para trocar) |
+| Tab | mochila (arraste os itens entre os slots) |
 | E / G | pegar / soltar item |
 | M | mapa do mundo (o minimapa fica no canto de baixo à direita) |
 | L | lanterna (precisa estar no inventário e ter bateria) |
@@ -176,6 +178,16 @@ os ícones.
   prender, WASD controla no ar); a corda **se recolhe sozinha** quando você chega perto; soltar o clique solta a corda e mantém o impulso no ar. Alcance 45 m.
   **5 cargas**; acabou, espere ~6 s sem usar para recarregar todas (usar de novo reinicia a contagem).
 - **Lanterna** de latão, **sucata**, **pano** e **fita**.
+
+## Chinelo e bumerangue (`scripts/weapons/`)
+- **Chinelo** (no chão, ao lado da bancada): clique joga no zumbi mais perto do centro da mira e
+  **sempre acerta a cabeça** (headshot): o zumbi cai **duro para trás**, braços e pernas juntos, como
+  uma tábua, e só no chão vira ragdoll. Dá para jogar de novo logo em seguida.
+- **Bumerangue:** vai até o zumbi mirado e **ricocheteia** de zumbi em zumbi (até **5**, os mais perto
+  num raio de 14 m). A cada acerto ele **sobe** e cai em arco no próximo; cada acerto tem **40% de
+  chance de atordoar** (o zumbi fica parado cambaleando ~2 s). Depois volta para a sua mão.
+- Online os outros veem o arremesso no seu boneco e o chinelo/bumerangue voando.
+- Teste: `tests/test_throwables.gd`.
 
 ## Inventário
 - `scripts/items/item_db.gd`: catálogo (nome, tipo, pilha, modelo 3D). Item novo = uma entrada lá.

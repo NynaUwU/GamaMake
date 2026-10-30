@@ -15,16 +15,20 @@ signal item_picked_up(item_id: StringName, amount: int) ## gancho para o invent�
 signal died
 signal weapon_changed(weapon_text: String) ## nome da arma (+ munição)
 
-enum WeaponType { FISTS, SWORD, BAT, STAFF, PISTOL, CHARGER, SPOON, GRAPPLE, HAMMER, CHISEL }
+enum WeaponType { FISTS, SWORD, BAT, STAFF, PISTOL, CHARGER, SPOON, GRAPPLE, HAMMER, CHISEL, SLIPPER, BOOMERANG }
 const WEAPON_NAMES := {
 	WeaponType.FISTS: "Mãos", WeaponType.SWORD: "Espada", WeaponType.BAT: "Taco",
 	WeaponType.STAFF: "Cajado", WeaponType.PISTOL: "Pistola", WeaponType.CHARGER: "Carregador", WeaponType.SPOON: "Colherona", WeaponType.GRAPPLE: "Gancho",
 	WeaponType.HAMMER: "Martelo", WeaponType.CHISEL: "Talhadeira",
+	WeaponType.SLIPPER: "Chinelo", WeaponType.BOOMERANG: "Bumerangue",
 }
 ## ItemDB "weapon" -> tipo de arma do player.
 const WEAPON_FROM_ITEM := {"sword": WeaponType.SWORD, "bat": WeaponType.BAT,
 	"staff": WeaponType.STAFF, "pistol": WeaponType.PISTOL, "charger": WeaponType.CHARGER, "spoon": WeaponType.SPOON, "grapple": WeaponType.GRAPPLE,
-	"hammer": WeaponType.HAMMER, "chisel": WeaponType.CHISEL}
+	"hammer": WeaponType.HAMMER, "chisel": WeaponType.CHISEL,
+	"slipper": WeaponType.SLIPPER, "boomerang": WeaponType.BOOMERANG}
+const SLIPPER_REST := Vector3(0.2, -0.24, -0.4)
+const BOOMERANG_REST := Vector3(0.2, -0.22, -0.42)
 const HAMMER_REST := Vector3(0.24, -0.26, -0.44)
 const CHISEL_REST := Vector3(0.2, -0.22, -0.4)
 const PICKUP_SCENE := preload("res://scenes/props/pickup_item.tscn")
@@ -247,6 +251,11 @@ var _rope_length := 0.0
 var _rope: MeshInstance3D
 var _grapple_left := 5
 var _grapple_idle := 0.0
+var slipper: Node3D ## chinelo na mão (some por um instante quando é jogado)
+var boomerang: Node3D ## bumerangue na mão (some até voltar)
+var _boomerang_out := false
+var _throw_anim := 0.0 # 1 = acabou de arremessar
+var _throw_cooldown := 0.0
 var hammer: Node3D ## martelo de construção na mão
 var chisel: Node3D ## talhadeira na mão
 var builder: Builder ## fantasma da peça / triângulo mirado (só o jogador local)
@@ -291,6 +300,12 @@ func _ready() -> void:
 	hammer = Node3D.new()
 	hammer.name = "Hammer"
 	camera.add_child(hammer)
+	slipper = Node3D.new()
+	slipper.name = "Slipper"
+	camera.add_child(slipper)
+	boomerang = Node3D.new()
+	boomerang.name = "Boomerang"
+	camera.add_child(boomerang)
 	chisel = Node3D.new()
 	chisel.name = "Chisel"
 	camera.add_child(chisel)
@@ -372,6 +387,10 @@ func _unhandled_input(event: InputEvent) -> void:
 				_fire_grapple()
 			elif _weapon_type in [WeaponType.HAMMER, WeaponType.CHISEL]:
 				_use_tool()
+			elif _weapon_type == WeaponType.SLIPPER:
+				_throw_slipper()
+			elif _weapon_type == WeaponType.BOOMERANG:
+				_throw_boomerang()
 		elif event.is_action_pressed("block") and _weapon_type == WeaponType.HAMMER:
 			builder.open_menu() # segurando: menu de construção; soltando: escolhe
 		elif event.is_action_pressed("reload") and _weapon_type == WeaponType.HAMMER:
@@ -591,6 +610,8 @@ func _install_weapon_models() -> void:
 	spoon.add_child(ItemModels.build(&"colher"))
 	grapple.add_child(ItemModels.build(&"gancho"))
 	hammer.add_child(ItemModels.build(&"martelo"))
+	slipper.add_child(ItemModels.build(&"chinelo"))
+	boomerang.add_child(ItemModels.build(&"bumerangue"))
 	chisel.add_child(ItemModels.build(&"talhadeira"))
 	_rope = MeshInstance3D.new()
 	_rope.name = "Rope"
@@ -673,6 +694,10 @@ func _update_fp_arm() -> void:
 			grip = charger.transform.translated_local(Vector3(0, -0.05, 0.02))
 		WeaponType.HAMMER:
 			grip = hammer.transform.translated_local(Vector3(0, 0, 0.02))
+		WeaponType.SLIPPER:
+			grip = slipper.transform.translated_local(Vector3(0, 0, -0.06))
+		WeaponType.BOOMERANG:
+			grip = boomerang.transform.translated_local(Vector3(0, 0, -0.02))
 		WeaponType.CHISEL:
 			grip = chisel.transform.translated_local(Vector3(0, 0, 0.02))
 	_place_arm(_fp_arm, _fp_hand, FP_SHOULDER, grip)
@@ -706,7 +731,7 @@ func _update_parkour_hands() -> void:
 	if both:
 		if not _hands_busy and w > 0.3:
 			_hands_busy = true
-			for node in [weapon, bat, staff, pistol, charger, spoon, grapple, hammer, chisel]:
+			for node in [weapon, bat, staff, pistol, charger, spoon, grapple, hammer, chisel, slipper, boomerang]:
 				node.visible = false
 		var rest_r := Vector3(0.2, -0.26, -0.38)
 		var planted_r: Vector3 = visible_point.call(to_camera * parkour.hand_targets[1])
@@ -766,6 +791,8 @@ func _show_weapon(type: WeaponType) -> void:
 	if hammer:
 		hammer.visible = type == WeaponType.HAMMER
 		chisel.visible = type == WeaponType.CHISEL
+		slipper.visible = type == WeaponType.SLIPPER and _throw_cooldown <= 0.2
+		boomerang.visible = type == WeaponType.BOOMERANG and not _boomerang_out
 	_emit_weapon_text()
 
 
@@ -1257,7 +1284,7 @@ func enter_vehicle(car: VintageCar) -> void:
 	_vehicle_pitch = 0.0
 	# Primeira pessoa: guarda a arma; as mãos vão para o volante.
 	_release_grapple()
-	for node in [weapon, bat, staff, pistol, charger, spoon, grapple, hammer, chisel, foot]:
+	for node in [weapon, bat, staff, pistol, charger, spoon, grapple, hammer, chisel, slipper, boomerang, foot]:
 		node.visible = false
 	_fp_arm_left.visible = true
 	_fp_hand_left.visible = true
@@ -1552,7 +1579,63 @@ func _use_tool() -> void:
 		_shake = maxf(_shake, 0.05)
 
 
+# Arremessos ---------------------------------------------------------------------
+
+## Chinelo: sempre na cabeça do zumbi mais perto do centro da mira.
+func _throw_slipper() -> void:
+	if _equip < 1.0 or _throw_cooldown > 0.0:
+		return
+	_throw_cooldown = 0.55
+	_throw_anim = 1.0
+	Net.i.send_player_action("throw", 0)
+	var aim := -camera.global_basis.z
+	var target := ThrownSlipper.pick_target(get_tree(), camera.global_position, aim)
+	var projectile := ThrownSlipper.new()
+	get_parent().add_child(projectile)
+	projectile.launch(slipper.global_position, aim, target)
+	slipper.visible = false
+	Net.i.fx("slipper", [slipper.global_position, aim, target.net_id if target else 0])
+
+
+## Bumerangue: só um por vez (volta para a mão).
+func _throw_boomerang() -> void:
+	if _equip < 1.0 or _boomerang_out:
+		return
+	_boomerang_out = true
+	_throw_anim = 1.0
+	Net.i.send_player_action("throw", 0)
+	var aim := -camera.global_basis.z
+	var target := ThrownSlipper.pick_target(get_tree(), camera.global_position, aim)
+	var projectile := Boomerang.new()
+	get_parent().add_child(projectile)
+	projectile.launch(boomerang.global_position, aim, target, self)
+	boomerang.visible = false
+	Net.i.fx("boomerang", [boomerang.global_position, aim, target.net_id if target else 0])
+
+
+## O bumerangue voltou (ou se perdeu): de novo na mão.
+func catch_boomerang() -> void:
+	_boomerang_out = false
+	if _weapon_type == WeaponType.BOOMERANG:
+		boomerang.visible = true
+
+
+func _update_throwables(delta: float) -> void:
+	_throw_anim = move_toward(_throw_anim, 0.0, delta * 3.5)
+	_throw_cooldown -= delta
+	var swing := sin(_throw_anim * PI)
+	if _weapon_type == WeaponType.SLIPPER:
+		if _throw_cooldown <= 0.2 and not slipper.visible:
+			slipper.visible = true # outro chinelo na mão
+		slipper.position = SLIPPER_REST + _bob_offset(0.8) + _equip_offset() + Vector3(0, 0.12, 0.08) * swing
+		slipper.rotation = Vector3(0.5 + 0.8 * swing, 0.2, 0.1)
+	elif _weapon_type == WeaponType.BOOMERANG:
+		boomerang.position = BOOMERANG_REST + _bob_offset(0.8) + _equip_offset() + Vector3(0.05, 0.1, 0.06) * swing
+		boomerang.rotation = Vector3(0.3, 0.6 + 1.2 * swing, 0.2)
+
+
 func _update_tools(delta: float) -> void:
+	_update_throwables(delta)
 	_tool_hit = move_toward(_tool_hit, 0.0, delta * 4.0)
 	if builder:
 		builder.update(_tool_kind() if health > 0.0 and not ui_blocked else "")

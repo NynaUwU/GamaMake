@@ -56,10 +56,22 @@ func open() -> void:
 
 
 func close(apply: bool) -> void:
+	# Escolhe o slot que está embaixo do mouse AGORA (não depende de o mouse
+	# ter "entrado" no botão: abrir o menu já com o mouse em cima também vale).
+	var under := _slot_under_mouse() if apply else {}
 	visible = false
 	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
-	if apply and not _hovered.is_empty():
-		builder.select(_hovered)
+	if not under.is_empty():
+		builder.select(under)
+
+
+func _slot_under_mouse() -> Dictionary:
+	var mouse := _grid.get_global_mouse_position()
+	for box in _grid.get_children():
+		var button := box.get_child(0) as Button
+		if button and not box.is_queued_for_deletion() and button.get_global_rect().has_point(mouse):
+			return button.get_meta("entry")
+	return {}
 
 
 func _process(_delta: float) -> void:
@@ -111,6 +123,7 @@ func _make_slot(entry: Dictionary) -> Control:
 	button.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	button.add_theme_constant_override("icon_max_width", 56)
 	button.icon = icons.get(entry.id)
+	button.set_meta("entry", entry)
 	if button.icon == null:
 		button.text = entry.name.left(6) # sem foto (headless): ao menos o nome
 	var current: bool = builder.selection.get("id") == entry.id

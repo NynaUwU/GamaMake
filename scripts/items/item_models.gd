@@ -54,6 +54,10 @@ static func build(id: StringName) -> Node3D:
 			_hammer(parts)
 		&"talhadeira":
 			_chisel(parts)
+		&"chinelo":
+			_slipper(parts)
+		&"bumerangue":
+			_boomerang(parts)
 		&"pistola":
 			_pistol(parts)
 		&"lanterna":
@@ -111,6 +115,31 @@ static func _mace(p: Dictionary) -> void:
 		var out := Vector3(cos(a), sin(a), 0)
 		_mb(p, IRON).box(Vector3(0, 0, -0.73) + out * 0.075, Vector3(0.03, 0.03, 0.18), Basis(out, Vector3(0, 0, 1).cross(out), Vector3(0, 0, 1)))
 	_mb(p, BRASS).lathe(PackedVector2Array([Vector2(0.034, 0.56), Vector2(0.034, 0.6)]), 8, AXIS_Z)
+
+
+## Chinelo de borracha: sola achatada (mais larga na frente) e a tira em "Y".
+static func _slipper(p: Dictionary) -> void:
+	var sole := PackedVector2Array()
+	for k in 12:
+		var a := TAU * k / 12.0
+		var width := 0.045 if sin(a) < 0.0 else 0.055 # calcanhar mais estreito
+		sole.append(Vector2(cos(a) * width, -0.12 + sin(a) * 0.13))
+	_mb(p, Color(0.2, 0.45, 0.7)).extrude(sole, 0.018, Basis(Vector3.RIGHT, PI / 2), Vector3(0, -0.009, 0))
+	_mb(p, Color(0.88, 0.88, 0.85)).extrude(sole, 0.006, Basis(Vector3.RIGHT, PI / 2), Vector3(0, 0.012, 0)) # palmilha
+	var strap := Color(0.9, 0.92, 0.95)
+	var toe := Vector3(0, 0.014, -0.2)
+	for side in [-1.0, 1.0]:
+		_mb(p, strap).tube(PackedVector3Array([toe, Vector3(side * 0.025, 0.04, -0.13), Vector3(side * 0.048, 0.016, -0.08)]), 0.007, 4)
+
+
+## Bumerangue: duas pás chatas de madeira em "V" com faixas pintadas.
+static func _boomerang(p: Dictionary) -> void:
+	for side in [-1.0, 1.0]:
+		var arm := Basis(Vector3.UP, side * 0.95)
+		var center := arm * Vector3(0, 0, -0.14)
+		_mb(p, WOOD).box(center, Vector3(0.065, 0.014, 0.3), arm)
+		_mb(p, RED_PAINT).box(center + arm * Vector3(0, 0.008, -0.06), Vector3(0.067, 0.004, 0.03), arm)
+		_mb(p, CREAM).box(center + arm * Vector3(0, 0.008, 0.04), Vector3(0.067, 0.004, 0.025), arm)
 
 
 ## Martelo de construção: cabo reto de madeira, cabeça de ferro (face redonda

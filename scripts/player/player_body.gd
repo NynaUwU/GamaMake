@@ -20,7 +20,7 @@ var _action_len := 0.4
 var hold := ""
 var aim_pitch := 0.0 ## inclinação do olhar (rad, + = para cima) para apontar o braço
 
-const ACTION_TIME := {"swing": 0.42, "punch": 0.25, "kick": 0.4, "shoot": 0.18, "cast": 0.3, "tool": 0.35, "crank": 0.2}
+const ACTION_TIME := {"throw": 0.4, "swing": 0.42, "punch": 0.25, "kick": 0.4, "shoot": 0.18, "cast": 0.3, "tool": 0.35, "crank": 0.2}
 
 
 ## Toca uma ação no corpo (o Player chama quando chega pela rede).
@@ -163,6 +163,11 @@ func _play_action(delta: float) -> void:
 			var thrust := sin(t * PI)
 			_set_rot("UpperArm.R", Vector3(PI / 2 + aim_pitch + 0.2 * thrust, 0, 0.05))
 			_set_rot("LowerArm.R", Vector3(0.6 * (1.0 - thrust), 0, 0))
+		"throw": # arremesso por cima do ombro
+			var back := 1.0 - smoothstep(0.25, 0.5, t)
+			_set_rot("UpperArm.R", Vector3(lerpf(2.9, 1.0, smoothstep(0.25, 0.6, t)), 0, 0.2 * back))
+			_set_rot("LowerArm.R", Vector3(1.2 * back, 0, 0))
+			_set_rot("Chest", Vector3(0, -0.4 * back + 0.3 * strike, 0))
 		"tool", "crank": # martelada / talhadeira / dínamo: antebraço sobe e desce
 			_set_rot("UpperArm.R", Vector3(1.2 + windup * 0.9 - strike * 0.5, 0, 0.1))
 			_set_rot("LowerArm.R", Vector3(1.4 * windup + 0.2, 0, 0))

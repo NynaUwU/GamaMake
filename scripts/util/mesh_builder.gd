@@ -39,6 +39,8 @@ func finish(material: Material = null, smooth := true) -> ArrayMesh:
 ## deixava "faixas" escuras nas bordas.)
 func _flat_mesh() -> ArrayMesh:
 	var arrays := st.commit_to_arrays()
+	if arrays.is_empty() or arrays[Mesh.ARRAY_VERTEX] == null:
+		return ArrayMesh.new() # nada desenhado (ex.: porta estreita sem vidraça)
 	var verts: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
 	var normals := PackedVector3Array()
 	normals.resize(verts.size())

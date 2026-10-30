@@ -10,7 +10,7 @@ extends Node
 ## Modos: WALK (de pé), CRAWL (rastejando, sem perna) e GETUP (levantando do
 ## chão em etapas: deitado -> apoio -> ajoelhado/agachado -> de pé).
 
-enum Mode { WALK, CRAWL, GETUP }
+enum Mode { WALK, CRAWL, GETUP, STIFF }
 
 ## Poses-chave para levantar. Ângulos de membros são "no mundo" (0 = apontando
 ## para baixo, + = para frente); p = inclinação do quadril (- = de bruços / para
@@ -75,6 +75,14 @@ func _ready() -> void:
 	_time = randf() * 10.0
 
 
+## Duro como uma tábua (chinelada): tudo na pose de descanso — braços colados
+## no corpo, pernas juntas e retas.
+func _stiff_pose() -> void:
+	for bone_name in _b:
+		_skeleton.set_bone_pose_rotation(_b[bone_name], Quaternion.IDENTITY)
+	_skeleton.set_bone_pose_position(_b["Hips"], _skeleton.get_bone_rest(_b["Hips"]).origin)
+
+
 func _process(delta: float) -> void:
 	if frame_skip > 0:
 		_skipped_time += delta
@@ -86,6 +94,9 @@ func _process(delta: float) -> void:
 		_skipped_time = 0.0
 	_time += delta
 	match mode:
+		Mode.STIFF:
+			_stiff_pose()
+			return
 		Mode.CRAWL:
 			_phase += delta * (1.5 + speed * 6.0)
 			_crawl_pose()

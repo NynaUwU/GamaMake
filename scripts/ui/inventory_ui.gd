@@ -1,7 +1,7 @@
 class_name InventoryUI
 extends Control
-## Hotbar (5 slots, sempre visível) e mochila (Tab). Na mochila, clique num
-## slot e depois em outro para trocar os itens de lugar (ou juntar pilhas).
+## Hotbar (5 slots, sempre visível) e mochila (Tab). Na mochila, arraste um
+## item até outro slot para trocar de lugar (ou juntar pilhas).
 ## Os slots mostram o ícone do item (ItemIcons); o nome e os detalhes aparecem
 ## numa janelinha que segue o mouse ao passar por cima.
 
@@ -108,7 +108,7 @@ func _build_backpack() -> void:
 	column.add_theme_constant_override("separation", 8)
 	_backpack.add_child(column)
 	var title := Label.new()
-	title.text = "Mochila  (clique em dois slots para trocar)  [Tab] fechar"
+	title.text = "Mochila  (arraste os itens entre os slots)  [Tab] fechar"
 	title.add_theme_font_size_override("font_size", 12)
 	column.add_child(title)
 	var grid := GridContainer.new()
@@ -142,7 +142,8 @@ func _make_slot(index: int) -> Button:
 	button.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	button.add_theme_constant_override("icon_max_width", 44)
 	button.set_meta("index", index)
-	button.pressed.connect(_on_slot_pressed.bind(index))
+	# Arrastar e soltar: segura num slot, arrasta até outro e solta para trocar/juntar.
+	button.set_drag_forwarding(_drag_from.bind(button, index), _can_drop.bind(index), _drop_on.bind(index))
 	button.mouse_entered.connect(_hover.bind(index))
 	button.mouse_exited.connect(func(): if _hovered == index: _hover(-1))
 	# Número do slot (hotbar) no canto de cima e quantidade no canto de baixo.
@@ -232,15 +233,42 @@ func _hover(index: int) -> void:
 	_process(0.0)
 
 
-func _on_slot_pressed(index: int) -> void:
-	if _picked < 0:
-		if not inventory.slots[index].is_empty():
-			_picked = index
-	else:
-		inventory.swap(_picked, index)
-		_picked = -1
+func _drag_from(_at: Vector2, button: Button, index: int) -> Variant:
+	if not _backpack.visible or inventory.slots[index].is_empty():
+		return null
+	_picked = index
+	_refresh()
+	# O ícone segue o mouse enquanto arrasta.
+	var preview := TextureRect.new()
+	preview.texture = button.icon
+	preview.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	preview.custom_minimum_size = Vector2(44, 44)
+	preview.size = Vector2(44, 44)
+	preview.position = -preview.size * 0.5
+	preview.modulate = Color(1, 1, 1, 0.8)
+	preview.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	var holder := Control.new()
+	holder.add_child(preview)
+	button.set_drag_preview(holder)
+	_tooltip.visible = false
+	return {"inventory_slot": index}
+
+
+func _can_drop(_at: Vector2, data: Variant, _index: int) -> bool:
+	return data is Dictionary and data.has("inventory_slot")
+
+
+func _drop_on(_at: Vector2, data: Variant, index: int) -> void:
+	inventory.swap(data.inventory_slot, index)
+	_picked = -1
 	_refresh()
 	_hover(index)
+
+
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_DRAG_END and _picked >= 0:
+		_picked = -1 # soltou fora de um slot: nada muda
+		_refresh()
 
 
 func _refresh() -> void:

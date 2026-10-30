@@ -183,6 +183,18 @@ func play_fx(kind: String, args: Array) -> void:
 			ImpactFX.tracer(self, args[0], args[1])
 		"burst":
 			ImpactFX.burst(self, args[0], args[1], args[2], args[3], args[4])
+		"slipper", "boomerang":
+			var target: Zombie = Net.i.get_zombie(args[2]) if args[2] != 0 else null
+			if kind == "slipper":
+				var copy := ThrownSlipper.new()
+				copy.cosmetic = true
+				add_child(copy)
+				copy.launch(args[0], args[1], target)
+			else:
+				var copy := Boomerang.new()
+				copy.cosmetic = true
+				add_child(copy)
+				copy.launch(args[0], args[1], target, null)
 		"missile":
 			var missile: MagicMissile = MISSILE_SCENE.instantiate()
 			missile.cosmetic = true

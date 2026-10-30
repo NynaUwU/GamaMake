@@ -12,6 +12,8 @@ extends CharacterBody3D
 ##   GETTING_UP-> levanta em etapas (ou volta a rastejar)
 ##   IMPALED   -> espetado na espada do player (ragdoll preso pelo peito)
 ##   CLIMB     -> escalando um obstáculo (quando dar a volta é longe demais)
+##   STIFF     -> levou chinelada na cabeça: cai duro para trás, como uma tábua
+##   STUNNED   -> atordoado (bumerangue): parado, cambaleando, por uns segundos
 ##   DEAD      -> ragdoll permanente
 ##
 ## Membros (cabeça, braços, pernas) têm vida própria. Quando a vida do membro
@@ -21,7 +23,7 @@ extends CharacterBody3D
 
 signal died(zombie: Zombie)
 
-enum State { IDLE, CHASE, ATTACK, STAGGER, STUMBLE, DOWN, GETTING_UP, DEAD, IMPALED, CLIMB }
+enum State { IDLE, CHASE, ATTACK, STAGGER, STUMBLE, DOWN, GETTING_UP, DEAD, IMPALED, CLIMB, STIFF, STUNNED }
 enum LimbState { OK, BROKEN, CUT }
 
 const LAYER_HITBOX := 1 << 4
@@ -67,6 +69,8 @@ const LIMBS := {
 @export var weapon_chance := 0.3 ## chance de nascer com arma corpo a corpo
 @export var weapon_id: StringName = &"" ## força uma arma (vazio = sorteio)
 @export var weapon_damage_multiplier := 1.6
+@export var slipper_damage := 30.0 ## chinelada (sempre na cabeça: x2.5)
+@export var stiff_fall_time := 0.6 ## quanto demora para cair duro
 
 @export_group("Navegação")
 ## Desvia de obstáculos pelo NavigationMesh. Só escala quando o caminho em volta
@@ -141,6 +145,9 @@ var _has_snap := false
 var _state_hold := 0.0 # marionete: ignora o estado do host por um instante (empalou agora)
 var _retarget := 0.0
 var _net_spawn := {}
+var _stiff_axis := Vector3.ZERO # eixo do tombo duro (zero = não está caindo duro)
+var _stiff_basis := Basis()
+var _stun_time := 0.0
 # Nível de detalhe pela distância até o jogador mais perto (0 perto, 1 médio, 2 longe).
 var _lod := 0
 var hitboxes_active := true ## false = longe; golpes à distância usam a cápsula
@@ -224,6 +231,10 @@ func _physics_process(delta: float) -> void:
 			_update_getting_up(delta)
 		State.CLIMB:
 			_update_climb(delta)
+		State.STIFF:
+			_update_stiff(delta)
+		State.STUNNED:
+			_update_stunned(delta)
 		State.DEAD, State.IMPALED:
 			pass
 	if state in [State.IDLE, State.CHASE, State.ATTACK, State.STAGGER, State.STUMBLE]:
@@ -327,6 +338,9 @@ func take_hit(hit: HitInfo) -> void:
 		Net.i.zombie_call(self, "take_hit", [hit.to_dict()])
 		return
 	if hit.bone in _cut_bones:
+		return
+	if state == State.STIFF:
+		health -= hit.damage * BONE_DAMAGE.get(hit.bone, 1.0) # caindo duro: só dói
 		return
 	var limb := _limb_of(hit.bone)
 	if state == State.CLIMB:
@@ -460,6 +474,12 @@ func _die(bone: StringName, point: Vector3, impulse: Vector3) -> void:
 func _enter_ragdoll() -> void:
 	_rep("enter_ragdoll", [Vector3(velocity.x, 0, velocity.z)])
 	ragdoll.start(Vector3(velocity.x, 0, velocity.z))
+	if _stiff_axis != Vector3.ZERO:
+		# Caiu duro: os ossos já ficaram deitados; a raiz volta a ficar de pé (para levantar).
+		_stiff_axis = Vector3.ZERO
+		global_basis = _stiff_basis
+		if locomotion.mode == ZombieLocomotion.Mode.STIFF:
+			locomotion.mode = ZombieLocomotion.Mode.CRAWL if crawler else ZombieLocomotion.Mode.WALK
 	velocity = Vector3.ZERO
 	balance = 0.0
 	if locomotion.mode == ZombieLocomotion.Mode.GETUP:
@@ -476,7 +496,7 @@ var _impale_died := false
 ## from_direction: direção da lâmina (do player para o zumbi). De lado não espeta;
 ## de frente ou de costas sim.
 func can_be_impaled(from_direction := Vector3.ZERO) -> bool:
-	if state in [State.IMPALED, State.DEAD, State.DOWN, State.GETTING_UP] or crawler:
+	if state in [State.IMPALED, State.DEAD, State.DOWN, State.GETTING_UP, State.STIFF] or crawler:
 		return false
 	if from_direction == Vector3.ZERO:
 		return true
@@ -604,7 +624,7 @@ func trip(direction: Vector3, force: float) -> void:
 	if puppet:
 		Net.i.zombie_call(self, "trip", [direction, force])
 		return
-	if state in [State.DOWN, State.DEAD, State.IMPALED, State.GETTING_UP] or crawler:
+	if state in [State.DOWN, State.DEAD, State.IMPALED, State.GETTING_UP, State.STIFF] or crawler:
 		return
 	_end_attack()
 	_enter_ragdoll()
@@ -1056,6 +1076,80 @@ func _target_dead() -> bool:
 	return hp != null and hp <= 0.0
 
 
+# --- Chinelo e bumerangue ---------------------------------------------------------
+
+## Chinelada na cabeça: dano de headshot e o zumbi cai DURO para trás
+## (braços e pernas juntos, como uma tábua), depois vira ragdoll no chão.
+func slipper_hit(direction: Vector3) -> void:
+	if puppet:
+		Net.i.zombie_call(self, "slipper_hit", [direction])
+		return
+	if state in [State.DEAD, State.DOWN, State.IMPALED, State.STIFF, State.GETTING_UP] or ragdoll.is_ragdolling():
+		if state == State.DEAD or ragdoll.is_ragdolling():
+			_rag_hit(&"Head", direction * 8.0, skeleton.global_position + Vector3.UP * 1.6)
+		return
+	health -= slipper_damage * BONE_DAMAGE[&"Head"]
+	_burst(global_position + Vector3.UP * 1.65, -direction + Vector3.UP, Color(1, 1, 1), 8, 2.0, 0.04)
+	_rep("stiff", [direction])
+	_begin_stiff(direction)
+
+
+func _begin_stiff(direction: Vector3) -> void:
+	_end_attack()
+	var flat := Vector3(direction.x, 0, direction.z).normalized()
+	if flat.is_zero_approx():
+		flat = global_basis.z
+	_stiff_axis = Vector3.UP.cross(flat).normalized() # tomba para longe de quem jogou
+	_stiff_basis = global_basis
+	velocity = Vector3.ZERO
+	locomotion.mode = ZombieLocomotion.Mode.STIFF
+	collision.set_deferred("disabled", true)
+	_state_hold = stiff_fall_time + 0.6
+	_set_state(State.STIFF)
+
+
+func _ev_stiff(direction: Vector3) -> void:
+	_begin_stiff(direction)
+
+
+## Tombo duro: gira em volta dos pés, acelerando como quem cai. No fim vira ragdoll.
+func _update_stiff(_delta: float) -> void:
+	if _stiff_axis == Vector3.ZERO:
+		return
+	var k := clampf(_state_time / stiff_fall_time, 0.0, 1.0)
+	global_basis = Basis(_stiff_axis, PI * 0.5 * k * k) * _stiff_basis
+	if k < 1.0 or puppet:
+		return # a cópia espera o host mandar o ragdoll
+	locomotion.mode = ZombieLocomotion.Mode.CRAWL if crawler else ZombieLocomotion.Mode.WALK
+	_enter_ragdoll()
+	if health <= 0.0:
+		_set_state(State.DEAD)
+		_drop_weapon()
+		died.emit(self)
+	else:
+		_set_state(State.DOWN)
+
+
+## Atordoado: para onde está, cambaleando tonto, e depois volta a perseguir.
+func stun(duration: float) -> void:
+	if puppet:
+		Net.i.zombie_call(self, "stun", [duration])
+		return
+	if state not in [State.IDLE, State.CHASE, State.ATTACK, State.STAGGER, State.STUMBLE]:
+		return
+	_end_attack()
+	_stun_time = duration
+	_set_state(State.STUNNED)
+
+
+func _update_stunned(delta: float) -> void:
+	_brake(delta)
+	balance = maxf(balance, stumble_at * 0.95) # cabeça rodando: o corpo balança
+	_lean_velocity += Vector2(sin(_state_time * 7.0), cos(_state_time * 5.0)) * delta * 2.0
+	if _state_time >= _stun_time:
+		_set_state(State.CHASE)
+
+
 ## Osso aproximado de um ponto na cápsula (tiro em zumbi longe, sem hitboxes).
 func hit_bone_at(point: Vector3) -> StringName:
 	var h := point.y - global_position.y
@@ -1244,6 +1338,10 @@ func call_from_peer(peer: int, method: String, args: Array) -> void:
 			trip(args[0], args[1])
 		"on_blocked":
 			on_blocked(args[0], args[1])
+		"slipper_hit":
+			slipper_hit(args[0])
+		"stun":
+			stun(args[0])
 		"alert":
 			var who: Node3D = Net.i.world.puppets.get(peer) if Net.i.world else null
 			if who:
@@ -1316,6 +1414,10 @@ func _puppet_physics(delta: float) -> void:
 			_update_lod()
 	_state_time += delta
 	_state_hold -= delta
+	if state == State.STIFF:
+		_update_stiff(delta) # caindo duro (o host manda o ragdoll no fim)
+		_update_body_pose(delta)
+		return
 	var ragdolled := ragdoll.is_ragdolling() and ragdoll.influence >= 1.0
 	if not ragdolled and _has_snap:
 		var t := 1.0 - exp(-12.0 * delta)
