@@ -82,6 +82,9 @@ var headlights_on := false
 
 
 var _rear_wheels: Array[VehicleWheel3D] = []
+var _wheels: Array[VehicleWheel3D] = []
+var air_damping := 3.0 ## quanto o giro de frente/lado some no ar (por segundo)
+var air_leveling := 4.0 ## quanto o carro se endireita no ar
 
 
 func _ready() -> void:
@@ -148,6 +151,7 @@ func hand_points() -> Array:
 func _physics_process(delta: float) -> void:
 	var forward := global_basis.z
 	var speed := linear_velocity.dot(forward)
+	_air_control(delta)
 	if driver == null:
 		engine_force = 0.0
 		brake = max_brake * 0.3
@@ -208,6 +212,20 @@ func _physics_process(delta: float) -> void:
 		brake = 2.0 # freio-motor
 	if Input.is_action_pressed("jump"):
 		brake = max_brake * 1.5 # freio de mão
+
+
+## No ar (salto/rampa): segura o giro de frente e de lado para cair de rodas
+## (arcade; o giro no próprio eixo continua livre).
+func _air_control(delta: float) -> void:
+	for wheel in _wheels:
+		if wheel.is_in_contact():
+			return
+	var up := global_basis.y
+	var spin := angular_velocity - up * angular_velocity.dot(up)
+	angular_velocity -= spin * minf(1.0, air_damping * delta)
+	# E endireita devagar se estiver inclinado.
+	var tilt := up.cross(Vector3.UP)
+	angular_velocity += tilt * air_leveling * delta
 
 
 ## Fração da força do motor nessa velocidade (0..1 da máxima).
@@ -631,6 +649,7 @@ func _build_wheels() -> void:
 			wheel.wheel_roll_influence = roll_influence
 			wheel.add_child(_wheel_node())
 			add_child(wheel)
+			_wheels.append(wheel)
 			if not front:
 				_rear_wheels.append(wheel)
 

@@ -95,9 +95,40 @@ static func connect_cities(cities: Array) -> Array:
 				if d < best_d:
 					best_d = d
 					best = [a, b]
-		roads.append({"a": best[0].center, "b": best[1].center, "width": STREET_WIDTH.avenue, "kind": "avenue", "city": null})
+		roads.append_array(_wonky_road(best[0].center, best[1].center))
 		connected.append(best[1])
 		left.erase(best[1])
+	return roads
+
+
+## Avenida torta entre dois pontos: curvas largas (duas ondas) + pequenos
+## desvios a cada trecho. As pontas ficam no lugar para encaixar nas cidades.
+## Cada trecho guarda a caixa (lo/hi) da área que ele afeta, para o relevo
+## pular rápido os trechos longe.
+static func _wonky_road(a: Vector2, b: Vector2) -> Array:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = hash([a.snapped(Vector2.ONE), b.snapped(Vector2.ONE)])
+	var length := a.distance_to(b)
+	var side := (b - a).normalized().orthogonal()
+	var count := maxi(int(length / 35.0), 2)
+	var amplitude := minf(length * 0.12, 110.0)
+	var waves := [rng.randf_range(0.6, 1.4), rng.randf_range(1.8, 3.2)]
+	var phases := [rng.randf() * TAU, rng.randf() * TAU]
+	var points: Array[Vector2] = []
+	for i in count + 1:
+		var t := float(i) / count
+		var taper := sin(PI * t) # zero nas pontas
+		var bend := sin(t * PI * waves[0] + phases[0]) * 0.65 + sin(t * PI * waves[1] + phases[1]) * 0.35
+		var jitter := rng.randf_range(-7.0, 7.0) if i > 0 and i < count else 0.0
+		points.append(a.lerp(b, t) + side * (bend * amplitude * taper + jitter))
+	var roads := []
+	var reach := STREET_WIDTH.avenue * 0.5 + 20.0
+	for i in count:
+		var p0 := points[i]
+		var p1 := points[i + 1]
+		roads.append({"a": p0, "b": p1, "width": STREET_WIDTH.avenue, "kind": "avenue", "city": null,
+			"lo": Vector2(minf(p0.x, p1.x), minf(p0.y, p1.y)) - Vector2.ONE * reach,
+			"hi": Vector2(maxf(p0.x, p1.x), maxf(p0.y, p1.y)) + Vector2.ONE * reach})
 	return roads
 
 

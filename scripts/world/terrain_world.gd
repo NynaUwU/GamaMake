@@ -44,6 +44,8 @@ var cities: Array = [] ## cidades geradas pela semente (CityGen): centro, raio, 
 var avenues: Array = [] ## avenidas entre as cidades maiores ({a, b, width, kind})
 var race_track: Array = [] ## segmentos de asfalto da pista de corrida (RaceTrack)
 var track: Dictionary = {} ## lugar e traçado da pista (RaceTrack.plan)
+var _avenue_grid := {} # Vector2i (células de AVENUE_CELL m) -> trechos de avenida que alcançam a célula
+const AVENUE_CELL := 64.0
 var _chunks := {} # Vector2i -> Node3D
 var _tasks := {} # Vector2i -> id da tarefa em andamento
 var _results := {} # Vector2i -> dados prontos (escrito pelas threads)
@@ -59,6 +61,7 @@ func _ready() -> void:
 	_setup_noise()
 	cities = CityGen.place_cities(self)
 	avenues = CityGen.connect_cities(cities)
+	_avenue_grid = _index_roads(avenues)
 	track = RaceTrack.plan(self)
 	if not track.is_empty():
 		race_track = track.segments
@@ -134,7 +137,9 @@ func _height_from(x: float, z: float, biome: Dictionary) -> float:
 	var h := raw_height(x, z, biome)
 	var p := Vector2(x, z)
 	# Avenidas: niveladas na largura, seguindo o relevo no comprimento.
-	for road in avenues:
+	for road in _avenue_grid.get(Vector2i(floori(x / AVENUE_CELL), floori(z / AVENUE_CELL)), []):
+		if p.x < road.lo.x or p.y < road.lo.y or p.x > road.hi.x or p.y > road.hi.y:
+			continue
 		var info := _segment_info(p, road.a, road.b)
 		var reach: float = road.width * 0.5 + 18.0
 		if info.y < reach:
@@ -144,7 +149,7 @@ func _height_from(x: float, z: float, biome: Dictionary) -> float:
 	if not track.is_empty():
 		var w := RaceTrack.flatten_weight(track, p)
 		if w > 0.0:
-			h = lerpf(h, track.base, w)
+			h = lerpf(h, RaceTrack.surface(track, p), w)
 	for city in cities:
 		var d := _city_distance(city, p)
 		var r: float = city.radius
@@ -157,6 +162,19 @@ func _height_from(x: float, z: float, biome: Dictionary) -> float:
 func _city_distance(city: Dictionary, p: Vector2) -> float:
 	var local := CityGen.to_local(city, p).abs()
 	return maxf(local.x, local.y) * 0.85 + local.length() * 0.15
+
+
+## Grade de trechos: cada célula guarda os trechos cuja caixa (lo/hi) a toca.
+static func _index_roads(roads: Array) -> Dictionary:
+	var grid := {}
+	for road in roads:
+		for gx in range(floori(road.lo.x / AVENUE_CELL), floori(road.hi.x / AVENUE_CELL) + 1):
+			for gy in range(floori(road.lo.y / AVENUE_CELL), floori(road.hi.y / AVENUE_CELL) + 1):
+				var key := Vector2i(gx, gy)
+				if not grid.has(key):
+					grid[key] = []
+				grid[key].append(road)
+	return grid
 
 
 ## (t ao longo do segmento 0..1, distância até ele).
@@ -180,16 +198,17 @@ func road_at(x: float, z: float) -> Dictionary:
 				best = {"kind": street.kind, "edge": 1.0 - smoothstep(half - 0.8, half, info.y)}
 				if street.kind == "avenue":
 					return best
-	for road in avenues:
+	for road in _avenue_grid.get(Vector2i(floori(x / AVENUE_CELL), floori(z / AVENUE_CELL)), []):
+		if p.x < road.lo.x or p.y < road.lo.y or p.x > road.hi.x or p.y > road.hi.y:
+			continue
 		var info := _segment_info(p, road.a, road.b)
 		if info.y < road.width * 0.5:
 			return {"kind": "avenue", "edge": 1.0 - smoothstep(road.width * 0.5 - 0.8, road.width * 0.5, info.y)}
-	if not track.is_empty() and RaceTrack.flatten_weight(track, p) < 0.99:
+	if track.is_empty() or RaceTrack.flatten_weight(track, p) < 0.99:
 		return best
-	for road in race_track:
-		var info := _segment_info(p, road.a, road.b)
-		if info.y < road.width * 0.5:
-			return {"kind": "asphalt", "edge": 1.0 - smoothstep(road.width * 0.5 - 0.8, road.width * 0.5, info.y)}
+	var on_track := RaceTrack.road_at(track, p)
+	if not on_track.is_empty():
+		return on_track
 	return best
 
 

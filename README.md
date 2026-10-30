@@ -38,6 +38,7 @@ reação física a golpes e ragdoll (estilo Dying Light), visual de PC dos anos 
 - **Dirigir é em primeira pessoa**: você senta no banco, olha em volta com o mouse e as mãos
   ficam no volante (que gira com a direção). Sem para-brisa: o **velocímetro** (0–140 km/h,
   ponteiro funcionando) fica embutido no centro do painel.
+- No ar (saltos, rampas) o carro segura o giro e se endireita devagar para cair de rodas.
 - Pneus escorregam um pouco antes de tombar. Em alta velocidade a roda vira bem menos
   (100% parado, ~45% a 50 km/h, ~15% a 100 km/h). Dirigindo, volante e braços ficam semitransparentes
   e o mouse gira só a cabeça (o corpo fica sentado). **Faróis** acendem ao entrar; **L** liga/desliga.
@@ -131,9 +132,15 @@ os ícones.
   pegue e clique para comer, +25 de vida), arbustos, pinheiros, rochas, **3 tipos de cacto grandes
   e tortos** e muita **grama/arbustos de folhas cruzadas** (estilo Minecraft), via MultiMesh, com
   colisão no tronco/rocha. Planejado em thread. Sempre os mesmos para a mesma semente.
-- `race_track.gd`: **autódromo** no deserto inspirado na The Motor Raceway (FlatOut 2): oval
-  grande, misto no meio com grampo e um cruzamento em "8" — tudo aberto, sem trechos fechados.
-  Barreiras vermelho/branco, pneus, largada quadriculada, pórtico e arquibancada.
+- `race_track.gd`: **autódromo** no deserto inspirado na The Motor Raceway (FlatOut 2), com
+  traçado 3D (cada ponto tem altura; o terreno é moldado pela pista). Tudo aberto, sem trechos fechados:
+  - **oval** com as **curvas inclinadas** (~10°) e uma **lombada na reta oposta** que faz o carro voar a partir de ~85 km/h;
+  - **misto**: desce numa valeta, sobe o **morro do infield**, **grampo** lá em cima e desce em S;
+  - **cruzamento** de ponta a ponta numa **trincheira** com muros de arrimo; o misto passa por cima numa **ponte**;
+  - **atalhos de terra**: um corta a curva 1 por dentro (**rampa** sobre uma valeta), outro sai do grampo e
+    **pula por cima da trincheira**;
+  - muretas vermelho/branco seguindo a inclinação, pneus, placas, largada quadriculada, pórtico e arquibancada.
+  - Traçado em constantes no topo do arquivo (`INFIELD`, `CROSS`, `SHORTCUT_*`, `RAMPS`); teste em `tests/test_track.gd`.
 - `biome_atmosphere.gd`: neblina por distância conforme o bioma, com transição suave:
   planície ~130 m, deserto ~150 m, montanha ~115 m, **neve ~50 m** (com neve caindo e sol mais
   fraco). Valores na tabela `FOG`.
@@ -233,7 +240,7 @@ tests/                 testes headless (ragdoll, juntas, jogo)
 - Geradas pela semente: **2 grandes**, **4 médias** e **7 vilas**, em terreno plano (fora das
   montanhas), com o chão achatado, formato **quase quadrado** (grade de quarteirões com bordas
   comidas) e ruas: **avenida** no eixo central, **ruas comuns** na grade e **terra** na borda e
-  nas vilas. **Avenidas** ligam as cidades grandes e médias pelo mapa.
+  nas vilas. **Avenidas** tortas (curvas largas + desvios a cada ~35 m) ligam as cidades grandes e médias pelo mapa.
 - Torres altas ganham **ramificações tortas** como os cactos: um braço (ponte fechada) que sai
   do meio do prédio e vira uma mini-torre inclinada com telhado.
 - Casas medievais com toque steampunk, em ruínas, no estilo **Hello Neighbor**: andares
