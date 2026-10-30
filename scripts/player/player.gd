@@ -8,6 +8,7 @@ extends CharacterBody3D
 ## Atacar não gasta stamina; stamina é só para correr.
 
 signal health_changed(current: float, maximum: float)
+signal hunger_changed(current: float, maximum: float)
 signal stamina_changed(current: float, maximum: float)
 signal interact_prompt_changed(text: String) ## "" = nada para interagir
 signal notify(text: String) ## mensagens curtas no HUD
@@ -15,18 +16,18 @@ signal item_picked_up(item_id: StringName, amount: int) ## gancho para o invent�
 signal died
 signal weapon_changed(weapon_text: String) ## nome da arma (+ munição)
 
-enum WeaponType { FISTS, SWORD, BAT, STAFF, PISTOL, CHARGER, SPOON, GRAPPLE, HAMMER, CHISEL, SLIPPER, BOOMERANG }
+enum WeaponType { FISTS, SWORD, BAT, STAFF, PISTOL, CHARGER, SPOON, GRAPPLE, HAMMER, CHISEL, SLIPPER, BOOMERANG, SHOVEL }
 const WEAPON_NAMES := {
 	WeaponType.FISTS: "Mãos", WeaponType.SWORD: "Espada", WeaponType.BAT: "Taco",
 	WeaponType.STAFF: "Cajado", WeaponType.PISTOL: "Pistola", WeaponType.CHARGER: "Carregador", WeaponType.SPOON: "Colherona", WeaponType.GRAPPLE: "Gancho",
 	WeaponType.HAMMER: "Martelo", WeaponType.CHISEL: "Talhadeira",
-	WeaponType.SLIPPER: "Chinelo", WeaponType.BOOMERANG: "Bumerangue",
+	WeaponType.SLIPPER: "Chinelo", WeaponType.BOOMERANG: "Bumerangue", WeaponType.SHOVEL: "Pá",
 }
 ## ItemDB "weapon" -> tipo de arma do player.
 const WEAPON_FROM_ITEM := {"sword": WeaponType.SWORD, "bat": WeaponType.BAT,
 	"staff": WeaponType.STAFF, "pistol": WeaponType.PISTOL, "charger": WeaponType.CHARGER, "spoon": WeaponType.SPOON, "grapple": WeaponType.GRAPPLE,
 	"hammer": WeaponType.HAMMER, "chisel": WeaponType.CHISEL,
-	"slipper": WeaponType.SLIPPER, "boomerang": WeaponType.BOOMERANG}
+	"slipper": WeaponType.SLIPPER, "boomerang": WeaponType.BOOMERANG, "shovel": WeaponType.SHOVEL}
 const SLIPPER_REST := Vector3(0.2, -0.24, -0.4)
 const BOOMERANG_REST := Vector3(0.2, -0.22, -0.42)
 const HAMMER_REST := Vector3(0.24, -0.26, -0.44)
@@ -244,6 +245,14 @@ var _punch_side := 0
 var _punch_anim := [0.0, 0.0] # direita, esquerda (1 = braço esticado)
 
 var spoon: Node3D ## colherona na mão
+var shovel: Node3D ## pá na mão
+
+## Fome: cai devagar (mais rápido correndo). Cheia (> 80) recupera vida aos
+## pouquinhos; zerada, a vida vai caindo. Comida enche ("hunger" no ItemDB).
+const MAX_HUNGER := 100.0
+const HUNGER_RATE := 100.0 / (22.0 * 60.0) ## por segundo: ~22 min de cheia a zero
+var hunger := MAX_HUNGER
+var _hunger_warned := false
 var grapple: Node3D ## lançador do gancho na mão
 var _grapple_active := false
 var _anchor := Vector3.ZERO
@@ -311,6 +320,9 @@ func _ready() -> void:
 	chisel = Node3D.new()
 	chisel.name = "Chisel"
 	camera.add_child(chisel)
+	shovel = Node3D.new()
+	shovel.name = "Shovel"
+	camera.add_child(shovel)
 	_melee = {
 		WeaponType.SWORD: {"node": weapon, "damage": melee_damage, "force": melee_force, "speed": 1.0,
 			"cut": true, "length": 0.98, "trail": Color(1.0, 1.0, 0.95), "hitstop": 0.06},
@@ -318,6 +330,8 @@ func _ready() -> void:
 			"cut": false, "length": 0.9, "trail": Color(0.85, 0.75, 0.6), "hitstop": 0.09},
 		WeaponType.SPOON: {"node": spoon, "damage": spoon_damage, "force": spoon_force, "speed": spoon_speed,
 			"cut": false, "length": 1.5, "trail": Color(0.9, 0.9, 0.95), "hitstop": 0.12},
+		WeaponType.SHOVEL: {"node": shovel, "damage": 26.0, "force": 50.0, "speed": 0.85,
+			"cut": false, "length": 1.1, "trail": Color(0.75, 0.7, 0.6), "hitstop": 0.08},
 	}
 	if not is_puppet():
 		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
@@ -371,6 +385,8 @@ func _unhandled_input(event: InputEvent) -> void:
 	elif health > 0.0 and not ui_blocked:
 		if event.is_action_pressed("attack") and ItemDB.def(inventory.selected_id()).kind == "food":
 			_eat_selected()
+		elif event.is_action_pressed("attack") and ItemDB.def(inventory.selected_id()).kind == "seed":
+			Farming.use(self, String(ItemDB.def(inventory.selected_id()).crop))
 		elif event.is_action_pressed("attack"):
 			if _blocking:
 				pass
@@ -393,6 +409,9 @@ func _unhandled_input(event: InputEvent) -> void:
 				_throw_slipper()
 			elif _weapon_type == WeaponType.BOOMERANG:
 				_throw_boomerang()
+		elif event.is_action_pressed("block") and _weapon_type == WeaponType.SHOVEL:
+			if Farming.use(self, ""):
+				_start_swing_visual_only()
 		elif event.is_action_pressed("block") and _weapon_type == WeaponType.HAMMER:
 			builder.open_menu() # segurando: menu de construção; soltando: escolhe
 		elif event.is_action_pressed("reload") and _weapon_type == WeaponType.HAMMER:
@@ -426,6 +445,8 @@ func _physics_process(delta: float) -> void:
 	_net_send(delta)
 	if health <= 0.0:
 		return
+	if not is_puppet():
+		_update_hunger(delta)
 	if vehicle:
 		# Sentado no banco: acompanha o carro (o mouse gira só a cabeça).
 		# Sentado: o corpo fica preso ao banco; o mouse gira só a cabeça (pernas não seguem a câmera).
@@ -611,6 +632,7 @@ func _install_weapon_models() -> void:
 	staff.add_child(staff_model)
 	pistol.add_child(ItemModels.build(&"pistola"))
 	spoon.add_child(ItemModels.build(&"colher"))
+	shovel.add_child(ItemModels.build(&"pa"))
 	grapple.add_child(ItemModels.build(&"gancho"))
 	hammer.add_child(ItemModels.build(&"martelo"))
 	slipper.add_child(ItemModels.build(&"chinelo"))
@@ -687,6 +709,8 @@ func _update_fp_arm() -> void:
 			grip = bat.transform.translated_local(Vector3(0, 0, -0.05))
 		WeaponType.SPOON:
 			grip = spoon.transform.translated_local(Vector3(0, 0, 0.0))
+		WeaponType.SHOVEL:
+			grip = shovel.transform.translated_local(Vector3(0, 0, -0.05))
 		WeaponType.GRAPPLE:
 			grip = grapple.transform.translated_local(Vector3(0, -0.05, 0.03))
 		WeaponType.STAFF:
@@ -734,7 +758,7 @@ func _update_parkour_hands() -> void:
 	if both:
 		if not _hands_busy and w > 0.3:
 			_hands_busy = true
-			for node in [weapon, bat, staff, pistol, charger, spoon, grapple, hammer, chisel, slipper, boomerang]:
+			for node in [weapon, bat, staff, pistol, charger, spoon, grapple, hammer, chisel, slipper, boomerang, shovel]:
 				node.visible = false
 		var rest_r := Vector3(0.2, -0.26, -0.38)
 		var planted_r: Vector3 = visible_point.call(to_camera * parkour.hand_targets[1])
@@ -785,6 +809,8 @@ func _show_weapon(type: WeaponType) -> void:
 	staff.visible = type == WeaponType.STAFF
 	pistol.visible = type == WeaponType.PISTOL
 	spoon.visible = type == WeaponType.SPOON
+	if shovel:
+		shovel.visible = type == WeaponType.SHOVEL
 	if grapple:
 		grapple.visible = type == WeaponType.GRAPPLE
 	if type != WeaponType.GRAPPLE:
@@ -1294,7 +1320,7 @@ func enter_vehicle(car: VintageCar) -> void:
 	_vehicle_pitch = 0.0
 	# Primeira pessoa: guarda a arma; as mãos vão para o volante.
 	_release_grapple()
-	for node in [weapon, bat, staff, pistol, charger, spoon, grapple, hammer, chisel, slipper, boomerang, foot]:
+	for node in [weapon, bat, staff, pistol, charger, spoon, grapple, hammer, chisel, slipper, boomerang, shovel, foot]:
 		node.visible = false
 	_fp_arm_left.visible = true
 	_fp_hand_left.visible = true
@@ -1338,17 +1364,67 @@ func exit_vehicle() -> void:
 	_emit_weapon_text()
 
 
-## Come o item de comida do slot selecionado (fruta): recupera vida.
+## Come o item de comida do slot selecionado: enche a fome e/ou recupera vida.
 func _eat_selected() -> void:
 	var id := inventory.selected_id()
 	var heal_amount: float = ItemDB.def(id).get("heal", 0)
-	if health >= max_health:
-		notify.emit("Vida cheia")
+	var food: float = ItemDB.def(id).get("hunger", 0)
+	var useful := (heal_amount > 0.0 and health < max_health) or (food > 0.0 and hunger < MAX_HUNGER - 2.0)
+	if not useful:
+		notify.emit("Vida cheia" if food <= 0.0 else "Sem fome")
 		return
 	inventory.take(inventory.selected, 1)
 	heal(heal_amount)
+	eat(food)
 	Sfx.play("crunch")
-	notify.emit("Comeu %s (+%d vida)" % [ItemDB.display_name(id), heal_amount])
+	var parts := []
+	if food > 0.0:
+		parts.append("+%d fome" % food)
+	if heal_amount > 0.0:
+		parts.append("+%d vida" % heal_amount)
+	notify.emit("Comeu %s (%s)" % [ItemDB.display_name(id), ", ".join(parts)])
+
+
+func eat(amount: float) -> void:
+	hunger = clampf(hunger + amount, 0.0, MAX_HUNGER)
+	if hunger > 25.0:
+		_hunger_warned = false
+	hunger_changed.emit(hunger, MAX_HUNGER)
+
+
+func _update_hunger(delta: float) -> void:
+	var rate := HUNGER_RATE * (1.8 if _is_sprinting() else 1.0)
+	var before := int(hunger)
+	hunger = maxf(hunger - rate * delta, 0.0)
+	if hunger <= 0.0:
+		health = maxf(health - 0.6 * delta, 0.0) # passando fome: perde vida devagar
+		health_changed.emit(health, max_health)
+		if health <= 0.0:
+			notify.emit("Você morreu de fome - aperte Backspace para %s" % ("renascer" if Net.i.online() else "recomeçar"))
+			died.emit()
+	elif hunger > 80.0 and health < max_health:
+		heal(0.25 * delta)
+	if hunger < 25.0 and not _hunger_warned:
+		_hunger_warned = true
+		notify.emit("Com fome... coma alguma coisa")
+	if int(hunger) != before:
+		hunger_changed.emit(hunger, MAX_HUNGER)
+
+
+## Pá cavando/plantando: só o movimento da pá (sem acertar ninguém).
+func _start_swing_visual_only() -> void:
+	_shake = maxf(_shake, 0.05)
+	Sfx.play_at("step_soft", global_position + Vector3.UP * 0.3, 4.0, 0.7)
+
+
+## Salvo junto com o jogador (SaveGame).
+func save_extra() -> Dictionary:
+	return {"hunger": hunger}
+
+
+func load_extra(data: Dictionary) -> void:
+	hunger = data.get("hunger", MAX_HUNGER)
+	hunger_changed.emit(hunger, MAX_HUNGER)
 
 
 ## Coloca o item no inventário. Devolve quanto NÃO coube.
@@ -1384,7 +1460,7 @@ func _is_facing_attack(from_direction: Vector3) -> bool:
 # Bloqueio ---------------------------------------------------------------------
 
 func _update_block(delta: float) -> void:
-	var want := Input.is_action_pressed("block") and _is_melee() and not ui_blocked and health > 0.0 \
+	var want := Input.is_action_pressed("block") and _is_melee() and _weapon_type != WeaponType.SHOVEL and not ui_blocked and health > 0.0 \
 			and _swing_phase == SwingPhase.NONE and not _charging and not _busy and _equip >= 1.0
 	if want and not _blocking:
 		_block_time = 0.0
@@ -1785,6 +1861,8 @@ func respawn() -> void:
 		exit_vehicle()
 	health = max_health
 	stamina = max_stamina
+	hunger = maxf(hunger, 70.0)
+	hunger_changed.emit(hunger, MAX_HUNGER)
 	velocity = Vector3.ZERO
 	if spawn_point != Vector3.INF:
 		global_position = spawn_point

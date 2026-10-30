@@ -40,7 +40,7 @@ func _ready() -> void:
 	_grid.add_theme_constant_override("v_separation", 6)
 	scroll.add_child(_grid)
 	_info = Label.new()
-	_info.custom_minimum_size = Vector2(0, 34)
+	_info.custom_minimum_size = Vector2(0, 50)
 	_info.autowrap_mode = TextServer.AUTOWRAP_WORD
 	_info.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	column.add_child(_info)
@@ -127,6 +127,9 @@ func _make_slot(entry: Dictionary) -> Control:
 	if button.icon == null:
 		button.text = entry.name.left(6) # sem foto (headless): ao menos o nome
 	var current: bool = builder.selection.get("id") == entry.id
+	var affordable := Builder.can_afford(builder.player.inventory, entry.get("cost", {}))
+	if not affordable:
+		button.modulate = Color(1.0, 0.6, 0.55) # falta material
 	for state in ["normal", "hover", "pressed"]:
 		var style := StyleBoxFlat.new()
 		style.bg_color = LegacyGUI.SLOT.lightened(0.12 if state == "hover" else 0.0)
@@ -138,7 +141,7 @@ func _make_slot(entry: Dictionary) -> Control:
 		close(false))
 	button.mouse_entered.connect(func():
 		_hovered = entry
-		_info.text = "%s\n%s" % [entry.name, entry.get("desc", "")])
+		_info.text = "%s: %s\nCusto: %s" % [entry.name, entry.get("desc", ""), Builder.cost_text(entry.get("cost", {}), builder.player.inventory)])
 	button.mouse_exited.connect(func(): if _hovered == entry: _hovered = {})
 	box.add_child(button)
 	var label := Label.new()

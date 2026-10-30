@@ -129,6 +129,24 @@ func _add_house(city_node: Node3D, city: Dictionary, lot: Dictionary) -> void:
 	house.position = Vector3(local.x, 0.0, local.y)
 	house.rotation.y = lot.yaw
 	city_node.add_child(house)
+	_add_loot(house, lot)
+
+
+## Baú/armário/caixote na frente de ~65% das casas (escombros: caixote de ruína).
+func _add_loot(house: Node3D, lot: Dictionary) -> void:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = lot.seed + 77
+	if rng.randf() > 0.65:
+		return
+	var style: String = "caixote" if lot.ruin else LootBox.STYLES[rng.randi() % LootBox.STYLES.size()]
+	var table: String = "ruina" if lot.ruin else ("caixote" if style == "caixote" else "casa")
+	var box := LootBox.new()
+	box.name = "Loot"
+	box.setup("loot_%d" % lot.seed, style, table)
+	var side := 1.0 if rng.randf() < 0.5 else -1.0
+	box.position = Vector3(side * rng.randf_range(1.2, maxf(1.3, lot.w * 0.4)), 0.0, -lot.d * 0.5 - 0.75)
+	box.rotation.y = PI + rng.randf_range(-0.25, 0.25) # frente para a rua
+	house.add_child(box)
 
 
 func _spawn_zombies(city_node: Node3D, city: Dictionary) -> void:

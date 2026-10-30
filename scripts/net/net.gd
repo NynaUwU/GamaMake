@@ -651,6 +651,7 @@ func _give(item_id: StringName, amount: int, where: Transform3D) -> void:
 @rpc("authority", "reliable")
 func _taken(key: String) -> void:
 	taken[key] = true
+	looted.emit(key)
 	_drops.erase(key)
 	var item: PickupItem = _pickups.get(key)
 	_pickups.erase(key)
@@ -793,6 +794,74 @@ func _build(action: String, args: Array) -> void:
 func _build_state(list: Array) -> void:
 	if world and world.get_node_or_null("Building"):
 		world.get_node("Building").load_state(list)
+
+
+# --- Sistemas do mundo (potes/canteiros/bancadas...) -----------------------------
+
+## Mesmo esquema da construção para qualquer nó da cena principal com
+## host_apply(action, args) -> Array e apply_remote(action, args).
+func system_request(system: String, action: String, args: Array) -> void:
+	if world == null or world.get_node_or_null(system) == null:
+		return
+	if is_host():
+		var result: Array = world.get_node(system).host_apply(action, args)
+		if online() and not result.is_empty():
+			_system.rpc(system, action, result)
+	else:
+		_req_system.rpc_id(1, system, action, args)
+
+
+@rpc("any_peer", "reliable")
+func _req_system(system: String, action: String, args: Array) -> void:
+	system_request(system, action, args)
+
+
+@rpc("authority", "reliable")
+func _system(system: String, action: String, args: Array) -> void:
+	if world and world.get_node_or_null(system):
+		world.get_node(system).apply_remote(action, args)
+
+
+func send_system_state(peer: int, system: String, data: Variant) -> void:
+	_system_state.rpc_id(peer, system, data)
+
+
+@rpc("authority", "reliable")
+func _system_state(system: String, data: Variant) -> void:
+	if world and world.get_node_or_null(system):
+		world.get_node(system).load_data(data)
+
+
+# --- Saque (baús e armários das cidades) ------------------------------------------
+
+signal looted(key: String) ## um baú foi revistado (por qualquer jogador)
+
+
+## Abre o baú "key": o host sorteia os itens e solta no chão na frente dele.
+## Cada baú só uma vez por mundo (fica em "taken", que vai no save).
+func loot_request(key: String, where: Transform3D, table: String) -> void:
+	if taken.has(key):
+		return
+	if not online() or multiplayer.is_server():
+		_do_loot(key, where, table)
+	else:
+		_req_loot.rpc_id(1, key, where, table)
+
+
+@rpc("any_peer", "reliable")
+func _req_loot(key: String, where: Transform3D, table: String) -> void:
+	if not taken.has(key):
+		_do_loot(key, where, table)
+
+
+func _do_loot(key: String, where: Transform3D, table: String) -> void:
+	if online():
+		_taken.rpc(key)
+	_taken(key)
+	for drop in Loot.roll(table):
+		var spot := where.translated(Vector3(randf_range(-0.3, 0.3), 0.9, randf_range(-0.3, 0.3)))
+		var push := where.basis.z * randf_range(1.0, 2.2) + Vector3(randf_range(-0.8, 0.8), randf_range(1.5, 2.5), 0)
+		drop_item(drop[0], drop[1], spot, push)
 
 
 # --- Efeitos -------------------------------------------------------------------

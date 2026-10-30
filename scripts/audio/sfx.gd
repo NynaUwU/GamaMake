@@ -39,7 +39,10 @@ static func play(name: String, volume_db := 0.0, pitch := 1.0) -> void:
 		_ui = AudioStreamPlayer.new()
 		_ui.max_polyphony = 6
 		tree.root.add_child.call_deferred(_ui)
+	if not _ui.is_inside_tree():
 		await tree.process_frame
+		if not is_instance_valid(_ui) or not _ui.is_inside_tree():
+			return
 	_ui.stream = stream(name)
 	_ui.volume_db = volume_db + _VOLUME.get(name, 0.0)
 	_ui.pitch_scale = pitch * (1.0 + _rng.randf_range(-0.05, 0.05))

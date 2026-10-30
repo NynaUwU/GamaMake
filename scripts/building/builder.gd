@@ -16,22 +16,35 @@ extends Node
 ## Talhadeira: clique tira o meio quadrado mirado (triângulo); R troca a
 ## diagonal do corte ("/" ou "\\"). Clique e ARRASTE seleciona uma área
 ## (retângulo de quadrados) e tira tudo ao soltar.
+##
+## Custo: cada peça gasta material do inventário ("cost"); desmontar devolve
+## metade. Aba Outros: potes, floreira, canteiro (piso de terra na grade) e
+## bancada de fabricação (PlacedManager).
 
 const REACH := 7.0
 const MASK := 1
 const ENTRIES := {
 	"Estrutura": [
-		{"id": "wall", "name": "Parede", "kind": BuildPiece.Kind.WALL, "desc": "2,8 x 2,8 m; R gira"},
-		{"id": "floor", "name": "Piso", "kind": BuildPiece.Kind.FLOOR, "desc": "Topo na altura da grade"},
-		{"id": "roof", "name": "Teto", "kind": BuildPiece.Kind.ROOF, "desc": "Apoia no topo das paredes"},
-		{"id": "pillar", "name": "Pilar", "kind": BuildPiece.Kind.PILLAR, "desc": "0,4 m de lado, 2,8 m de altura"},
+		{"id": "wall", "name": "Parede", "kind": BuildPiece.Kind.WALL, "desc": "2,8 x 2,8 m; R gira", "cost": {&"tabua": 4}},
+		{"id": "floor", "name": "Piso", "kind": BuildPiece.Kind.FLOOR, "desc": "Topo na altura da grade", "cost": {&"tabua": 4}},
+		{"id": "roof", "name": "Teto", "kind": BuildPiece.Kind.ROOF, "desc": "Apoia no topo das paredes", "cost": {&"tabua": 4}},
+		{"id": "pillar", "name": "Pilar", "kind": BuildPiece.Kind.PILLAR, "desc": "0,4 m de lado, 2,8 m de altura", "cost": {&"tabua": 1, &"pedra": 1}},
 	],
 	"Aberturas": [
-		{"id": "window", "name": "Janela", "fill": "window", "desc": "Preenche um buraco feito pela talhadeira"},
-		{"id": "door", "name": "Porta", "fill": "door", "desc": "Buraco que encoste no chão; [E] abre"},
+		{"id": "window", "name": "Janela", "fill": "window", "desc": "Preenche um buraco feito pela talhadeira", "cost": {&"tabua": 1, &"sucata": 1}},
+		{"id": "door", "name": "Porta", "fill": "door", "desc": "Buraco que encoste no chão; [E] abre", "cost": {&"tabua": 3, &"sucata": 1}},
 	],
-	"Outros": [],
+	"Outros": [
+		{"id": "pot_small", "name": "Pote", "place": "pot_small", "desc": "Pote de barro: 1 planta (não cabe abóbora)", "cost": {&"pedra": 2}},
+		{"id": "pot_wide", "name": "Floreira", "place": "pot_wide", "desc": "Floreira larga: 3 plantas", "cost": {&"tabua": 2, &"pedra": 2}},
+		{"id": "bed", "name": "Canteiro", "place": "bed", "desc": "Piso de terra na grade da construção: 9 plantas", "cost": {&"tabua": 3, &"pedra": 4}},
+		{"id": "bench", "name": "Bancada", "place": "bench", "desc": "Bancada de fabricação: [E] abre as receitas", "cost": {&"tabua": 6, &"sucata": 2}},
+	],
 }
+
+## Tamanho (caixa do fantasma) dos objetos da aba Outros.
+const PLACE_SIZE := {"pot_small": Vector3(0.46, 0.31, 0.46), "pot_wide": Vector3(1.24, 0.36, 0.48), "bench": Vector3(1.6, 0.9, 0.75)}
+const PLACE_RADIUS := {"pot_small": 0.35, "pot_wide": 0.7, "bench": 0.9}
 
 var player: Player
 var selection: Dictionary = ENTRIES["Estrutura"][0]
@@ -84,6 +97,13 @@ func _ready() -> void:
 
 ## Modelo para a foto do menu (a peça em si; janela/porta numa parede com o buraco).
 static func preview_model(entry: Dictionary) -> Node3D:
+	if entry.has("place"):
+		var obj := PlacedObject.new()
+		obj.setup(entry.place)
+		if entry.place == "pot_small" or entry.place == "pot_wide":
+			obj.crops[0] = {"crop": "cenoura", "t": -1000.0} # com uma planta, para a foto
+			obj.refresh(0.0)
+		return obj
 	var piece := BuildPiece.new()
 	if entry.has("kind"):
 		piece.setup(entry.kind, Vector3i.ZERO, 0)
@@ -106,15 +126,94 @@ func _manager() -> BuildingManager:
 
 
 func tool_name() -> String:
-	return "%s%s" % [selection.name, "  (girada)" if flip and selection.get("kind", -1) == BuildPiece.Kind.WALL else ""]
+	var text: String = "%s%s" % [selection.name, "  (girada)" if flip and selection.get("kind", -1) == BuildPiece.Kind.WALL else ""]
+	if selection.has("cost"):
+		text += "  [%s]" % cost_text(selection.cost, player.inventory if player else null)
+	return text
+
+
+# --- Custo -----------------------------------------------------------------------
+
+## "4 Tábua, 1 Pedra" (com inventário: "4/10 Tábua").
+static func cost_text(cost: Dictionary, inventory: Inventory = null) -> String:
+	var parts := []
+	for id in cost:
+		if inventory:
+			parts.append("%d/%d %s" % [cost[id], inventory.count(id), ItemDB.display_name(id)])
+		else:
+			parts.append("%d %s" % [cost[id], ItemDB.display_name(id)])
+	return ", ".join(parts)
+
+
+static func can_afford(inventory: Inventory, cost: Dictionary) -> bool:
+	for id in cost:
+		if inventory.count(id) < cost[id]:
+			return false
+	return true
+
+
+static func pay(inventory: Inventory, cost: Dictionary) -> void:
+	for id in cost:
+		var left: int = cost[id]
+		for i in inventory.slots.size():
+			if left <= 0:
+				break
+			if not inventory.slots[i].is_empty() and inventory.slots[i].id == id:
+				left -= inventory.take(i, left).get("amount", 0)
+
+
+## Desmontou: devolve metade (arredondando para cima).
+func _refund(cost: Dictionary) -> void:
+	for id in cost:
+		var amount := ceili(cost[id] * 0.5)
+		var left := player.inventory.add(id, amount)
+		if left > 0:
+			Net.i.drop_item(id, left, player.global_transform.translated(Vector3.UP), Vector3.ZERO)
+
+
+func _paid(entry: Dictionary) -> bool:
+	var cost: Dictionary = entry.get("cost", {})
+	if not can_afford(player.inventory, cost):
+		player.notify.emit("Falta material: %s" % cost_text(cost, player.inventory))
+		return false
+	pay(player.inventory, cost)
+	return true
+
+
+static func entry_for_kind(kind_: int) -> Dictionary:
+	for entry in ENTRIES["Estrutura"]:
+		if entry.kind == kind_:
+			return entry
+	return {}
+
+
+static func entry_for(key: String, value: String) -> Dictionary:
+	for tab in ENTRIES:
+		for entry in ENTRIES[tab]:
+			if entry.get(key, "") == value:
+				return entry
+	return {}
 
 
 func select(entry: Dictionary) -> void:
 	selection = entry
+	_apply_ghost(entry)
+	player._emit_weapon_text()
+
+
+func _apply_ghost(entry: Dictionary) -> void:
 	if entry.has("kind"):
 		kind = entry.kind
 		_set_ghost_shape()
-	player._emit_weapon_text()
+	elif entry.get("place", "") == "bed":
+		kind = BuildPiece.Kind.FLOOR
+		_set_ghost_shape()
+	elif entry.has("place"):
+		var box := BoxMesh.new()
+		box.size = PLACE_SIZE[entry.place]
+		_ghost_mesh.mesh = box
+		_ghost_mesh.scale = Vector3.ONE
+		_ghost_mesh.position = Vector3(0, box.size.y * 0.5, 0)
 
 
 func open_menu() -> void:
@@ -149,6 +248,16 @@ func update(tool: String) -> void:
 			var hit := _ray()
 			if hit and (hit.collider is BuildPiece or hit.collider is BuildFill):
 				_show_removal(hit.collider)
+			elif hit and hit.collider is PlacedObject:
+				_draw_box(hit.collider)
+			return
+		if selection.has("place"):
+			target = _compute_place()
+			if target.is_empty():
+				return
+			_ghost.visible = true
+			_ghost.global_transform = target.xform
+			_ghost_material.albedo_color = Color(0.3, 1.0, 0.4, 0.35) if target.valid else Color(1.0, 0.25, 0.2, 0.35)
 			return
 		if selection.has("fill"):
 			fill_target = _compute_hole()
@@ -187,18 +296,29 @@ func use(tool: String) -> bool:
 		if Input.is_key_pressed(KEY_SHIFT):
 			var hit := _ray()
 			if hit and hit.collider is BuildFill:
+				_refund(entry_for("fill", hit.collider.type).get("cost", {}))
 				manager.request_unfill(hit.collider.piece, hit.collider.fill_index)
 				return true
 			if hit and hit.collider is BuildPiece:
+				_refund(entry_for_kind(hit.collider.kind).get("cost", {}))
 				manager.request_remove(hit.collider)
+				return true
+			if hit and hit.collider is PlacedObject and hit.collider.kind != "ground":
+				_refund(entry_for("place", hit.collider.kind).get("cost", {}))
+				_placed().request("remove", [hit.collider.net_id])
+				return true
+			return false
+		if selection.has("place"):
+			if not target.is_empty() and target.valid and _paid(selection):
+				_placed().request("place", [selection.place, target.xform])
 				return true
 			return false
 		if selection.has("fill"):
-			if not fill_target.is_empty() and fill_target.valid:
+			if not fill_target.is_empty() and fill_target.valid and _paid(selection):
 				manager.request_fill(fill_target.piece, selection.fill, fill_target.tris)
 				return true
 			return false
-		if not target.is_empty() and target.valid:
+		if not target.is_empty() and target.valid and _paid(selection):
 			manager.request_place(target.kind, target.cell, target.rot)
 			return true
 	elif tool == "chisel" and not cut_target.is_empty():
@@ -269,6 +389,47 @@ func _compute_hole() -> Dictionary:
 	if selection.fill == "door":
 		valid = valid and best.piece.kind == BuildPiece.Kind.WALL and BuildPiece.touches_bottom(tris)
 	return {"piece": best.piece, "tris": tris, "valid": valid}
+
+
+# --- Potes, canteiro, bancada --------------------------------------------------------
+
+func _placed() -> PlacedManager:
+	return player.get_parent().get_node_or_null("Placed") as PlacedManager
+
+
+## Canteiro: na grade como um piso. Pote/floreira/bancada: em cima de qualquer
+## chão plano mirado, virado para quem coloca.
+func _compute_place() -> Dictionary:
+	var placed := _placed()
+	if placed == null:
+		return {}
+	if selection.place == "bed":
+		var previous := kind
+		kind = BuildPiece.Kind.FLOOR
+		var grid := _compute_target()
+		kind = previous
+		if grid.is_empty():
+			return {}
+		var valid: bool = grid.valid and not placed.bed_at(grid.cell)
+		return {"xform": BuildPiece.piece_transform(BuildPiece.Kind.FLOOR, grid.cell, 0), "valid": valid}
+	var hit := _ray()
+	if hit.is_empty() or hit.normal.y < 0.7 or hit.collider is PlacedObject and hit.collider.kind != "bed":
+		return {}
+	var xform := Transform3D(Basis(Vector3.UP, player.rotation.y), hit.position)
+	var valid := not placed.occupied(hit.position, PLACE_RADIUS[selection.place]) \
+			and player.global_position.distance_to(hit.position) > 0.6
+	return {"xform": xform, "valid": valid}
+
+
+func _draw_box(obj: PlacedObject) -> void:
+	_ghost.visible = true
+	var box := BoxMesh.new()
+	box.size = PLACE_SIZE.get(obj.kind, Vector3(BuildPiece.SIZE, 0.3, BuildPiece.SIZE)) * 1.03
+	_ghost_mesh.mesh = box
+	_ghost_mesh.position = Vector3(0, box.size.y * 0.5, 0) if obj.kind != "bed" else Vector3(BuildPiece.SIZE * 0.5, 0.1, BuildPiece.SIZE * 0.5)
+	_ghost.global_transform = obj.global_transform
+	_ghost_material.albedo_color = Color(1.0, 0.2, 0.15, 0.4)
+	call_deferred("_apply_ghost", selection)
 
 
 # --- Onde construir ---------------------------------------------------------------
@@ -425,4 +586,4 @@ func _show_removal(node: Node) -> void:
 	_ghost.global_transform = piece.global_transform
 	_ghost_mesh.scale = Vector3.ONE * 1.01
 	_ghost_material.albedo_color = Color(1.0, 0.2, 0.15, 0.4)
-	call_deferred("_set_ghost_shape")
+	call_deferred("_apply_ghost", selection)

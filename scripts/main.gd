@@ -28,15 +28,32 @@ func _ready() -> void:
 		player.position += Vector3((slot % 4) * 1.6 - 2.4, 0, (slot / 4) * 1.6)
 		player.notify.emit.call_deferred("Multiplayer: %d jogador(es)%s" % [Net.i.player_count(), " · você é o host" if Net.i.is_host() else ""])
 	player.spawn_point = player.global_position
+	var placed := PlacedManager.new()
+	placed.name = "Placed"
+	add_child(placed)
+	_add_start_crate()
 	Net.i.message.connect(_on_net_message)
 	# Vento de fundo baixinho (preso no jogador).
 	Sfx.loop_player("wind", player).play()
 	Net.i.register_world(self)
+	var loading := not SaveGame.pending.is_empty()
 	SaveGame.apply(self)
+	if not loading and Net.i.is_host():
+		# Mundo novo: uma bancada de fabricação ao lado da mesa de armas.
+		placed.host_apply("place", ["bench", Transform3D(Basis(Vector3.UP, PI / 2), Vector3(-5.6, 0.0, 11.0))])
 	# O CSG monta a geometria só depois do primeiro frame: espera para gerar a navegação.
 	await get_tree().process_frame
 	await get_tree().physics_frame
 	_bake_navigation()
+
+
+## Caixote da área inicial com o básico (tábuas, pedras, sementes, pá).
+func _add_start_crate() -> void:
+	var crate := LootBox.new()
+	crate.name = "CaixoteInicial"
+	crate.setup("loot_inicio", "caixote", "inicio")
+	add_child(crate)
+	crate.global_transform = Transform3D(Basis(Vector3.UP, PI / 2), Vector3(-5.4, 0.0, 8.4))
 
 
 func _exit_tree() -> void:

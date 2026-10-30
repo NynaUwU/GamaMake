@@ -24,6 +24,19 @@ func _ready() -> void:
 		return
 	player.health_changed.connect(_on_health_changed)
 	player.stamina_changed.connect(_on_stamina_changed)
+	# Fome: mesma barra da stamina, em laranja, logo abaixo.
+	var hunger_bar := stamina_bar.duplicate() as ProgressBar
+	hunger_bar.name = "HungerBar"
+	hunger_bar.unique_name_in_owner = false
+	var fill := (stamina_bar.get_theme_stylebox("fill") as StyleBoxFlat).duplicate() as StyleBoxFlat
+	fill.bg_color = Color(0.85, 0.5, 0.15)
+	hunger_bar.add_theme_stylebox_override("fill", fill)
+	hunger_bar.max_value = player.MAX_HUNGER
+	hunger_bar.value = player.hunger
+	stamina_bar.add_sibling(hunger_bar)
+	player.hunger_changed.connect(func(current: float, maximum: float):
+		hunger_bar.max_value = maximum
+		hunger_bar.value = current)
 	player.interact_prompt_changed.connect(func(text: String): prompt_label.text = text)
 	player.notify.connect(show_message)
 	player.weapon_changed.connect(func(weapon_name: String): weapon_label.text = weapon_name)

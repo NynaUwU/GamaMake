@@ -26,6 +26,8 @@ func _physics_process(_d: float) -> bool:
 			e.queue_free()
 		player.global_position = Vector3(-10, 0.1, 14)
 		player.equip_item(&"martelo")
+		for id in [&"tabua", &"pedra", &"sucata"]:
+			player.inventory.add(id, 60) # construir gasta material
 	if frame == 20:
 		_aim(Vector3(-10, 0, 10.5))
 	if frame == 24:

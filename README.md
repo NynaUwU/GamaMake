@@ -24,6 +24,35 @@ reação física a golpes e ragdoll (estilo Dying Light), visual de PC dos anos 
 - Os outros jogadores aparecem com o nome em cima, o item da mão, a lanterna acesa e uma bolinha
   azul no minimapa/mapa. Em cima, no meio da tela, aparece quem está online.
 
+## Saque, fome, fabricação e plantação
+
+### Saque (`scripts/loot/`)
+- **Baús, armários e caixotes** na frente de ~65% das casas das cidades (escombros têm caixote de ruína). **[E] revista**: os itens pulam para fora.
+- Cada um só pode ser revistado **uma vez por mundo** (todo mundo vê aberto; o save lembra).
+- Tabelas em `loot.gd`: casa (comida, pano, sementes), caixote (tábua, pedra, sucata, ferramentas raras), ruína (pedra, sucata, raros).
+- **Caixote inicial** ao lado da mesa de armas: 20 tábuas, 10 pedras, sementes, 2 enlatados e uma pá.
+
+### Construção custa material
+- Parede/piso/teto: 4 tábuas · pilar: 1 tábua + 1 pedra · janela: 1 tábua + 1 sucata · porta: 3 tábuas + 1 sucata.
+- O menu do martelo mostra o custo (tem/precisa) e deixa o slot avermelhado quando falta. Shift + clique (desmontar) **devolve metade**.
+
+### Fome
+- Barra laranja embaixo da stamina. Cai em ~22 min (mais rápido correndo).
+- Acima de 80: recupera vida devagar. Zerada: perde vida aos poucos.
+- Comidas: enlatado (+45), pão velho (+25), abóbora (+40), batata (+22), cenoura (+15), fruta (+10 e vida). Bandagem só cura.
+
+### Bancada de fabricação (`scripts/ui/crafting_ui.gd`)
+- Uma ao lado da mesa de armas; dá para construir outras pelo martelo (aba Outros: 6 tábuas + 2 sucatas).
+- [E] abre as receitas: pá, martelo, talhadeira, bandagem, bumerangue, chinelo, lanterna, maça, pistola.
+
+### Plantação (`scripts/farming/`)
+- **Martelo → aba Outros:** pote (1 planta, 2 pedras), floreira (3 plantas), **canteiro** (piso de terra na grade da construção, 9 plantas), bancada.
+- **Pá:** clique = golpe. **Botão direito** no chão de terra cava uma **cova** (às vezes acha pedra); numa cova/pote/canteiro vazio planta a primeira semente da mochila; numa planta pronta, colhe.
+- **Semente na mão:** clique planta onde mirar. **[E]** colhe tudo que estiver pronto.
+- Culturas: cenoura (~4 min), batata (~5 min), abóbora (~7 min, não cabe no pote pequeno). A colheita dá comida + sementes.
+- As plantas crescem pelo relógio do mundo (salvo junto) e sincronizam no multiplayer.
+- Testes: `tests/test_farming.gd`.
+
 ## Salvar e carregar (`scripts/save/save_game.gd`)
 
 - **Menu inicial:** "Continuar (Mundo N)" abre o último save; "Carregar mundo..." lista todos (com data) e deixa apagar (clique duas vezes em Apagar). "Novo mundo" começa do zero.

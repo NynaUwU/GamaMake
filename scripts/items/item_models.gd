@@ -70,6 +70,30 @@ static func build(id: StringName) -> Node3D:
 			_mb(parts, Color(0.25, 0.45, 0.18)).box(Vector3(0.025, 0.09, 0), Vector3(0.05, 0.008, 0.025))
 		&"sucata":
 			_scrap(parts)
+		&"pa":
+			_shovel(parts)
+		&"lata":
+			_mb(parts, Color(0.52, 0.5, 0.46)).lathe(PackedVector2Array([Vector2(0.002, -0.065), Vector2(0.048, -0.065), Vector2(0.05, -0.06), Vector2(0.05, 0.06), Vector2(0.048, 0.065), Vector2(0.002, 0.065)]), 10)
+			_mb(parts, Color(0.55, 0.2, 0.12)).lathe(PackedVector2Array([Vector2(0.051, -0.035), Vector2(0.051, 0.035)]), 10)
+		&"pao":
+			_mb(parts, Color(0.62, 0.42, 0.2)).lathe(PackedVector2Array([Vector2(0.002, -0.11), Vector2(0.035, -0.1), Vector2(0.05, -0.05), Vector2(0.052, 0.05), Vector2(0.035, 0.1), Vector2(0.002, 0.11)]), 7, AXIS_X)
+		&"cenoura":
+			_mb(parts, Color(0.85, 0.42, 0.1)).lathe(PackedVector2Array([Vector2(0.002, -0.1), Vector2(0.02, -0.04), Vector2(0.025, 0.06), Vector2(0.002, 0.075)]), 6, AXIS_Z)
+			_mb(parts, Color(0.25, 0.5, 0.18)).box(Vector3(0, 0, -0.12), Vector3(0.03, 0.01, 0.07))
+		&"batata":
+			_ball(_mb(parts, Color(0.6, 0.46, 0.28)), Vector3.ZERO, 0.055, 6)
+		&"abobora":
+			_ball(_mb(parts, Color(0.86, 0.45, 0.1)), Vector3(0, 0.0, 0), 0.13, 10)
+			_mb(parts, Color(0.3, 0.42, 0.15)).box(Vector3(0, 0.13, 0), Vector3(0.025, 0.06, 0.025))
+		&"bandagem":
+			_mb(parts, CREAM).lathe(PackedVector2Array([Vector2(0.02, -0.03), Vector2(0.055, -0.03), Vector2(0.055, 0.03), Vector2(0.02, 0.03)]), 10)
+		&"semente_cenoura", &"semente_batata", &"semente_abobora":
+			_seed_pouch(parts, {&"semente_cenoura": Color(0.85, 0.42, 0.1), &"semente_batata": Color(0.6, 0.46, 0.28)}.get(id, Color(0.86, 0.6, 0.15)))
+		&"tabua":
+			_mb(parts, WOOD).box(Vector3.ZERO, Vector3(0.12, 0.025, 0.6))
+			_mb(parts, IRON).box(Vector3(0, 0.014, 0.22), Vector3(0.012, 0.006, 0.012))
+		&"pedra":
+			_rock(_mb(parts, Color(0.5, 0.49, 0.46)))
 		&"pano":
 			_cloth(parts)
 		&"fita":
@@ -368,6 +392,25 @@ static func _scrap(p: Dictionary) -> void:
 	_gear(_mb(p, IRON), Vector3(-0.04, 0.0, 0.0), 0.08, 0.06, 10, Basis(Vector3(1, 0, 0), PI / 2), 0.02)
 	_mb(p, COPPER).tube(PackedVector3Array([Vector3(0.02, 0.01, -0.08), Vector3(0.07, 0.02, -0.02), Vector3(0.06, 0.02, 0.06), Vector3(0.12, 0.015, 0.08)]), 0.012, 6)
 	_mb(p, BRASS).box(Vector3(0.05, 0.0, 0.0), Vector3(0.06, 0.02, 0.04), Basis(Vector3(0, 1, 0), 0.6))
+
+
+## Pá: cabo longo de madeira, punho em "T" e lâmina de ferro meio gasta.
+static func _shovel(p: Dictionary) -> void:
+	_mb(p, WOOD).lathe(PackedVector2Array([Vector2(0.018, -0.08), Vector2(0.02, 0.84)]), 8, AXIS_Z)
+	_mb(p, DARK_WOOD).box(Vector3(0, 0, 0.08), Vector3(0.12, 0.03, 0.03)) # punho
+	_mb(p, BRASS).lathe(PackedVector2Array([Vector2(0.024, 0.78), Vector2(0.026, 0.86)]), 8, AXIS_Z)
+	var blade := PackedVector2Array([Vector2(-0.09, 0.0), Vector2(0.09, 0.0), Vector2(0.085, -0.16), Vector2(0.0, -0.24), Vector2(-0.085, -0.16)])
+	_mb(p, IRON).extrude(blade, 0.012, Basis(Vector3.RIGHT, PI / 2), Vector3(0, 0, -0.86))
+
+
+static func _seed_pouch(p: Dictionary, color: Color) -> void:
+	_mb(p, CLOTH.darkened(0.15)).lathe(PackedVector2Array([Vector2(0.002, -0.03), Vector2(0.05, -0.025), Vector2(0.055, 0.0), Vector2(0.03, 0.03), Vector2(0.015, 0.045)]), 7)
+	_mb(p, color).lathe(PackedVector2Array([Vector2(0.016, 0.04), Vector2(0.02, 0.06), Vector2(0.002, 0.065)]), 6)
+
+
+static func _rock(mb: MeshBuilder) -> void:
+	var profile := PackedVector2Array([Vector2(0.002, -0.05), Vector2(0.06, -0.04), Vector2(0.07, 0.0), Vector2(0.05, 0.04), Vector2(0.002, 0.055)])
+	mb.lathe(profile, 5, Basis(Vector3(0.3, 1, 0.2).normalized(), 0.5))
 
 
 static func _cloth(p: Dictionary) -> void:
