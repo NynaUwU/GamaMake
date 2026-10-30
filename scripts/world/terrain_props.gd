@@ -5,16 +5,23 @@ extends RefCounted
 ## colisão simples no tronco/rocha. Posições vêm de um RNG com a semente do
 ## mapa + coordenada do chunk, então o mesmo mapa sempre tem as mesmas árvores.
 
-const CANDIDATES := 24 ## pontos testados por chunk
+const CANDIDATES := 44 ## pontos testados por chunk (árvores, cactos, rochas...)
+const GROUND_CANDIDATES := 150 ## tufos de grama/arbustos de folhas cruzadas por chunk
+const PICKUP_SCENE := preload("res://scenes/props/pickup_item.tscn")
+const FOLIAGE := ["grass", "leafy_bush"]
 const CACTUS_KINDS := ["cactus_a", "cactus_b", "cactus_c"]
 
 static var _meshes := {}
+static var _foliage_material: StandardMaterial3D
 
 
-func populate(world: TerrainWorld, chunk: Node3D, body: StaticBody3D, coord: Vector2i, origin: Vector2) -> void:
+## Parte pesada (roda na thread do terreno): sorteia onde fica cada planta.
+func plan(world: TerrainWorld, coord: Vector2i, origin: Vector2) -> Dictionary:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = hash([world.seed, coord.x, coord.y])
-	var placed := {} # tipo -> Array[Transform3D]
+	var placed := {} # tipo -> Array[Transform3D] (folhagem: [Transform3D, Color])
+	var collisions := []
+	var fruits := []
 	for n in CANDIDATES:
 		var x := origin.x + rng.randf() * world.chunk_size
 		var z := origin.y + rng.randf() * world.chunk_size
@@ -26,10 +33,12 @@ func populate(world: TerrainWorld, chunk: Node3D, body: StaticBody3D, coord: Vec
 		var kind := _pick_kind(biome, rng)
 		if kind == "":
 			continue
-		var y := world.height_at(x, z)
+		var y := world._height_from(x, z, biome) # reaproveita o bioma já calculado
 		var scale := rng.randf_range(0.8, 1.35)
 		if kind.begins_with("cactus"):
 			scale = rng.randf_range(1.15, 1.8) # cactos grandes
+		elif kind == "giant_tree":
+			scale = rng.randf_range(0.9, 1.25)
 		var basis := Basis(Vector3.UP, rng.randf() * TAU).scaled(Vector3.ONE * scale)
 		if kind == "rock":
 			basis = basis.scaled(Vector3(rng.randf_range(0.8, 1.6), rng.randf_range(0.5, 1.0), rng.randf_range(0.8, 1.6)))
@@ -37,27 +46,56 @@ func populate(world: TerrainWorld, chunk: Node3D, body: StaticBody3D, coord: Vec
 		if not placed.has(kind):
 			placed[kind] = []
 		placed[kind].append(Transform3D(basis, local))
-		_add_collision(body, kind, local, scale)
+		collisions.append([kind, local, scale])
+		if kind == "fruit_tree":
+			for k in rng.randi_range(2, 3):
+				var a := rng.randf() * TAU
+				fruits.append(local + basis * Vector3(cos(a) * 1.3, 2.2 + rng.randf() * 0.5, sin(a) * 1.3))
+	_populate_ground(world, rng, origin, placed)
+	return {"placed": placed, "collisions": collisions, "fruits": fruits}
+
+
+## Parte leve (thread principal): cria MultiMeshes, colisões e frutas.
+func apply(data: Dictionary, chunk: Node3D, body: StaticBody3D) -> void:
+	for c in data.collisions:
+		_add_collision(body, c[0], c[1], c[2])
+	for pos in data.fruits:
+		var fruit: PickupItem = PICKUP_SCENE.instantiate()
+		fruit.item_id = &"fruta"
+		fruit.freeze = true # fica presa no galho até alguém pegar
+		chunk.add_child(fruit)
+		fruit.position = pos
+	var placed: Dictionary = data.placed
 	for kind in placed:
+		var foliage: bool = kind in FOLIAGE
 		var multimesh := MultiMesh.new()
 		multimesh.transform_format = MultiMesh.TRANSFORM_3D
-		multimesh.use_colors = false
-		multimesh.mesh = _mesh(kind)
+		multimesh.use_colors = foliage
+		multimesh.mesh = _foliage_mesh(kind) if foliage else _mesh(kind)
 		multimesh.instance_count = placed[kind].size()
 		for i in placed[kind].size():
-			multimesh.set_instance_transform(i, placed[kind][i])
+			if foliage:
+				multimesh.set_instance_transform(i, placed[kind][i][0])
+				multimesh.set_instance_color(i, placed[kind][i][1])
+			else:
+				multimesh.set_instance_transform(i, placed[kind][i])
 		var instance := MultiMeshInstance3D.new()
 		instance.multimesh = multimesh
+		if foliage:
+			instance.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF # grama não suja de sombra
 		chunk.add_child(instance)
 
 
 func _pick_kind(biome: Dictionary, rng: RandomNumberGenerator) -> String:
 	var roll := rng.randf()
 	# Chance por ponto testado (CANDIDATES por chunk). A neve é a mais densa.
+	var low_mountain: float = biome.mountain * (1.0 - biome.get("depth", 0.0))
 	var weights := [
-		["tree", biome.plains * 0.26], ["bush", biome.plains * 0.09],
-		["cactus", biome.desert * 0.11], ["dead_bush", biome.desert * 0.07],
-		["pine", biome.winter * 0.85], ["rock", biome.mountain * 0.22 + biome.winter * 0.03],
+		["tree", biome.plains * 0.2 + low_mountain * 0.1], ["crooked_tree", biome.plains * 0.09 + low_mountain * 0.08],
+		["fruit_tree", biome.plains * 0.035], ["giant_tree", biome.plains * 0.012 + low_mountain * 0.008],
+		["bush", biome.plains * 0.08],
+		["cactus", biome.desert * 0.08], ["dead_bush", biome.desert * 0.06],
+		["pine", biome.winter * 0.6 + biome.mountain * 0.08], ["rock", biome.mountain * 0.16 + biome.winter * 0.03],
 	]
 	for pair in weights:
 		if roll < pair[1]:
@@ -72,6 +110,14 @@ func _add_collision(body: StaticBody3D, kind: String, local: Vector3, scale: flo
 	if kind in ["bush", "dead_bush"]:
 		return
 	var shape := CollisionShape3D.new()
+	if kind == "giant_tree":
+		var trunk := CylinderShape3D.new()
+		trunk.radius = 1.0 * scale
+		trunk.height = 12.0 * scale
+		shape.shape = trunk
+		shape.position = local + Vector3.UP * trunk.height * 0.5
+		body.add_child(shape)
+		return
 	if kind == "rock":
 		var box := BoxShape3D.new()
 		box.size = Vector3(1.6, 1.0, 1.6) * scale
@@ -102,6 +148,33 @@ static func _mesh(kind: String) -> Mesh:
 			_box(st, Vector3(0.1, 4.1, -0.1), Vector3(1.4, 1.0, 1.4), Color(0.26, 0.43, 0.17))
 		"bush":
 			_box(st, Vector3(0, 0.35, 0), Vector3(1.0, 0.7, 0.9), Color(0.25, 0.4, 0.16))
+		"crooked_tree":
+			# Tronco torto em gomos que entorta para um lado, copa caída e um galho solto.
+			var top := _chain(st, Vector3.ZERO, [Vector3(0.15, 1.1, 0.05), Vector3(0.45, 0.9, -0.1), Vector3(0.6, 0.7, 0.2), Vector3(0.2, 0.6, 0.3)], 0.42, trunk)
+			_box(st, top + Vector3(0.2, 0.5, 0), Vector3(2.0, 1.3, 1.8), Color(0.24, 0.36, 0.16), Basis(Vector3.BACK, -0.25))
+			_box(st, top + Vector3(-0.6, 0.1, 0.4), Vector3(1.2, 0.8, 1.1), Color(0.28, 0.4, 0.17))
+			var branch := _chain(st, Vector3(0.3, 1.4, 0), [Vector3(-0.8, 0.4, -0.2), Vector3(-0.5, 0.5, -0.3)], 0.2, trunk)
+			_box(st, branch + Vector3(0, 0.2, 0), Vector3(1.0, 0.7, 0.9), Color(0.22, 0.34, 0.15))
+		"fruit_tree":
+			# Árvore baixa e redonda com frutas vermelhas (as de pegar são separadas).
+			_box(st, Vector3(0, 1.0, 0), Vector3(0.32, 2.0, 0.32), trunk)
+			_box(st, Vector3(0, 2.6, 0), Vector3(2.4, 1.5, 2.4), Color(0.2, 0.4, 0.17))
+			_box(st, Vector3(0, 3.5, 0), Vector3(1.6, 0.8, 1.6), Color(0.24, 0.44, 0.19))
+			for k in 6:
+				var a := TAU * k / 6.0
+				_box(st, Vector3(cos(a) * 1.2, 2.3 + (k % 2) * 0.6, sin(a) * 1.2), Vector3(0.2, 0.2, 0.2), Color(0.7, 0.12, 0.08))
+		"giant_tree":
+			# Árvore gigante: tronco largo com raízes, copa em camadas lá no alto.
+			_box(st, Vector3(0, 6.0, 0), Vector3(2.0, 12.0, 2.0), trunk)
+			for k in 4:
+				var a := TAU * k / 4.0 + 0.4
+				_chain(st, Vector3(cos(a) * 0.8, 1.4, sin(a) * 0.8), [Vector3(cos(a) * 1.0, -0.9, sin(a) * 1.0), Vector3(cos(a) * 0.8, -0.6, sin(a) * 0.8)], 0.7, trunk)
+			var leaves := Color(0.17, 0.33, 0.14)
+			_box(st, Vector3(0, 12.0, 0), Vector3(9.0, 3.0, 9.0), leaves)
+			_box(st, Vector3(1.0, 14.5, -0.5), Vector3(6.5, 2.4, 6.5), leaves.lightened(0.08))
+			_box(st, Vector3(-0.5, 16.4, 0.4), Vector3(3.8, 1.8, 3.8), leaves.lightened(0.12))
+			_chain(st, Vector3(0.6, 9.0, 0), [Vector3(2.5, 1.5, 0.4), Vector3(1.5, 1.0, 0.3)], 0.6, trunk)
+			_box(st, Vector3(4.8, 11.6, 0.7), Vector3(3.5, 2.0, 3.0), leaves)
 		"pine":
 			_box(st, Vector3(0, 1.0, 0), Vector3(0.3, 2.0, 0.3), trunk)
 			var green := Color(0.12, 0.26, 0.16)
@@ -145,6 +218,85 @@ static func _mesh(kind: String) -> Mesh:
 	mesh.surface_set_material(0, material)
 	_meshes[kind] = mesh
 	return mesh
+
+
+# --- Grama, arbustos de folhas e frutas -----------------------------------------
+
+## Tufos de grama e arbustos de planos cruzados (como a grama do Minecraft), sem colisão.
+func _populate_ground(world: TerrainWorld, rng: RandomNumberGenerator, origin: Vector2, placed: Dictionary) -> void:
+	for n in GROUND_CANDIDATES:
+		var x := origin.x + rng.randf() * world.chunk_size
+		var z := origin.y + rng.randf() * world.chunk_size
+		if Vector2(x, z).length() < world.town_radius * 1.6 or world.city_mask(x, z) > 0.5:
+			continue
+		var biome := world.biome_at(x, z)
+		var high := world._height_from(x, z, biome)
+		var green: float = biome.plains + biome.mountain * (1.0 - smoothstep(30.0, 60.0, high)) * 0.7
+		var chance: float = green * 0.75 + biome.winter * 0.12 + biome.desert * 0.06
+		if rng.randf() > chance:
+			continue
+		var kind := "leafy_bush" if rng.randf() < 0.12 else "grass"
+		var scale := rng.randf_range(0.7, 1.3) * (1.6 if kind == "leafy_bush" else 1.0)
+		var color := Color(0.42, 0.58, 0.25).lerp(Color(0.62, 0.58, 0.32), biome.desert + biome.temperature * 0.3)
+		color = color.lerp(Color(0.6, 0.66, 0.6), biome.winter * 0.6).darkened(rng.randf_range(0.0, 0.25))
+		var t := Transform3D(Basis(Vector3.UP, rng.randf() * TAU).scaled(Vector3.ONE * scale), Vector3(x - origin.x, high - 0.05, z - origin.y))
+		if not placed.has(kind):
+			placed[kind] = []
+		placed[kind].append([t, color])
+
+
+## Dois planos cruzados com textura de folhas/grama recortada (alpha scissor).
+static func _foliage_mesh(kind: String) -> Mesh:
+	if _meshes.has(kind):
+		return _meshes[kind]
+	var size := Vector2(1.1, 0.8) if kind == "grass" else Vector2(1.8, 1.4)
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	for k in 3:
+		var a := PI * k / 3.0
+		var right := Vector3(cos(a), 0, sin(a)) * size.x * 0.5
+		var corners := [-right, right, right + Vector3.UP * size.y, -right + Vector3.UP * size.y]
+		var uvs := [Vector2(0, 1), Vector2(1, 1), Vector2(1, 0), Vector2(0, 0)]
+		# Frente e verso como triângulos separados, ambos com normal para cima:
+		# iluminação igual dos dois lados (com cull desligado o verso fica preto).
+		for tri in [[0, 1, 2], [0, 2, 3], [0, 2, 1], [0, 3, 2]]:
+			for i in tri:
+				st.set_normal(Vector3.UP)
+				st.set_uv(uvs[i])
+				st.add_vertex(corners[i])
+	var mesh := st.commit()
+	mesh.surface_set_material(0, _foliage_mat())
+	_meshes[kind] = mesh
+	return mesh
+
+
+static func _foliage_mat() -> StandardMaterial3D:
+	if _foliage_material:
+		return _foliage_material
+	# Textura gerada: folhinhas/lâminas brancas (a cor vem da instância) com fundo transparente.
+	var image := Image.create(32, 32, false, Image.FORMAT_RGBA8)
+	image.fill(Color(0, 0, 0, 0))
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 99
+	for blade in 22:
+		var x := rng.randi_range(1, 30)
+		var height := rng.randi_range(10, 31)
+		var lean := rng.randf_range(-0.25, 0.25)
+		var shade := rng.randf_range(0.65, 1.0)
+		for y in height:
+			var px := clampi(int(x + lean * y), 0, 31)
+			image.set_pixel(px, 31 - y, Color(shade, shade, shade, 1))
+			if y < height * 0.4 and px + 1 < 32:
+				image.set_pixel(px + 1, 31 - y, Color(shade * 0.85, shade * 0.85, shade * 0.85, 1))
+	var material := StandardMaterial3D.new()
+	material.albedo_texture = ImageTexture.create_from_image(image)
+	material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA_SCISSOR
+	material.alpha_scissor_threshold = 0.5
+	material.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST_WITH_MIPMAPS
+	material.vertex_color_use_as_albedo = true
+	material.roughness = 1.0
+	_foliage_material = material
+	return material
 
 
 ## Sequência de gomos tortos: cada passo é um bloco do ponto atual até +passo.

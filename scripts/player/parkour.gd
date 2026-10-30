@@ -80,8 +80,14 @@ func eye_height(delta: float) -> float:
 		target = crouch_eye
 	_eye = lerpf(_eye, target, 1.0 - exp(-14.0 * delta))
 	# Mola do "mergulho" (aterrissagem, fim de vault): desce e volta.
-	_dip_velocity += (-camera_dip * 140.0 - _dip_velocity * 14.0) * delta
-	camera_dip += _dip_velocity * delta
+	# Passos pequenos: um frame lento (carregamento) não pode fazer a mola explodir.
+	var remaining := minf(delta, 0.1)
+	while remaining > 0.0:
+		var dt := minf(remaining, 1.0 / 120.0)
+		_dip_velocity += (-camera_dip * 140.0 - _dip_velocity * 14.0) * dt
+		camera_dip += _dip_velocity * dt
+		remaining -= dt
+	camera_dip = clampf(camera_dip, -0.6, 0.3)
 	if move == Move.NONE:
 		camera_pitch = lerpf(camera_pitch, 0.0, 1.0 - exp(-10.0 * delta))
 		hand_weight = move_toward(hand_weight, 0.0, delta * 6.0)

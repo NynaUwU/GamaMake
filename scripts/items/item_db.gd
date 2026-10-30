@@ -29,6 +29,8 @@ const ITEMS := {
 		"desc": "Lanterna de latão (L). Gasta bateria; recarregue com o carregador. Zumbis adoram uma luz na cara."},
 	&"carregador": {"name": "Carregador", "kind": "weapon", "weapon": "charger", "stack": 1, "size": Vector3(0.26, 0.2, 0.1),
 		"desc": "Dínamo de mão para a bateria da lanterna. Aperte rápido: devagar só cansa o braço."},
+	&"fruta": {"name": "Fruta", "kind": "food", "heal": 25, "stack": 10, "size": Vector3(0.14, 0.14, 0.14),
+		"desc": "Vermelha, meio torta, provavelmente comestível. Recupera 25 de vida (clique para comer)."},
 	&"sucata": {"name": "Sucata", "kind": "material", "stack": 10, "size": Vector3(0.3, 0.12, 0.2),
 		"desc": "Ferro torto e cano de cobre. Um dia vai virar algo incrível. Hoje é só sucata."},
 	&"pano": {"name": "Pano", "kind": "material", "stack": 10, "size": Vector3(0.3, 0.05, 0.25),

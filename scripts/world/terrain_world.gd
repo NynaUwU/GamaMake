@@ -218,7 +218,7 @@ func update_around(center: Vector3, budget := -1, radius := -1.0) -> void:
 				created += 1
 	# Pede os que faltam (os mais perto primeiro).
 	for coord in wanted:
-		if not _chunks.has(coord) and not _tasks.has(coord) and _tasks.size() < 6:
+		if not _chunks.has(coord) and not _tasks.has(coord) and _tasks.size() < 10:
 			_tasks[coord] = WorkerThreadPool.add_task(_threaded_generate.bind(coord))
 
 
@@ -307,7 +307,8 @@ func _generate_data(coord: Vector2i) -> Dictionary:
 					vertex_colors[n] = (colors[ids[k]] as Color).lerp(COLOR_ROCK, rock)
 					uvs[n] = Vector2(origin.x + pos[k].x, origin.y + pos[k].z) * 0.25
 					n += 1
-	return {"vertices": vertices, "normals": normals, "colors": vertex_colors, "uvs": uvs}
+	return {"vertices": vertices, "normals": normals, "colors": vertex_colors, "uvs": uvs,
+		"props": _props.plan(self, coord, origin)}
 
 
 ## Parte leve (thread principal): cria malha, colisão e enfeites.
@@ -339,7 +340,7 @@ func _finish(coord: Vector2i, data: Dictionary) -> Node3D:
 	shape.shape = faces
 	body.add_child(shape)
 	chunk.add_child(body)
-	_props.populate(self, chunk, body, coord, origin)
+	_props.apply(data.props, chunk, body)
 	_chunks[coord] = chunk
 	chunk_loaded.emit(coord)
 	return chunk

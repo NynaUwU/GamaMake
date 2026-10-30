@@ -56,6 +56,10 @@ static func build(id: StringName) -> Node3D:
 			_lantern(parts)
 		&"carregador":
 			return build_charger()
+		&"fruta":
+			_ball(_mb(parts, Color(0.68, 0.12, 0.08)), Vector3.ZERO, 0.07, 8)
+			_mb(parts, DARK_WOOD).tube(PackedVector3Array([Vector3(0, 0.06, 0), Vector3(0.01, 0.1, 0)]), 0.008, 4)
+			_mb(parts, Color(0.25, 0.45, 0.18)).box(Vector3(0.025, 0.09, 0), Vector3(0.05, 0.008, 0.025))
 		&"sucata":
 			_scrap(parts)
 		&"pano":

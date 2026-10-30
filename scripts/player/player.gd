@@ -314,7 +314,9 @@ func _unhandled_input(event: InputEvent) -> void:
 		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 		get_viewport().set_input_as_handled()
 	elif health > 0.0 and not ui_blocked:
-		if event.is_action_pressed("attack"):
+		if event.is_action_pressed("attack") and ItemDB.def(inventory.selected_id()).kind == "food":
+			_eat_selected()
+		elif event.is_action_pressed("attack"):
 			if _blocking:
 				pass
 			elif _weapon_type == WeaponType.SWORD and _is_sprinting() and _swing_phase == SwingPhase.NONE and not _busy:
@@ -1209,6 +1211,18 @@ func exit_vehicle() -> void:
 	_set_arms_see_through(false)
 	_show_weapon(_weapon_type)
 	_emit_weapon_text()
+
+
+## Come o item de comida do slot selecionado (fruta): recupera vida.
+func _eat_selected() -> void:
+	var id := inventory.selected_id()
+	var heal_amount: float = ItemDB.def(id).get("heal", 0)
+	if health >= max_health:
+		notify.emit("Vida cheia")
+		return
+	inventory.take(inventory.selected, 1)
+	heal(heal_amount)
+	notify.emit("Comeu %s (+%d vida)" % [ItemDB.display_name(id), heal_amount])
 
 
 ## Coloca o item no inventário. Devolve quanto NÃO coube.

@@ -60,6 +60,7 @@ func _add_spring(idx: int, impulse: Vector3) -> void:
 
 
 func _process_modification_with_delta(delta: float) -> void:
+	delta = minf(delta, 1.0 / 30.0) # frame lento não faz a mola explodir
 	var skeleton := get_skeleton()
 	if _springs.is_empty():
 		return
