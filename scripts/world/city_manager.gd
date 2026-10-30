@@ -54,7 +54,10 @@ func _update_cities(build_all := false) -> void:
 			node.name = "City_%d_%s" % [i, city.size]
 			node.position = Vector3(city.center.x, city.base, city.center.y)
 			get_parent().add_child(node)
-			node.add_child(CityGen.build_plaza(city))
+			var plaza := CityGen.build_plaza(city)
+			var plaza_pos: Vector2 = CityGen.to_world(city, city.plaza) - city.center
+			plaza.position = Vector3(plaza_pos.x, 0, plaza_pos.y)
+			node.add_child(plaza)
 			_built[i] = {"node": node, "next": 0}
 		elif distance > build_distance + 120.0 and _built.has(i):
 			_built[i].node.queue_free()
@@ -80,10 +83,10 @@ func _spawn_zombies(city_node: Node3D, city: Dictionary) -> void:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = city.seed + 5
 	for k in ZOMBIES[city.size]:
-		# Nas ruas radiais/praça: perto do centro, em anéis vazios.
-		var a := rng.randf() * TAU
-		var r := rng.randf_range(6.0, city.radius * 0.8)
+		# Nas ruas: ponto aleatório de uma rua da cidade.
+		var street: Dictionary = city.streets[rng.randi() % city.streets.size()]
+		var p: Vector2 = street.a.lerp(street.b, rng.randf()) - city.center
 		var zombie: Zombie = ZOMBIE_SCENE.instantiate()
-		zombie.position = Vector3(cos(a) * r, 0.5, sin(a) * r)
+		zombie.position = Vector3(p.x, 0.5, p.y)
 		zombie.rotation.y = rng.randf() * TAU
 		city_node.add_child(zombie)

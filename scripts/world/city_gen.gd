@@ -11,11 +11,14 @@ class_name CityGen
 ## place_cities() só decide ONDE e a PLANTA (lotes); build_house() monta a
 ## malha e a colisão de um lote (feito aos poucos pelo CityManager).
 
+## block = lado da quadra (inclui a rua); radius = meia largura do "quadrado" da cidade.
 const SIZES := {
-	"large": {"count": 2, "radius": 150.0, "max_floors": 15, "spacing": 15.0, "lot": [7.0, 11.0], "fill": 0.85},
-	"medium": {"count": 4, "radius": 95.0, "max_floors": 6, "spacing": 14.0, "lot": [6.0, 9.0], "fill": 0.8},
-	"small": {"count": 7, "radius": 55.0, "max_floors": 2, "spacing": 16.0, "lot": [5.0, 7.0], "fill": 0.55},
+	"large": {"count": 2, "radius": 150.0, "max_floors": 15, "block": 30.0, "fill": 0.9},
+	"medium": {"count": 4, "radius": 95.0, "max_floors": 6, "block": 28.0, "fill": 0.85},
+	"small": {"count": 7, "radius": 60.0, "max_floors": 2, "block": 26.0, "fill": 0.8},
 }
+## Larguras das ruas (m).
+const STREET_WIDTH := {"avenue": 10.0, "street": 6.0, "dirt": 5.0}
 const FLOOR_HEIGHT := 3.2
 
 const STONE := Color(0.42, 0.4, 0.37)
@@ -58,11 +61,44 @@ static func place_cities(world: TerrainWorld) -> Array:
 			var base := _site_height(world, center, radius)
 			if is_nan(base):
 				continue
-			var city := {"center": center, "radius": radius, "size": size, "base": base, "seed": rng.randi()}
-			city["lots"] = _layout(city, cfg)
+			var city := {"center": center, "radius": radius, "size": size, "base": base, "seed": rng.randi(),
+				"yaw": rng.randf() * PI * 0.5}
+			_layout(city, cfg)
 			cities.append(city)
 			placed += 1
 	return cities
+
+
+## Cidade -> coordenadas locais da grade (u, v) e de volta.
+static func to_local(city: Dictionary, p: Vector2) -> Vector2:
+	return (p - city.center).rotated(-city.yaw)
+
+
+static func to_world(city: Dictionary, local: Vector2) -> Vector2:
+	return city.center + local.rotated(city.yaw)
+
+
+## Avenidas ligando as cidades grandes e médias (árvore geradora mínima).
+static func connect_cities(cities: Array) -> Array:
+	var nodes := cities.filter(func(c): return c.size != "small")
+	var roads := []
+	if nodes.size() < 2:
+		return roads
+	var connected := [nodes[0]]
+	var left := nodes.slice(1)
+	while not left.is_empty():
+		var best := []
+		var best_d := INF
+		for a in connected:
+			for b in left:
+				var d: float = a.center.distance_to(b.center)
+				if d < best_d:
+					best_d = d
+					best = [a, b]
+		roads.append({"a": best[0].center, "b": best[1].center, "width": STREET_WIDTH.avenue, "kind": "avenue", "city": null})
+		connected.append(best[1])
+		left.erase(best[1])
+	return roads
 
 
 ## Altura média do terreno no local, ou NAN se for montanhoso/inclinado demais.
@@ -82,30 +118,78 @@ static func _site_height(world: TerrainWorld, center: Vector2, radius: float) ->
 	return total / heights.size()
 
 
-## Planta: casas em anéis em volta da praça, com 4 ruas radiais livres.
-static func _layout(city: Dictionary, cfg: Dictionary) -> Array:
+## Planta em grade (quadrada, mas com bordas irregulares): ruas nas linhas da
+## grade — avenidas cruzando o centro (cidades grandes/médias), ruas comuns e
+## ruas de terra (vilas e periferia). Lotes dentro das quadras, de frente para a rua.
+static func _layout(city: Dictionary, cfg: Dictionary) -> void:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = city.seed
+	var block: float = cfg.block
+	var half: float = city.radius
+	var n := int(ceil(half / block))
+	var village: bool = city.size == "small"
+	# Quadras incluídas: dentro do quadrado, com a borda "mordida" aleatoriamente.
+	var blocks := {}
+	for i in range(-n, n):
+		for j in range(-n, n):
+			var c := Vector2((i + 0.5) * block, (j + 0.5) * block)
+			var edge := maxf(absf(c.x), absf(c.y))
+			if edge > half - rng.randf() * block * 0.9:
+				continue
+			if rng.randf() > cfg.fill and (i != 0 or j != 0):
+				continue
+			blocks[Vector2i(i, j)] = c
+	city["blocks"] = blocks
+	# Ruas: cada linha da grade que encosta em alguma quadra incluída.
+	var streets := []
+	for axis in 2:
+		for k in range(-n, n + 1):
+			var lo := INF
+			var hi := -INF
+			for key in blocks:
+				var touches: bool = (key.x == k or key.x == k - 1) if axis == 0 else (key.y == k or key.y == k - 1)
+				if not touches:
+					continue
+				var along: float = blocks[key].y if axis == 0 else blocks[key].x
+				lo = minf(lo, along - block * 0.5)
+				hi = maxf(hi, along + block * 0.5)
+			if lo > hi:
+				continue
+			var kind := "street"
+			if village or absi(k) >= n - 1:
+				kind = "dirt"
+			if k == 0 and not village:
+				kind = "avenue"
+			var line := k * block
+			var a := Vector2(line, lo) if axis == 0 else Vector2(lo, line)
+			var b := Vector2(line, hi) if axis == 0 else Vector2(hi, line)
+			streets.append({"a": to_world(city, a), "b": to_world(city, b), "width": STREET_WIDTH[kind], "kind": kind, "city": city})
+	city["streets"] = streets
+	# Lotes: 2x2 por quadra nas cidades (às vezes um lote grande), 1-2 soltos nas vilas.
 	var lots := []
-	var radius: float = city.radius
-	var road_angle := rng.randf() * TAU
-	var r := 16.0 if city.size != "small" else 12.0
-	while r < radius * 0.92:
-		var count := int(TAU * r / cfg.spacing)
-		var phase := rng.randf() * TAU
-		for i in count:
-			var a := phase + TAU * i / count
-			# Ruas radiais: deixa uma faixa livre a cada 90°.
-			var to_road := fposmod(a - road_angle, PI / 2.0)
-			if minf(to_road, PI / 2.0 - to_road) * r < 4.5:
-				continue
-			if rng.randf() > cfg.fill:
-				continue
-			var dir := Vector2.from_angle(a)
-			var pos: Vector2 = city.center + dir * (r + rng.randf_range(-1.5, 1.5))
-			var w := rng.randf_range(cfg.lot[0], cfg.lot[1])
-			var d := rng.randf_range(cfg.lot[0], cfg.lot[1])
-			var t := r / radius
+	var inner := block - STREET_WIDTH.street - 1.0
+	for key in blocks:
+		if key == Vector2i(0, 0) and not village:
+			continue # praça no meio
+		var c: Vector2 = blocks[key]
+		var cells := []
+		if village:
+			var spots := [Vector2(-5, -5), Vector2(5, 5), Vector2(5, -5), Vector2(-5, 5)]
+			spots.shuffle()
+			for k in rng.randi_range(1, 3):
+				cells.append([c + spots[k] + Vector2(rng.randf_range(-1.5, 1.5), rng.randf_range(-1.5, 1.5)), rng.randf_range(5.0, 7.0), rng.randf_range(5.0, 7.0)])
+		elif rng.randf() < 0.2:
+			cells.append([c, inner * rng.randf_range(0.6, 0.8), inner * rng.randf_range(0.6, 0.8)])
+		else:
+			var q := inner * 0.25
+			for dx in [-1, 1]:
+				for dz in [-1, 1]:
+					if rng.randf() < 0.1:
+						continue
+					cells.append([c + Vector2(dx * q, dz * q), inner * 0.5 - 1.2, inner * 0.5 - 1.2])
+		for cell in cells:
+			var local: Vector2 = cell[0]
+			var t := maxf(absf(local.x), absf(local.y)) / half
 			var floors := 1
 			match city.size:
 				"large":
@@ -116,12 +200,18 @@ static func _layout(city: Dictionary, cfg: Dictionary) -> Array:
 				"small":
 					floors = rng.randi_range(1, 2)
 			floors = clampi(floors, 1, cfg.max_floors + 1) # grande: até 16 andares ≈ 51 m
-			var ruin := rng.randf() < (0.25 if city.size == "small" else 0.18)
-			lots.append({"pos": pos, "w": w, "d": d, "floors": floors, "ruin": ruin,
-				"yaw": atan2(-dir.x, -dir.y) + rng.randf_range(-0.15, 0.15), "seed": rng.randi(),
-				"village": city.size == "small"})
-		r += cfg.spacing
-	return lots
+			# Frente virada para a rua mais próxima da quadra (múltiplo de 90°, um pouco torto).
+			var off: Vector2 = local - c
+			var facing := 0.0
+			if absf(off.x) > absf(off.y):
+				facing = PI * 0.5 if off.x > 0.0 else -PI * 0.5
+			else:
+				facing = PI if off.y > 0.0 else 0.0
+			lots.append({"pos": to_world(city, local), "w": cell[1], "d": cell[2], "floors": floors,
+				"ruin": rng.randf() < (0.25 if village else 0.15), "yaw": city.yaw + facing + rng.randf_range(-0.08, 0.08),
+				"seed": rng.randi(), "village": village})
+	city["lots"] = lots
+	city["plaza"] = Vector2(block * 0.5, block * 0.5) if not village else Vector2.ZERO
 
 
 # --- Construção de uma casa ---------------------------------------------------
@@ -179,6 +269,9 @@ static func build_house(lot: Dictionary) -> Node3D:
 				var annex := center + basis * Vector3(side * (fw * 0.5 + 1.0), -0.2, rng.randf_range(-fd * 0.2, fd * 0.2))
 				_box(mb, body, plaster.darkened(0.2), annex, Vector3(2.0, FLOOR_HEIGHT * 0.8, 2.6), basis)
 				_box(mb, null, DARK_WOOD, annex + Vector3(0, -FLOOR_HEIGHT * 0.45, 0), Vector3(0.15, 0.6, 0.15), basis) # mão-francesa
+			# Ramificação tipo cacto: um "braço" sai da torre e sobe sozinho.
+			if floors >= 6 and i >= 2 and i <= floors - 3 and rng.randf() < 0.18:
+				_branch(mb, body, rng, center, basis, fw, fd, plaster, floors - i)
 			y += FLOOR_HEIGHT
 		_roof(mb, body, rng, offset + Vector3(0, y, 0), Basis(Vector3.UP, yaw), fw, fd)
 		# Chaminé e cano de cobre descendo pela parede (steampunk).
@@ -204,6 +297,36 @@ static func build_house(lot: Dictionary) -> Node3D:
 	house.add_child(mesh)
 	house.add_child(body)
 	return house
+
+
+## Braço de casa saindo da lateral da torre: passarela fechada e uma torrezinha
+## torta que sobe 2-5 andares com telhado próprio (mesma estranheza dos cactos).
+static func _branch(mb: MeshBuilder, body: StaticBody3D, rng: RandomNumberGenerator, center: Vector3, basis: Basis,
+		fw: float, fd: float, plaster: Color, room_above: int) -> void:
+	var face := rng.randi() % 4
+	var out := basis * (Basis(Vector3.UP, face * PI * 0.5) * Vector3(0, 0, -1))
+	var half_depth := (fd if face % 2 == 0 else fw) * 0.5
+	var arm_length := rng.randf_range(2.5, 4.5)
+	var arm_center := center + out * (half_depth + arm_length * 0.5) + Vector3(0, -0.3, 0)
+	var arm_basis := Basis.looking_at(out, Vector3.UP)
+	_box(mb, body, WOOD.darkened(0.1), arm_center, Vector3(2.2, FLOOR_HEIGHT * 0.75, arm_length + 0.4), arm_basis)
+	_box(mb, null, DARK_WOOD, arm_center + Vector3(0, -FLOOR_HEIGHT * 0.45, 0), Vector3(0.25, 0.25, arm_length), arm_basis)
+	# Torrezinha na ponta do braço.
+	var size := rng.randf_range(3.2, 4.2)
+	var stack := rng.randi_range(2, clampi(room_above + 1, 2, 5))
+	var base := center + out * (half_depth + arm_length + size * 0.4)
+	var tilt := 0.0
+	var y := -FLOOR_HEIGHT * 0.5
+	var color := plaster.darkened(rng.randf_range(0.05, 0.2))
+	for k in stack:
+		tilt += rng.randf_range(-0.05, 0.05)
+		var b := arm_basis * Basis(Vector3.BACK, tilt) * Basis(Vector3.UP, rng.randf_range(-0.12, 0.12))
+		var c := base + Vector3(0, y + FLOOR_HEIGHT * 0.5, 0) + out * (k * 0.15)
+		_box(mb, body, color if k % 2 == 0 else WOOD, c, Vector3(size, FLOOR_HEIGHT, size), b)
+		_windows(mb, rng, c, b, size, size, false)
+		y += FLOOR_HEIGHT
+		size *= rng.randf_range(0.85, 1.0)
+	_roof(mb, body, rng, base + Vector3(0, y, 0) + out * (stack * 0.15), arm_basis * Basis(Vector3.BACK, tilt), size, size)
 
 
 static func _windows(mb: MeshBuilder, rng: RandomNumberGenerator, center: Vector3, basis: Basis, fw: float, fd: float, ground: bool) -> void:

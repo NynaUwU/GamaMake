@@ -24,7 +24,7 @@ reação física a golpes e ragdoll (estilo Dying Light), visual de PC dos anos 
 | L | lanterna (precisa estar no inventário e ter bateria) |
 | R | recarregar a pistola |
 | E (no carro) | entrar/sair. Dirigindo: W/S acelera/ré, A/D vira, Espaço freio de mão |
-| Z | novo zumbi (teste) · Backspace recomeça · **Esc pausa** (Continuar / Recomeçar / Sair) |
+| Z / H | novo zumbi / **100 zumbis** em volta (teste) · Backspace recomeça · **Esc pausa** (Continuar / Recomeçar / Sair) |
 
 ## Área inicial e carro
 - Ao lado de onde você nasce: uma bancada coberta (com lâmpada) com **um exemplar de cada arma**
@@ -76,6 +76,7 @@ os ícones.
   o zumbi ~10 m** girando (`spoon_launch`).
 - **Gancho:** clique e **segure** para prender e balançar (pêndulo com um impulso para cima ao
   prender, WASD controla no ar); a corda **se recolhe sozinha** quando você chega perto; soltar o clique solta a corda e mantém o impulso no ar. Alcance 45 m.
+  **5 cargas**; acabou, espere ~6 s sem usar para recarregar todas (usar de novo reinicia a contagem).
 - **Lanterna** de latão, **sucata**, **pano** e **fita**.
 
 ## Inventário
@@ -107,9 +108,13 @@ os ícones.
   Bordas sobem em montanhas; o centro é a cidade.
 - O terreno vem em pedaços de 64 m que aparecem perto do player e somem longe (até 220 m).
   O cálculo roda em threads; a thread principal só monta os nós (~2.5 ms por pedaço).
-- `terrain_props.gd`: árvores, arbustos, pinheiros, rochas e **3 tipos de cacto grandes e tortos**
-  (gomos inclinados, braços caídos, florzinha), em blocos via MultiMesh, com colisão no
-  tronco/rocha. Sempre os mesmos para a mesma semente.
+- `terrain_props.gd`: árvores normais, **tortas**, **gigantes** e **frutíferas** (frutas no chão:
+  pegue e clique para comer, +25 de vida), arbustos, pinheiros, rochas, **3 tipos de cacto grandes
+  e tortos** e muita **grama/arbustos de folhas cruzadas** (estilo Minecraft), via MultiMesh, com
+  colisão no tronco/rocha. Planejado em thread. Sempre os mesmos para a mesma semente.
+- `race_track.gd`: **autódromo** no deserto inspirado na The Motor Raceway (FlatOut 2): oval
+  grande, misto no meio com grampo e um cruzamento em "8" — tudo aberto, sem trechos fechados.
+  Barreiras vermelho/branco, pneus, largada quadriculada, pórtico e arquibancada.
 - `biome_atmosphere.gd`: neblina por distância conforme o bioma, com transição suave:
   planície ~130 m, deserto ~150 m, montanha ~115 m, **neve ~50 m** (com neve caindo e sol mais
   fraco). Valores na tabela `FOG`.
@@ -117,6 +122,7 @@ os ícones.
   que ficam a mais de 200 m. Fora da cidade eles andam em linha reta (sem NavigationMesh).
 
 ## Movimento (`scripts/player/parkour.gd`)
+- **Peso:** aceleração e frenagem graduais, queda mais pesada que a subida, balanço de cabeça; a animação das pernas tem velocidade máxima (não acelera no gancho/no ar).
 - Sonda à frente: altura do topo e profundidade do obstáculo decidem o movimento.
   - até `vault_max_height` (1.3 m) e até `vault_max_depth` (1.6 m), correndo → passa por cima;
   - mais comprido (ex.: carro no sentido do comprimento) → sobe em cima;
@@ -206,7 +212,11 @@ tests/                 testes headless (ragdoll, juntas, jogo)
 
 ## Cidades (`scripts/world/city_gen.gd`, `city_manager.gd`)
 - Geradas pela semente: **2 grandes**, **4 médias** e **7 vilas**, em terreno plano (fora das
-  montanhas), com o chão achatado e ruas de terra.
+  montanhas), com o chão achatado, formato **quase quadrado** (grade de quarteirões com bordas
+  comidas) e ruas: **avenida** no eixo central, **ruas comuns** na grade e **terra** na borda e
+  nas vilas. **Avenidas** ligam as cidades grandes e médias pelo mapa.
+- Torres altas ganham **ramificações tortas** como os cactos: um braço (ponte fechada) que sai
+  do meio do prédio e vira uma mini-torre inclinada com telhado.
 - Casas medievais com toque steampunk, em ruínas, no estilo **Hello Neighbor**: andares
   empilhados de tamanhos diferentes, tortos e deslocados, puxadinhos, telhados íngremes (alguns
   desabados, com os caibros à mostra), chaminés, canos de cobre, caldeiras, janelas tapadas.

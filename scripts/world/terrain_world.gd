@@ -40,7 +40,10 @@ var _noise_ridge := FastNoiseLite.new()
 var _noise_dunes := FastNoiseLite.new()
 var _noise_bumps := FastNoiseLite.new()
 var _noise_detail := FastNoiseLite.new()
-var cities: Array = [] ## cidades geradas pela semente (CityGen): centro, raio, tamanho, altura, lotes
+var cities: Array = [] ## cidades geradas pela semente (CityGen): centro, raio, tamanho, altura, lotes, ruas
+var avenues: Array = [] ## avenidas entre as cidades maiores ({a, b, width, kind})
+var race_track: Array = [] ## segmentos de asfalto da pista de corrida (RaceTrack)
+var track: Dictionary = {} ## lugar e traçado da pista (RaceTrack.plan)
 var _chunks := {} # Vector2i -> Node3D
 var _tasks := {} # Vector2i -> id da tarefa em andamento
 var _results := {} # Vector2i -> dados prontos (escrito pelas threads)
@@ -55,6 +58,10 @@ func _ready() -> void:
 		seed = randi()
 	_setup_noise()
 	cities = CityGen.place_cities(self)
+	avenues = CityGen.connect_cities(cities)
+	track = RaceTrack.plan(self)
+	if not track.is_empty():
+		race_track = track.segments
 	_material = _make_material()
 	_props = TerrainProps.new()
 	_player = get_node_or_null(player_path)
@@ -125,19 +132,72 @@ func snow_at(x: float, z: float) -> float:
 ## Altura final: relevo + chão achatado das cidades.
 func _height_from(x: float, z: float, biome: Dictionary) -> float:
 	var h := raw_height(x, z, biome)
+	var p := Vector2(x, z)
+	# Avenidas: niveladas na largura, seguindo o relevo no comprimento.
+	for road in avenues:
+		var info := _segment_info(p, road.a, road.b)
+		var reach: float = road.width * 0.5 + 18.0
+		if info.y < reach:
+			var on_line: Vector2 = road.a.lerp(road.b, info.x)
+			var line_h := raw_height(on_line.x, on_line.y, biome_at(on_line.x, on_line.y))
+			h = lerpf(h, line_h, 1.0 - smoothstep(road.width * 0.5 + 1.0, reach, info.y))
+	if not track.is_empty():
+		var w := RaceTrack.flatten_weight(track, p)
+		if w > 0.0:
+			h = lerpf(h, track.base, w)
 	for city in cities:
-		var d: float = Vector2(x, z).distance_to(city.center)
+		var d := _city_distance(city, p)
 		var r: float = city.radius
 		if d < r * 1.8:
 			h = lerpf(h, city.base, 1.0 - smoothstep(r * 1.05, r * 1.8, d))
 	return h
 
 
+## Distância "quadrada" (no eixo da grade da cidade) até o centro, com cantos arredondados.
+func _city_distance(city: Dictionary, p: Vector2) -> float:
+	var local := CityGen.to_local(city, p).abs()
+	return maxf(local.x, local.y) * 0.85 + local.length() * 0.15
+
+
+## (t ao longo do segmento 0..1, distância até ele).
+static func _segment_info(p: Vector2, a: Vector2, b: Vector2) -> Vector2:
+	var ab := b - a
+	var t := clampf((p - a).dot(ab) / maxf(ab.length_squared(), 0.001), 0.0, 1.0)
+	return Vector2(t, p.distance_to(a + ab * t))
+
+
+## Rua no ponto: {} ou {"kind": "avenue"/"street"/"dirt"/"asphalt", "edge": 0..1 (1 = no meio)}.
+func road_at(x: float, z: float) -> Dictionary:
+	var p := Vector2(x, z)
+	var best := {}
+	for city in cities:
+		if _city_distance(city, p) > city.radius + 12.0:
+			continue
+		for street in city.streets:
+			var info := _segment_info(p, street.a, street.b)
+			var half: float = street.width * 0.5
+			if info.y < half:
+				best = {"kind": street.kind, "edge": 1.0 - smoothstep(half - 0.8, half, info.y)}
+				if street.kind == "avenue":
+					return best
+	for road in avenues:
+		var info := _segment_info(p, road.a, road.b)
+		if info.y < road.width * 0.5:
+			return {"kind": "avenue", "edge": 1.0 - smoothstep(road.width * 0.5 - 0.8, road.width * 0.5, info.y)}
+	if not track.is_empty() and RaceTrack.flatten_weight(track, p) < 0.99:
+		return best
+	for road in race_track:
+		var info := _segment_info(p, road.a, road.b)
+		if info.y < road.width * 0.5:
+			return {"kind": "asphalt", "edge": 1.0 - smoothstep(road.width * 0.5 - 0.8, road.width * 0.5, info.y)}
+	return best
+
+
 ## Quanto o ponto está dentro de uma cidade (1 = no meio, 0 = fora).
 func city_mask(x: float, z: float) -> float:
 	var m := 0.0
 	for city in cities:
-		var d: float = Vector2(x, z).distance_to(city.center)
+		var d := _city_distance(city, Vector2(x, z))
 		m = maxf(m, 1.0 - smoothstep(city.radius * 0.85, city.radius * 1.15, d))
 	return m
 
@@ -364,6 +424,11 @@ func _color_for(x: float, z: float, h: float, biome: Dictionary) -> Color:
 	var in_city := city_mask(x, z)
 	if in_city > 0.0:
 		color = color.lerp(Color(0.38, 0.33, 0.27), in_city * 0.75)
+	var road := road_at(x, z)
+	if not road.is_empty():
+		var road_colors := {"avenue": Color(0.27, 0.26, 0.25), "street": Color(0.36, 0.34, 0.31),
+			"dirt": Color(0.45, 0.36, 0.26), "asphalt": Color(0.2, 0.2, 0.21)}
+		color = color.lerp(road_colors[road.kind], road.edge)
 	var jitter := _noise_detail.get_noise_2d(x * 3.0, z * 3.0) * 0.06
 	return Color(color.r + jitter, color.g + jitter, color.b + jitter)
 

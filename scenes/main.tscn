@@ -6,6 +6,7 @@
 [ext_resource type="Script" path="res://scripts/world/biome_atmosphere.gd" id="9_atmosphere"]
 [ext_resource type="Script" path="res://scripts/world/zombie_spawner.gd" id="10_spawner"]
 [ext_resource type="Script" path="res://scripts/world/city_manager.gd" id="12_cities"]
+[ext_resource type="Script" path="res://scripts/world/race_track.gd" id="13_track"]
 [ext_resource type="PackedScene" path="res://scenes/player.tscn" id="2_player"]
 [ext_resource type="PackedScene" path="res://scenes/zombie.tscn" id="3_zombie"]
 [ext_resource type="PackedScene" path="res://scenes/ui/hud.tscn" id="4_hud"]
@@ -331,6 +332,11 @@ sun_path = NodePath("../Sun")
 
 [node name="Cities" type="Node" parent="."]
 script = ExtResource("12_cities")
+terrain_path = NodePath("../Terrain")
+player_path = NodePath("../Player")
+
+[node name="RaceTrack" type="Node" parent="."]
+script = ExtResource("13_track")
 terrain_path = NodePath("../Terrain")
 player_path = NodePath("../Player")
 

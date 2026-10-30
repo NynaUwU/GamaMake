@@ -29,6 +29,8 @@ func plan(world: TerrainWorld, coord: Vector2i, origin: Vector2) -> Dictionary:
 			continue # deixa a cidade e o entorno livres
 		if world.city_mask(x, z) > 0.0:
 			continue # nada de árvores dentro das cidades geradas
+		if not world.track.is_empty() and RaceTrack.flatten_weight(world.track, Vector2(x, z)) > 0.0:
+			continue # nem na pista
 		var biome := world.biome_at(x, z)
 		var kind := _pick_kind(biome, rng)
 		if kind == "":
@@ -229,6 +231,8 @@ func _populate_ground(world: TerrainWorld, rng: RandomNumberGenerator, origin: V
 		var z := origin.y + rng.randf() * world.chunk_size
 		if Vector2(x, z).length() < world.town_radius * 1.6 or world.city_mask(x, z) > 0.5:
 			continue
+		if not world.road_at(x, z).is_empty():
+			continue # sem grama em cima das ruas
 		var biome := world.biome_at(x, z)
 		var high := world._height_from(x, z, biome)
 		var green: float = biome.plains + biome.mountain * (1.0 - smoothstep(30.0, 60.0, high)) * 0.7
