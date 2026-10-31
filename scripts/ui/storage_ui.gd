@@ -106,7 +106,7 @@ func _slot(from: String, index: int, slot: Dictionary) -> Button:
 		number.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		button.add_child(number)
 	if not slot.is_empty():
-		var icons := get_node_or_null("/root/ItemIcons")
+		var icons := (Engine.get_main_loop() as SceneTree).root.get_node_or_null("ItemIcons")
 		if icons and icons.has_method("get_icon"):
 			button.icon = icons.get_icon(slot.id)
 			button.expand_icon = true

@@ -155,7 +155,7 @@ static func cost_text(cost: Dictionary, inventory: Inventory = null) -> String:
 	var parts := []
 	for id in cost:
 		if inventory:
-			parts.append("%d/%d %s" % [cost[id], inventory.count(id), ItemDB.display_name(id)])
+			parts.append("%d/%d %s" % [inventory.count(id), cost[id], ItemDB.display_name(id)])
 		else:
 			parts.append("%d %s" % [cost[id], ItemDB.display_name(id)])
 	return ", ".join(parts)

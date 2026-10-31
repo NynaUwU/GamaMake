@@ -49,7 +49,7 @@ func _rebuild(target: PlacedObject) -> void:
 		child.queue_free()
 	var manager := target.get_parent() as PlacedManager
 	var clock := manager.clock if manager else 0.0
-	var icons := get_node_or_null("/root/ItemIcons")
+	var icons := (Engine.get_main_loop() as SceneTree).root.get_node_or_null("ItemIcons")
 	var title := Label.new()
 	title.text = {"pot_small": "Pote", "pot_wide": "Floreira", "bed": "Canteiro", "ground": "Cova", "campfire": "Grelha"}.get(target.kind, "")
 	title.add_theme_font_size_override("font_size", 11)

@@ -83,7 +83,7 @@ func _process(_delta: float) -> void:
 func _render_icons() -> void:
 	if _rendering or not icons.is_empty():
 		return
-	var studio := get_node_or_null("/root/ItemIcons")
+	var studio := (Engine.get_main_loop() as SceneTree).root.get_node_or_null("ItemIcons")
 	if studio == null or not studio.has_method("render_model"):
 		return
 	_rendering = true

@@ -54,7 +54,7 @@ func _slot(recipe: Dictionary) -> Control:
 	button.vertical_icon_alignment = VERTICAL_ALIGNMENT_TOP
 	button.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	button.add_theme_constant_override("icon_max_width", 34)
-	var icons := get_node_or_null("/root/ItemIcons")
+	var icons := (Engine.get_main_loop() as SceneTree).root.get_node_or_null("ItemIcons")
 	if icons and icons.has_method("get_icon"):
 		button.icon = icons.get_icon(recipe.id)
 	var ok := CraftingUI.can_craft(player.inventory, recipe)

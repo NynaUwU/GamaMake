@@ -40,7 +40,7 @@ func setup(p: Node) -> void:
 	_build_hotbar()
 	_build_backpack()
 	_build_tooltip()
-	var icons := get_node_or_null("/root/ItemIcons")
+	var icons := (Engine.get_main_loop() as SceneTree).root.get_node_or_null("ItemIcons")
 	if icons:
 		icons.icons_ready.connect(_refresh)
 	inventory.changed.connect(_refresh)
@@ -423,7 +423,7 @@ func _refresh() -> void:
 		var index: int = slot.get_meta("index")
 		var item: Dictionary = inventory.slots[index]
 		slot.text = ""
-		var icons := get_node_or_null("/root/ItemIcons")
+		var icons := (Engine.get_main_loop() as SceneTree).root.get_node_or_null("ItemIcons")
 		slot.icon = icons.get_icon(item.id) if icons and not item.is_empty() else null
 		var amount: Label = slot.get_node("Amount")
 		amount.text = str(item.amount) if not item.is_empty() and item.amount > 1 else ""
@@ -440,7 +440,7 @@ func _refresh() -> void:
 			slot.add_theme_stylebox_override(state, style)
 	if _preview:
 		_preview.show_equipment(inventory.equipment)
-	var icons_node := get_node_or_null("/root/ItemIcons")
+	var icons_node := (Engine.get_main_loop() as SceneTree).root.get_node_or_null("ItemIcons")
 	for button in _equip_slots:
 		var slot_name: String = button.get_meta("equip")
 		var worn: Dictionary = inventory.equipment[slot_name]
