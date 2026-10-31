@@ -103,7 +103,7 @@ static func collect(world: Node) -> Dictionary:
 	var cars := {}
 	for car in world.get_tree().get_nodes_in_group("vehicle"):
 		if car is VintageCar and car.is_inside_tree() and car.get_parent() == world:
-			cars[String(car.name)] = [car.global_transform, car.headlights_on]
+			cars[String(car.name)] = [car.global_transform, car.headlights_on, car.discovered]
 	data.cars = cars
 	data.player = player_data(world.player)
 	var others: Dictionary = Net.i.player_saves.duplicate(true)
@@ -185,6 +185,7 @@ static func apply(world: Node) -> void:
 			car.linear_velocity = Vector3.ZERO
 			car.angular_velocity = Vector3.ZERO
 			car.set_headlights(entry[1])
+			car.discovered = entry[2] if entry.size() > 2 else true # save antigo: já conhecia os carros
 	apply_player(world.player, data.get("player", {}))
 	var persist: Dictionary = data.get("persist", {})
 	for node in world.get_tree().get_nodes_in_group("persist"):

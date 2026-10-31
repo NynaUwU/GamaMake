@@ -1439,6 +1439,7 @@ func enter_vehicle(car: VintageCar) -> void:
 	if vehicle or _charging or _busy or parkour.is_busy() or _swing_phase != SwingPhase.NONE:
 		return
 	vehicle = car
+	car.discovered = true # passa a aparecer no mapa
 	$CollisionShape3D.set_deferred("disabled", true)
 	velocity = Vector3.ZERO
 	head.rotation.x = 0.0

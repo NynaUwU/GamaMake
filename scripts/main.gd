@@ -51,6 +51,9 @@ func _ready() -> void:
 	Net.i.message.connect(_on_net_message)
 	# Vento de fundo baixinho (preso no jogador).
 	Sfx.loop_player("wind", player).play()
+	var terrain := get_node_or_null("Terrain") as TerrainWorld
+	if terrain:
+		CityCars.spawn(self, terrain) # antes do save: ele guarda onde cada um ficou
 	Net.i.register_world(self)
 	var loading := not SaveGame.pending.is_empty()
 	SaveGame.apply(self)

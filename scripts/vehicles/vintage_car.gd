@@ -121,6 +121,32 @@ func _configure() -> void:
 	pass
 
 
+# --- Carro abandonado na cidade ------------------------------------------------
+# Fica congelado (sem física) até alguém chegar perto e o chão embaixo existir;
+# volta a congelar quando todos se afastam e ele está parado.
+
+var parked := false ## carro de cidade (CityCars)
+var discovered := false ## o jogador já entrou nele: aparece no mapa
+var _park_timer := 0.0
+
+
+func _update_parking(delta: float) -> bool:
+	_park_timer -= delta
+	if _park_timer > 0.0:
+		return freeze
+	_park_timer = 0.5
+	var near := INF
+	for p in (Net.i.world.player_positions() if Net.i.world else []):
+		near = minf(near, p.distance_to(global_position))
+	if freeze and near < 150.0:
+		var query := PhysicsRayQueryParameters3D.create(global_position + Vector3.UP * 2.0, global_position - Vector3.UP * 6.0, 1, [get_rid()])
+		if get_world_3d().direct_space_state.intersect_ray(query):
+			freeze = false # o terreno embaixo já carregou
+	elif not freeze and near > 320.0 and driver == null and driver_peer == 0 and linear_velocity.length() < 0.5:
+		freeze = true
+	return freeze
+
+
 # --- Interação ---------------------------------------------------------------
 
 func get_interact_text() -> String:
@@ -146,9 +172,19 @@ func interact(player: Node) -> void:
 		Net.i.request_car(self) # online o host confere se ninguém pegou antes
 
 
-## Tombado de lado ou de cabeça para baixo.
+## Tombado de lado, de cabeça para baixo, ou encalhado torto (apoiado em
+## algo, com menos de 2 rodas no chão e parado).
 func is_tipped() -> bool:
-	return global_basis.y.dot(Vector3.UP) < 0.45
+	var up := global_basis.y.dot(Vector3.UP)
+	if up < 0.7:
+		return true
+	if up > 0.95 or linear_velocity.length() > 1.0:
+		return false
+	var touching := 0
+	for wheel in _wheels:
+		if wheel.is_in_contact():
+			touching += 1
+	return touching < 2
 
 
 ## Quem está atrás do carro (perto da traseira) abre o porta-malas.
@@ -166,7 +202,15 @@ func flip_upright() -> void:
 	if forward.length() < 0.1:
 		forward = Vector3.FORWARD
 	var yaw := atan2(forward.x, forward.z)
-	global_transform = Transform3D(Basis(Vector3.UP, yaw), global_position + Vector3.UP * 1.2)
+	# Pousa a ~1 m acima do chão que estiver embaixo (não do ponto torto em que estava).
+	var where := global_position + Vector3.UP * 1.2
+	var query := PhysicsRayQueryParameters3D.create(global_position + Vector3.UP * 3.0, global_position - Vector3.UP * 8.0, 1, [get_rid()])
+	var hit := get_world_3d().direct_space_state.intersect_ray(query)
+	if hit:
+		where = hit.position + Vector3.UP * 1.0
+	freeze = false
+	sleeping = false
+	global_transform = Transform3D(Basis(Vector3.UP, yaw), where)
 	linear_velocity = Vector3.ZERO
 	angular_velocity = Vector3.ZERO
 	Sfx.play_at("thud", global_position, 0.0, 0.7)
@@ -246,6 +290,8 @@ func hand_points() -> Array:
 func _physics_process(delta: float) -> void:
 	if _is_copy():
 		_follow_owner(delta)
+		return
+	if parked and _update_parking(delta):
 		return
 	var forward := global_basis.z
 	var speed := linear_velocity.dot(forward)

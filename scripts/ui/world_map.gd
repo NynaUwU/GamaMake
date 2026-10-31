@@ -5,9 +5,12 @@ extends Control
 ## terreno (cor do bioma + sombreado do relevo), com os prédios da cidade por
 ## cima. Marcadores: player (seta), carro e zumbis próximos (só no minimapa).
 
-const MAP_PIXELS := 384 ## resolução da imagem do mundo (3072 m / 384 = 8 m por pixel)
+const BASE_PIXELS := 384 ## amostras do terreno (cor + relevo): 8 m cada, caro (~0,16 ms por amostra)
+const MAP_PIXELS := 1536 ## imagem final (2 m por pixel): base suavizada + ruas, pista e casas nítidas
 const MINIMAP_SIZE := 150.0
-const MINIMAP_RANGE := 320.0 ## metros mostrados de lado a lado no minimapa
+const MINIMAP_RANGE := 260.0 ## metros mostrados de lado a lado no minimapa
+const ROAD_COLORS := {"avenue": Color(0.24, 0.23, 0.22), "street": Color(0.33, 0.31, 0.28),
+	"dirt": Color(0.5, 0.4, 0.28), "asphalt": Color(0.17, 0.17, 0.18)}
 const COLOR_PLAYER := Color(1.0, 0.95, 0.4)
 const COLOR_CAR := Color(1.0, 0.5, 0.15)
 const COLOR_ZOMBIE := Color(0.9, 0.15, 0.1)
@@ -67,7 +70,9 @@ func _process(_delta: float) -> void:
 		WorkerThreadPool.wait_for_task_completion(_task)
 		_task = -1
 		_draw_buildings(_image)
+		_image.generate_mipmaps() # mapa grande reduzido sem serrilhar as ruas finas
 		_texture = ImageTexture.create_from_image(_image)
+		_big.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
 	_minimap.queue_redraw()
 	if _big_open:
 		_big.queue_redraw()
@@ -77,7 +82,7 @@ func _process(_delta: float) -> void:
 
 ## Roda em thread: cor + altura de cada pixel e sombreado pelo relevo.
 func _generate() -> void:
-	var n := MAP_PIXELS
+	var n := BASE_PIXELS
 	var size := terrain.world_size
 	var cell := size / n
 	var heights := PackedFloat32Array()
@@ -98,18 +103,53 @@ func _generate() -> void:
 			var color := image.get_pixel(i, j) * shade
 			color = color.lerp(Color(1, 1, 1), smoothstep(40.0, 130.0, h) * 0.12) # altitude clareia
 			image.set_pixel(i, j, Color(color, 1.0))
+	# Amplia 4x suavizando o relevo; o que precisa de contorno é desenhado por cima.
+	image.resize(MAP_PIXELS, MAP_PIXELS, Image.INTERPOLATE_BILINEAR)
+	for road in terrain.avenues + terrain.race_track:
+		_stroke(image, road.a, road.b, road.width, ROAD_COLORS.get(road.kind, ROAD_COLORS.street))
+	for city in terrain.cities:
+		for street in city.streets:
+			_stroke(image, street.a, street.b, street.width, ROAD_COLORS.get(street.kind, ROAD_COLORS.street))
 	_image = image
+
+
+## Faixa de rua de a até b (metros do mundo), com pelo menos 2 px de largura.
+func _stroke(image: Image, a: Vector2, b: Vector2, width: float, color: Color) -> void:
+	var pa := _world_to_pixel(a)
+	var pb := _world_to_pixel(b)
+	var brush := maxi(2, roundi(width / terrain.world_size * MAP_PIXELS))
+	var steps := maxi(1, ceili(pa.distance_to(pb) * 1.5))
+	var half := Vector2.ONE * brush * 0.5
+	for k in steps + 1:
+		var p := pa.lerp(pb, float(k) / steps)
+		image.fill_rect(Rect2i(Vector2i(p - half), Vector2i(brush, brush)), color)
 
 
 ## Prédios e muros da cidade (CSG do nó Level) como blocos escuros no mapa.
 func _draw_buildings(image: Image) -> void:
 	# Casas das cidades geradas.
+	# Casas das cidades: retângulo girado com a borda mais escura (dá para contar as casas).
+	var scale := MAP_PIXELS / terrain.world_size
 	for city in terrain.cities:
 		for lot in city.lots:
 			var c := _world_to_pixel(lot.pos)
-			var half := Vector2(lot.w, lot.d) * 0.5 / terrain.world_size * MAP_PIXELS
-			var shade := 0.32 - minf(lot.floors, 12) * 0.015
-			image.fill_rect(Rect2i(Vector2i(c - half), Vector2i((half * 2.0).max(Vector2.ONE))), Color(shade, shade * 0.9, shade * 0.85))
+			var half := Vector2(lot.w, lot.d) * 0.5 * scale
+			var shade := 0.36 - minf(lot.floors, 12) * 0.015
+			var fill := Color(shade * 1.1, shade, shade * 0.9) if not lot.ruin else Color(0.3, 0.24, 0.2)
+			var edge := fill.darkened(0.45)
+			var axis_x := Vector2(cos(lot.yaw), -sin(lot.yaw))
+			var axis_y := Vector2(sin(lot.yaw), cos(lot.yaw))
+			var reach := ceili(half.length()) + 1
+			for y in range(-reach, reach + 1):
+				for x in range(-reach, reach + 1):
+					var px := Vector2i(roundi(c.x) + x, roundi(c.y) + y)
+					if px.x < 0 or px.y < 0 or px.x >= MAP_PIXELS or px.y >= MAP_PIXELS:
+						continue
+					var d := Vector2(px) + Vector2(0.5, 0.5) - c
+					var u := absf(d.dot(axis_x))
+					var v := absf(d.dot(axis_y))
+					if u <= half.x and v <= half.y:
+						image.set_pixelv(px, edge if u > half.x - 1.0 or v > half.y - 1.0 else fill)
 	var level := terrain.get_parent().get_node_or_null("Level")
 	if level == null:
 		return
@@ -185,7 +225,7 @@ func _draw_world() -> void:
 
 func _draw_car(target: Control, to_screen: Callable, clip: Rect2) -> void:
 	for car in get_tree().get_nodes_in_group("vehicle"):
-		if car == null or player.get("vehicle") == car:
+		if car == null or player.get("vehicle") == car or not car.get("discovered"):
 			continue
 		var pos: Vector2 = to_screen.call(Vector2(car.global_position.x, car.global_position.z))
 		if clip.has_point(pos):

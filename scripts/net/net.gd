@@ -375,6 +375,8 @@ func _process(delta: float) -> void:
 		if idle:
 			_idle_car_timer = 0.5
 		for car in _cars():
+			if car.freeze and car.parked:
+				continue # estacionado longe de todos: nada muda
 			if car.net_owner == my_id() and (car.driver_peer != 0 or idle or car.linear_velocity.length() > 0.3):
 				_csnap.rpc(String(car.name), car.global_transform, car.linear_velocity, car.steering, car.headlights_on)
 

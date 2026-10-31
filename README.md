@@ -24,6 +24,12 @@ reação física a golpes e ragdoll (estilo Dying Light), visual de PC dos anos 
 - Os outros jogadores aparecem com o nome em cima, o item da mão, a lanterna acesa e uma bolinha
   azul no minimapa/mapa. Em cima, no meio da tela, aparece quem está online.
 
+## Carros nas cidades e mapa mais nítido (rodada de feedback)
+- **Carros abandonados nas cidades** (`scripts/world/city_cars.gd`): 1 nas vilas, 2 nas médias e 4 nas grandes (23 no mapa padrão), modelo e lugar sorteados pela semente da cidade, largados meio tortos na rua. Ficam **congelados** (sem física, sem rede) até alguém chegar a 150 m e o chão embaixo existir; voltam a congelar quando todos se afastam. Vão no save como os outros.
+- **Ícone do carro no mapa só depois de entrar nele uma vez** (vale para todos os carros, inclusive os da garagem; saves antigos já contam como conhecidos).
+- **Desvirar mais robusto:** conta como tombado também o carro inclinado/encalhado (apoiado em algo, com menos de 2 rodas no chão e parado); ao desvirar ele acorda a física e pousa 1 m acima do chão que estiver embaixo.
+- **Mapa 4x mais nítido** (2 m por pixel): o relevo continua amostrado a 8 m e suavizado, mas ruas, avenidas, a pista e as casas (giradas, com contorno; ruínas mais escuras) são desenhadas por cima em alta resolução. Minimapa mostra 260 m (antes 320). Gera em ~4 s.
+
 ## Durabilidade, mudas, degraus e vidro (rodada de feedback)
 - **Durabilidade** em roupas/armaduras, ferramentas e armas corpo a corpo: só uma barra embaixo do ícone (verde → amarelo → vermelho), sem texto. Cada golpe que acerta gasta 1 uso (uma vez por golpe, mesmo acertando vários); cada dano recebido gasta a roupa vestida. Ao zerar, quebra com um som de estalo. Ferramentas simples (de pedra) duram ~35% das de metal. `ItemDB.max_durability`, `Inventory.wear`.
 - **Golpe acerta 2 a 5 zumbis** (sorteado a cada golpe): hordas voltaram a ser perigosas.
