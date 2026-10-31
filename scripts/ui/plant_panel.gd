@@ -28,7 +28,9 @@ func setup(p: Player) -> void:
 
 
 func _process(delta: float) -> void:
-	var target := player.get("_interact_target") as PlacedObject
+	# O alvo pode ter sido destruído neste frame (tronco cortado, item pego): checa antes do "as".
+	var raw: Variant = player.get("_interact_target")
+	var target: PlacedObject = raw as PlacedObject if is_instance_valid(raw) else null
 	if target == null or not (target.is_farm() or target.kind == "campfire"):
 		visible = false
 		_target = null

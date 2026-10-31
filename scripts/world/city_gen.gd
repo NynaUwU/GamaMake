@@ -399,15 +399,29 @@ static func _hollow_floor(mb: MeshBuilder, body: StaticBody3D, color: Color, cen
 	var h := FLOOR_HEIGHT
 	var base := center - Vector3(0, h * 0.5, 0)
 	var door := [0.0, 1.3, 0.0, 2.3] # [centro, largura, baixo, cima]
-	# Frente (com a porta), fundo e laterais.
-	_wall(mb, body, color, base + Vector3(0, 0, -fd * 0.5 + t * 0.5), Basis.IDENTITY, fw, t, h, _window_spots(fw, door))
-	_wall(mb, body, color, base + Vector3(0, 0, fd * 0.5 - t * 0.5), Basis.IDENTITY, fw, t, h, _window_spots(fw, []))
-	for side in [-1.0, 1.0]:
-		_wall(mb, body, color, base + Vector3(side * (fw * 0.5 - t * 0.5), 0, 0), Basis(Vector3.UP, PI / 2), fd - t * 2.0, t, h,
-			_window_spots(fd - t * 2.0, []))
-	# Paredes internas da planta escolhida (cômodos), com os vãos de passagem.
 	var ix := fw * 0.5 - t
 	var iz := fd * 0.5 - t
+	# Onde as paredes internas encostam em cada parede de fora (ali não vai janela).
+	var avoid := {"front": [], "back": [], "left": [], "right": []}
+	for seg in HousePlans.PLANS[plan].walls:
+		for end in [[seg[0], seg[1]], [seg[2], seg[3]]]:
+			var x: float = -ix + end[0] * ix * 2.0
+			var z: float = -iz + end[1] * iz * 2.0
+			if end[1] <= 0.001:
+				avoid.front.append(x)
+			elif end[1] >= 0.999:
+				avoid.back.append(x)
+			if end[0] <= 0.001:
+				avoid.left.append(-z) # paredes laterais: o X local aponta para -Z
+			elif end[0] >= 0.999:
+				avoid.right.append(-z)
+	# Frente (com a porta), fundo e laterais.
+	_wall(mb, body, color, base + Vector3(0, 0, -fd * 0.5 + t * 0.5), Basis.IDENTITY, fw, t, h, _window_spots(fw, door, avoid.front))
+	_wall(mb, body, color, base + Vector3(0, 0, fd * 0.5 - t * 0.5), Basis.IDENTITY, fw, t, h, _window_spots(fw, [], avoid.back))
+	for side in [-1.0, 1.0]:
+		_wall(mb, body, color, base + Vector3(side * (fw * 0.5 - t * 0.5), 0, 0), Basis(Vector3.UP, PI / 2), fd - t * 2.0, t, h,
+			_window_spots(fd - t * 2.0, [], avoid.left if side < 0.0 else avoid.right))
+	# Paredes internas da planta escolhida (cômodos), com os vãos de passagem.
 	for seg in HousePlans.PLANS[plan].walls:
 		var a := Vector3(-ix + seg[0] * ix * 2.0, 0, -iz + seg[1] * iz * 2.0)
 		var b := Vector3(-ix + seg[2] * ix * 2.0, 0, -iz + seg[3] * iz * 2.0)
@@ -426,7 +440,7 @@ static func _hollow_floor(mb: MeshBuilder, body: StaticBody3D, color: Color, cen
 
 
 ## Onde ficam as janelas numa parede (uma a cada ~2,4 m, sem bater na porta).
-static func _window_spots(length: float, door: Array) -> Array:
+static func _window_spots(length: float, door: Array, avoid := []) -> Array:
 	var spots := []
 	if not door.is_empty():
 		spots.append(door)
@@ -437,7 +451,12 @@ static func _window_spots(length: float, door: Array) -> Array:
 			continue
 		if absf(along) > length * 0.5 - 0.6:
 			continue
-		spots.append([along, 0.9, 1.0, 2.1])
+		var blocked := false
+		for a in avoid:
+			if absf(along - a) < 0.45 + 0.25: # meia janela + folga da parede interna
+				blocked = true
+		if not blocked:
+			spots.append([along, 0.9, 1.0, 2.1])
 	return spots
 
 

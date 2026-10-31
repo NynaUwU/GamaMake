@@ -17,7 +17,7 @@ signal icons_ready
 const ICON_DIR := "res://assets/icons"
 const MANIFEST := ICON_DIR + "/manifest.txt"
 const FALLBACK_DIR := "user://icon_cache"
-const RENDER_VERSION := 10 ## mude para forçar re-render (ex.: mudou ângulo/luz)
+const RENDER_VERSION := 11 ## mude para forçar re-render (ex.: mudou ângulo/luz)
 const ICON_SIZE := 64 ## pequeno de propósito: fica pixelado como o resto do jogo
 
 var ready_done := false
@@ -107,6 +107,7 @@ func _render(ids: Array[StringName], folder: String) -> void:
 	for id in ids:
 		var model := ItemDB.make_mesh(id)
 		studio.pivot.add_child(model)
+		show_flat_side(model)
 		_frame(model, studio.camera)
 		studio.viewport.render_target_update_mode = SubViewport.UPDATE_ONCE
 		await RenderingServer.frame_post_draw
@@ -176,6 +177,20 @@ func _make_studio() -> Dictionary:
 	pivot.rotate_z(-PI / 4)
 	viewport.add_child(pivot)
 	return {"viewport": viewport, "camera": camera, "pivot": pivot}
+
+
+## Itens chatos/largos para o lado (machado, picareta, pá, espada, chinelo,
+## bumerangue...) apareciam de perfil e pareciam um graveto: gira o modelo em
+## volta do próprio comprimento para mostrar a parte larga para a câmera.
+static func show_flat_side(model: Node3D) -> void:
+	var box := AABB()
+	var first := true
+	for mesh in model.find_children("*", "MeshInstance3D", true, false):
+		var aabb: AABB = mesh.transform * mesh.mesh.get_aabb()
+		box = aabb if first else box.merge(aabb)
+		first = false
+	if box.size.x > box.size.y * 1.3:
+		model.rotation.z = PI / 2
 
 
 ## Posiciona a câmera para o modelo caber inteiro na imagem.
