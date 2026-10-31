@@ -33,6 +33,7 @@ var net_id := 0
 var removed := PackedByteArray() ## 1 = quarto tirado (índice: (j * N + i) * 4 + q; q: 0 baixo, 1 direita, 2 cima, 3 esquerda)
 ## Janelas e portas encaixadas nos buracos: [{"type": "window"/"door", "tris": PackedInt32Array, "open": bool}]
 var fills: Array = []
+var damaged := {} ## quartos quebrados por zumbi (o martelo conserta; talhadeira não conta)
 var _fill_nodes: Array = []
 
 var _mesh: MeshInstance3D

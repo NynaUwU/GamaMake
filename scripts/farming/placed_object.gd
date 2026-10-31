@@ -6,9 +6,14 @@ extends StaticBody3D
 ##   bed        canteiro: piso de terra de 2,8 x 2,8 m na grade da construção (9 plantas)
 ##   ground     cova cavada no chão pela pá (1 planta)
 ##   bench      bancada de fabricação ([E] abre a lista de receitas)
+##   workbench  mesa de trabalho (receitas de metal) · furnace fornalha (fundir)
+##   campfire   fogueira com grelha (3 lugares para assar comida: Cooking)
+##   spikes / beartrap / barbed / mine  armadilhas (Trap)
 ## As plantas crescem pelo relógio do PlacedManager (igual para todos e salvo).
 
 const FARM_KINDS := ["pot_small", "pot_wide", "bed", "ground"]
+const STATIONS := {"bench": "bancada", "workbench": "mesa", "furnace": "fornalha"}
+const TRAPS := ["spikes", "beartrap", "barbed", "mine"]
 const SOIL := Color(0.34, 0.23, 0.15)
 const CLAY := Color(0.62, 0.32, 0.2)
 
@@ -17,6 +22,8 @@ var kind := "pot_small"
 var crops: Array = [] ## por vaga: {} ou {"crop": "cenoura", "t": hora em que plantou}
 var _stages: Array = [] # estágio desenhado em cada vaga (-1 = vazia)
 var _plants: Array = [] # Node3D de cada vaga
+var extra := {} ## estado salvo de armadilhas (usos, armada, vida)
+var trap: Trap
 
 static var _material: StandardMaterial3D
 
@@ -57,6 +64,8 @@ func slot_positions() -> Array:
 			return list
 		"ground":
 			return [Vector3(0, 0.06, 0)]
+		"campfire":
+			return [Vector3(-0.22, 0.6, 0), Vector3(0, 0.6, 0), Vector3(0.22, 0.6, 0)]
 	return []
 
 
@@ -91,6 +100,19 @@ static func progress(entry: Dictionary, clock: float) -> float:
 
 ## Atualiza o desenho das plantas (chamado ~1x por segundo pelo manager).
 func refresh(clock: float) -> void:
+	if kind == "campfire":
+		for i in crops.size():
+			var st := Cooking.stage(crops[i], clock)
+			if st != _stages[i]:
+				_stages[i] = st
+				for child in _plants[i].get_children():
+					child.queue_free()
+				if st >= 0:
+					_plants[i].add_child(Cooking.model(crops[i], clock))
+		return
+	if trap:
+		trap.refresh()
+		return
 	for i in crops.size():
 		var p := progress(crops[i], clock)
 		var stage := -1 if p < 0.0 else mini(int(p * 3.0), 3)
@@ -111,10 +133,19 @@ func ready_count(clock: float) -> int:
 
 
 func get_interact_text() -> String:
-	if kind == "bench":
-		return "[E] Bancada (fabricar)"
 	var manager := get_parent() as PlacedManager
 	var clock := manager.clock if manager else 0.0
+	match kind:
+		"bench":
+			return "[E] Bancada (fabricar)"
+		"workbench":
+			return "[E] Mesa de trabalho (metal, armas, ferramentas)"
+		"furnace":
+			return "[E] Fornalha (fundir minério, vidro, carvão)"
+		"campfire":
+			return Cooking.text(self, clock)
+	if trap:
+		return trap.get_text()
 	var ready := ready_count(clock)
 	if ready > 0:
 		return "[E] Colher (%d pronta%s)" % [ready, "s" if ready > 1 else ""]
@@ -131,8 +162,14 @@ func interact(player: Node) -> void:
 	var manager := get_parent() as PlacedManager
 	if manager == null:
 		return
-	if kind == "bench":
-		CraftingUI.open_for(player)
+	if STATIONS.has(kind):
+		CraftingUI.open_for(player, STATIONS[kind])
+		return
+	if kind == "campfire":
+		Cooking.interact(player, self)
+		return
+	if trap:
+		trap.interact(player)
 		return
 	for i in crops.size():
 		if progress(crops[i], manager.clock) >= 1.0:
@@ -142,6 +179,16 @@ func interact(player: Node) -> void:
 # --- Modelos ---------------------------------------------------------------------
 
 func _build() -> void:
+	if kind in ["campfire", "furnace", "workbench"]:
+		StationModels.build(kind, self)
+		return
+	if kind in TRAPS:
+		trap = Trap.new()
+		add_child(trap)
+		trap.setup(self)
+		if kind != "barbed":
+			collision_layer = 1 << 5 # pisável: zumbis e jogadores passam por cima
+		return
 	var mb := MeshBuilder.new()
 	match kind:
 		"pot_small":

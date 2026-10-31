@@ -255,6 +255,7 @@ const MAX_HUNGER := 100.0
 const HUNGER_RATE := 100.0 / (22.0 * 60.0) ## por segundo: ~22 min de cheia a zero
 var hunger := MAX_HUNGER
 var _hunger_warned := false
+var _last_repair: Node
 var grapple: Node3D ## lançador do gancho na mão
 var _grapple_active := false
 var _anchor := Vector3.ZERO
@@ -1771,6 +1772,9 @@ func _update_tools(delta: float) -> void:
 	_tool_hit = move_toward(_tool_hit, 0.0, delta * 4.0)
 	if builder:
 		builder.update(_tool_kind() if health > 0.0 and not ui_blocked else "")
+		if builder.repair_target != _last_repair:
+			_last_repair = builder.repair_target
+			_emit_weapon_text() # "Consertar [custo]" aparece/some
 	# Batida: a ferramenta sobe e desce rápido para frente.
 	var swing := sin(_tool_hit * PI)
 	if _weapon_type == WeaponType.HAMMER:

@@ -1015,7 +1015,7 @@ func _check_wall(direction: Vector3, delta: float) -> bool:
 		var from := global_position + Vector3.UP * height
 		var query := PhysicsRayQueryParameters3D.create(from, from + direction * reach, 1, [get_rid()])
 		hit = get_world_3d().direct_space_state.intersect_ray(query)
-		if hit and (hit.collider is BuildPiece or hit.collider is BuildFill):
+		if hit and (hit.collider is BuildPiece or hit.collider is BuildFill or hit.collider is PlacedObject and hit.collider.kind == "barbed"):
 			break
 		hit = {}
 	if hit.is_empty():
@@ -1038,6 +1038,9 @@ func _damage_wall() -> void:
 		var hit := space.intersect_ray(query)
 		if hit.is_empty():
 			continue
+		if hit.collider is PlacedObject and hit.collider.trap:
+			hit.collider.trap.hit_by(self) # cerca de espinhos: se machuca batendo
+			return
 		if hit.collider is BuildFill:
 			var fill: BuildFill = hit.collider
 			var hp: int = fill.get_meta("hp", 3 if fill.type == "window" else 6) - 1
@@ -1061,7 +1064,7 @@ func _damage_wall() -> void:
 			Sfx.play_at("knock", hit.position, 3.0, 0.75)
 			if hits[key] >= 2:
 				Sfx.play_at("crunch", hit.position, 5.0, 0.7)
-				Net.i.build_request("cut_many", [piece.net_id, square])
+				Net.i.build_request("break", [piece.net_id, square])
 			return
 
 

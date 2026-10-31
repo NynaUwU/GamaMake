@@ -91,6 +91,26 @@ func host_apply(action: String, args: Array) -> Array:
 			piece.rebuild()
 			_sound(piece, "ping")
 			return [args[0], cut]
+		"break":
+			var piece: BuildPiece = pieces.get(args[0])
+			if piece == null:
+				return []
+			var broken := PackedInt32Array()
+			for t in args[1]:
+				if t >= 0 and t < BuildPiece.TRIS and piece.removed[t] == 0:
+					piece.removed[t] = 1
+					piece.damaged[t] = true
+					broken.append(t)
+			if broken.is_empty():
+				return []
+			piece.rebuild()
+			return [args[0], broken]
+		"repair":
+			var piece: BuildPiece = pieces.get(args[0])
+			if piece == null or piece.damaged.is_empty():
+				return []
+			_repair(piece)
+			return args
 		"fill":
 			var piece: BuildPiece = pieces.get(args[0])
 			var tris: PackedInt32Array = args[2]
@@ -119,9 +139,32 @@ func host_apply(action: String, args: Array) -> Array:
 	return []
 
 
+func _repair(piece: BuildPiece) -> void:
+	for t in piece.damaged:
+		piece.removed[t] = 0
+	piece.damaged.clear()
+	piece.rebuild()
+	_sound(piece, "knock")
+
+
+func request_repair(piece: BuildPiece) -> void:
+	Net.i.build_request("repair", [piece.net_id])
+
+
 ## Chegou do host (clientes).
 func apply_remote(action: String, args: Array) -> void:
 	match action:
+		"break":
+			var piece: BuildPiece = pieces.get(args[0])
+			if piece:
+				for t in args[1]:
+					piece.removed[t] = 1
+					piece.damaged[t] = true
+				piece.rebuild()
+		"repair":
+			var piece: BuildPiece = pieces.get(args[0])
+			if piece:
+				_repair(piece)
 		"place":
 			if not pieces.has(args[0]):
 				_spawn(args[0], args[1], args[2], args[3], PackedByteArray())
@@ -157,7 +200,7 @@ func state() -> Array:
 	var list := []
 	for id in pieces:
 		var piece: BuildPiece = pieces[id]
-		list.append([id, piece.kind, piece.cell, piece.rot, piece.removed, piece.fills])
+		list.append([id, piece.kind, piece.cell, piece.rot, piece.removed, piece.fills, PackedInt32Array(piece.damaged.keys())])
 	return list
 
 
@@ -168,6 +211,9 @@ func load_state(list: Array) -> void:
 			if entry.size() > 5:
 				for fill in entry[5]:
 					pieces[entry[0]].add_fill(fill.type, fill.tris, fill.open)
+			if entry.size() > 6:
+				for t in entry[6]:
+					pieces[entry[0]].damaged[t] = true
 		_next_id = maxi(_next_id, entry[0] + 1)
 
 

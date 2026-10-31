@@ -54,7 +54,8 @@ func host_apply(action: String, args: Array) -> Array:
 		"place":
 			var kind: String = args[0]
 			var xform: Transform3D = args[1]
-			if kind not in ["pot_small", "pot_wide", "bed", "ground", "bench"]:
+			if kind not in ["pot_small", "pot_wide", "bed", "ground", "bench", "workbench", "furnace", "campfire",
+					"spikes", "beartrap", "barbed", "mine"]:
 				return []
 			if kind == "bed":
 				var cell := Vector3i((xform.origin / BuildPiece.SEG).round())
@@ -81,6 +82,40 @@ func host_apply(action: String, args: Array) -> Array:
 			obj.crops[slot] = {"crop": crop, "t": clock}
 			obj.refresh(clock)
 			return [args[0], slot, crop, clock]
+		"cook":
+			var obj: PlacedObject = objects.get(args[0])
+			var slot: int = args[1]
+			if obj == null or obj.kind != "campfire" or slot < 0 or slot >= obj.crops.size() \
+					or not obj.crops[slot].is_empty() or not Cooking.COOK.has(StringName(args[2])):
+				return []
+			obj.crops[slot] = {"food": StringName(args[2]), "t": clock}
+			obj.refresh(clock)
+			return [args[0], slot, args[2], clock]
+		"take_cooked":
+			var obj: PlacedObject = objects.get(args[0])
+			var slot: int = args[1]
+			if obj == null or obj.kind != "campfire" or slot < 0 or slot >= obj.crops.size():
+				return []
+			var result := Cooking.result_of(obj.crops[slot], clock)
+			if result == &"":
+				return []
+			Net.i.drop_item(result, 1, Transform3D(Basis(), obj.slot_world(slot) + Vector3.UP * 0.25), Vector3(randf_range(-0.5, 0.5), 2.0, randf_range(-0.5, 0.5)))
+			obj.crops[slot] = {}
+			obj.refresh(clock)
+			return args
+		"extra":
+			var obj: PlacedObject = objects.get(args[0])
+			if obj == null or not args[1] is Dictionary:
+				return []
+			obj.extra.merge(args[1], true)
+			obj.refresh(clock)
+			return args
+		"explode":
+			var obj: PlacedObject = objects.get(args[0])
+			if obj == null or obj.kind != "mine":
+				return []
+			_explode(obj, false)
+			return args
 		"harvest":
 			var obj: PlacedObject = objects.get(args[0])
 			var slot: int = args[1]
@@ -105,8 +140,37 @@ func _drop_harvest(obj: PlacedObject, slot: int) -> void:
 	Sfx.play_at("pickup", where.origin, 0.0, 0.8)
 
 
+## Mina: explosão de verdade no host (dano nos zumbis), só o efeito nos clientes.
+func _explode(obj: PlacedObject, cosmetic: bool) -> void:
+	var explosion := Explosion.new()
+	explosion.cosmetic = cosmetic
+	get_parent().add_child(explosion)
+	explosion.global_position = obj.global_position + Vector3.UP * 0.3
+	explosion.detonate(5.0, 120.0, 14.0, 1.8)
+	_remove(obj.net_id)
+
+
 func apply_remote(action: String, args: Array) -> void:
 	match action:
+		"cook":
+			var obj: PlacedObject = objects.get(args[0])
+			if obj:
+				obj.crops[args[1]] = {"food": StringName(args[2]), "t": args[3]}
+				obj.refresh(clock)
+		"take_cooked":
+			var obj: PlacedObject = objects.get(args[0])
+			if obj:
+				obj.crops[args[1]] = {}
+				obj.refresh(clock)
+		"extra":
+			var obj: PlacedObject = objects.get(args[0])
+			if obj:
+				obj.extra.merge(args[1], true)
+				obj.refresh(clock)
+		"explode":
+			var obj: PlacedObject = objects.get(args[0])
+			if obj:
+				_explode(obj, true)
 		"place":
 			if not objects.has(args[0]):
 				_spawn(args[0], args[1], args[2])
@@ -156,7 +220,7 @@ func save_data() -> Dictionary:
 	var list := []
 	for id in objects:
 		var obj: PlacedObject = objects[id]
-		list.append([id, obj.kind, obj.global_transform, obj.crops.duplicate(true)])
+		list.append([id, obj.kind, obj.global_transform, obj.crops.duplicate(true), obj.extra.duplicate(true)])
 	return {"clock": clock, "next": _next_id, "list": list}
 
 
@@ -170,6 +234,8 @@ func load_data(data: Dictionary) -> void:
 		var obj: PlacedObject = objects[entry[0]]
 		for i in mini(entry[3].size(), obj.crops.size()):
 			obj.crops[i] = entry[3][i]
+		if entry.size() > 4:
+			obj.extra.merge(entry[4], true)
 		obj.refresh(clock)
 
 

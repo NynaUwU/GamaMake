@@ -22,7 +22,7 @@ extends Node
 ## bancada de fabricação (PlacedManager).
 
 const REACH := 7.0
-const MASK := 1
+const MASK := 1 | (1 << 5) # mundo + interagíveis (armadilhas no chão)
 const ENTRIES := {
 	"Estrutura": [
 		{"id": "wall", "name": "Parede", "kind": BuildPiece.Kind.WALL, "desc": "2,8 x 2,8 m; R gira", "cost": {&"tabua": 4}},
@@ -39,12 +39,24 @@ const ENTRIES := {
 		{"id": "pot_wide", "name": "Floreira", "place": "pot_wide", "desc": "Floreira larga: 3 plantas", "cost": {&"tabua": 2, &"pedra": 2}},
 		{"id": "bed", "name": "Canteiro", "place": "bed", "desc": "Piso de terra na grade da construção: 9 plantas", "cost": {&"tabua": 3, &"pedra": 4}},
 		{"id": "bench", "name": "Bancada", "place": "bench", "desc": "Bancada de fabricação: [E] abre as receitas", "cost": {&"tabua": 6, &"sucata": 2}},
+		{"id": "campfire", "name": "Fogueira", "place": "campfire", "desc": "Fogueira com grelha: assa comida (enche mais a fome) e ilumina", "cost": {&"pedra": 5, &"tabua": 3}},
+		{"id": "furnace", "name": "Fornalha", "place": "furnace", "desc": "Funde minério em barras, faz vidro e carvão", "cost": {&"pedra": 10, &"tabua": 2}},
+		{"id": "workbench", "name": "Mesa de trabalho", "place": "workbench", "desc": "Receitas de metal: armas, lanterna, ferramentas", "cost": {&"tabua": 6, &"barra_ferro": 2, &"sucata": 2}},
+	],
+	"Armadilhas": [
+		{"id": "spikes", "name": "Estacas", "place": "spikes", "desc": "Machucam a perna de quem passa (30 usos)", "cost": {&"tabua": 4}},
+		{"id": "beartrap", "name": "Arm. de urso", "place": "beartrap", "desc": "Prende o zumbi: atordoa e quebra a perna. [E] arma de novo", "cost": {&"barra_ferro": 2}},
+		{"id": "barbed", "name": "Cerca de espinhos", "place": "barbed", "desc": "Bloqueia; quem bate nela se machuca (12 golpes)", "cost": {&"tabua": 4, &"barra_ferro": 1}},
+		{"id": "mine", "name": "Mina", "place": "mine", "desc": "Explode quando um zumbi chega perto (uma vez)", "cost": {&"sucata": 2, &"carvao": 3}},
 	],
 }
 
 ## Tamanho (caixa do fantasma) dos objetos da aba Outros.
-const PLACE_SIZE := {"pot_small": Vector3(0.46, 0.31, 0.46), "pot_wide": Vector3(1.24, 0.36, 0.48), "bench": Vector3(1.6, 0.9, 0.75)}
-const PLACE_RADIUS := {"pot_small": 0.35, "pot_wide": 0.7, "bench": 0.9}
+const PLACE_SIZE := {"pot_small": Vector3(0.46, 0.31, 0.46), "pot_wide": Vector3(1.24, 0.36, 0.48), "bench": Vector3(1.6, 0.9, 0.75),
+	"campfire": Vector3(1.0, 0.6, 1.0), "furnace": Vector3(1.2, 1.2, 1.0), "workbench": Vector3(1.9, 1.95, 0.85),
+	"spikes": Vector3(1.2, 0.35, 1.2), "beartrap": Vector3(0.55, 0.1, 0.55), "barbed": Vector3(2.4, 1.1, 0.3), "mine": Vector3(0.36, 0.1, 0.36)}
+const PLACE_RADIUS := {"pot_small": 0.35, "pot_wide": 0.7, "bench": 0.9, "campfire": 0.6, "furnace": 0.8, "workbench": 1.0,
+	"spikes": 0.7, "beartrap": 0.35, "barbed": 0.9, "mine": 0.3}
 
 var player: Player
 var selection: Dictionary = ENTRIES["Estrutura"][0]
@@ -53,6 +65,7 @@ var flip := false ## R: gira a parede (o padrão é ficar de frente para quem co
 var target := {} ## onde o martelo vai construir {kind, cell, rot, valid}
 var fill_target := {} ## buraco mirado para janela/porta {piece, tris, valid}
 var cut_target := {} ## {piece, quarters}: meio quadrado mirado pela talhadeira
+var repair_target: BuildPiece ## peça com dano de zumbi mirada (clique conserta)
 var cut_selection := PackedInt32Array() ## partes (quartos) da área arrastada
 var diag := "/" ## diagonal do corte da talhadeira (R troca)
 
@@ -126,6 +139,8 @@ func _manager() -> BuildingManager:
 
 
 func tool_name() -> String:
+	if repair_target:
+		return "Consertar  [%s]" % cost_text(repair_cost(repair_target), player.inventory)
 	var text: String = "%s%s" % [selection.name, "  (girada)" if flip and selection.get("kind", -1) == BuildPiece.Kind.WALL else ""]
 	if selection.has("cost"):
 		text += "  [%s]" % cost_text(selection.cost, player.inventory if player else null)
@@ -143,6 +158,11 @@ static func cost_text(cost: Dictionary, inventory: Inventory = null) -> String:
 		else:
 			parts.append("%d %s" % [cost[id], ItemDB.display_name(id)])
 	return ", ".join(parts)
+
+
+## Consertar: 1 tábua a cada 2 quadradinhos quebrados.
+static func repair_cost(piece: BuildPiece) -> Dictionary:
+	return {&"tabua": maxi(1, ceili(piece.damaged.size() / 8.0))}
 
 
 static func can_afford(inventory: Inventory, cost: Dictionary) -> bool:
@@ -237,6 +257,7 @@ func update(tool: String) -> void:
 	target = {}
 	fill_target = {}
 	cut_target = {}
+	repair_target = null
 	_ghost.visible = false
 	_highlight.visible = false
 	if tool != "chisel":
@@ -250,6 +271,12 @@ func update(tool: String) -> void:
 				_show_removal(hit.collider)
 			elif hit and hit.collider is PlacedObject:
 				_draw_box(hit.collider)
+			return
+		# Mirando uma peça quebrada por zumbi: o clique conserta (mostra o dano).
+		var aimed := _ray()
+		if aimed and aimed.collider is BuildPiece and not aimed.collider.damaged.is_empty():
+			repair_target = aimed.collider
+			_draw_triangles(repair_target, PackedInt32Array(repair_target.damaged.keys()), Color(0.3, 1.0, 0.45, 0.5))
 			return
 		if selection.has("place"):
 			target = _compute_place()
@@ -306,6 +333,13 @@ func use(tool: String) -> bool:
 			if hit and hit.collider is PlacedObject and hit.collider.kind != "ground":
 				_refund(entry_for("place", hit.collider.kind).get("cost", {}))
 				_placed().request("remove", [hit.collider.net_id])
+				return true
+			return false
+		if repair_target:
+			var cost := repair_cost(repair_target)
+			if _paid({"cost": cost}):
+				manager.request_repair(repair_target)
+				player.notify.emit("Consertado (%s)" % cost_text(cost))
 				return true
 			return false
 		if selection.has("place"):

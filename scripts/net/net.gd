@@ -896,8 +896,11 @@ func _do_loot(key: String, where: Transform3D, table: String) -> void:
 		# Troncos saem um por um (cada um é carregado/cortado separado).
 		var pieces: int = drop[1] if drop[0] == &"tronco" else 1
 		for k in pieces:
-			var spot := where.translated(Vector3(randf_range(-0.3, 0.3) + k * 0.5, 0.9, randf_range(-0.3, 0.3)))
-			var push := where.basis.z * randf_range(1.0, 2.2) + Vector3(randf_range(-0.8, 0.8), randf_range(1.5, 2.5), 0)
+			# Nasce na FRENTE do baú (fora da colisão dele) e é jogado para fora.
+			var forward := Vector3(where.basis.z.x, 0, where.basis.z.z).normalized()
+			var side := Vector3(-forward.z, 0, forward.x)
+			var spot := Transform3D(Basis(), where.origin + forward * 0.8 + side * (randf_range(-0.3, 0.3) + k * 0.35) + Vector3.UP * 0.45)
+			var push := forward * randf_range(1.0, 1.8) + side * randf_range(-0.6, 0.6) + Vector3.UP * randf_range(1.5, 2.2)
 			drop_item(drop[0], drop[1] / pieces, spot, push)
 
 

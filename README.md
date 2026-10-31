@@ -24,6 +24,35 @@ reação física a golpes e ragdoll (estilo Dying Light), visual de PC dos anos 
 - Os outros jogadores aparecem com o nome em cima, o item da mão, a lanterna acesa e uma bolinha
   azul no minimapa/mapa. Em cima, no meio da tela, aparece quem está online.
 
+## Recursos, estações, conserto e armadilhas
+
+### Árvores, rochas e minérios (`scripts/world/resource_node.gd`)
+- **Machado** derruba árvore em 3 golpes (ela tomba de verdade) e solta **troncos** (2-3). Outras armas quase não fazem efeito.
+- Tronco: carregue até a **bancada** (1 tronco = **8 tábuas**) ou golpeie com o machado ali mesmo (**2 tábuas**). Na fornalha vira carvão.
+- **Picareta** quebra rochas (pedra) e **veios de minério**: ferro (pedaços laranja), cobre (verdes) e carvão (pretos), mais comuns na montanha.
+- Árvores e rochas usadas não voltam (vão no save e valem para todos no multiplayer).
+
+### Estações (martelo → aba Outros)
+- **Fogueira com grelha** (5 pedras + 3 tábuas): segure comida crua e aperte [E] para pôr na grelha (3 lugares). Em 20 s fica pronta; esquecida 1 min depois vira carvão. Assada enche muito mais: batata 22→45, cenoura 15→30, abóbora 40→75, enlatado 45→65, pão 25→40. Também ilumina à noite.
+- **Fornalha** (10 pedras + 2 tábuas): minério → barra de ferro/cobre, 3 sucatas → barra de ferro, pedra → vidro, tronco → 2 carvões. Cada fundição gasta combustível (carvão, tronco ou 2 tábuas).
+- **Mesa de trabalho** (6 tábuas + 2 barras de ferro + 2 sucatas): tudo da bancada + receitas de metal (espada, pistola, lanterna, carregador, gancho, colherona, cajado).
+- **Bancada:** tábuas do tronco, machado, picareta, pá, martelo, talhadeira, bandagem, bumerangue, chinelo, maça.
+
+### Conserto com o martelo
+- Mirando uma peça quebrada por zumbi, o dano aparece em verde e o **clique conserta** (1 tábua a cada 2 quadradinhos). Cortes feitos com a talhadeira não contam como dano.
+
+### Armadilhas (martelo → aba Armadilhas)
+- **Estacas** (4 tábuas): machucam a perna de quem passa (30 usos).
+- **Armadilha de urso** (2 barras de ferro): prende o zumbi (atordoa 5 s e quebra a perna). Depois fica fechada: [E] arma de novo.
+- **Cerca de espinhos** (4 tábuas + 1 barra de ferro): bloqueia; zumbi que bate nela se machuca (aguenta 12 golpes).
+- **Mina** (2 sucatas + 3 carvões): explode quando um zumbi chega perto.
+
+### Outros ajustes
+- Stamina 4x maior (enche no mesmo tempo de antes).
+- **Som:** volume geral bem mais baixo, cada som com o mesmo pico (sem clipping), limitador no canal Master, menos agudos e tom máximo limitado.
+- Itens do baú nascem na frente dele (antes podiam ficar presos dentro do armário).
+- Testes: `tests/test_resources.gd`, `tests/test_stations.gd`.
+
 ## Chat e marcador (`scripts/ui/chat.gd`, `scripts/ui/ping_markers.gd`)
 
 - **Enter** abre o chat (Enter envia, Esc cancela). As mensagens aparecem no canto de baixo à esquerda e somem depois de uns segundos; entradas/saídas de jogadores também aparecem ali.
