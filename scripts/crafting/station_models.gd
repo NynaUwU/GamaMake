@@ -23,6 +23,8 @@ static func build(kind: String, obj: PlacedObject) -> void:
 			_furnace(mb, obj)
 		"workbench":
 			_workbench(mb, obj)
+		"chest":
+			_chest(mb, obj)
 	var mesh := MeshInstance3D.new()
 	mesh.mesh = mb.finish(PlacedObject._mat(), false)
 	obj.add_child(mesh)
@@ -94,6 +96,25 @@ static func _furnace(mb: MeshBuilder, obj: PlacedObject) -> void:
 	obj.add_child(glow)
 	obj._shape(Vector3(0, 0.6, 0), Vector3(1.3, 1.2, 1.3))
 	_fire(obj, Vector3(0, 0.3, 0.66), 0.0, 0.8)
+
+
+## Baú construído: caixa de tábuas com tampa arredondada, cintas de ferro e
+## fechadura de latão.
+static func _chest(mb: MeshBuilder, obj: PlacedObject) -> void:
+	mb.color(WOOD)
+	mb.box(Vector3(0, 0.27, 0), Vector3(1.0, 0.54, 0.6))
+	mb.color(WOOD.darkened(0.15))
+	for y in [0.12, 0.3, 0.46]:
+		mb.box(Vector3(0, y, 0.302), Vector3(0.98, 0.012, 0.004)) # frestas das tábuas
+	mb.color(WOOD.lightened(0.05))
+	mb.lathe(PackedVector2Array([Vector2(0.3, -0.5), Vector2(0.3, 0.5)]), 8, Basis(Vector3.BACK, PI / 2), Vector3(0, 0.54, 0)) # tampa curva
+	mb.color(IRON)
+	for x in [-0.36, 0.36]:
+		mb.box(Vector3(x, 0.27, 0), Vector3(0.06, 0.56, 0.62))
+		mb.lathe(PackedVector2Array([Vector2(0.31, -0.03), Vector2(0.31, 0.03)]), 8, Basis(Vector3.BACK, PI / 2), Vector3(x, 0.54, 0))
+	mb.color(ItemModels.BRASS)
+	mb.box(Vector3(0, 0.5, 0.31), Vector3(0.1, 0.12, 0.03))
+	obj._shape(Vector3(0, 0.42, 0), Vector3(1.0, 0.84, 0.62))
 
 
 static func _workbench(mb: MeshBuilder, obj: PlacedObject) -> void:

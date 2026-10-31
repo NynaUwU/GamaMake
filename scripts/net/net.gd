@@ -849,17 +849,39 @@ func _req_system(system: String, action: String, args: Array) -> void:
 	request_peer = 1
 
 
-## Host: entrega um item no inventário de um jogador (o que não couber cai no chão).
-func give_to(peer: int, item_id: StringName, amount: int) -> void:
+## Host: entrega um item no inventário de um jogador (o que não couber cai no
+## chão). slot >= 0: tenta pôr naquele slot da mochila (arrastou do baú para lá).
+func give_to(peer: int, item_id: StringName, amount: int, slot := -1) -> void:
 	var where := Transform3D()
 	if world:
 		var who: Node3D = world.player if peer == my_id() else world.puppets.get(peer)
 		if is_instance_valid(who):
 			where = who.global_transform.translated(Vector3.UP)
 	if peer == my_id() or not online():
-		_give(item_id, amount, where)
+		_give_at(item_id, amount, where, slot)
 	else:
-		_give.rpc_id(peer, item_id, amount, where)
+		_give_at.rpc_id(peer, item_id, amount, where, slot)
+
+
+@rpc("authority", "reliable")
+func _give_at(item_id: StringName, amount: int, where: Transform3D, slot: int) -> void:
+	if world == null or world.player == null:
+		return
+	var inventory: Inventory = world.player.inventory
+	if slot >= 0 and slot < inventory.slots.size():
+		var target: Dictionary = inventory.slots[slot]
+		if target.is_empty():
+			var moved := mini(ItemDB.max_stack(item_id), amount)
+			inventory.slots[slot] = {"id": item_id, "amount": moved}
+			amount -= moved
+			inventory.changed.emit()
+		elif target.id == item_id:
+			var moved := mini(ItemDB.max_stack(item_id) - target.amount, amount)
+			target.amount += moved
+			amount -= moved
+			inventory.changed.emit()
+	if amount > 0:
+		_give(item_id, amount, where)
 
 
 ## Host: marca uma chave como usada para todos (baú aberto, árvore derrubada...).

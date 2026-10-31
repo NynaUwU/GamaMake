@@ -55,7 +55,7 @@ func host_apply(action: String, args: Array) -> Array:
 			var kind: String = args[0]
 			var xform: Transform3D = args[1]
 			if kind not in ["pot_small", "pot_wide", "bed", "ground", "bench", "workbench", "furnace", "campfire",
-					"spikes", "beartrap", "barbed", "mine", "drawboard"]:
+					"spikes", "beartrap", "barbed", "mine", "drawboard", "chest"]:
 				return []
 			if kind == "bed":
 				var cell := Vector3i((xform.origin / BuildPiece.SEG).round())
@@ -70,6 +70,9 @@ func host_apply(action: String, args: Array) -> Array:
 		"remove":
 			if not objects.has(args[0]):
 				return []
+			var obj: PlacedObject = objects[args[0]]
+			if obj.kind == "chest" and ContainerManager.i:
+				ContainerManager.i.dump("placed_%d" % obj.net_id, obj.global_position) # o que tinha dentro cai
 			_remove(args[0])
 			return args
 		"plant":

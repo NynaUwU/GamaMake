@@ -31,7 +31,8 @@ reação física a golpes e ragdoll (estilo Dying Light), visual de PC dos anos 
 - **Mesa de trabalho** é a única bancada de fabricação (6 tábuas + 3 sucatas, sem ferro); a "bancada" antiga saiu do martelo (as já construídas abrem a mesa). Uma já vem na área inicial.
 - **Fornalha** de barro: cúpula redonda sobre pedras, boca em arco e chaminé de barro.
 - **Pedras soltas** no chão em volta de rochas e veios ([E] pega): dá para fazer a primeira picareta sem ferramenta.
-- **Baús, armários e caixotes são inventários:** [E] abre; em cima os slots do baú, embaixo a mochila. Clique num item do baú pega, clique num item seu guarda; "Pegar tudo". O saque é sorteado na primeira abertura, sincronizado no multiplayer e salvo.
+- **Baús, armários e caixotes do mundo:** [E] abre a lista do saque; **só dá para retirar** (clique num item pega; "Pegar tudo"). O saque é sorteado na primeira abertura, sincronizado no multiplayer e salvo.
+- **Baú construível** (martelo → Outros, 6 tábuas + 1 sucata): 20 slots, com **arrastar e soltar igual ao inventário** entre o baú e a mochila (move, troca e junta pilhas; soltar do baú num slot da mochila vai para aquele slot). O conteúdo é do mundo (todos veem, vai no save); desmontar o baú derruba o que tinha dentro. `scripts/ui/storage_ui.gd`.
 - **Modelo 3D girando** ao lado do nome do item (janela de detalhes da mochila e no baú). `scripts/ui/item_spinner.gd`.
 - **Som:** soco com som próprio (grave e curto); motor sem "pop" (loop periódico sem emenda e liga/desliga com fade, mais baixo).
 - **Água** mais transparente, fundo do lago verde de alga; debaixo d'água bem menos escuro.

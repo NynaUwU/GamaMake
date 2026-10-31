@@ -8,6 +8,7 @@ extends Node
 signal changed(key: String)
 
 const SLOTS := 12
+const STORAGE_SLOTS := 20
 
 static var i: ContainerManager
 
@@ -35,9 +36,9 @@ func slots_of(key: String) -> Array:
 	return contents.get(key, [])
 
 
-static func empty_slots() -> Array:
+static func empty_slots(count := SLOTS) -> Array:
 	var list := []
-	for k in SLOTS:
+	for k in count:
 		list.append({})
 	return list
 
@@ -71,39 +72,89 @@ func host_apply(action: String, args: Array) -> Array:
 	return result
 
 
+## Baús do mundo ("loot_...") só deixam retirar; baús construídos ("placed_...")
+## guardam também (20 slots, arrastar e soltar).
+static func is_storage(key: String) -> bool:
+	return key.begins_with("placed_")
+
+
 func _host(action: String, args: Array) -> Array:
 	var key: String = args[0]
 	match action:
 		"open":
 			if not contents.has(key):
-				var slots := empty_slots()
-				if not Net.i.taken.has(key): # baú de save antigo já revistado: vazio
+				var slots := empty_slots(STORAGE_SLOTS if is_storage(key) else SLOTS)
+				if not is_storage(key) and not Net.i.taken.has(key): # baú de save antigo já revistado: vazio
 					for drop in Loot.roll(args[1]):
 						add_to(slots, drop[0], drop[1])
 				contents[key] = slots
-			if not Net.i.taken.has(key):
+			if not is_storage(key) and not Net.i.taken.has(key):
 				Net.i.mark_taken(key) # tampa abre para todos
 			return [key, contents[key]]
 		"take":
+			# args: [chave, slot do baú, (slot da mochila de destino, opcional)]
 			var slots: Array = contents.get(key, [])
 			var index: int = args[1]
 			if index < 0 or index >= slots.size() or slots[index].is_empty():
 				return []
 			var slot: Dictionary = slots[index]
 			slots[index] = {}
-			Net.i.give_to(Net.i.request_peer, slot.id, slot.amount)
+			Net.i.give_to(Net.i.request_peer, slot.id, slot.amount, args[2] if args.size() > 2 else -1)
 			return [key, slots]
-		"put":
+		"swap":
 			var slots: Array = contents.get(key, [])
-			var id := StringName(args[1])
-			var amount: int = args[2]
-			if slots.is_empty() or not ItemDB.has(id) or amount <= 0:
+			var a: int = args[1]
+			var b: int = args[2]
+			if not is_storage(key) or a == b or a < 0 or b < 0 or a >= slots.size() or b >= slots.size():
 				return []
-			var left := add_to(slots, id, amount)
-			if left > 0:
-				Net.i.give_to(Net.i.request_peer, id, left) # não coube: volta
+			_swap(slots, a, b)
+			return [key, slots]
+		"put_at":
+			# Item vindo da mochila para um slot certo do baú construído.
+			var slots: Array = contents.get(key, [])
+			var index: int = args[1]
+			var id := StringName(args[2])
+			var amount: int = args[3]
+			if not is_storage(key) or index < 0 or index >= slots.size() or not ItemDB.has(id) or amount <= 0:
+				if ItemDB.has(id) and amount > 0:
+					Net.i.give_to(Net.i.request_peer, id, amount) # recusado: devolve
+				return []
+			var target: Dictionary = slots[index]
+			if target.is_empty():
+				slots[index] = {"id": id, "amount": amount}
+			elif target.id == id:
+				var moved := mini(ItemDB.max_stack(id) - target.amount, amount)
+				target.amount += moved
+				if amount - moved > 0:
+					Net.i.give_to(Net.i.request_peer, id, amount - moved)
+			else:
+				slots[index] = {"id": id, "amount": amount} # troca: o que estava volta para quem soltou
+				Net.i.give_to(Net.i.request_peer, target.id, target.amount)
 			return [key, slots]
 	return []
+
+
+static func _swap(slots: Array, a: int, b: int) -> void:
+	if not slots[a].is_empty() and not slots[b].is_empty() and slots[a].id == slots[b].id:
+		var moved := mini(ItemDB.max_stack(slots[a].id) - slots[b].amount, slots[a].amount)
+		if moved > 0:
+			slots[b].amount += moved
+			slots[a].amount -= moved
+			if slots[a].amount <= 0:
+				slots[a] = {}
+			return
+	var temp: Dictionary = slots[a]
+	slots[a] = slots[b]
+	slots[b] = temp
+
+
+## Baú construído desmontado: o que tinha dentro cai no chão.
+func dump(key: String, where: Vector3) -> void:
+	for slot in contents.get(key, []):
+		if not slot.is_empty():
+			Net.i.drop_item(slot.id, slot.amount, Transform3D(Basis(), where + Vector3.UP * 0.6),
+				Vector3(randf_range(-1.5, 1.5), 2.5, randf_range(-1.5, 1.5)))
+	contents.erase(key)
 
 
 func apply_remote(action: String, args: Array) -> void:

@@ -1,8 +1,8 @@
 class_name ContainerUI
 extends CanvasLayer
-## Inventário de um baú/armário/caixote ([E] nele). Em cima os slots do baú,
-## embaixo a sua mochila. Clique num item do baú = pega; clique num item seu =
-## guarda no baú. "Pegar tudo" esvazia o baú. Com o item embaixo do mouse, o
+## Baú/armário/caixote do mundo ([E] nele): só dá para RETIRAR. Clique num
+## item = pega; "Pegar tudo" esvazia. (Para guardar coisas, construa um Baú com
+## o martelo: StorageUI.) Com o item embaixo do mouse, o
 ## modelo 3D dele gira ao lado do nome. ESC, E ou Fechar saem.
 
 const SLOT := Vector2(46, 46)
@@ -12,7 +12,6 @@ var key := ""
 var table := "casa"
 var title := "Baú"
 var _chest_grid: GridContainer
-var _bag_grid: GridContainer
 var _spinner: ItemSpinner
 var _name: Label
 
@@ -50,15 +49,11 @@ func _ready() -> void:
 	_name.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	_name.add_theme_color_override("font_color", Color(0.95, 0.85, 0.4))
 	info.add_child(_name)
-	var mine := Label.new()
-	mine.text = "Sua mochila (clique para guardar):"
-	mine.add_theme_font_size_override("font_size", 11)
-	column.add_child(mine)
-	_bag_grid = GridContainer.new()
-	_bag_grid.columns = 5
-	_bag_grid.add_theme_constant_override("h_separation", 4)
-	_bag_grid.add_theme_constant_override("v_separation", 4)
-	column.add_child(_bag_grid)
+	var hint := Label.new()
+	hint.text = "Clique num item para pegar"
+	hint.add_theme_font_size_override("font_size", 11)
+	hint.modulate = Color(1, 1, 1, 0.7)
+	column.add_child(hint)
 	var row := HBoxContainer.new()
 	column.add_child(row)
 	LegacyGUI.button(row, "Pegar tudo", _take_all).size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -75,14 +70,10 @@ func _refresh() -> void:
 		return
 	for child in _chest_grid.get_children():
 		child.queue_free()
-	for child in _bag_grid.get_children():
-		child.queue_free()
 	var slots: Array = ContainerManager.i.slots_of(key)
 	for k in ContainerManager.SLOTS:
 		var slot: Dictionary = slots[k] if k < slots.size() else {}
 		_chest_grid.add_child(_slot(slot, _take.bind(k)))
-	for k in player.inventory.slots.size():
-		_bag_grid.add_child(_slot(player.inventory.slots[k], _put.bind(k)))
 
 
 func _slot(slot: Dictionary, action: Callable) -> Button:
@@ -122,20 +113,6 @@ func _slot(slot: Dictionary, action: Callable) -> Button:
 func _take(index: int) -> void:
 	ContainerManager.i.request("take", [key, index])
 	Sfx.play("pickup", -4.0)
-
-
-## Guarda a pilha inteira do slot da mochila no baú (se couber algum).
-func _put(index: int) -> void:
-	var slot: Dictionary = player.inventory.slots[index]
-	if slot.is_empty():
-		return
-	var room := ContainerManager.i.slots_of(key).duplicate(true)
-	if room.is_empty() or ContainerManager.add_to(room, slot.id, slot.amount) == slot.amount:
-		player.notify.emit("O baú está cheio")
-		return
-	var taken := player.inventory.take(index, slot.amount)
-	ContainerManager.i.request("put", [key, String(taken.id), taken.amount])
-	Sfx.play("knock", -8.0, 1.0)
 
 
 func _take_all() -> void:

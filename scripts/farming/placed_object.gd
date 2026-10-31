@@ -147,6 +147,8 @@ func get_interact_text() -> String:
 			return Cooking.text(self, clock)
 		"drawboard":
 			return "[E] Desenhar na lousa"
+		"chest":
+			return "[E] Abrir baú"
 	if trap:
 		return trap.get_text()
 	var ready := ready_count(clock)
@@ -174,6 +176,9 @@ func interact(player: Node) -> void:
 	if board:
 		DrawUI.open_for(player, board)
 		return
+	if kind == "chest":
+		StorageUI.open_for(player, "placed_%d" % net_id)
+		return
 	if trap:
 		trap.interact(player)
 		return
@@ -185,7 +190,7 @@ func interact(player: Node) -> void:
 # --- Modelos ---------------------------------------------------------------------
 
 func _build() -> void:
-	if kind in ["campfire", "furnace", "workbench"]:
+	if kind in ["campfire", "furnace", "workbench", "chest"]:
 		StationModels.build(kind, self)
 		return
 	if kind == "drawboard":
