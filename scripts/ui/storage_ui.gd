@@ -170,7 +170,7 @@ func _drop_on(_at: Vector2, data: Variant, to: String, index: int) -> void:
 		if slot.is_empty():
 			return
 		var moved := player.inventory.take(src, slot.amount)
-		manager.request("put_at", [key, index, String(moved.id), moved.amount])
+		manager.request("put_at", [key, index, String(moved.id), moved.amount, moved.get("dur", 1.0)])
 		Sfx.play("knock", -8.0, 1.0)
 	_refresh()
 
@@ -195,7 +195,7 @@ func _quick(from: String, index: int) -> void:
 		Sfx.play("click", -6.0, 0.6) # baú cheio
 		return
 	var moved := player.inventory.take(index, item.amount)
-	manager.request("put_at", [key, target, String(moved.id), moved.amount])
+	manager.request("put_at", [key, target, String(moved.id), moved.amount, moved.get("dur", 1.0)])
 	Sfx.play("knock", -8.0, 1.0)
 
 

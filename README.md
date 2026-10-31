@@ -24,6 +24,15 @@ reação física a golpes e ragdoll (estilo Dying Light), visual de PC dos anos 
 - Os outros jogadores aparecem com o nome em cima, o item da mão, a lanterna acesa e uma bolinha
   azul no minimapa/mapa. Em cima, no meio da tela, aparece quem está online.
 
+## Durabilidade, mudas, degraus e vidro (rodada de feedback)
+- **Durabilidade** em roupas/armaduras, ferramentas e armas corpo a corpo: barra embaixo do slot e "Durabilidade: %" no tooltip. Cada golpe que acerta gasta 1 uso (uma vez por golpe, mesmo acertando vários); cada dano recebido gasta a roupa vestida. Ao zerar, quebra com um som de estalo. Ferramentas simples (de pedra) duram ~35% das de metal. `ItemDB.max_durability`, `Inventory.wear`.
+- **Golpe acerta 2 a 5 zumbis** (sorteado a cada golpe): hordas voltaram a ser perigosas.
+- **Zumbis soltam recursos** ao morrer: 30% sucata, 30% pano e 12% uma roupa já gasta (capuz, calça, botas ou colete).
+- **Mudas de árvore:** árvores do mapa às vezes soltam uma muda. Plante no solo ou numa **floreira larga/canteiro** (ocupa o plantador inteiro). Cresce em ~8 min (muda → arvoreta → árvore); só dá para derrubar depois de crescida (machado corta bem, o resto mal arranha). Árvore plantada pelo jogador sempre solta **1 muda (10% de chance de 2)**, troncos e gravetos.
+- **Subir degraus** de até 0,42 m (altura da canela, um passo da grade) andando, sem pular: jogador e zumbis (os animais vão usar o mesmo `scripts/physics/step_climb.gd`). A câmera sobe suave, sem tranco. Resolve o degrau do piso na entrada das casas construídas.
+- **Janela** agora custa 2 gravetos + 1 vidro (era tábua + sucata).
+- **Deserto:** a pá não abre cova (o solo é ruim: só dá para plantar em plantadores construídos), mas cava **areia** (1–2) e às vezes **vidro** (25%). Na fornalha: 2 areia → 1 vidro.
+
 ## Inventário, crafting, carros e casas (rodada de feedback)
 
 - **Hotbar de 9** (teclas 1-9). **Mochila 9x5** (hotbar + 9x4). Em cima: o **personagem** girando com 4 slots de **roupa/armadura** (cabeça, corpo, pernas, pés) presas no boneco, e o **crafting de mão**.
@@ -151,7 +160,7 @@ reação física a golpes e ragdoll (estilo Dying Light), visual de PC dos anos 
 - **Caixote inicial** ao lado da mesa de armas: 20 tábuas, 10 pedras, sementes, 2 enlatados e uma pá.
 
 ### Construção custa material
-- Parede/piso/teto: 4 tábuas · pilar: 1 tábua + 1 pedra · janela: 1 tábua + 1 sucata · porta: 3 tábuas + 1 sucata.
+- Parede/piso/teto: 4 tábuas · pilar: 1 tábua + 1 pedra · janela: 2 gravetos + 1 vidro · porta: 3 tábuas + 1 sucata.
 - O menu do martelo mostra o custo (tem/precisa) e deixa o slot avermelhado quando falta. Shift + clique (desmontar) **devolve metade**.
 
 ### Fome

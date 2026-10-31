@@ -16,6 +16,36 @@ var selected := 0
 var equipment := {"head": {}, "body": {}, "legs": {}, "feet": {}} ## o que está vestido
 
 
+## Gasta "uses" usos do item do slot. Devolve true se quebrou (some do slot).
+func wear(index: int, uses := 1) -> bool:
+	if index < 0 or index >= slots.size() or slots[index].is_empty():
+		return false
+	var broke := _wear_item(slots[index], uses)
+	if broke:
+		slots[index] = {}
+	changed.emit()
+	return broke
+
+
+## Cada pedaço de roupa vestido gasta um uso (levou um golpe). true = algo quebrou.
+func wear_equipment() -> bool:
+	var broke := false
+	for slot in equipment:
+		if not equipment[slot].is_empty() and _wear_item(equipment[slot], 1):
+			equipment[slot] = {}
+			broke = true
+	changed.emit()
+	return broke
+
+
+func _wear_item(item: Dictionary, uses: int) -> bool:
+	var total := ItemDB.max_durability(item.id)
+	if total <= 0:
+		return false
+	item.dur = item.get("dur", 1.0) - float(uses) / total
+	return item.dur <= 0.0
+
+
 ## Quanto do dano a roupa/armadura vestida segura (0..0,8).
 func armor() -> float:
 	var total := 0.0
@@ -59,7 +89,7 @@ func _init() -> void:
 
 ## Adiciona itens; devolve quanto NÃO coube (0 = coube tudo).
 ## Armas e ferramentas vão primeiro para a hotbar; materiais para a mochila.
-func add(id: StringName, amount := 1) -> int:
+func add(id: StringName, amount := 1, dur := 1.0) -> int:
 	var left := amount
 	var stack := ItemDB.max_stack(id)
 	for i in slots.size():
@@ -76,6 +106,8 @@ func add(id: StringName, amount := 1) -> int:
 		if slots[i].is_empty():
 			var moved := mini(stack, left)
 			slots[i] = {"id": id, "amount": moved}
+			if dur < 1.0 and ItemDB.max_durability(id) > 0:
+				slots[i].dur = dur # item gasto (do chão, de zumbi...)
 			left -= moved
 	if left != amount:
 		changed.emit()
@@ -88,6 +120,8 @@ func take(index: int, amount := 1) -> Dictionary:
 		return {}
 	var moved := mini(amount, slots[index].amount)
 	var result := {"id": slots[index].id, "amount": moved}
+	if slots[index].has("dur"):
+		result.dur = slots[index].dur
 	slots[index].amount -= moved
 	if slots[index].amount <= 0:
 		slots[index] = {}

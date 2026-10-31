@@ -41,7 +41,8 @@ const RECIPES := [
 	{"id": &"barra_ferro", "station": "fornalha", "fuel": true, "cost": {&"minerio_ferro": 2}},
 	{"id": &"barra_cobre", "station": "fornalha", "fuel": true, "cost": {&"minerio_cobre": 2}},
 	{"id": &"barra_ferro", "station": "fornalha", "fuel": true, "cost": {&"sucata": 3}, "note": "sucata"},
-	{"id": &"vidro", "station": "fornalha", "fuel": true, "cost": {&"pedra": 3}},
+	{"id": &"vidro", "station": "fornalha", "fuel": true, "cost": {&"areia": 2}},
+	{"id": &"vidro", "station": "fornalha", "fuel": true, "cost": {&"pedra": 4}, "note": "pedra"},
 	{"id": &"carvao", "amount": 2, "station": "fornalha", "cost": {&"tronco": 1}},
 	# Mão (mochila): o básico, e versões que rendem menos que na mesa.
 	{"id": &"graveto", "amount": 2, "station": "mao", "cost": {&"tabua": 1}},

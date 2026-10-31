@@ -31,7 +31,7 @@ const ENTRIES := {
 		{"id": "pillar", "name": "Pilar", "kind": BuildPiece.Kind.PILLAR, "desc": "0,4 m de lado, 2,8 m de altura", "cost": {&"tabua": 1, &"pedra": 1}},
 	],
 	"Aberturas": [
-		{"id": "window", "name": "Janela", "fill": "window", "desc": "Preenche um buraco feito pela talhadeira", "cost": {&"tabua": 1, &"sucata": 1}},
+		{"id": "window", "name": "Janela", "fill": "window", "desc": "Preenche um buraco feito pela talhadeira", "cost": {&"graveto": 2, &"vidro": 1}},
 		{"id": "door", "name": "Porta", "fill": "door", "desc": "Buraco que encoste no chão; [E] abre", "cost": {&"tabua": 3, &"sucata": 1}},
 	],
 	"Outros": [
@@ -331,7 +331,7 @@ func use(tool: String) -> bool:
 				_refund(entry_for_kind(hit.collider.kind).get("cost", {}))
 				manager.request_remove(hit.collider)
 				return true
-			if hit and hit.collider is PlacedObject and hit.collider.kind != "ground":
+			if hit and hit.collider is PlacedObject and not hit.collider.kind in ["ground", "tree"]:
 				_refund(entry_for("place", hit.collider.kind).get("cost", {}))
 				_placed().request("remove", [hit.collider.net_id])
 				return true

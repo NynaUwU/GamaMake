@@ -27,8 +27,8 @@ const START := [[&"tabua", 20], [&"pedra", 10], [&"semente_cenoura", 4], [&"seme
 
 ## Recursos do mapa: sempre dão isso (quantidade sorteada no intervalo).
 const FIXED := {
-	"arvore": [[&"tronco", 2, 3]],
-	"arvore_fruta": [[&"tronco", 1, 2], [&"fruta", 1, 3]],
+	"arvore": [[&"tronco", 2, 3], [&"muda", 0, 1]],
+	"arvore_fruta": [[&"tronco", 1, 2], [&"fruta", 1, 3], [&"muda", 0, 1]],
 	"rocha": [[&"pedra", 3, 5]],
 	"ferro": [[&"minerio_ferro", 2, 4], [&"pedra", 1, 2]],
 	"cobre": [[&"minerio_cobre", 2, 4], [&"pedra", 1, 2]],

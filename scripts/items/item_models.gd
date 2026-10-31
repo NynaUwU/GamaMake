@@ -44,6 +44,13 @@ static func build(id: StringName) -> Node3D:
 	match id:
 		&"lanca":
 			_spear(parts)
+		&"muda":
+			_mb(parts, Color(0.4, 0.28, 0.16)).box(Vector3(0, 0.1, 0), Vector3(0.03, 0.2, 0.03))
+			_mb(parts, Color(0.3, 0.52, 0.2)).box(Vector3(0, 0.24, 0), Vector3(0.14, 0.1, 0.14))
+			_mb(parts, Color(0.35, 0.58, 0.24)).box(Vector3(0, 0.31, 0), Vector3(0.08, 0.06, 0.08))
+			_mb(parts, Color(0.36, 0.25, 0.15)).box(Vector3(0, 0.02, 0), Vector3(0.12, 0.04, 0.12)) # torrão
+		&"areia":
+			_rock(_mb(parts, Color(0.82, 0.72, 0.5)))
 		&"graveto":
 			_mb(parts, Color(0.42, 0.3, 0.18)).tube(PackedVector3Array([Vector3(0, 0, 0.25), Vector3(0.01, 0.0, 0.0), Vector3(-0.01, 0.0, -0.25)]), 0.015, 5)
 			_mb(parts, Color(0.42, 0.3, 0.18)).tube(PackedVector3Array([Vector3(0.005, 0, 0.05), Vector3(0.06, 0.0, -0.06)]), 0.008, 4)

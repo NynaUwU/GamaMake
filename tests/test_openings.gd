@@ -31,7 +31,7 @@ func _physics_process(_d: float) -> bool:
 		wall = manager.pieces.values()[0]
 		player.global_position = Vector3(-0.6, 0.3, 19.0)
 		player.equip_item(&"talhadeira")
-		for id in [&"tabua", &"pedra", &"sucata"]:
+		for id in [&"tabua", &"pedra", &"sucata", &"graveto", &"vidro"]:
 			player.inventory.add(id, 60) # construir gasta material
 	if frame == 20:
 		_aim(_square_center(3, 3))

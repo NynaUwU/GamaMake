@@ -113,6 +113,36 @@ func host_apply(action: String, args: Array) -> Array:
 			obj.extra.merge(args[1], true)
 			obj.refresh(clock)
 			return args
+		"plant_tree":
+			var xform: Transform3D = args[0]
+			var planter: PlacedObject = objects.get(args[1]) if args[1] >= 0 else null
+			if args[1] >= 0 and (planter == null or planter.extra.has("tree")):
+				return []
+			if planter == null and occupied(xform.origin, 1.2):
+				return []
+			var id := _next_id
+			_next_id += 1
+			_plant_tree(id, xform, clock, args[1])
+			return [id, xform, clock, args[1]]
+		"chop":
+			var obj: PlacedObject = objects.get(args[0])
+			if obj == null or obj.kind != "tree" or obj.tree_growth(clock) < 1.0:
+				return []
+			obj.extra.hp = obj.extra.get("hp", 90.0) - float(args[1])
+			if obj.extra.hp > 0.0:
+				return []
+			# Derrubou: troncos, gravetos e SEMPRE uma muda (10% de chance de duas).
+			var where := Transform3D(Basis(), obj.global_position + Vector3.UP * 0.8)
+			var push := Vector3(randf_range(-1.5, 1.5), 2.5, randf_range(-1.5, 1.5))
+			for k in randi_range(2, 3):
+				Net.i.drop_item(&"tronco", 1, where.translated(Vector3(k * 0.4, 0, 0)), push)
+			Net.i.drop_item(&"muda", 2 if randf() < 0.1 else 1, where, push * Vector3(-1, 1, -1))
+			var sticks := randi_range(0, 2)
+			if sticks > 0:
+				Net.i.drop_item(&"graveto", sticks, where, push * 0.6)
+			Sfx.play_at("thud", obj.global_position + Vector3.UP, 4.0, 0.6)
+			_fell(obj)
+			return [args[0]]
 		"draw":
 			var obj: PlacedObject = objects.get(args[0])
 			if obj == null or obj.board == null or not args[1] is PackedVector2Array or args[1].size() > 400:
@@ -155,6 +185,24 @@ func _drop_harvest(obj: PlacedObject, slot: int) -> void:
 	Sfx.play_at("pickup", where.origin, 0.0, 0.8)
 
 
+func _plant_tree(id: int, xform: Transform3D, planted: float, planter_id: int) -> void:
+	_spawn(id, "tree", xform, true)
+	var obj: PlacedObject = objects[id]
+	obj.extra.merge({"t": planted, "hp": 90.0, "planter": planter_id}, true)
+	var planter: PlacedObject = objects.get(planter_id)
+	if planter:
+		planter.extra.tree = id # floreira/canteiro fica todo ocupado
+	obj.refresh(clock)
+
+
+## Árvore derrubada: some e libera o plantador.
+func _fell(obj: PlacedObject) -> void:
+	var planter: PlacedObject = objects.get(obj.extra.get("planter", -1))
+	if planter:
+		planter.extra.erase("tree")
+	_remove(obj.net_id)
+
+
 ## Mina: explosão de verdade no host (dano nos zumbis), só o efeito nos clientes.
 func _explode(obj: PlacedObject, cosmetic: bool) -> void:
 	var explosion := Explosion.new()
@@ -186,6 +234,13 @@ func apply_remote(action: String, args: Array) -> void:
 			var obj: PlacedObject = objects.get(args[0])
 			if obj:
 				_explode(obj, true)
+		"plant_tree":
+			if not objects.has(args[0]):
+				_plant_tree(args[0], args[1], args[2], args[3])
+		"chop":
+			var obj: PlacedObject = objects.get(args[0])
+			if obj:
+				_fell(obj)
 		"draw":
 			var obj: PlacedObject = objects.get(args[0])
 			if obj and obj.board:

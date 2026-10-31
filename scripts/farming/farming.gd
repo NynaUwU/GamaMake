@@ -35,7 +35,9 @@ static func use(player: Player, crop: String) -> bool:
 	if hit.is_empty():
 		return false
 	var obj := hit.collider as PlacedObject
-	if obj and obj.is_farm():
+	if crop == "arvore":
+		return _plant_tree(player, placed, hit, obj)
+	if obj and obj.is_farm() and not obj.extra.has("tree"):
 		var slot := obj.slot_at(hit.position)
 		var entry: Dictionary = obj.crops[slot]
 		if PlacedObject.progress(entry, placed.clock) >= 1.0:
@@ -64,6 +66,13 @@ static func use(player: Player, crop: String) -> bool:
 		return true
 	# Pá no chão de terra (terreno, não rua/construção): cava uma cova.
 	if crop == "" and _is_terrain(hit.collider) and hit.normal.y > 0.65:
+		if _desert(player, hit.position):
+			# Deserto: o solo não presta para plantar; a pá junta areia (e às vezes vidro).
+			player.pick_up(&"areia", ItemDB.display_name(&"areia"), randi_range(1, 2))
+			if randf() < 0.25:
+				player.pick_up(&"vidro", ItemDB.display_name(&"vidro"), 1)
+			Sfx.play_at("step_soft", hit.position, 4.0, 1.1)
+			return true
 		if placed.occupied(hit.position, 0.85):
 			Sfx.play("click", -6.0, 0.6)
 			return false
@@ -75,6 +84,36 @@ static func use(player: Player, crop: String) -> bool:
 	if crop != "":
 		Sfx.play("click", -6.0, 0.6)
 	return false
+
+
+static func _desert(player: Node, at: Vector3) -> bool:
+	var terrain := player.get_parent().get_node_or_null("Terrain") as TerrainWorld
+	return terrain != null and terrain.biome_at(at.x, at.z).desert > 0.5
+
+
+## Muda: no chão de terra (não no deserto) ou numa floreira/canteiro vazio
+## (a árvore ocupa o plantador inteiro).
+static func _plant_tree(player: Player, placed: PlacedManager, hit: Dictionary, obj: PlacedObject) -> bool:
+	var xform := Transform3D()
+	var planter := -1
+	if obj and obj.kind in ["pot_wide", "bed"]:
+		if obj.extra.has("tree") or obj.crops.any(func(c): return not c.is_empty()):
+			Sfx.play("click", -6.0, 0.6)
+			return false
+		var center := Vector3(0, 0.34, 0) if obj.kind == "pot_wide" else Vector3(BuildPiece.SIZE * 0.5, 0.22, BuildPiece.SIZE * 0.5)
+		xform = Transform3D(Basis(Vector3.UP, randf() * TAU), obj.to_global(center))
+		planter = obj.net_id
+	elif _is_terrain(hit.collider) and hit.normal.y > 0.65 and not _desert(player, hit.position) \
+			and not placed.occupied(hit.position, 1.4):
+		xform = Transform3D(Basis(Vector3.UP, randf() * TAU), hit.position)
+	else:
+		Sfx.play("click", -6.0, 0.6)
+		return false
+	if not _take_one(player, &"muda"):
+		return false
+	placed.request("plant_tree", [xform, planter])
+	Sfx.play_at("step_soft", xform.origin, 2.0, 0.8)
+	return true
 
 
 static func _is_terrain(collider: Object) -> bool:

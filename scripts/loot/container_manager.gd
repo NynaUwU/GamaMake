@@ -99,7 +99,7 @@ func _host(action: String, args: Array) -> Array:
 				return []
 			var slot: Dictionary = slots[index]
 			slots[index] = {}
-			Net.i.give_to(Net.i.request_peer, slot.id, slot.amount, args[2] if args.size() > 2 else -1)
+			Net.i.give_to(Net.i.request_peer, slot.id, slot.amount, args[2] if args.size() > 2 else -1, slot.get("dur", 1.0))
 			return [key, slots]
 		"swap":
 			var slots: Array = contents.get(key, [])
@@ -120,8 +120,11 @@ func _host(action: String, args: Array) -> Array:
 					Net.i.give_to(Net.i.request_peer, id, amount) # recusado: devolve
 				return []
 			var target: Dictionary = slots[index]
+			var dur: float = args[4] if args.size() > 4 else 1.0
 			if target.is_empty():
 				slots[index] = {"id": id, "amount": amount}
+				if dur < 1.0:
+					slots[index].dur = dur
 			elif target.id == id:
 				var moved := mini(ItemDB.max_stack(id) - target.amount, amount)
 				target.amount += moved
@@ -129,7 +132,9 @@ func _host(action: String, args: Array) -> Array:
 					Net.i.give_to(Net.i.request_peer, id, amount - moved)
 			else:
 				slots[index] = {"id": id, "amount": amount} # troca: o que estava volta para quem soltou
-				Net.i.give_to(Net.i.request_peer, target.id, target.amount)
+				if dur < 1.0:
+					slots[index].dur = dur
+				Net.i.give_to(Net.i.request_peer, target.id, target.amount, -1, target.get("dur", 1.0))
 			return [key, slots]
 	return []
 

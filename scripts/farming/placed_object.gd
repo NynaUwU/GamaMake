@@ -71,7 +71,58 @@ func slot_positions() -> Array:
 
 
 func allows(crop: String) -> bool:
-	return is_farm() and not (kind == "pot_small" and crop == "abobora")
+	return is_farm() and not extra.has("tree") and not (kind == "pot_small" and crop == "abobora")
+
+
+# --- Árvore plantada (muda) ----------------------------------------------------------
+
+const TREE_TIME := 480.0 ## segundos até a muda virar árvore
+var _tree_stage := -1
+var _tree_visual: Node3D
+
+
+func tree_growth(clock: float) -> float:
+	return clampf((clock - extra.get("t", clock)) / TREE_TIME, 0.0, 1.0)
+
+
+func _refresh_tree(clock: float) -> void:
+	var stage := mini(int(tree_growth(clock) * 3.0), 3)
+	if stage == _tree_stage:
+		return
+	_tree_stage = stage
+	if _tree_visual:
+		_tree_visual.queue_free()
+	if stage == 0:
+		_tree_visual = ItemModels.build(&"muda")
+		_tree_visual.scale = Vector3.ONE * 1.6
+	else:
+		_tree_visual = MeshInstance3D.new()
+		(_tree_visual as MeshInstance3D).mesh = TerrainProps._mesh("tree")
+		_tree_visual.scale = Vector3.ONE * [0.35, 0.65, 1.0][stage - 1]
+	add_child(_tree_visual)
+	for child in get_children():
+		if child is CollisionShape3D:
+			child.queue_free()
+	var scale: float = [0.3, 0.35, 0.65, 1.0][stage]
+	var cylinder := CylinderShape3D.new()
+	cylinder.radius = 0.24 * scale
+	cylinder.height = 2.4 * scale
+	var shape := CollisionShape3D.new()
+	shape.shape = cylinder
+	shape.position.y = cylinder.height * 0.5
+	add_child(shape)
+
+
+## Golpe de machado na árvore adulta: o host conta a "vida" e derruba.
+func tool_hit(_player: Node, weapon_type: int, damage: float, point: Vector3) -> void:
+	if kind != "tree":
+		return
+	var manager := get_parent() as PlacedManager
+	ImpactFX.burst(manager.get_parent(), point, Vector3.UP, Color(0.5, 0.35, 0.2), 8, 2.0, 0.05)
+	Sfx.play_at("knock", point, 2.0, 0.6)
+	if tree_growth(manager.clock) < 1.0:
+		return # muda: ainda não dá madeira
+	manager.request("chop", [net_id, damage * (1.0 if weapon_type == Player.WeaponType.AXE else 0.2)])
 
 
 ## Vaga mais perto de um ponto do mundo (onde a mira bateu).
@@ -101,6 +152,9 @@ static func progress(entry: Dictionary, clock: float) -> float:
 
 ## Atualiza o desenho das plantas (chamado ~1x por segundo pelo manager).
 func refresh(clock: float) -> void:
+	if kind == "tree":
+		_refresh_tree(clock)
+		return
 	if kind == "campfire":
 		for i in crops.size():
 			var st := Cooking.stage(crops[i], clock)
@@ -147,6 +201,9 @@ func get_interact_text() -> String:
 			return Cooking.text(self, clock)
 		"drawboard":
 			return "[E] Desenhar na lousa"
+		"tree":
+			var growth := tree_growth(clock)
+			return "Árvore" if growth >= 1.0 else "Muda de árvore %d%%" % int(growth * 100.0)
 		"chest":
 			return "[E] Abrir baú"
 	if trap:
@@ -190,6 +247,8 @@ func interact(player: Node) -> void:
 # --- Modelos ---------------------------------------------------------------------
 
 func _build() -> void:
+	if kind == "tree":
+		return # desenho e colisão vêm do crescimento (_refresh_tree)
 	if kind in ["campfire", "furnace", "workbench", "chest"]:
 		StationModels.build(kind, self)
 		return

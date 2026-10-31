@@ -220,10 +220,11 @@ func spawn_puppet_zombie(net_id: int, data: Dictionary) -> void:
 	enemies.add_child(zombie)
 
 
-func spawn_pickup(key: String, item_id: StringName, amount: int, where: Transform3D, impulse: Vector3) -> void:
+func spawn_pickup(key: String, item_id: StringName, amount: int, where: Transform3D, impulse: Vector3, dur := 1.0) -> void:
 	var item: PickupItem = PICKUP_SCENE.instantiate()
 	item.item_id = item_id
 	item.amount = amount
+	item.dur = dur
 	item.net_key = key
 	add_child(item)
 	item.global_transform = where

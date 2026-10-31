@@ -243,6 +243,8 @@ func _physics_process(delta: float) -> void:
 	if state in [State.IDLE, State.CHASE, State.ATTACK, State.STAGGER, State.STUMBLE]:
 		if not is_on_floor():
 			velocity.y -= _gravity * delta
+		if state == State.CHASE or state == State.IDLE:
+			StepClimb.step(self, delta * _step)
 		velocity *= _step # pulou ticks: move_and_slide usa o tick normal, então anda o dobro
 		move_and_slide()
 		velocity /= _step
@@ -487,11 +489,27 @@ func _knock_down(bone: StringName, point: Vector3, impulse: Vector3) -> void:
 
 func _die(bone: StringName, point: Vector3, impulse: Vector3) -> void:
 	_drop_weapon()
+	_drop_loot()
 	_end_attack()
 	_enter_ragdoll()
 	_rag_hit(bone, impulse, point)
 	_set_state(State.DEAD)
 	died.emit(self)
+
+
+## Zumbi morto às vezes larga sucata, pano ou uma roupa gasta (só o host sorteia).
+func _drop_loot() -> void:
+	if puppet or not Net.i.is_host():
+		return
+	var where := Transform3D(Basis(), global_position + Vector3.UP * 0.8)
+	var push := Vector3(randf_range(-1.0, 1.0), 2.0, randf_range(-1.0, 1.0))
+	if randf() < 0.3:
+		Net.i.drop_item(&"sucata", randi_range(1, 2), where, push)
+	if randf() < 0.3:
+		Net.i.drop_item(&"pano", randi_range(1, 2), where, push * Vector3(-1, 1, -1))
+	if randf() < 0.12:
+		var clothes := [&"capuz", &"calca", &"botas", &"colete"]
+		Net.i.drop_item(clothes[randi() % clothes.size()], 1, where, push * 0.7, randf_range(0.15, 0.5))
 
 
 func _enter_ragdoll() -> void:

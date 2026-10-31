@@ -160,13 +160,14 @@ func _make_equip_slot(slot_name: String) -> Button:
 	button.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	button.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	button.set_meta("equip", slot_name)
+	_add_dur_bar(button)
 	button.set_drag_forwarding(_drag_equip.bind(button, slot_name), _can_drop_equip.bind(slot_name), _drop_on_equip.bind(slot_name))
 	button.pressed.connect(func():
 		if Input.is_key_pressed(KEY_SHIFT):
 			_quick_unequip(slot_name))
 	button.mouse_entered.connect(func():
 		if not inventory.equipment[slot_name].is_empty():
-			_show_tooltip(inventory.equipment[slot_name].id, 1))
+			_show_tooltip(inventory.equipment[slot_name].id, 1, inventory.equipment[slot_name].get("dur", 1.0)))
 	button.mouse_exited.connect(func(): _hover(-1))
 	return button
 
@@ -209,7 +210,30 @@ func _make_slot(index: int, size := SLOT_SIZE) -> Button:
 	amount.offset_bottom = -1
 	amount.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	button.add_child(amount)
+	_add_dur_bar(button)
 	return button
+
+
+## Barrinha de durabilidade no pé do slot (só aparece se o item está gasto).
+func _add_dur_bar(button: Button) -> void:
+	var bar := ColorRect.new()
+	bar.name = "Dur"
+	bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	bar.visible = false
+	button.add_child(bar)
+
+
+func _show_dur(button: Button, item: Dictionary) -> void:
+	var bar: ColorRect = button.get_node_or_null("Dur")
+	if bar == null:
+		return
+	var dur: float = item.get("dur", 1.0) if not item.is_empty() else 1.0
+	bar.visible = not item.is_empty() and dur < 0.999 and ItemDB.max_durability(item.id) > 0
+	if bar.visible:
+		var width := button.custom_minimum_size.x - 8.0
+		bar.position = Vector2(4, button.custom_minimum_size.y - 6)
+		bar.size = Vector2(maxf(width * dur, 2.0), 3)
+		bar.color = Color(0.85, 0.2, 0.15).lerp(Color(0.35, 0.85, 0.3), dur)
 
 
 func _build_tooltip() -> void:
@@ -252,10 +276,10 @@ func _hover(index: int) -> void:
 	if index < 0 or inventory.slots[index].is_empty() or not _backpack.visible:
 		_tooltip.visible = false
 		return
-	_show_tooltip(inventory.slots[index].id, inventory.slots[index].amount)
+	_show_tooltip(inventory.slots[index].id, inventory.slots[index].amount, inventory.slots[index].get("dur", 1.0))
 
 
-func _show_tooltip(id: StringName, amount: int) -> void:
+func _show_tooltip(id: StringName, amount: int, dur := 1.0) -> void:
 	var item := ItemDB.def(id)
 	_tooltip_title.text = item.name
 	_spinner.show_item(id)
@@ -270,6 +294,8 @@ func _show_tooltip(id: StringName, amount: int) -> void:
 		lines.append("Quantidade: %d" % amount)
 	if item.has("armor"):
 		lines.append("Proteção: %d%%" % int(item.armor * 100.0))
+	if ItemDB.max_durability(id) > 0:
+		lines.append("Durabilidade: %d%%" % int(ceil(dur * 100.0)))
 	lines.append("")
 	lines.append(ItemDB.description(id))
 	var controls: Array = item.get("controls", [])
@@ -401,6 +427,7 @@ func _refresh() -> void:
 		slot.icon = icons.get_icon(item.id) if icons and not item.is_empty() else null
 		var amount: Label = slot.get_node("Amount")
 		amount.text = str(item.amount) if not item.is_empty() and item.amount > 1 else ""
+		_show_dur(slot, item)
 		var style := StyleBoxFlat.new()
 		style.bg_color = COLOR_SLOT
 		style.set_border_width_all(2)
@@ -420,6 +447,7 @@ func _refresh() -> void:
 		# Vazio: só a silhueta da roupa (sem texto).
 		button.icon = icons_node.get_icon(worn.id) if icons_node and not worn.is_empty() else EquipIcons.icon(slot_name)
 		button.text = ""
+		_show_dur(button, worn)
 		var equip_style := StyleBoxFlat.new()
 		equip_style.bg_color = COLOR_SLOT.darkened(0.2)
 		equip_style.set_border_width_all(2)

@@ -135,6 +135,11 @@ const ITEMS := {
 		"desc": "Alimenta um grupo inteiro (ou você, com muita fome).", "controls": ["Clique: come (+80 fome)"]},
 	&"baixo_assado": {"name": "Peixe-baixo assado", "kind": "food", "hunger": 48, "heal": 10, "stack": 4, "size": Vector3(0.3, 0.08, 0.7),
 		"desc": "Grave, encorpado, com notas defumadas.", "controls": ["Clique: come (+48 fome)"]},
+	&"muda": {"name": "Muda de árvore", "short": "Muda", "kind": "seed", "crop": "arvore", "stack": 100, "size": Vector3(0.2, 0.35, 0.2),
+		"desc": "Planta no chão de terra (fora do deserto) ou numa floreira/canteiro vazio, que fica todo ocupado. Cresce em ~8 min; derrubada sempre devolve uma muda.",
+		"controls": ["Clique no chão de terra ou numa floreira/canteiro vazio: planta"]},
+	&"areia": {"name": "Areia", "kind": "material", "stack": 100, "size": Vector3(0.16, 0.08, 0.16),
+		"desc": "Cavada no deserto com a pá. Na fornalha vira vidro."},
 	&"graveto": {"name": "Graveto", "kind": "material", "stack": 100, "size": Vector3(0.04, 0.04, 0.5),
 		"desc": "Galho seco. Cabo de ferramenta simples. Cai das árvores, sai da tábua no machado ou na bancada."},
 	&"machado_simples": {"name": "Machado simples", "kind": "weapon", "weapon": "axe", "power": 0.6, "stack": 1, "size": Vector3(0.2, 0.05, 0.65),
@@ -207,6 +212,22 @@ static func def(id: StringName) -> Dictionary:
 
 static func display_name(id: StringName) -> String:
 	return def(id).name
+
+
+## Quantos usos aguenta (0 = não gasta): armas corpo a corpo e ferramentas
+## gastam a cada golpe/uso; roupas e armaduras a cada dano recebido.
+const DURABILITY := {"sword": 300, "bat": 350, "spoon": 300, "axe": 220, "pickaxe": 220, "shovel": 200,
+	"spear": 160, "hammer": 400, "chisel": 300}
+
+
+static func max_durability(id: StringName) -> int:
+	var d := def(id)
+	if d.has("durability"):
+		return d.durability
+	if d.kind == "armor":
+		return int(60 + d.get("armor", 0.1) * 900.0) # mais proteção, mais resistente
+	var base: int = DURABILITY.get(d.get("weapon", ""), 0)
+	return int(base * 0.35) if d.get("power", 1.0) < 1.0 else base # ferramenta simples dura pouco
 
 
 ## Nome curto para caber dentro de um slot ("Machado simples" -> "Machado").

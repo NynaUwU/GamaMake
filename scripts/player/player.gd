@@ -181,6 +181,7 @@ var _interact_target: Node
 var _hitstops := 0
 var _gravity: float = ProjectSettings.get_setting("physics/3d/default_gravity")
 
+var _step_offset := 0.0 ## degrau recém-subido (desconta da câmera e some aos poucos)
 @onready var head: Node3D = $Head
 @onready var camera: Camera3D = $Head/Camera3D
 @onready var weapon: Node3D = $Head/Camera3D/Weapon
@@ -260,6 +261,7 @@ const HUNGER_RATE := 100.0 / (22.0 * 60.0) ## por segundo: ~22 min de cheia a ze
 var hunger := MAX_HUNGER
 var _hunger_warned := false
 var _last_repair: Node
+var _swing_wore := false # o golpe atual já gastou a arma
 var grapple: Node3D ## lançador do gancho na mão
 var _grapple_active := false
 var _anchor := Vector3.ZERO
@@ -441,6 +443,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		elif event.is_action_pressed("block") and _weapon_type == WeaponType.SHOVEL:
 			if Farming.use(self, ""):
 				_start_swing_visual_only()
+				_wear_selected()
 		elif event.is_action_pressed("block") and _weapon_type == WeaponType.HAMMER:
 			builder.open_menu() # segurando: menu de construção; soltando: escolhe
 		elif event.is_action_pressed("reload") and _weapon_type == WeaponType.HAMMER:
@@ -535,6 +538,8 @@ func _physics_process(delta: float) -> void:
 		velocity.z = lerpf(velocity.z, target.z, t)
 	var fall_speed := velocity.y
 	var was_on_floor := is_on_floor()
+	if not swimming:
+		_step_offset += StepClimb.step(self, delta) # câmera sobe suave, não dá tranco
 	move_and_slide()
 	if not was_on_floor and is_on_floor() and fall_speed < -2.5:
 		parkour.land(-fall_speed) # cabeça "afunda" ao aterrissar
@@ -656,7 +661,8 @@ func _process(delta: float) -> void:
 		_update_driving_hands()
 		_update_camera_shake(delta)
 		return
-	head.position.y = parkour.eye_height(delta)
+	head.position.y = parkour.eye_height(delta) - _step_offset
+	_step_offset = move_toward(_step_offset, 0.0, delta * maxf(2.5, _step_offset * 12.0))
 	_sync_equipped()
 	_update_block(delta)
 	_punch_timer -= delta
@@ -967,6 +973,9 @@ func _start_swing(index: int) -> void:
 	_swing_start = stats.node.transform
 	_swing_queued = false
 	_swing_hits.clear()
+	_swing_wore = false
+	# Um golpe atravessa de 2 a 5 inimigos (sorteado a cada golpe): horda não é mais fácil.
+	max_targets = randi_range(2, 5)
 	_swing_angle = SWINGS[_swing_index].from
 	_swing_prev_angle = _swing_angle
 	_trail_color = stats.trail
@@ -1107,6 +1116,22 @@ func _sweep_blade() -> void:
 
 
 func _apply_swing_hit(hit: Dictionary, direction: Vector3, swing: Dictionary) -> void:
+	var hits_before := _swing_hits.size()
+	_apply_swing_hit_inner(hit, direction, swing)
+	# Acertou alguma coisa: a arma/ferramenta gasta um uso (uma vez por golpe).
+	if _swing_hits.size() > hits_before and not _swing_wore:
+		_swing_wore = true
+		_wear_selected()
+
+
+## Gasta um uso do item da mão; quebrou: some com um estalo e volta para os punhos.
+func _wear_selected() -> void:
+	if inventory.wear(inventory.selected):
+		Sfx.play("crunch", 0.0, 0.6)
+		_sync_equipped()
+
+
+func _apply_swing_hit_inner(hit: Dictionary, direction: Vector3, swing: Dictionary) -> void:
 	var stats: Dictionary = _melee[_weapon_type]
 	var collider: Object = hit.collider
 	var key: Object = collider.get_meta("enemy") if collider.has_meta("enemy") else collider
@@ -1364,6 +1389,8 @@ func take_damage(amount: float, from_direction := Vector3.ZERO, attacker: Node =
 		if amount <= 0.0:
 			return
 	amount *= 1.0 - inventory.armor() # roupa/armadura vestida segura parte do golpe
+	if amount > 0.0 and inventory.wear_equipment():
+		Sfx.play("crunch", -2.0, 0.7) # uma peça de roupa rasgou/quebrou
 	health = maxf(health - amount, 0.0)
 	health_changed.emit(health, max_health)
 	_shake = 0.2
@@ -1533,8 +1560,8 @@ func load_extra(data: Dictionary) -> void:
 
 
 ## Coloca o item no inventário. Devolve quanto NÃO coube.
-func pick_up(item_id: StringName, display_name: String, amount: int) -> int:
-	var left := inventory.add(item_id, amount)
+func pick_up(item_id: StringName, display_name: String, amount: int, dur := 1.0) -> int:
+	var left := inventory.add(item_id, amount, dur)
 	if left == amount:
 		Sfx.play("click", -6.0, 0.6)
 		return left
@@ -1548,9 +1575,10 @@ func pick_up(item_id: StringName, display_name: String, amount: int) -> int:
 func _drop_selected() -> void:
 	if inventory.selected_id() == &"" or _swing_phase != SwingPhase.NONE or _charging:
 		return
+	var dur: float = inventory.slots[inventory.selected].get("dur", 1.0)
 	var taken := inventory.take(inventory.selected, 999)
 	var where := Transform3D(global_basis, camera.global_position - camera.global_basis.z * 0.7)
-	Net.i.drop_item(taken.id, taken.amount, where, -camera.global_basis.z * 2.0 + Vector3.UP)
+	Net.i.drop_item(taken.id, taken.amount, where, -camera.global_basis.z * 2.0 + Vector3.UP, dur)
 	pass
 
 
@@ -1774,6 +1802,7 @@ func _use_tool() -> void:
 	Net.i.send_player_action("tool", 0)
 	if builder.use(_tool_kind()):
 		_shake = maxf(_shake, 0.05)
+		_wear_selected()
 
 
 # Arremessos ---------------------------------------------------------------------
