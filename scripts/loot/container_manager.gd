@@ -8,7 +8,7 @@ extends Node
 signal changed(key: String)
 
 const SLOTS := 12
-const STORAGE_SLOTS := 20
+const STORAGE_SLOTS := 21 ## 7x3
 
 static var i: ContainerManager
 
@@ -73,7 +73,7 @@ func host_apply(action: String, args: Array) -> Array:
 
 
 ## Baús do mundo ("loot_...") só deixam retirar; baús construídos ("placed_...")
-## guardam também (20 slots, arrastar e soltar).
+## guardam também (21 slots, arrastar e soltar).
 static func is_storage(key: String) -> bool:
 	return key.begins_with("placed_") or key.begins_with("car_") # baú construído e porta-malas
 
@@ -88,6 +88,9 @@ func _host(action: String, args: Array) -> Array:
 					for drop in Loot.roll(args[1]):
 						add_to(slots, drop[0], drop[1])
 				contents[key] = slots
+			if is_storage(key):
+				while contents[key].size() < STORAGE_SLOTS: # baú de save antigo (20)
+					contents[key].append({})
 			if not is_storage(key) and not Net.i.taken.has(key):
 				Net.i.mark_taken(key) # tampa abre para todos
 			return [key, contents[key]]

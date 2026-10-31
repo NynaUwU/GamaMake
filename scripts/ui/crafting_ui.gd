@@ -127,12 +127,13 @@ func _ready() -> void:
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	var center := CenterContainer.new()
 	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	center.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(center)
+	LegacyGUI.close_on_outside(self, close)
 	var column := LegacyGUI.box(center, TITLES.get(station, "Mesa de trabalho"), 400.0)
 	var grid := RecipeGrid.new()
 	grid.setup(player, station, 6, 250.0)
 	column.add_child(grid)
-	LegacyGUI.button(column, "Fechar", close)
 
 
 func close() -> void:

@@ -26,6 +26,7 @@ func _ready() -> void:
 	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	center.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(center)
+	LegacyGUI.close_on_outside(self, close.bind(false))
 	var column := LegacyGUI.box(center, "Construção", 400.0)
 	_tabs_row = HBoxContainer.new()
 	_tabs_row.add_theme_constant_override("separation", 3)

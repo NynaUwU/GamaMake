@@ -33,7 +33,9 @@ func _ready() -> void:
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	var center := CenterContainer.new()
 	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	center.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(center)
+	LegacyGUI.close_on_outside(self, close)
 	var column := LegacyGUI.box(center, "Baú", 230.0)
 	_chest_grid = GridContainer.new()
 	_chest_grid.columns = 7 # centralizado: quem define a largura é a mochila (9 colunas)
@@ -60,7 +62,6 @@ func _ready() -> void:
 	gap.custom_minimum_size = Vector2(0, 2)
 	column.add_child(gap)
 	_hotbar_grid = _player_grid(column)
-	LegacyGUI.button(column, "Fechar", close)
 	ContainerManager.i.changed.connect(func(k: String): if k == key: _refresh())
 	player.inventory.changed.connect(_refresh)
 	ContainerManager.i.request("open", [key, ""])

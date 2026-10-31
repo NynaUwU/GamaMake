@@ -30,6 +30,7 @@ reação física a golpes e ragdoll (estilo Dying Light), visual de PC dos anos 
 - **Zumbis soltam recursos** ao morrer: 30% sucata, 30% pano e 12% uma roupa já gasta (capuz, calça, botas ou colete).
 - **Mudas de árvore:** árvores do mapa às vezes soltam uma muda. Plante no solo ou num **canteiro** (ocupa o canteiro inteiro). No **vaso ou floreira** ela não cresce: fica de decoração (um golpe arranca e devolve a muda). Cresce em ~8 min (muda → arvoreta → árvore); só dá para derrubar depois de crescida (machado corta bem, o resto mal arranha). Árvore plantada pelo jogador sempre solta **1 muda (10% de chance de 2)**, troncos e gravetos.
 - **Subir degraus** de até 0,42 m (altura da canela, um passo da grade) andando, sem pular: jogador e zumbis (os animais vão usar o mesmo `scripts/physics/step_climb.gd`). A câmera sobe suave, sem tranco. Resolve o degrau do piso na entrada das casas construídas.
+- **Menus sem botão "Fechar":** clicar fora do painel fecha qualquer menu (mochila, baú, porta-malas, baú do mapa, mesa/fornalha, lousa, construção e pausa). `LegacyGUI.close_on_outside`.
 - **Janela** agora custa 2 gravetos + 1 vidro (era tábua + sucata).
 - **Deserto:** a pá não abre cova (o solo é ruim: só dá para plantar em plantadores construídos), mas cava **areia** (1–2). O vidro sai só da fornalha: 2 areia → 1 vidro.
 
@@ -45,7 +46,7 @@ reação física a golpes e ragdoll (estilo Dying Light), visual de PC dos anos 
 - **Menos avisos na tela:** pesca, construção, plantio e grelha agora avisam por **som** (boia afundando, "clique" seco quando falta material ou não dá, martelada no conserto...). Sem frases de instrução nos menus.
 - **Pesca:** o peixe do minijogo ficou bem mais calmo; a linha sai da ponta da vara.
 - **Peixes repovoam a cada 5 dias:** cada lago tem uma quantidade padrão de cada bicho (sorteada na criação do mundo); o que você pega só volta no repovoamento.
-- **Carros:** mais pesados (gravidade 1,5x no carro, mola compensada, aceleração igual); **desvirar** com [E] no carro tombado (só de fora do carro); **porta-malas** com [E] atrás do carro (20 slots, arrastar e soltar).
+- **Carros:** mais pesados (gravidade 1,5x no carro, mola compensada, aceleração igual); **desvirar** com [E] no carro tombado (só de fora do carro); **porta-malas** com [E] atrás do carro (21 slots, arrastar e soltar).
 - **Baús de saque** pintados em cores fortes (baú vermelho, armário turquesa, caixote amarelo).
 - **Casas com interior:** ~30% das casas grandes (9x9 m ou mais) têm o térreo oco, com porta aberta, **janelas de verdade** (vãos com moldura: dá para olhar e atirar através), piso de tábua e lampião aceso na sala.
 - **8 plantas prontas** (`scripts/world/house_plans.gd`) com **4 a 7 cômodos** (sala, cozinha, quartos, banheiro, corredor, escritório, oficina, despensa), paredes internas com vãos de passagem e móveis encostados nas paredes certas de cada cômodo.
@@ -61,7 +62,7 @@ reação física a golpes e ragdoll (estilo Dying Light), visual de PC dos anos 
 - **Fornalha** de barro: cúpula redonda sobre pedras, boca em arco e chaminé de barro.
 - **Pedras soltas** no chão em volta de rochas e veios ([E] pega): dá para fazer a primeira picareta sem ferramenta.
 - **Baús, armários e caixotes do mundo:** [E] abre a lista do saque; **só dá para retirar** (clique num item pega; "Pegar tudo"). O saque é sorteado na primeira abertura, sincronizado no multiplayer e salvo.
-- **Baú construível** (martelo → Outros, 6 tábuas + 1 sucata): 20 slots, com **arrastar e soltar igual ao inventário** entre o baú e a mochila (move, troca e junta pilhas; soltar do baú num slot da mochila vai para aquele slot). O conteúdo é do mundo (todos veem, vai no save); desmontar o baú derruba o que tinha dentro. `scripts/ui/storage_ui.gd`.
+- **Baú construível** (martelo → Outros, 6 tábuas + 1 sucata): 21 slots (7x3), com **arrastar e soltar igual ao inventário** entre o baú e a mochila (move, troca e junta pilhas; soltar do baú num slot da mochila vai para aquele slot). O conteúdo é do mundo (todos veem, vai no save); desmontar o baú derruba o que tinha dentro. `scripts/ui/storage_ui.gd`.
 - **Modelo 3D girando** ao lado do nome do item (janela de detalhes da mochila e no baú). `scripts/ui/item_spinner.gd`.
 - **Som:** soco com som próprio (grave e curto); motor sem "pop" (loop periódico sem emenda e liga/desliga com fade, mais baixo).
 - **Água** mais transparente, fundo do lago verde de alga; debaixo d'água bem menos escuro.

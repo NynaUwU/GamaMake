@@ -66,6 +66,22 @@ static func box(parent: Control, title: String, width := 300.0) -> VBoxContainer
 	return column
 
 
+## Fundo invisível de tela cheia atrás do menu: clicar fora do painel fecha.
+## O CenterContainer do menu precisa ignorar o mouse para o clique chegar aqui.
+static func close_on_outside(parent: Node, close: Callable) -> Control:
+	var back := Control.new()
+	back.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	back.mouse_filter = Control.MOUSE_FILTER_STOP
+	back.gui_input.connect(func(event: InputEvent):
+		if event is InputEventMouseButton and event.pressed \
+				and event.button_index in [MOUSE_BUTTON_LEFT, MOUSE_BUTTON_RIGHT]:
+			back.accept_event()
+			close.call())
+	parent.add_child(back)
+	parent.move_child(back, 0)
+	return back
+
+
 static func button(parent: Control, text: String, action: Callable) -> Button:
 	var b := Button.new()
 	b.text = text

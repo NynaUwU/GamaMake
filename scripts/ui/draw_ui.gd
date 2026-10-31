@@ -33,7 +33,9 @@ func _ready() -> void:
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	var center := CenterContainer.new()
 	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	center.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(center)
+	LegacyGUI.close_on_outside(self, close)
 	var column := LegacyGUI.box(center, "Lousa (desenhe junto com os outros)", DrawBoard.W * ZOOM + 120)
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 8)
@@ -72,7 +74,6 @@ func _ready() -> void:
 		b.custom_minimum_size = Vector2(24, 24)
 	LegacyGUI.button(tools, "Borracha", func(): _pick(DrawBoard.PAPER, null))
 	LegacyGUI.button(tools, "Limpar", _clear_all)
-	LegacyGUI.button(tools, "Fechar", close)
 	_pick(_color, _color_buttons[0][0])
 
 

@@ -33,7 +33,9 @@ func _ready() -> void:
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	var center := CenterContainer.new()
 	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	center.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(center)
+	LegacyGUI.close_on_outside(self, close)
 	var column := LegacyGUI.box(center, title, 300.0)
 	_chest_grid = GridContainer.new()
 	_chest_grid.columns = 6
@@ -52,7 +54,6 @@ func _ready() -> void:
 	var row := HBoxContainer.new()
 	column.add_child(row)
 	LegacyGUI.button(row, "Pegar tudo", _take_all).size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	LegacyGUI.button(row, "Fechar", close).size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	ContainerManager.i.changed.connect(func(k: String): if k == key: _refresh())
 	player.inventory.changed.connect(_refresh)
 	ContainerManager.i.request("open", [key, table])

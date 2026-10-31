@@ -17,6 +17,7 @@ const COLOR_PICKED := Color(0.5, 0.8, 1.0, 1)
 var player: Node
 var inventory: Inventory
 var _hotbar: HBoxContainer
+var _outside: Control
 var _backpack: PanelContainer
 var _hotbar_slots: Array[Button] = []
 var _backpack_slots: Array[Button] = [] # mochila + cópia da hotbar dentro do painel
@@ -37,6 +38,8 @@ func setup(p: Node) -> void:
 	inventory = p.inventory
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_outside = LegacyGUI.close_on_outside(self, _set_open.bind(false))
+	_outside.visible = false
 	_build_hotbar()
 	_build_backpack()
 	_build_tooltip()
@@ -74,6 +77,7 @@ func _process(_delta: float) -> void:
 
 func _set_open(open: bool) -> void:
 	_backpack.visible = open
+	_outside.visible = open
 	_picked = -1
 	_hover(-1)
 	player.ui_blocked = open

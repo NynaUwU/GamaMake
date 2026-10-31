@@ -17,8 +17,13 @@ func _ready() -> void:
 	dim.color = Color(0, 0, 0, 0.35)
 	dim.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	add_child(dim)
+	dim.gui_input.connect(func(event: InputEvent): # clicar fora da caixa = continuar
+		if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
+			dim.accept_event()
+			close())
 	var center := CenterContainer.new()
 	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	center.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	dim.add_child(center)
 	# Caixa no estilo dos menus antigos da Unity (LegacyGUI).
 	var column := LegacyGUI.box(center, "Pausado", 230.0)
