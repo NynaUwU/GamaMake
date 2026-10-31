@@ -6,7 +6,9 @@ extends RefCounted
 ## A comida assada enche bem mais a fome.
 
 const COOK := {&"batata": &"batata_assada", &"cenoura": &"cenoura_assada", &"abobora": &"abobora_assada",
-	&"lata": &"lata_quente", &"pao": &"torrada"}
+	&"lata": &"lata_quente", &"pao": &"torrada",
+	&"camarao": &"camarao_assado", &"lagosta": &"lagosta_assada", &"caranguejo": &"caranguejo_assado",
+	&"caranguejo_aranha": &"caranguejo_aranha_assado", &"atum": &"atum_assado", &"baixo": &"baixo_assado"}
 const COOK_TIME := 20.0
 const BURN_TIME := 60.0
 
@@ -49,7 +51,7 @@ static func text(obj: PlacedObject, clock: float) -> String:
 		return "[E] Tirar da grelha (%d pronto%s)" % [ready, "s" if ready > 1 else ""]
 	if not cooking.is_empty():
 		return "Assando: " + " · ".join(cooking) + "   [E] pôr mais"
-	return "[E] Pôr na grelha (segure batata, cenoura, abóbora, enlatado ou pão)"
+	return "[E] Pôr na grelha (segure comida crua: legumes, enlatado, pão, peixe ou frutos do lago)"
 
 
 static func interact(player: Player, obj: PlacedObject) -> void:
@@ -63,7 +65,7 @@ static func interact(player: Player, obj: PlacedObject) -> void:
 		return
 	var id := player.inventory.selected_id()
 	if not COOK.has(id):
-		player.notify.emit("Segure comida crua na mão (batata, cenoura, abóbora, enlatado, pão)")
+		player.notify.emit("Segure comida crua na mão (batata, cenoura, abóbora, enlatado, pão, peixe, camarão, caranguejo, lagosta)")
 		return
 	for i in obj.crops.size():
 		if obj.crops[i].is_empty():

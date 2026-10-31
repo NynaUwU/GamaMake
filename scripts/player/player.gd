@@ -16,18 +16,18 @@ signal item_picked_up(item_id: StringName, amount: int) ## gancho para o invent�
 signal died
 signal weapon_changed(weapon_text: String) ## nome da arma (+ munição)
 
-enum WeaponType { FISTS, SWORD, BAT, STAFF, PISTOL, CHARGER, SPOON, GRAPPLE, HAMMER, CHISEL, SLIPPER, BOOMERANG, SHOVEL, AXE, PICKAXE }
+enum WeaponType { FISTS, SWORD, BAT, STAFF, PISTOL, CHARGER, SPOON, GRAPPLE, HAMMER, CHISEL, SLIPPER, BOOMERANG, SHOVEL, AXE, PICKAXE, SPEAR, ROD }
 const WEAPON_NAMES := {
 	WeaponType.FISTS: "Mãos", WeaponType.SWORD: "Espada", WeaponType.BAT: "Taco",
 	WeaponType.STAFF: "Cajado", WeaponType.PISTOL: "Pistola", WeaponType.CHARGER: "Carregador", WeaponType.SPOON: "Colherona", WeaponType.GRAPPLE: "Gancho",
 	WeaponType.HAMMER: "Martelo", WeaponType.CHISEL: "Talhadeira",
-	WeaponType.SLIPPER: "Chinelo", WeaponType.BOOMERANG: "Bumerangue", WeaponType.SHOVEL: "Pá", WeaponType.AXE: "Machado", WeaponType.PICKAXE: "Picareta",
+	WeaponType.SLIPPER: "Chinelo", WeaponType.BOOMERANG: "Bumerangue", WeaponType.SHOVEL: "Pá", WeaponType.AXE: "Machado", WeaponType.PICKAXE: "Picareta", WeaponType.SPEAR: "Lança", WeaponType.ROD: "Vara de pesca",
 }
 ## ItemDB "weapon" -> tipo de arma do player.
 const WEAPON_FROM_ITEM := {"sword": WeaponType.SWORD, "bat": WeaponType.BAT,
 	"staff": WeaponType.STAFF, "pistol": WeaponType.PISTOL, "charger": WeaponType.CHARGER, "spoon": WeaponType.SPOON, "grapple": WeaponType.GRAPPLE,
 	"hammer": WeaponType.HAMMER, "chisel": WeaponType.CHISEL,
-	"slipper": WeaponType.SLIPPER, "boomerang": WeaponType.BOOMERANG, "shovel": WeaponType.SHOVEL, "axe": WeaponType.AXE, "pickaxe": WeaponType.PICKAXE}
+	"slipper": WeaponType.SLIPPER, "boomerang": WeaponType.BOOMERANG, "shovel": WeaponType.SHOVEL, "axe": WeaponType.AXE, "pickaxe": WeaponType.PICKAXE, "spear": WeaponType.SPEAR, "rod": WeaponType.ROD}
 const SLIPPER_REST := Vector3(0.2, -0.24, -0.4)
 const BOOMERANG_REST := Vector3(0.2, -0.22, -0.42)
 const HAMMER_REST := Vector3(0.24, -0.26, -0.44)
@@ -248,6 +248,10 @@ var spoon: Node3D ## colherona na mão
 var shovel: Node3D ## pá na mão
 var axe: Node3D ## machado na mão
 var pickaxe: Node3D ## picareta na mão
+var spear: Node3D ## lança na mão
+var rod: Node3D ## vara de pesca na mão
+var fishing: Fishing
+var swimming := false ## dentro d'água funda (nada em vez de andar)
 
 ## Fome: cai devagar (mais rápido correndo). Cheia (> 80) recupera vida aos
 ## pouquinhos; zerada, a vida vai caindo. Comida enche ("hunger" no ItemDB).
@@ -332,6 +336,12 @@ func _ready() -> void:
 	pickaxe = Node3D.new()
 	pickaxe.name = "Pickaxe"
 	camera.add_child(pickaxe)
+	spear = Node3D.new()
+	spear.name = "Spear"
+	camera.add_child(spear)
+	rod = Node3D.new()
+	rod.name = "Rod"
+	camera.add_child(rod)
 	_melee = {
 		WeaponType.SWORD: {"node": weapon, "damage": melee_damage, "force": melee_force, "speed": 1.0,
 			"cut": true, "length": 0.98, "trail": Color(1.0, 1.0, 0.95), "hitstop": 0.06},
@@ -345,6 +355,8 @@ func _ready() -> void:
 			"cut": true, "length": 0.8, "trail": Color(0.9, 0.9, 0.85), "hitstop": 0.08},
 		WeaponType.PICKAXE: {"node": pickaxe, "damage": 28.0, "force": 30.0, "speed": 0.85,
 			"cut": false, "length": 0.8, "trail": Color(0.8, 0.8, 0.8), "hitstop": 0.08},
+		WeaponType.SPEAR: {"node": spear, "damage": 30.0, "force": 22.0, "speed": 1.1,
+			"cut": false, "length": 1.7, "trail": Color(0.85, 0.85, 0.8), "hitstop": 0.05},
 	}
 	if not is_puppet():
 		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
@@ -422,6 +434,10 @@ func _unhandled_input(event: InputEvent) -> void:
 				_throw_slipper()
 			elif _weapon_type == WeaponType.BOOMERANG:
 				_throw_boomerang()
+			elif _weapon_type == WeaponType.ROD:
+				_fishing().click()
+		elif event.is_action_pressed("block") and _weapon_type == WeaponType.ROD:
+			_fishing().cancel()
 		elif event.is_action_pressed("block") and _weapon_type == WeaponType.SHOVEL:
 			if Farming.use(self, ""):
 				_start_swing_visual_only()
@@ -480,7 +496,11 @@ func _physics_process(delta: float) -> void:
 		_update_camera_shake(delta)
 		return
 	var sprinting := _is_sprinting()
-	if not is_on_floor():
+	var water_depth := WaterManager.i.depth_at(global_position) if WaterManager.i else -INF
+	swimming = water_depth > 1.15
+	if swimming:
+		_swim(delta, water_depth)
+	elif not is_on_floor():
 		velocity.y -= _gravity * delta * (fall_gravity if velocity.y < 0.0 else 1.0)
 	elif Input.is_action_just_pressed("jump") and not ui_blocked:
 		if not parkour.try_traverse(sprinting):
@@ -495,8 +515,12 @@ func _physics_process(delta: float) -> void:
 	speed *= parkour.speed_factor(walk_speed)
 	if _blocking:
 		speed *= block_speed_factor
+	if swimming:
+		speed *= 0.55 # nadando é mais devagar
+	elif water_depth > 0.4:
+		speed *= 0.75 # andando com água pela cintura
 	var target := direction * speed
-	var accel := (acceleration if direction != Vector3.ZERO else deceleration) if is_on_floor() else acceleration * air_control
+	var accel := (acceleration if direction != Vector3.ZERO else deceleration) if is_on_floor() or swimming else acceleration * air_control
 	var t := 1.0 - exp(-accel * delta)
 	var flat := Vector2(velocity.x, velocity.z)
 	if not is_on_floor() and flat.length() > speed:
@@ -525,6 +549,33 @@ func _physics_process(delta: float) -> void:
 		_sweep_blade()
 	_update_charge(delta)
 	_update_flashlight(delta)
+
+
+## Nadar: sem gravidade; Espaço sobe, C desce, olhar para baixo andando
+## para frente mergulha. Parado, boia devagar até a cabeça sair da água.
+func _swim(delta: float, depth: float) -> void:
+	var up := 0.0
+	if Input.is_action_pressed("jump") and not ui_blocked:
+		up = 2.4
+	elif Input.is_action_pressed("crouch") and not ui_blocked:
+		up = -2.4
+	else:
+		var forward := Input.get_axis("move_back", "move_forward")
+		up = sin(head.rotation.x) * forward * 2.6 # mergulha para onde olha
+		if absf(up) < 0.2:
+			up = 0.5 if depth > 1.55 else 0.0 # boia até a cabeça ficar fora
+	velocity.y = lerpf(velocity.y, up, 1.0 - exp(-4.0 * delta))
+	# Pulo saindo da água pela margem.
+	if is_on_wall() and Input.is_action_pressed("jump") and depth < 1.7:
+		velocity.y = 4.0
+
+
+func _fishing() -> Fishing:
+	if fishing == null:
+		fishing = Fishing.new()
+		fishing.player = self
+		add_child(fishing)
+	return fishing
 
 
 func _is_sprinting() -> bool:
@@ -650,6 +701,11 @@ func _install_weapon_models() -> void:
 	shovel.add_child(ItemModels.build(&"pa"))
 	axe.add_child(ItemModels.build(&"machado"))
 	pickaxe.add_child(ItemModels.build(&"picareta"))
+	spear.add_child(ItemModels.build(&"lanca"))
+	var rod_model := ItemModels.build(&"vara")
+	rod_model.rotation.x = 0.22 # vara um pouco levantada, apontando para a frente
+	rod.add_child(rod_model)
+	rod.position = Vector3(0.24, -0.3, -0.4)
 	grapple.add_child(ItemModels.build(&"gancho"))
 	hammer.add_child(ItemModels.build(&"martelo"))
 	slipper.add_child(ItemModels.build(&"chinelo"))
@@ -732,6 +788,10 @@ func _update_fp_arm() -> void:
 			grip = axe.transform.translated_local(Vector3(0, 0, -0.03))
 		WeaponType.PICKAXE:
 			grip = pickaxe.transform.translated_local(Vector3(0, 0, -0.03))
+		WeaponType.SPEAR:
+			grip = spear.transform.translated_local(Vector3(0, 0, -0.35))
+		WeaponType.ROD:
+			grip = rod.transform.translated_local(Vector3(0, 0, 0.02))
 		WeaponType.GRAPPLE:
 			grip = grapple.transform.translated_local(Vector3(0, -0.05, 0.03))
 		WeaponType.STAFF:
@@ -779,7 +839,7 @@ func _update_parkour_hands() -> void:
 	if both:
 		if not _hands_busy and w > 0.3:
 			_hands_busy = true
-			for node in [weapon, bat, staff, pistol, charger, spoon, grapple, hammer, chisel, slipper, boomerang, shovel, axe, pickaxe]:
+			for node in [weapon, bat, staff, pistol, charger, spoon, grapple, hammer, chisel, slipper, boomerang, shovel, axe, pickaxe, spear, rod]:
 				node.visible = false
 		var rest_r := Vector3(0.2, -0.26, -0.38)
 		var planted_r: Vector3 = visible_point.call(to_camera * parkour.hand_targets[1])
@@ -834,6 +894,8 @@ func _show_weapon(type: WeaponType) -> void:
 		shovel.visible = type == WeaponType.SHOVEL
 		axe.visible = type == WeaponType.AXE
 		pickaxe.visible = type == WeaponType.PICKAXE
+		spear.visible = type == WeaponType.SPEAR
+		rod.visible = type == WeaponType.ROD
 	if grapple:
 		grapple.visible = type == WeaponType.GRAPPLE
 	if type != WeaponType.GRAPPLE:
@@ -1031,7 +1093,8 @@ func _sweep_blade() -> void:
 		var dir := Basis(axis, angle) * Vector3.FORWARD
 		var through: Vector3 = swing.pivot + dir * (ARM_LENGTH + 0.6) # meio da arma
 		var ray_dir := (cam_basis * through).normalized()
-		var query := PhysicsRayQueryParameters3D.create(origin, origin + ray_dir * melee_range, MASK_HIT, [get_rid()])
+		var reach := melee_range * (1.6 if _weapon_type == WeaponType.SPEAR else 1.0) # lança alcança longe
+		var query := PhysicsRayQueryParameters3D.create(origin, origin + ray_dir * reach, MASK_HIT, [get_rid()])
 		query.collide_with_areas = true
 		var hit := space.intersect_ray(query)
 		if hit.is_empty():
@@ -1353,7 +1416,7 @@ func enter_vehicle(car: VintageCar) -> void:
 	_vehicle_pitch = 0.0
 	# Primeira pessoa: guarda a arma; as mãos vão para o volante.
 	_release_grapple()
-	for node in [weapon, bat, staff, pistol, charger, spoon, grapple, hammer, chisel, slipper, boomerang, shovel, axe, pickaxe, foot]:
+	for node in [weapon, bat, staff, pistol, charger, spoon, grapple, hammer, chisel, slipper, boomerang, shovel, axe, pickaxe, spear, rod, foot]:
 		node.visible = false
 	_fp_arm_left.visible = true
 	_fp_hand_left.visible = true

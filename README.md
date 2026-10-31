@@ -24,6 +24,20 @@ reação física a golpes e ragdoll (estilo Dying Light), visual de PC dos anos 
 - Os outros jogadores aparecem com o nome em cima, o item da mão, a lanterna acesa e uma bolinha
   azul no minimapa/mapa. Em cima, no meio da tela, aparece quem está online.
 
+## Lagos, pesca e vida aquática (`scripts/water/`, `shaders/`)
+
+- **Lagos e lagoas:** 9 lagos (raio 22-48 m, até 9 m de fundo) e 16 lagoas (9-18 m, 2,5-4 m), sorteados pela semente e longe de cidades, pista, avenidas e da área inicial. O terreno afunda numa bacia com fundo de areia/lodo. Aparecem em azul no mapa. Lagos na neve **congelam** (dá para andar no gelo).
+- **Água:** superfície translúcida com ondinhas, mais clara na margem e refletindo de lado.
+- **Nadar:** com água acima de ~1,2 m você nada: Espaço sobe, C desce, olhar para baixo andando mergulha; parado, boia. Com água na cintura anda mais devagar.
+- **Debaixo d'água:** tela ondulando, verde-azulada e mais escura no fundo, neblina curta, som abafado, bolhas saindo e sujeirinha flutuando.
+- **Plantas:** algas compridas que balançam no fundo, juncos e taboas na margem, vitórias-régias boiando (algumas com flor) e pedras com musgo.
+- **Bichos (em blocos):** camarão, lagosta, caranguejo, caranguejo-aranha (pernas enormes), atum (só nos lagos grandes) e o **peixe-baixo**: corpo de contrabaixo sunburst, braço com tarraxas fazendo de rabo, 4 cordas e captadores. Nadam/andam pelo lago, caranguejos andam de lado e alguns ficam na margem; fogem de quem chega perto. Pegos voltam depois de 1 min.
+- **Lança** (bancada: 2 tábuas + 1 sucata + 1 fita): estocada longa que pega qualquer bicho (funciona debaixo d'água) e machuca zumbi.
+- **Com a mão:** [E] pega camarão, lagosta e caranguejos (os do fundo e da margem).
+- **Vara de pesca** (bancada: 2 tábuas + 1 pano + 1 sucata): clique lança a boia onde você mira na água (até 22 m). Espere a boia **afundar** e clique em até 1,2 s. No minijogo, segure o clique para empurrar a faixa verde e manter o peixe dentro dela até a barra amarela encher. O atum briga muito; o camarão é fácil. Botão direito recolhe a linha. À noite eles mordem mais rápido.
+- **Na grelha:** todos viram versões assadas que enchem muito mais a fome (atum assado +80, lagosta +55, peixe-baixo +48...).
+- Teste: `tests/test_water.gd`.
+
 ## HUD, lousa, carros e desempenho
 
 - **HUD em quarto de círculo** (canto de baixo à esquerda): stamina por fora (amarelo), vida no meio (vermelho, pisca quando baixa) e fome por dentro (laranja). `scripts/ui/status_arcs.gd`.

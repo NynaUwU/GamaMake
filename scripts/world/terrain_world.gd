@@ -45,6 +45,7 @@ var cities: Array = [] ## cidades geradas pela semente (CityGen): centro, raio, 
 var avenues: Array = [] ## avenidas entre as cidades maiores ({a, b, width, kind})
 var race_track: Array = [] ## segmentos de asfalto da pista de corrida (RaceTrack)
 var track: Dictionary = {} ## lugar e traçado da pista (RaceTrack.plan)
+var lakes: Array = [] ## lagos e lagoas (Lakes.place): centro, raio, nível da água, fundo
 var _avenue_grid := {} # Vector2i (células de AVENUE_CELL m) -> trechos de avenida que alcançam a célula
 const AVENUE_CELL := 64.0
 var _chunks := {} # Vector2i -> Node3D
@@ -68,6 +69,7 @@ func _ready() -> void:
 	track = RaceTrack.plan(self)
 	if not track.is_empty():
 		race_track = track.segments
+	lakes = Lakes.place(self)
 	_material = _make_material()
 	_props = TerrainProps.new()
 	_player = get_node_or_null(player_path)
@@ -158,6 +160,8 @@ func _height_from(x: float, z: float, biome: Dictionary) -> float:
 		var r: float = city.radius
 		if d < r * 1.8:
 			h = lerpf(h, city.base, 1.0 - smoothstep(r * 1.05, r * 1.8, d))
+	if not lakes.is_empty():
+		h = Lakes.shape(lakes, x, z, h)
 	return h
 
 
@@ -461,6 +465,10 @@ func _finish(coord: Vector2i, data: Dictionary) -> Node3D:
 func map_sample(x: float, z: float) -> Array:
 	var biome := biome_at(x, z)
 	var h := _height_from(x, z, biome)
+	var lake := Lakes.at(lakes, x, z)
+	if not lake.is_empty() and h < lake.level:
+		var deep := clampf((lake.level - h) / lake.depth, 0.0, 1.0)
+		return [Color(0.32, 0.5, 0.6).lerp(Color(0.12, 0.25, 0.4), deep), h] # água no mapa
 	return [_color_for(x, z, h, biome), h]
 
 
@@ -480,6 +488,14 @@ func _color_for(x: float, z: float, h: float, biome: Dictionary) -> Color:
 		var road_colors := {"avenue": Color(0.27, 0.26, 0.25), "street": Color(0.36, 0.34, 0.31),
 			"dirt": Color(0.45, 0.36, 0.26), "asphalt": Color(0.2, 0.2, 0.21)}
 		color = color.lerp(road_colors[road.kind], road.edge)
+	# Fundo e margem dos lagos: areia molhada e lodo.
+	var lake := {}
+	for l in lakes:
+		if Vector2(x, z).distance_to(l.center) < l.radius * 1.12:
+			lake = l
+	if not lake.is_empty() and h < lake.level + 0.6:
+		var under := clampf((lake.level + 0.6 - h) / 1.5, 0.0, 1.0)
+		color = color.lerp(Color(0.5, 0.45, 0.33), under * 0.8).lerp(Color(0.26, 0.24, 0.17), clampf((lake.level - h) / lake.depth, 0.0, 1.0) * 0.7)
 	var jitter := _noise_detail.get_noise_2d(x * 3.0, z * 3.0) * 0.06
 	return Color(color.r + jitter, color.g + jitter, color.b + jitter)
 

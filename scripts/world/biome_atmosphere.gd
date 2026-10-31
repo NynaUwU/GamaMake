@@ -84,10 +84,18 @@ func _sample() -> void:
 
 
 func _apply(t: float) -> void:
-	_environment.fog_depth_end = lerpf(_environment.fog_depth_end, _target.end, t)
-	_environment.fog_depth_begin = lerpf(_environment.fog_depth_begin, _target.begin, t)
+	var target: Dictionary = _target
+	if WaterManager.i and WaterManager.i.underwater:
+		# Debaixo d'água: enxerga pouco, tudo verde-azulado (mais escuro no fundo).
+		var deep := WaterManager.i.under_depth
+		target = {"end": lerpf(26.0, 12.0, deep), "begin": 0.5, "color": Color(0.14, 0.36, 0.38).darkened(deep * 0.5), "snow": 0.0}
+		t = 1.0
+	_environment.fog_depth_end = lerpf(_environment.fog_depth_end, target.end, t)
+	_environment.fog_depth_begin = lerpf(_environment.fog_depth_begin, target.begin, t)
 	var tint: Color = DayNight.i.fog_tint if DayNight.i else Color.WHITE
-	_environment.fog_light_color = _environment.fog_light_color.lerp(_target.color * tint, t)
+	if WaterManager.i and WaterManager.i.underwater:
+		tint = Color.WHITE.lerp(tint, 0.5)
+	_environment.fog_light_color = _environment.fog_light_color.lerp(target.color * tint, t)
 	_snow_amount = lerpf(_snow_amount, _target.snow, t)
 	_snow.emitting = _snow_amount > 0.25
 	_snow.speed_scale = 0.6 + _snow_amount * 0.6

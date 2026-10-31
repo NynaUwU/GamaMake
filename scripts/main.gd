@@ -38,6 +38,9 @@ func _ready() -> void:
 	var hordes := HordeManager.new()
 	hordes.name = "Hordes"
 	add_child(hordes)
+	var water := WaterManager.new()
+	water.name = "Water"
+	add_child(water)
 	var pings := PingMarkers.new()
 	pings.name = "Pings"
 	add_child(pings)

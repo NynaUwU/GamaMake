@@ -29,6 +29,8 @@ func plan(world: TerrainWorld, coord: Vector2i, origin: Vector2) -> Dictionary:
 			continue # deixa a cidade e o entorno livres
 		if world.city_mask(x, z) > 0.0:
 			continue # nada de árvores dentro das cidades geradas
+		if _in_lake(world, x, z, 1.08):
+			continue # nem dentro dos lagos
 		if not world.track.is_empty() and RaceTrack.flatten_weight(world.track, Vector2(x, z)) > 0.0:
 			continue # nem na pista
 		var biome := world.biome_at(x, z)
@@ -100,6 +102,13 @@ func apply(data: Dictionary, chunk: Node3D, body: StaticBody3D) -> void:
 		chunk.add_child(node)
 		if Net.i.taken.has(node.key):
 			node.gone(false) # já derrubada/quebrada neste mundo
+
+
+static func _in_lake(world: TerrainWorld, x: float, z: float, margin: float) -> bool:
+	for lake in world.lakes:
+		if Vector2(x, z).distance_to(lake.center) < lake.radius * margin:
+			return true
+	return false
 
 
 func _pick_kind(biome: Dictionary, rng: RandomNumberGenerator) -> String:
@@ -258,6 +267,8 @@ func _populate_ground(world: TerrainWorld, rng: RandomNumberGenerator, origin: V
 			continue
 		if not world.road_at(x, z).is_empty():
 			continue # sem grama em cima das ruas
+		if _in_lake(world, x, z, 0.98):
+			continue
 		var biome := world.biome_at(x, z)
 		var high := world._height_from(x, z, biome)
 		var green: float = biome.plains + biome.mountain * (1.0 - smoothstep(30.0, 60.0, high)) * 0.7

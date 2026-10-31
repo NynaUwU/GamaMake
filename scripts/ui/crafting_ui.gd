@@ -19,6 +19,8 @@ const RECIPES := [
 	{"id": &"bumerangue", "station": "bancada", "cost": {&"tabua": 2, &"fita": 1}},
 	{"id": &"chinelo", "station": "bancada", "cost": {&"pano": 1, &"fita": 1}},
 	{"id": &"taco", "station": "bancada", "cost": {&"tabua": 2, &"sucata": 1}},
+	{"id": &"lanca", "station": "bancada", "cost": {&"tabua": 2, &"sucata": 1, &"fita": 1}},
+	{"id": &"vara", "station": "bancada", "cost": {&"tabua": 2, &"pano": 1, &"sucata": 1}},
 	# Mesa de trabalho
 	{"id": &"espada", "station": "mesa", "cost": {&"barra_ferro": 3, &"pano": 1}},
 	{"id": &"pistola", "station": "mesa", "cost": {&"barra_ferro": 2, &"barra_cobre": 1, &"tabua": 1}},

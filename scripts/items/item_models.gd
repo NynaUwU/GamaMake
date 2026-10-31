@@ -38,8 +38,14 @@ static var _materials := {}
 
 
 static func build(id: StringName) -> Node3D:
+	if Creatures.is_creature(id):
+		return Creatures.node(id) # bichos da água (crus e assados)
 	var parts := {} # cor -> MeshBuilder
 	match id:
+		&"lanca":
+			_spear(parts)
+		&"vara":
+			_rod(parts)
 		&"espada":
 			_sword(parts)
 		&"taco":
@@ -437,6 +443,23 @@ static func _shovel(p: Dictionary) -> void:
 	_mb(p, BRASS).lathe(PackedVector2Array([Vector2(0.024, 0.78), Vector2(0.026, 0.86)]), 8, AXIS_Z)
 	var blade := PackedVector2Array([Vector2(-0.09, 0.0), Vector2(0.09, 0.0), Vector2(0.085, -0.16), Vector2(0.0, -0.24), Vector2(-0.085, -0.16)])
 	_mb(p, IRON).extrude(blade, 0.012, Basis(Vector3.RIGHT, PI / 2), Vector3(0, 0, -0.86))
+
+
+## Lança: haste longa de madeira, ponta de ferro com farpa e amarração de couro.
+static func _spear(p: Dictionary) -> void:
+	_mb(p, WOOD).lathe(PackedVector2Array([Vector2(0.018, -0.1), Vector2(0.018, 1.45)]), 6, AXIS_Z)
+	_mb(p, LEATHER).lathe(PackedVector2Array([Vector2(0.023, 1.4), Vector2(0.023, 1.48)]), 6, AXIS_Z)
+	_mb(p, IRON).lathe(PackedVector2Array([Vector2(0.022, 1.46), Vector2(0.03, 1.5), Vector2(0.002, 1.72)]), 4, AXIS_Z)
+	_mb(p, IRON).box(Vector3(0.025, 0, -1.56), Vector3(0.012, 0.012, 0.06), Basis(Vector3.UP, -0.5)) # farpa
+
+
+## Vara de pesca: bambu em gomos afinando, carretilha de latão e passadores.
+static func _rod(p: Dictionary) -> void:
+	_mb(p, Color(0.62, 0.55, 0.3)).lathe(PackedVector2Array([Vector2(0.018, -0.1), Vector2(0.014, 0.6), Vector2(0.006, 1.45)]), 6, AXIS_Z)
+	for k in 5:
+		_mb(p, Color(0.45, 0.38, 0.2)).lathe(PackedVector2Array([Vector2(0.019 - k * 0.0025, 0.1 + k * 0.28), Vector2(0.019 - k * 0.0025, 0.12 + k * 0.28)]), 6, AXIS_Z)
+	_mb(p, BRASS).lathe(PackedVector2Array([Vector2(0.002, -0.02), Vector2(0.04, -0.02), Vector2(0.04, 0.02), Vector2(0.002, 0.02)]), 8, AXIS_X, Vector3(0, -0.05, -0.05))
+	_mb(p, LEATHER).lathe(PackedVector2Array([Vector2(0.022, -0.1), Vector2(0.022, 0.08)]), 6, AXIS_Z)
 
 
 ## Machado: cabo de madeira levemente curvo, cabeça de ferro de um gume e cinta de latão.
