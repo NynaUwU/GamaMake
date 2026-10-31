@@ -195,7 +195,7 @@ func _refund(cost: Dictionary) -> void:
 func _paid(entry: Dictionary) -> bool:
 	var cost: Dictionary = entry.get("cost", {})
 	if not can_afford(player.inventory, cost):
-		player.notify.emit("Falta material: %s" % cost_text(cost, player.inventory))
+		Sfx.play("click", -6.0, 0.6)
 		return false
 	pay(player.inventory, cost)
 	return true
@@ -340,7 +340,7 @@ func use(tool: String) -> bool:
 			var cost := repair_cost(repair_target)
 			if _paid({"cost": cost}):
 				manager.request_repair(repair_target)
-				player.notify.emit("Consertado (%s)" % cost_text(cost))
+				Sfx.play_at("knock", repair_target.global_position, 0.0, 1.1)
 				return true
 			return false
 		if selection.has("place"):

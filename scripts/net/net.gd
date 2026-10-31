@@ -680,7 +680,7 @@ func convert_pickup(item: PickupItem, new_id: StringName, amount: int) -> void:
 
 @rpc("any_peer", "reliable")
 func _req_convert(key: String, new_id: StringName, amount: int, where: Transform3D) -> void:
-	if new_id == &"tabua" and amount <= 8:
+	if new_id in [&"tabua", &"graveto"] and amount <= 200:
 		_do_convert(key, new_id, amount, where)
 
 
@@ -947,6 +947,23 @@ func _do_loot(key: String, where: Transform3D, table: String) -> void:
 			var spot := Transform3D(Basis(), where.origin + forward * 0.8 + side * (randf_range(-0.3, 0.3) + k * 0.35) + Vector3.UP * 0.45)
 			var push := forward * randf_range(1.0, 1.8) + side * randf_range(-0.6, 0.6) + Vector3.UP * randf_range(1.5, 2.2)
 			drop_item(drop[0], drop[1] / pieces, spot, push)
+
+
+# --- Desvirar carro ------------------------------------------------------------------
+
+## Quem simula o carro (o dono) é quem desvira; os outros veem pela posição.
+func flip_car(car: VintageCar) -> void:
+	if not online() or car.net_owner == my_id():
+		car.flip_upright()
+	else:
+		_flip_car.rpc_id(car.net_owner, String(car.name))
+
+
+@rpc("any_peer", "reliable")
+func _flip_car(car_name: String) -> void:
+	var car := _car(car_name)
+	if car and car.net_owner == my_id():
+		car.flip_upright()
 
 
 # --- Chat e ping -----------------------------------------------------------------

@@ -2,12 +2,12 @@ class_name LakeLife
 extends Node3D
 ## Vida de um lago (criada pelo WaterManager quando o jogador chega perto):
 ##   bichos  peixes-baixo e atuns nadando, camarões, lagostas e caranguejos no
-##           fundo (alguns caranguejos na margem). Pegos voltam depois de um tempo.
+##           fundo (alguns caranguejos na margem). Quantos vêm do estoque do
+##           lago (WaterManager): pegos só voltam no repovoamento, a cada 5 dias.
 ##   plantas algas compridas balançando no fundo, juncos/taboas na margem,
 ##           vitórias-régias boiando (com flor) e pedras no fundo.
 ## É visual/local de cada jogador (quem pega leva o bicho para o inventário).
 
-const RESPAWN := 60.0
 const KELP_SHADER := """
 shader_type spatial;
 render_mode cull_disabled;
@@ -26,20 +26,29 @@ void fragment() {
 var lake: Dictionary
 var terrain: TerrainWorld
 var creatures: Array[Creature] = []
-var _respawns: Array = [] # [tempo, id]
 var _rng := RandomNumberGenerator.new()
 
 
-func setup(lake_: Dictionary, terrain_: TerrainWorld) -> void:
+var index := 0 ## índice do lago (estoque no WaterManager)
+
+
+## stock: quantos bichos de cada tipo o lago ainda tem (WaterManager).
+func setup(lake_: Dictionary, terrain_: TerrainWorld, index_ := 0, stock := {}) -> void:
 	lake = lake_
 	terrain = terrain_
+	index = index_
 	_rng.seed = lake.seed
 	_build_plants()
-	var counts := {&"baixo": 6, &"atum": 3, &"camarao": 8, &"lagosta": 3, &"caranguejo": 5, &"caranguejo_aranha": 3}
-	if lake.kind == "pond":
-		counts = {&"baixo": 4, &"camarao": 6, &"caranguejo": 3, &"caranguejo_aranha": 2}
-	for id in counts:
-		for k in counts[id]:
+	for id in stock:
+		for k in stock[id]:
+			_spawn(id)
+
+
+## Repovoou (a cada 5 dias): cria o que falta até o estoque.
+func top_up(stock: Dictionary) -> void:
+	for id in stock:
+		var have := creatures.filter(func(c): return is_instance_valid(c) and c.id == id).size()
+		for k in maxi(stock[id] - have, 0):
 			_spawn(id)
 
 
@@ -84,15 +93,11 @@ func _swim_height(bottom: Vector3) -> float:
 
 func on_caught(creature: Creature) -> void:
 	creatures.erase(creature)
-	_respawns.append([RESPAWN, creature.id])
+	if WaterManager.i:
+		WaterManager.i.caught(index, creature.id) # só volta no repovoamento (5 dias)
 
 
 func _process(delta: float) -> void:
-	for entry in _respawns.duplicate():
-		entry[0] -= delta
-		if entry[0] <= 0.0:
-			_respawns.erase(entry)
-			_spawn(entry[1])
 	var player: Node3D = get_parent().get_parent().get("player")
 	var ppos := player.global_position if player else Vector3(1e9, 0, 0)
 	for c in creatures:

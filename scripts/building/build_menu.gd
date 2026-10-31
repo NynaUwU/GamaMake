@@ -107,7 +107,7 @@ func _refresh() -> void:
 	for child in _grid.get_children():
 		child.queue_free()
 	var entries: Array = Builder.ENTRIES[_tab]
-	_info.text = "Em breve..." if entries.is_empty() else "Solte o botão direito em cima de um slot"
+	_info.text = ""
 	for entry: Dictionary in entries:
 		_grid.add_child(_make_slot(entry))
 

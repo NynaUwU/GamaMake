@@ -63,7 +63,7 @@ func tool_hit(player: Node, weapon_type: int, damage: float, point: Vector3) -> 
 	Sfx.play_at("knock" if is_tree() else "ping", point, 3.0, 0.6 if is_tree() else 0.5)
 	if not right_tool and not _warned and player.has_signal("notify"):
 		_warned = true
-		player.notify.emit("Use o %s" % ("machado" if is_tree() else "picareta"))
+		pass # ferramenta errada: só o som "seco" do golpe
 	if hp <= 0.0:
 		_done = true
 		# Cai sempre para o mesmo lado em todos os jogadores (sorteado pela chave).

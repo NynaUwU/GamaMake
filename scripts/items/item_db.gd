@@ -135,6 +135,28 @@ const ITEMS := {
 		"desc": "Alimenta um grupo inteiro (ou você, com muita fome).", "controls": ["Clique: come (+80 fome)"]},
 	&"baixo_assado": {"name": "Peixe-baixo assado", "kind": "food", "hunger": 48, "heal": 10, "stack": 4, "size": Vector3(0.3, 0.08, 0.7),
 		"desc": "Grave, encorpado, com notas defumadas.", "controls": ["Clique: come (+48 fome)"]},
+	&"graveto": {"name": "Graveto", "kind": "material", "stack": 100, "size": Vector3(0.04, 0.04, 0.5),
+		"desc": "Galho seco. Cabo de ferramenta simples. Cai das árvores, sai da tábua no machado ou na bancada."},
+	&"machado_simples": {"name": "Machado simples", "kind": "weapon", "weapon": "axe", "power": 0.6, "stack": 1, "size": Vector3(0.2, 0.05, 0.65),
+		"damage_type": "Corte", "damage": 19, "knockback": 25,
+		"desc": "Pedra amarrada num graveto. Derruba árvore, mas devagar.",
+		"controls": ["Clique: golpe (árvore: ~5 golpes)"]},
+	&"picareta_simples": {"name": "Picareta simples", "kind": "weapon", "weapon": "pickaxe", "power": 0.6, "stack": 1, "size": Vector3(0.32, 0.05, 0.65),
+		"damage_type": "Perfuração", "damage": 17, "knockback": 20,
+		"desc": "Lasca de pedra presa num graveto. Quebra rocha e veio, com paciência.",
+		"controls": ["Clique: golpe (rocha: ~7 golpes)"]},
+	&"capuz": {"name": "Capuz de pano", "kind": "armor", "slot": "head", "armor": 0.05, "stack": 1, "size": Vector3(0.24, 0.22, 0.24),
+		"desc": "Protege um pouco a cabeça (5% menos dano)."},
+	&"capacete": {"name": "Capacete de ferro", "kind": "armor", "slot": "head", "armor": 0.15, "stack": 1, "size": Vector3(0.26, 0.22, 0.28),
+		"desc": "Panela de ferro com tiras de couro. 15% menos dano."},
+	&"colete": {"name": "Colete de sucata", "kind": "armor", "slot": "body", "armor": 0.18, "stack": 1, "size": Vector3(0.42, 0.5, 0.24),
+		"desc": "Chapas de sucata presas com fita. 18% menos dano."},
+	&"peitoral": {"name": "Peitoral de ferro", "kind": "armor", "slot": "body", "armor": 0.3, "stack": 1, "size": Vector3(0.44, 0.52, 0.26),
+		"desc": "Armadura de verdade, feita na fornalha e na mesa. 30% menos dano."},
+	&"calca": {"name": "Calça reforçada", "kind": "armor", "slot": "legs", "armor": 0.1, "stack": 1, "size": Vector3(0.34, 0.6, 0.2),
+		"desc": "Pano grosso com joelheiras de sucata. 10% menos dano."},
+	&"botas": {"name": "Botas", "kind": "armor", "slot": "feet", "armor": 0.05, "stack": 1, "size": Vector3(0.3, 0.2, 0.3),
+		"desc": "Sola de pneu velho. 5% menos dano."},
 	&"tronco": {"name": "Tronco", "kind": "material", "stack": 4, "size": Vector3(0.3, 0.3, 1.1),
 		"desc": "Pesado. Na bancada vira 8 tábuas; com o machado, ali mesmo, só 2. Na fornalha vira carvão."},
 	&"minerio_ferro": {"name": "Minério de ferro", "kind": "material", "stack": 20, "size": Vector3(0.16, 0.12, 0.16),
@@ -195,8 +217,12 @@ static func weapon_of(id: StringName) -> String:
 	return def(id).get("weapon", "")
 
 
+## Armas, ferramentas e roupas: 1 por slot. Todo o resto empilha até 100.
 static func max_stack(id: StringName) -> int:
-	return def(id).stack
+	var d := def(id)
+	if d.kind in ["weapon", "tool", "armor"]:
+		return 1
+	return 100
 
 
 ## Modelo 3D do item, montado ao longo de -Z (como as armas na mão do player).

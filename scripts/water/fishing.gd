@@ -67,7 +67,9 @@ func _ready() -> void:
 func _tip() -> Vector3:
 	var rod: Node3D = player.get("rod")
 	if rod and rod.visible:
-		return rod.global_transform * Vector3(0, 0, -1.45)
+		# A ponta do modelo (que fica levemente inclinado dentro do nó da vara).
+		var model: Node3D = rod.get_child(0) if rod.get_child_count() > 0 else rod
+		return model.global_transform * Vector3(0, 0, -1.45)
 	return player.camera.global_position - player.camera.global_basis.z * 1.0
 
 
@@ -83,7 +85,7 @@ func click() -> void:
 
 func cancel() -> void:
 	if state != State.IDLE:
-		player.notify.emit("Recolheu a linha")
+		Sfx.play("whirr", -10.0, 1.0)
 	_reset()
 
 
@@ -91,12 +93,12 @@ func _cast() -> void:
 	var cam := player.camera
 	var water := WaterManager.i.ray_water(cam.global_position, -cam.global_basis.z, RANGE) if WaterManager.i else Vector3.INF
 	if water == Vector3.INF:
-		player.notify.emit("Mire na água de um lago ou lagoa (até %d m)" % RANGE)
+		Sfx.play("click", -6.0, 0.6)
 		return
 	# Algo no caminho (margem, árvore)? A boia bate e cai antes.
 	var query := PhysicsRayQueryParameters3D.create(cam.global_position, water + Vector3.UP * 0.4, 1, [player.get_rid()])
 	if player.get_world_3d().direct_space_state.intersect_ray(query):
-		player.notify.emit("Tem algo no caminho")
+		Sfx.play("click", -6.0, 0.6)
 		return
 	_lake = WaterManager.i.lake_at(water)
 	_fish = CATCH_LAKE if _lake.kind == "lake" else CATCH_POND
@@ -131,13 +133,13 @@ func _process(delta: float) -> void:
 			if _timer <= 0.0:
 				state = State.BITE
 				_timer = 1.2
-				player.notify.emit("!  Fisgou? CLIQUE!")
+				Sfx.play_at("slap", _target, 2.0, 0.7) # tchibum da boia afundando
 				Sfx.play("ping", 0.0, 0.9)
 		State.BITE:
 			_timer -= delta
 			_bobber.global_position = _target + Vector3.DOWN * 0.12 + Vector3.UP * sin(Time.get_ticks_msec() * 0.03) * 0.04
 			if _timer <= 0.0:
-				player.notify.emit("O peixe escapou...")
+				Sfx.play("click", -6.0, 0.5)
 				_reset()
 		State.FIGHT:
 			_bobber.global_position = _target + Vector3(sin(Time.get_ticks_msec() * 0.01) * 0.2, -0.05, cos(Time.get_ticks_msec() * 0.013) * 0.2)
@@ -194,9 +196,9 @@ func _start_fight() -> void:
 func _update_fight(delta: float) -> void:
 	var difficulty: float = _hooked[2]
 	# Peixe: pula para pontos aleatórios, mais rápido e mais vezes quanto mais bravo.
-	if absf(_fish_pos - _fish_target) < 0.03 or randf() < delta * (0.6 + difficulty * 2.2):
+	if absf(_fish_pos - _fish_target) < 0.03 or randf() < delta * (0.25 + difficulty * 0.8):
 		_fish_target = randf()
-	_fish_pos = move_toward(_fish_pos, _fish_target, delta * (0.25 + difficulty * 0.9))
+	_fish_pos = move_toward(_fish_pos, _fish_target, delta * (0.1 + difficulty * 0.35)) # bem mais calmo
 	# Faixa: segurar empurra para a direita, soltar cai para a esquerda (com inércia).
 	var holding := Input.is_action_pressed("attack")
 	_zone_speed += (2.6 if holding else -2.2) * delta
@@ -214,11 +216,11 @@ func _update_fight(delta: float) -> void:
 		var left := player.pick_up(id, ItemDB.display_name(id), amount)
 		if left > 0:
 			Net.i.drop_item(id, left, player.global_transform.translated(Vector3.UP), Vector3.ZERO)
-		player.notify.emit("Pescou: %s!" % ItemDB.display_name(id))
+		Sfx.play_at("slap", player.global_position, 0.0, 0.9)
 		Sfx.play("pickup")
 		_reset()
 	elif _progress <= 0.0:
-		player.notify.emit("Escapou! (era um%s %s)" % ["a" if String(_hooked[0]) in ["lagosta"] else "", ItemDB.display_name(_hooked[0])])
+		Sfx.play("click", -6.0, 0.5)
 		_reset()
 
 

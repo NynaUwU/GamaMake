@@ -44,6 +44,33 @@ static func build(id: StringName) -> Node3D:
 	match id:
 		&"lanca":
 			_spear(parts)
+		&"graveto":
+			_mb(parts, Color(0.42, 0.3, 0.18)).tube(PackedVector3Array([Vector3(0, 0, 0.25), Vector3(0.01, 0.0, 0.0), Vector3(-0.01, 0.0, -0.25)]), 0.015, 5)
+			_mb(parts, Color(0.42, 0.3, 0.18)).tube(PackedVector3Array([Vector3(0.005, 0, 0.05), Vector3(0.06, 0.0, -0.06)]), 0.008, 4)
+		&"machado_simples", &"picareta_simples":
+			_stone_tool(parts, id == &"picareta_simples")
+		&"capuz":
+			_mb(parts, CLOTH.darkened(0.2)).lathe(PackedVector2Array([Vector2(0.12, 0.0), Vector2(0.13, 0.1), Vector2(0.09, 0.2), Vector2(0.002, 0.24)]), 8)
+		&"capacete":
+			_mb(parts, IRON.lightened(0.2)).lathe(PackedVector2Array([Vector2(0.14, 0.0), Vector2(0.14, 0.08), Vector2(0.11, 0.17), Vector2(0.002, 0.2)]), 10)
+			_mb(parts, LEATHER).box(Vector3(0, -0.04, 0.0), Vector3(0.02, 0.08, 0.26))
+		&"colete", &"peitoral":
+			var plate: Color = IRON.lightened(0.2) if id == &"peitoral" else Color(0.45, 0.4, 0.33)
+			_mb(parts, plate).box(Vector3(0, 0.25, 0.04), Vector3(0.42, 0.5, 0.06))
+			_mb(parts, plate.darkened(0.15)).box(Vector3(0, 0.25, -0.06), Vector3(0.42, 0.5, 0.05))
+			_mb(parts, LEATHER).box(Vector3(0.16, 0.5, -0.01), Vector3(0.06, 0.05, 0.16))
+			_mb(parts, LEATHER).box(Vector3(-0.16, 0.5, -0.01), Vector3(0.06, 0.05, 0.16))
+			if id == &"colete":
+				_mb(parts, TAPE).box(Vector3(0, 0.3, 0.075), Vector3(0.44, 0.04, 0.01))
+		&"calca":
+			for side in [-0.09, 0.09]:
+				_mb(parts, Color(0.3, 0.32, 0.38)).box(Vector3(side, 0.3, 0), Vector3(0.14, 0.6, 0.16))
+				_mb(parts, Color(0.45, 0.4, 0.33)).box(Vector3(side, 0.32, 0.085), Vector3(0.12, 0.1, 0.02))
+			_mb(parts, Color(0.3, 0.32, 0.38)).box(Vector3(0, 0.58, 0), Vector3(0.34, 0.08, 0.17))
+		&"botas":
+			for side in [-0.08, 0.08]:
+				_mb(parts, LEATHER).box(Vector3(side, 0.08, 0), Vector3(0.11, 0.16, 0.12))
+				_mb(parts, DARK).box(Vector3(side, 0.015, -0.03), Vector3(0.12, 0.03, 0.2))
 		&"vara":
 			_rod(parts)
 		&"espada":
@@ -443,6 +470,18 @@ static func _shovel(p: Dictionary) -> void:
 	_mb(p, BRASS).lathe(PackedVector2Array([Vector2(0.024, 0.78), Vector2(0.026, 0.86)]), 8, AXIS_Z)
 	var blade := PackedVector2Array([Vector2(-0.09, 0.0), Vector2(0.09, 0.0), Vector2(0.085, -0.16), Vector2(0.0, -0.24), Vector2(-0.085, -0.16)])
 	_mb(p, IRON).extrude(blade, 0.012, Basis(Vector3.RIGHT, PI / 2), Vector3(0, 0, -0.86))
+
+
+## Ferramenta de pedra: graveto torto, lasca de pedra amarrada com pano.
+static func _stone_tool(p: Dictionary, pick: bool) -> void:
+	_mb(p, Color(0.42, 0.3, 0.18)).lathe(PackedVector2Array([Vector2(0.016, -0.05), Vector2(0.014, 0.6)]), 6, AXIS_Z)
+	_mb(p, CLOTH.darkened(0.2)).lathe(PackedVector2Array([Vector2(0.022, 0.52), Vector2(0.022, 0.6)]), 6, AXIS_Z)
+	var stone := Color(0.5, 0.49, 0.46)
+	if pick:
+		for side in [-1.0, 1.0]:
+			_mb(p, stone).box(Vector3(side * 0.08, -0.01, -0.58), Vector3(0.14, 0.035, 0.04), Basis(Vector3.BACK, side * -0.25))
+	else:
+		_mb(p, stone).box(Vector3(0.06, 0, -0.57), Vector3(0.12, 0.03, 0.1))
 
 
 ## Lança: haste longa de madeira, ponta de ferro com farpa e amarração de couro.

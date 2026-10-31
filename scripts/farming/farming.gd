@@ -42,7 +42,7 @@ static func use(player: Player, crop: String) -> bool:
 			placed.request("harvest", [obj.net_id, slot])
 			return true
 		if not entry.is_empty():
-			player.notify.emit("%s crescendo: %d%%" % [ItemDB.display_name(CROPS[entry.crop].food), PlacedObject.progress(entry, placed.clock) * 100.0])
+			pass # o painel ao lado da mira já mostra a %
 			return false
 		# Vaga vazia: planta.
 		var chosen := crop
@@ -52,20 +52,20 @@ static func use(player: Player, crop: String) -> bool:
 					chosen = name
 					break
 		if chosen == "":
-			player.notify.emit("Sem sementes (procure em baús nas cidades)")
+			Sfx.play("click", -6.0, 0.6)
 			return false
 		if not obj.allows(chosen):
-			player.notify.emit("Abóbora não cabe no pote pequeno")
+			Sfx.play("click", -6.0, 0.6)
 			return false
 		if not _take_one(player, CROPS[chosen].seed):
 			return false
 		placed.request("plant", [obj.net_id, slot, chosen])
-		player.notify.emit("Plantou %s" % ItemDB.display_name(CROPS[chosen].food))
+		Sfx.play_at("step_soft", obj.global_position, 2.0, 0.8)
 		return true
 	# Pá no chão de terra (terreno, não rua/construção): cava uma cova.
 	if crop == "" and _is_terrain(hit.collider) and hit.normal.y > 0.65:
 		if placed.occupied(hit.position, 0.85):
-			player.notify.emit("Muito perto de outra cova")
+			Sfx.play("click", -6.0, 0.6)
 			return false
 		var basis := Basis(Vector3.UP, player.rotation.y)
 		placed.request("place", ["ground", Transform3D(basis, hit.position)])
@@ -73,7 +73,7 @@ static func use(player: Player, crop: String) -> bool:
 			player.pick_up(&"pedra", ItemDB.display_name(&"pedra"), 1)
 		return true
 	if crop != "":
-		player.notify.emit("Mire num pote, canteiro ou cova (cave com a pá)")
+		Sfx.play("click", -6.0, 0.6)
 	return false
 
 

@@ -49,11 +49,6 @@ func _ready() -> void:
 	_name.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	_name.add_theme_color_override("font_color", Color(0.95, 0.85, 0.4))
 	info.add_child(_name)
-	var hint := Label.new()
-	hint.text = "Clique num item para pegar"
-	hint.add_theme_font_size_override("font_size", 11)
-	hint.modulate = Color(1, 1, 1, 0.7)
-	column.add_child(hint)
 	var row := HBoxContainer.new()
 	column.add_child(row)
 	LegacyGUI.button(row, "Pegar tudo", _take_all).size_flags_horizontal = Control.SIZE_EXPAND_FILL

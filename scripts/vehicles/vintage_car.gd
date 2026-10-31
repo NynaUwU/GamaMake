@@ -49,12 +49,16 @@ var drift_kick := 1.5 ## giro extra (rad/s²) que o torque dá ao virar aceleran
 var drift_hold := 30.0 ## graus de lado a partir dos quais o pneu volta a agarrar
 var drift_max := 45.0 ## mais de lado que isso o carro não fica (só carros com wheelspin)
 var all_wheel_drive := false
-var roll_influence := 0.25 ## menor = mais difícil de capotar na curva
+var roll_influence := 0.12 ## menor = mais difícil de capotar na curva
 var steer_rate := 2.5 ## quão rápido o volante vira (rad/s nas rodas)
 var steer_min := 0.15 ## fração do esterço que sobra em alta velocidade
 var suspension_rest := 0.32
 var suspension_travel := 0.28
 var suspension_stiffness := 38.0
+## Gravidade extra só no carro: assenta no chão e cai mais "pesado" das rampas.
+## (Não muda a massa, então a aceleração do motor continua a mesma; a mola é
+## endurecida na mesma proporção para o carro não arriar.)
+var weight_gravity := 1.5
 var seat_offset := Vector3(-0.22, 0.17, -0.38)
 var exit_offset := Vector3(-1.35, 0.2, -0.38)
 var wheel_center := Vector3(-0.22, 0.68, 0.07) ## centro do volante
@@ -90,6 +94,7 @@ var air_leveling := 4.0 ## quanto o carro se endireita no ar
 func _ready() -> void:
 	_configure()
 	mass = car_mass
+	gravity_scale = weight_gravity
 	center_of_mass_mode = RigidBody3D.CENTER_OF_MASS_MODE_CUSTOM
 	center_of_mass = Vector3(0, center_of_mass_y, 0) # baixo: não capota fácil
 	collision_layer = 1
@@ -119,12 +124,52 @@ func _configure() -> void:
 # --- Interação ---------------------------------------------------------------
 
 func get_interact_text() -> String:
-	return "[E] Dirigir" if driver == null and driver_peer == 0 else ""
+	if driver != null or driver_peer != 0:
+		return ""
+	if is_tipped():
+		return "[E] Desvirar"
+	if _at_trunk(Net.i.world.player if Net.i.world else null):
+		return "[E] Porta-malas"
+	return "[E] Dirigir"
 
 
 func interact(player: Node) -> void:
-	if driver == null and driver_peer == 0 and player.has_method("enter_vehicle"):
+	if driver != null or driver_peer != 0:
+		return
+	if is_tipped():
+		Net.i.flip_car(self)
+		return
+	if _at_trunk(player):
+		StorageUI.open_for(player, "car_%s" % name) # porta-malas: baú do carro
+		return
+	if player.has_method("enter_vehicle"):
 		Net.i.request_car(self) # online o host confere se ninguém pegou antes
+
+
+## Tombado de lado ou de cabeça para baixo.
+func is_tipped() -> bool:
+	return global_basis.y.dot(Vector3.UP) < 0.45
+
+
+## Quem está atrás do carro (perto da traseira) abre o porta-malas.
+func _at_trunk(who: Node3D) -> bool:
+	if who == null:
+		return false
+	var local := to_local(who.global_position)
+	return local.z < -wheelbase * 0.5 - 0.2 and absf(local.x) < track_width * 0.75
+
+
+## Põe o carro de pé de novo (um pouco acima do chão, mesma direção).
+func flip_upright() -> void:
+	var forward := global_basis.z
+	forward.y = 0.0
+	if forward.length() < 0.1:
+		forward = Vector3.FORWARD
+	var yaw := atan2(forward.x, forward.z)
+	global_transform = Transform3D(Basis(Vector3.UP, yaw), global_position + Vector3.UP * 1.2)
+	linear_velocity = Vector3.ZERO
+	angular_velocity = Vector3.ZERO
+	Sfx.play_at("thud", global_position, 0.0, 0.7)
 
 
 # --- Multiplayer ---------------------------------------------------------------
@@ -721,7 +766,7 @@ func _build_wheels() -> void:
 			wheel.wheel_radius = wheel_radius
 			wheel.wheel_rest_length = suspension_rest
 			wheel.suspension_travel = suspension_travel # Monza: curso longo, fora de estrada
-			wheel.suspension_stiffness = suspension_stiffness
+			wheel.suspension_stiffness = suspension_stiffness * sqrt(weight_gravity)
 			wheel.suspension_max_force = 9000.0
 			wheel.damping_compression = 2.2
 			wheel.damping_relaxation = 3.0

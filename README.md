@@ -24,6 +24,22 @@ reação física a golpes e ragdoll (estilo Dying Light), visual de PC dos anos 
 - Os outros jogadores aparecem com o nome em cima, o item da mão, a lanterna acesa e uma bolinha
   azul no minimapa/mapa. Em cima, no meio da tela, aparece quem está online.
 
+## Inventário, crafting, carros e casas (rodada de feedback)
+
+- **Hotbar de 9** (teclas 1-9). **Mochila 9x5** (hotbar + 9x4). Em cima: o **personagem** girando com 4 slots de **roupa/armadura** (cabeça, corpo, pernas, pés) presas no boneco, e o **crafting de mão**.
+- **Pilhas de até 100** (armas, ferramentas e roupas: 1 por slot).
+- **Shift + clique** transfere rápido: na mochila (hotbar <-> mochila; roupa veste/tira) e no baú construído/porta-malas (baú <-> mochila).
+- **Roupas e armaduras** reduzem o dano (somam até 80%): capuz 5%, capacete de ferro 15%, colete de sucata 18%, peitoral de ferro 30%, calça 10%, botas 5%.
+- **Crafting de mão** (só o básico e versões que rendem menos): gravetos (2 por tábua), tábuas (3 por tronco), machado e picareta **simples** (pedra + graveto, rendem ~60%), bandagem, capuz.
+- **Gravetos:** caem em volta de algumas árvores; golpe de machado numa tábua no chão = 2 gravetos; na mesa, 1 tábua = 4 gravetos. Ferramentas da mesa usam gravetos.
+- **Mesa e fornalha em grade:** ícone com o nome embaixo (estilo do menu de construção); passando o mouse mostra o que precisa. Clique fabrica 1; **Shift + clique fabrica o máximo** (até uma pilha de 100: dá para fundir uma pilha inteira de minério).
+- **Menos avisos na tela:** pesca, construção, plantio e grelha agora avisam por **som** (boia afundando, "clique" seco quando falta material ou não dá, martelada no conserto...). Sem frases de instrução nos menus.
+- **Pesca:** o peixe do minijogo ficou bem mais calmo; a linha sai da ponta da vara.
+- **Peixes repovoam a cada 5 dias:** cada lago tem uma quantidade padrão de cada bicho (sorteada na criação do mundo); o que você pega só volta no repovoamento.
+- **Carros:** mais pesados (gravidade 1,5x no carro, mola compensada, aceleração igual); **desvirar** com [E] no carro tombado (ou R dirigindo); **porta-malas** com [E] atrás do carro (20 slots, arrastar e soltar).
+- **Baús de saque** pintados em cores fortes (baú vermelho, armário turquesa, caixote amarelo).
+- **Casas com interior:** ~30% das casas têm o térreo oco com porta aberta, piso de tábua, lampião aceso e móveis (mesa, cadeiras, cama, armário, estante, fogão a lenha). **Qualquer golpe desmonta um móvel** (arma, ferramenta ou soco) e ele solta tábuas, gravetos, pano ou sucata.
+
 ## Ajustes (feedback)
 
 - **HUD** de arcos menor (letrinhas S/V/F na ponta).

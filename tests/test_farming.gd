@@ -77,7 +77,7 @@ func _init() -> void:
 	for c in main.get_children():
 		if c is CraftingUI:
 			ui = c
-	ui.craft(CraftingUI.RECIPES.filter(func(r): return r.id == &"bandagem")[0])
+	CraftingUI.craft(player, CraftingUI.recipes_for("mesa").filter(func(r): return r.id == &"bandagem")[0])
 	print("bandagem=", player.inventory.count(&"bandagem"), " pano=", player.inventory.count(&"pano"))
 	ui.close()
 	# Save guarda os potes e as plantas.

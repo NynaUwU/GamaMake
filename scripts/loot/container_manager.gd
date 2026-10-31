@@ -75,7 +75,7 @@ func host_apply(action: String, args: Array) -> Array:
 ## Baús do mundo ("loot_...") só deixam retirar; baús construídos ("placed_...")
 ## guardam também (20 slots, arrastar e soltar).
 static func is_storage(key: String) -> bool:
-	return key.begins_with("placed_")
+	return key.begins_with("placed_") or key.begins_with("car_") # baú construído e porta-malas
 
 
 func _host(action: String, args: Array) -> Array:

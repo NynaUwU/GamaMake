@@ -61,8 +61,10 @@ func _set_open(animate: bool) -> void:
 func _build() -> void:
 	var body := MeshBuilder.new()
 	var lid := MeshBuilder.new()
-	var wood := Color(0.4, 0.26, 0.15)
-	var dark := Color(0.24, 0.15, 0.08)
+	# Tinta forte (destaca no meio das casas cinza/marrons): baú vermelho,
+	# armário azul-turquesa, caixote amarelo.
+	var wood: Color = {"bau": Color(0.8, 0.16, 0.1), "armario": Color(0.1, 0.58, 0.6), "caixote": Color(0.95, 0.66, 0.1)}[style]
+	var dark := wood.darkened(0.4)
 	var hinge := Vector3.ZERO
 	match style:
 		"bau": # baú com cintas de ferro e fecho de latão

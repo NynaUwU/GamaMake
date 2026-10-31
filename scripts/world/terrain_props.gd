@@ -104,20 +104,28 @@ func apply(data: Dictionary, chunk: Node3D, body: StaticBody3D) -> void:
 			node.gone(false) # já derrubada/quebrada neste mundo
 		if c[0] in ResourceNode.STONES:
 			_loose_stones(chunk, ci, c[1], c[2])
+		else:
+			_loose_items(chunk, ci, c[1], c[2], &"graveto", 0.4, 1, 2) # gravetos caídos em volta de algumas árvores
 
 
 ## Pedras soltas no chão em volta de rochas e veios (dá para pegar com [E]
 ## antes de ter picareta). Chave fixa: quem pegou, pegou para todos.
 func _loose_stones(chunk: Node3D, ci: int, at: Vector3, scale: float) -> void:
+	_loose_items(chunk, ci, at, scale, &"pedra", 1.0, 1, 3)
+
+
+func _loose_items(chunk: Node3D, ci: int, at: Vector3, scale: float, id: StringName, chance: float, lo: int, hi: int) -> void:
 	var rng := RandomNumberGenerator.new()
-	rng.seed = hash([chunk.name, ci])
-	for k in rng.randi_range(1, 3):
+	rng.seed = hash([chunk.name, ci, id])
+	if rng.randf() > chance:
+		return
+	for k in rng.randi_range(lo, hi):
 		var a := rng.randf() * TAU
 		var r := rng.randf_range(1.2, 2.2) * maxf(scale, 1.0)
 		var stone: PickupItem = PICKUP_SCENE.instantiate()
-		stone.item_id = &"pedra"
+		stone.item_id = id
 		stone.amount = 1
-		stone.net_key = "%s_s%d_%d" % [chunk.name, ci, k]
+		stone.net_key = "%s_%s%d_%d" % [chunk.name, "s" if id == &"pedra" else "g", ci, k]
 		stone.freeze = true # fica parada no chão até alguém pegar
 		chunk.add_child(stone)
 		var local := at + Vector3(cos(a) * r, 0.0, sin(a) * r)

@@ -26,9 +26,6 @@ func _init() -> void:
 	var before := player.inventory.count(first.id)
 	cui._take(slots.find(filled[0]))
 	print("pegou ", first.id, ": ", before, " -> ", player.inventory.count(first.id))
-	player.inventory.slots[4] = {"id": &"pedra", "amount": 5}
-	cui._put(4)
-	print("guardou pedra: baú tem=", cm.slots_of("teste_bau").filter(func(x): return not x.is_empty() and x.id == &"pedra").map(func(x): return x.amount), " mochila slot4=", player.inventory.slots[4])
 	cui._take_all()
 	print("pegar tudo: baú vazio=", cm.slots_of("teste_bau").all(func(x): return x.is_empty()))
 	cui.close()
@@ -56,17 +53,21 @@ func _init() -> void:
 	CraftingUI.open_for(player, "fornalha")
 	await _frames(2)
 	var ui: CraftingUI = main.get_children().filter(func(c): return c is CraftingUI)[0]
-	var bar_recipe: Dictionary = ui.recipes().filter(func(r): return r.id == &"barra_ferro")[0]
+	var bar_recipe: Dictionary = CraftingUI.recipes_for("fornalha").filter(func(r): return r.id == &"barra_ferro")[0]
 	for k in 3:
-		ui.craft(bar_recipe)
+		CraftingUI.craft(player, bar_recipe)
 	print("fornalha: barras=", player.inventory.count(&"barra_ferro"), " carvão=", player.inventory.count(&"carvao"), " tábuas=", player.inventory.count(&"tabua"), " minério=", player.inventory.count(&"minerio_ferro"))
 	ui.close()
 	player.inventory.add(&"pano", 1)
 	CraftingUI.open_for(player, "mesa")
 	await _frames(2)
 	ui = main.get_children().filter(func(c): return c is CraftingUI and not c.is_queued_for_deletion())[0]
-	print("mesa: receitas=", ui.recipes().size(), " (bancada ", CraftingUI.RECIPES.filter(func(r): return r.station == "bancada").size(), ")")
-	ui.craft(ui.recipes().filter(func(r): return r.id == &"espada")[0])
+	print("mesa: receitas=", CraftingUI.recipes_for("mesa").size(), " mão=", CraftingUI.recipes_for("mao").size())
+	CraftingUI.craft(player, CraftingUI.recipes_for("mesa").filter(func(r): return r.id == &"espada")[0])
+	player.inventory.add(&"minerio_ferro", 40)
+	player.inventory.add(&"carvao", 30)
+	var made := CraftingUI.craft(player, bar_recipe, CraftingUI.max_times(bar_recipe))
+	print("Shift na fornalha: fundiu ", made, " de uma vez")
 	print("espada=", player.inventory.count(&"espada"))
 	ui.close()
 	# 4) Conserto.

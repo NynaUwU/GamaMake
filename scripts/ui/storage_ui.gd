@@ -33,7 +33,7 @@ func _ready() -> void:
 	var center := CenterContainer.new()
 	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	add_child(center)
-	var column := LegacyGUI.box(center, "Baú  (arraste os itens entre os slots)", 230.0)
+	var column := LegacyGUI.box(center, "Baú", 230.0)
 	_chest_grid = GridContainer.new()
 	_chest_grid.columns = 5
 	_chest_grid.add_theme_constant_override("h_separation", 4)
@@ -126,6 +126,9 @@ func _slot(from: String, index: int, slot: Dictionary) -> Button:
 			_spinner.show_item(slot.id)
 			_name.text = "%s%s" % [ItemDB.display_name(slot.id), "  x%d" % slot.amount if slot.amount > 1 else ""])
 	button.set_drag_forwarding(_drag_from.bind(button, from, index, slot), _can_drop, _drop_on.bind(from, index))
+	button.pressed.connect(func():
+		if Input.is_key_pressed(KEY_SHIFT) and not slot.is_empty():
+			_quick(from, index))
 	return button
 
 
@@ -170,6 +173,30 @@ func _drop_on(_at: Vector2, data: Variant, to: String, index: int) -> void:
 		manager.request("put_at", [key, index, String(moved.id), moved.amount])
 		Sfx.play("knock", -8.0, 1.0)
 	_refresh()
+
+
+## Shift + clique: manda o item direto para o outro lado (baú <-> mochila).
+func _quick(from: String, index: int) -> void:
+	var manager := ContainerManager.i
+	if from == "chest":
+		manager.request("take", [key, index])
+		Sfx.play("pickup", -4.0)
+		return
+	var item: Dictionary = player.inventory.slots[index]
+	var slots: Array = manager.slots_of(key)
+	var target := -1
+	for k in slots.size(): # pilha igual com espaço, senão o primeiro vazio
+		if not slots[k].is_empty() and slots[k].id == item.id and slots[k].amount < ItemDB.max_stack(item.id):
+			target = k
+			break
+	if target < 0:
+		target = slots.find({})
+	if target < 0:
+		Sfx.play("click", -6.0, 0.6) # baú cheio
+		return
+	var moved := player.inventory.take(index, item.amount)
+	manager.request("put_at", [key, target, String(moved.id), moved.amount])
+	Sfx.play("knock", -8.0, 1.0)
 
 
 func _notification(what: int) -> void:

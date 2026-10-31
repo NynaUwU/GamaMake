@@ -22,7 +22,7 @@ func _process(delta: float) -> bool:
 		Net.i.request_player_saves() # o host vai salvar: pede o estado de cada cliente
 	if t > 34.0:
 		var main: Node = current_scene
-		print("HOST player_saves=", Net.i.player_saves.keys(), " slots ok=", Net.i.player_saves.values().all(func(d): return d.slots.size() == 20))
+		print("HOST player_saves=", Net.i.player_saves.keys(), " slots ok=", Net.i.player_saves.values().all(func(d): return d.slots.size() == Inventory.HOTBAR_SIZE + Inventory.BACKPACK_SIZE))
 		var zombies: Array = main.get_tree().get_nodes_in_group("enemy")
 		var dead := zombies.filter(func(z): return z.state == Zombie.State.DEAD).size()
 		var car: VintageCar = main.get_node("Carro")

@@ -15,6 +15,12 @@ var underwater := false
 var under_depth := 0.0 ## 0..1 (superfície..fundo), para o efeito
 var _bodies := {} # índice do lago -> Node3D (superfície)
 var _lives := {} # índice do lago -> LakeLife
+## Estoque de bichos de cada lago (índice -> {id: quantos}). O padrão é sorteado
+## pela semente do lago (fixo para o mundo); pescar diminui; a cada REFILL_DAYS
+## dias volta ao padrão. Vai no save.
+const REFILL_DAYS := 5
+var stock := {}
+var _refill_day := 1
 var _timer := 0.0
 var _overlay: ColorRect
 var _overlay_layer: CanvasLayer
@@ -42,7 +48,53 @@ func lakes() -> Array:
 	return t.lakes if t else []
 
 
+## Quantos de cada bicho o lago tem por padrão (sorteado uma vez pela semente do lago).
+static func default_stock(lake: Dictionary) -> Dictionary:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = lake.seed + 99
+	if lake.kind == "pond":
+		return {&"baixo": rng.randi_range(2, 6), &"camarao": rng.randi_range(3, 8), &"caranguejo": rng.randi_range(1, 4),
+			&"caranguejo_aranha": rng.randi_range(0, 3)}
+	return {&"baixo": rng.randi_range(4, 9), &"atum": rng.randi_range(1, 4), &"camarao": rng.randi_range(5, 10),
+		&"lagosta": rng.randi_range(1, 4), &"caranguejo": rng.randi_range(3, 6), &"caranguejo_aranha": rng.randi_range(1, 4)}
+
+
+func stock_of(index: int) -> Dictionary:
+	if not stock.has(index):
+		stock[index] = default_stock(lakes()[index])
+	return stock[index]
+
+
+func caught(index: int, id: StringName) -> void:
+	var s := stock_of(index)
+	s[id] = maxi(s.get(id, 0) - 1, 0)
+
+
+## A cada 5 dias de jogo os lagos voltam à quantidade padrão.
+func _check_refill() -> void:
+	if DayNight.i == null or DayNight.i.day < _refill_day + REFILL_DAYS:
+		return
+	_refill_day = DayNight.i.day
+	stock.clear()
+	for index in _lives:
+		_lives[index].top_up(stock_of(index))
+
+
+func persist_key() -> String:
+	return "water"
+
+
+func save_data() -> Dictionary:
+	return {"stock": stock.duplicate(true), "refill": _refill_day}
+
+
+func load_data(data: Dictionary) -> void:
+	stock = data.get("stock", {}).duplicate(true)
+	_refill_day = data.get("refill", 1)
+
+
 func _ready() -> void:
+	add_to_group("persist")
 	_overlay_layer = CanvasLayer.new()
 	_overlay_layer.layer = -1 # por cima do 3D, por baixo do HUD
 	add_child(_overlay_layer)
@@ -107,6 +159,7 @@ func _process(delta: float) -> void:
 	if _timer <= 0.0:
 		_timer = 0.5
 		_stream(player.global_position)
+		_check_refill()
 	_update_underwater(delta)
 
 
@@ -124,7 +177,7 @@ func _stream(at: Vector3) -> void:
 			var life := LakeLife.new()
 			life.name = "Life_%d" % index
 			add_child(life)
-			life.setup(lake, _terrain())
+			life.setup(lake, _terrain(), index, stock_of(index))
 			_lives[index] = life
 		elif d > LIFE + 40.0 and _lives.has(index):
 			_lives[index].queue_free()

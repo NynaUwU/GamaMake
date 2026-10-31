@@ -313,6 +313,11 @@ static func build_house(lot: Dictionary) -> Node3D:
 	var w: float = lot.w
 	var d: float = lot.d
 	var floors: int = lot.floors
+	# ~30% das casas inteiras têm o térreo oco, com móveis (sorteio separado:
+	# não muda o resto do desenho das casas).
+	var inside_rng := RandomNumberGenerator.new()
+	inside_rng.seed = lot.seed + 4242
+	var hollow: bool = not lot.ruin and inside_rng.randf() < 0.3 and w >= 5.0 and d >= 5.0
 	# Fundação de pedra (afunda no chão).
 	_box(mb, body, STONE.darkened(0.1), Vector3(0, -0.4, 0), Vector3(w + 0.4, 1.4, d + 0.4), Basis.IDENTITY)
 	if lot.ruin:
@@ -337,7 +342,10 @@ static func build_house(lot: Dictionary) -> Node3D:
 			var center := offset + Vector3(0, y + FLOOR_HEIGHT * 0.5, 0)
 			var color: Color = STONE if i == 0 and not lot.village else (WOOD if (i + int(lot.seed)) % 3 == 0 else plaster)
 			color = color.darkened(rng.randf_range(0.0, 0.15))
-			_box(mb, body, color, center, Vector3(fw, FLOOR_HEIGHT, fd), basis)
+			if i == 0 and hollow:
+				_hollow_floor(mb, body, color, center, fw, fd)
+			else:
+				_box(mb, body, color, center, Vector3(fw, FLOOR_HEIGHT, fd), basis)
 			# Viga escura em cima do andar e janelas nas 4 paredes.
 			_box(mb, null, DARK_WOOD, center + basis * Vector3(0, FLOOR_HEIGHT * 0.5 - 0.1, 0), Vector3(fw + 0.12, 0.2, fd + 0.12), basis)
 			_windows(mb, rng, center, basis, fw, fd, i == 0)
@@ -360,7 +368,7 @@ static func build_house(lot: Dictionary) -> Node3D:
 		mb.tube(PackedVector3Array([Vector3(pipe_x, 0.2, -d * 0.3), Vector3(pipe_x, minf(y, 9.0), -d * 0.3),
 			Vector3(pipe_x - 0.3, minf(y, 9.0) + 0.3, -d * 0.3)]), 0.12, 6)
 	# Porta e um barril/caldeira ao lado de algumas casas.
-	if not lot.ruin:
+	if not lot.ruin and not hollow:
 		_box(mb, null, DARK_WOOD, Vector3(0, 1.3, -d * 0.5 - 0.05), Vector3(1.1, 2.1, 0.1), Basis.IDENTITY)
 	if rng.randf() < 0.35:
 		mb.color(IRON)
@@ -370,11 +378,88 @@ static func build_house(lot: Dictionary) -> Node3D:
 	if lot.village and rng.randf() < 0.6:
 		_fence(mb, rng, w, d)
 	var house := Node3D.new()
+	if hollow:
+		_furnish(house, lot, inside_rng, w, d)
 	var mesh := MeshInstance3D.new()
 	mesh.mesh = mb.finish(material(), false)
 	house.add_child(mesh)
 	house.add_child(body)
 	return house
+
+
+## Térreo oco: 4 paredes (com a porta aberta na frente, -Z), piso de tábuas e
+## teto. Os andares de cima continuam por cima, como antes.
+static func _hollow_floor(mb: MeshBuilder, body: StaticBody3D, color: Color, center: Vector3, fw: float, fd: float) -> void:
+	var t := 0.3
+	var h := FLOOR_HEIGHT
+	var base := center - Vector3(0, h * 0.5, 0)
+	var door_w := 1.3
+	var door_h := 2.3
+	# Fundo e laterais.
+	_box(mb, body, color, base + Vector3(0, h * 0.5, fd * 0.5 - t * 0.5), Vector3(fw, h, t), Basis.IDENTITY)
+	for side in [-1.0, 1.0]:
+		_box(mb, body, color, base + Vector3(side * (fw * 0.5 - t * 0.5), h * 0.5, 0), Vector3(t, h, fd - t * 2.0), Basis.IDENTITY)
+	# Frente com o vão da porta.
+	var piece := (fw - door_w) * 0.5
+	for side in [-1.0, 1.0]:
+		_box(mb, body, color, base + Vector3(side * (door_w * 0.5 + piece * 0.5), h * 0.5, -fd * 0.5 + t * 0.5), Vector3(piece, h, t), Basis.IDENTITY)
+	_box(mb, body, color, base + Vector3(0, door_h + (h - door_h) * 0.5, -fd * 0.5 + t * 0.5), Vector3(door_w, h - door_h, t), Basis.IDENTITY)
+	# Batente escuro em volta do vão.
+	_box(mb, null, DARK_WOOD, base + Vector3(0, door_h + 0.06, -fd * 0.5 - 0.02), Vector3(door_w + 0.2, 0.12, t + 0.08), Basis.IDENTITY)
+	for side in [-1.0, 1.0]:
+		_box(mb, null, DARK_WOOD, base + Vector3(side * (door_w * 0.5 + 0.06), door_h * 0.5, -fd * 0.5 - 0.02), Vector3(0.12, door_h, t + 0.08), Basis.IDENTITY)
+	# Piso de tábuas e teto.
+	_box(mb, body, WOOD.lightened(0.08), base + Vector3(0, 0.03, 0), Vector3(fw - t * 2.0, 0.06, fd - t * 2.0), Basis.IDENTITY)
+	_box(mb, body, WOOD.darkened(0.15), base + Vector3(0, h - 0.1, 0), Vector3(fw, 0.2, fd), Basis.IDENTITY)
+
+
+## Móveis do térreo oco (quebráveis: Furniture). Cama e armário no fundo,
+## mesa com cadeiras no meio, estante e fogão nas laterais; a porta fica livre.
+static func _furnish(house: Node3D, lot: Dictionary, rng: RandomNumberGenerator, w: float, d: float) -> void:
+	var floor_y := 0.36
+	var ix := w * 0.5 - 0.3 # face de dentro das paredes
+	var iz := d * 0.5 - 0.3
+	var plan := [
+		["cama", Vector3(-ix + 0.55, floor_y, iz - 1.05), 0.0],
+		["armario", Vector3(ix - 0.6, floor_y, iz - 0.3), PI],
+		["mesa", Vector3(0.6, floor_y, 0.2), 0.0],
+		["cadeira", Vector3(0.6, floor_y, 0.75), PI],
+		["cadeira", Vector3(0.6, floor_y, -0.35), 0.0],
+		["estante", Vector3(-ix + 0.2, floor_y, -0.6), PI / 2],
+		["fogao", Vector3(ix - 0.35, floor_y, -iz + 1.2), -PI / 2],
+	]
+	for k in plan.size():
+		var entry: Array = plan[k]
+		if rng.randf() < 0.18:
+			continue # alguns móveis já foram levados
+		var piece := Furniture.new()
+		piece.setup("mov_%d_%d" % [lot.seed, k], entry[0], material())
+		piece.position = entry[1]
+		piece.rotation.y = entry[2] + rng.randf_range(-0.12, 0.12)
+		house.add_child(piece)
+	# Lampião aceso no meio do cômodo (luz fraca, some de longe: barato).
+	var lamp := Node3D.new()
+	lamp.position = Vector3(0.6, floor_y + 2.35, 0.2)
+	house.add_child(lamp)
+	var mb := MeshBuilder.new()
+	mb.color(ItemModels.BRASS)
+	mb.box(Vector3(0, 0.12, 0), Vector3(0.02, 0.5, 0.02)) # corrente do teto
+	mb.box(Vector3(0, -0.14, 0), Vector3(0.16, 0.03, 0.16))
+	mb.color(Color(1.0, 0.85, 0.5))
+	mb.box(Vector3(0, -0.24, 0), Vector3(0.12, 0.18, 0.12))
+	var lamp_mesh := MeshInstance3D.new()
+	lamp_mesh.mesh = mb.finish(material(), false)
+	lamp.add_child(lamp_mesh)
+	var light := OmniLight3D.new()
+	light.position = Vector3(0, -0.3, 0)
+	light.light_color = Color(1.0, 0.78, 0.5)
+	light.light_energy = 1.1
+	light.omni_range = 6.0
+	light.shadow_enabled = false
+	light.distance_fade_enabled = true
+	light.distance_fade_begin = 22.0
+	light.distance_fade_length = 6.0
+	lamp.add_child(light)
 
 
 ## Braço de casa saindo da lateral da torre: passarela fechada e uma torrezinha

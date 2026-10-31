@@ -1,27 +1,35 @@
 class_name CraftingUI
 extends CanvasLayer
-## Fabricação por estação ([E] na estação). Lista as receitas com foto, custo
-## (tem/precisa) e o botão Fabricar. ESC, E ou Fechar saem.
-##   mesa      mesa de trabalho (a única bancada de fabricação): ferramentas,
-##             armas, tábuas do tronco, e as receitas de metal (barras, vidro)
-##   fornalha  funde minério/sucata em barras, pedra em vidro, tronco em
-##             carvão. Cada fundição gasta combustível (carvão, tronco ou 2 tábuas).
+## Janela da mesa de trabalho e da fornalha ([E] nelas): grade de ícones com o
+## nome embaixo (mesmo estilo do menu de construção). Passando o mouse aparece
+## o que precisa (tem/precisa). Clique fabrica 1; Shift + clique fabrica o
+## máximo possível (até uma pilha de 100: dá para fundir uma pilha inteira).
+##   mesa      a única bancada: ferramentas, armas, tábuas e gravetos, metal
+##   fornalha  minério/sucata -> barras, pedra -> vidro, tronco -> carvão;
+##             cada fundição gasta combustível (carvão, tronco ou 2 tábuas)
+##   mao       crafting de mão (na mochila): só o básico e versões que rendem menos
 
 const RECIPES := [
-	# Bancada
-	{"id": &"tabua", "amount": 8, "station": "bancada", "cost": {&"tronco": 1}},
-	{"id": &"machado", "station": "bancada", "cost": {&"tabua": 2, &"pedra": 2, &"fita": 1}},
-	{"id": &"picareta", "station": "bancada", "cost": {&"tabua": 2, &"pedra": 3, &"fita": 1}},
-	{"id": &"pa", "station": "bancada", "cost": {&"tabua": 2, &"sucata": 2}},
-	{"id": &"martelo", "station": "bancada", "cost": {&"tabua": 1, &"sucata": 2}},
-	{"id": &"talhadeira", "station": "bancada", "cost": {&"sucata": 2}},
-	{"id": &"bandagem", "station": "bancada", "cost": {&"pano": 2}},
-	{"id": &"bumerangue", "station": "bancada", "cost": {&"tabua": 2, &"fita": 1}},
-	{"id": &"chinelo", "station": "bancada", "cost": {&"pano": 1, &"fita": 1}},
-	{"id": &"taco", "station": "bancada", "cost": {&"tabua": 2, &"sucata": 1}},
-	{"id": &"lanca", "station": "bancada", "cost": {&"tabua": 2, &"sucata": 1, &"fita": 1}},
-	{"id": &"vara", "station": "bancada", "cost": {&"tabua": 2, &"pano": 1, &"sucata": 1}},
 	# Mesa de trabalho
+	{"id": &"tabua", "amount": 8, "station": "mesa", "cost": {&"tronco": 1}},
+	{"id": &"graveto", "amount": 4, "station": "mesa", "cost": {&"tabua": 1}},
+	{"id": &"machado", "station": "mesa", "cost": {&"graveto": 2, &"sucata": 2, &"fita": 1}},
+	{"id": &"picareta", "station": "mesa", "cost": {&"graveto": 2, &"sucata": 3, &"fita": 1}},
+	{"id": &"pa", "station": "mesa", "cost": {&"graveto": 2, &"sucata": 2}},
+	{"id": &"martelo", "station": "mesa", "cost": {&"graveto": 1, &"sucata": 2}},
+	{"id": &"talhadeira", "station": "mesa", "cost": {&"graveto": 1, &"sucata": 2}},
+	{"id": &"lanca", "station": "mesa", "cost": {&"graveto": 3, &"sucata": 1, &"fita": 1}},
+	{"id": &"vara", "station": "mesa", "cost": {&"graveto": 3, &"pano": 1, &"sucata": 1}},
+	{"id": &"taco", "station": "mesa", "cost": {&"tabua": 2, &"sucata": 1}},
+	{"id": &"bumerangue", "station": "mesa", "cost": {&"tabua": 2, &"fita": 1}},
+	{"id": &"chinelo", "station": "mesa", "cost": {&"pano": 1, &"fita": 1}},
+	{"id": &"bandagem", "station": "mesa", "cost": {&"pano": 2}},
+	{"id": &"capuz", "station": "mesa", "cost": {&"pano": 3}},
+	{"id": &"colete", "station": "mesa", "cost": {&"sucata": 6, &"fita": 2, &"pano": 1}},
+	{"id": &"calca", "station": "mesa", "cost": {&"pano": 3, &"sucata": 2}},
+	{"id": &"botas", "station": "mesa", "cost": {&"pano": 2, &"sucata": 1}},
+	{"id": &"capacete", "station": "mesa", "cost": {&"barra_ferro": 3, &"pano": 1}},
+	{"id": &"peitoral", "station": "mesa", "cost": {&"barra_ferro": 6, &"pano": 2}},
 	{"id": &"espada", "station": "mesa", "cost": {&"barra_ferro": 3, &"pano": 1}},
 	{"id": &"pistola", "station": "mesa", "cost": {&"barra_ferro": 2, &"barra_cobre": 1, &"tabua": 1}},
 	{"id": &"lanterna", "station": "mesa", "cost": {&"barra_cobre": 1, &"vidro": 1, &"fita": 1}},
@@ -32,26 +40,84 @@ const RECIPES := [
 	# Fornalha
 	{"id": &"barra_ferro", "station": "fornalha", "fuel": true, "cost": {&"minerio_ferro": 2}},
 	{"id": &"barra_cobre", "station": "fornalha", "fuel": true, "cost": {&"minerio_cobre": 2}},
-	{"id": &"barra_ferro", "station": "fornalha", "fuel": true, "cost": {&"sucata": 3}, "note": "da sucata"},
+	{"id": &"barra_ferro", "station": "fornalha", "fuel": true, "cost": {&"sucata": 3}, "note": "sucata"},
 	{"id": &"vidro", "station": "fornalha", "fuel": true, "cost": {&"pedra": 3}},
 	{"id": &"carvao", "amount": 2, "station": "fornalha", "cost": {&"tronco": 1}},
+	# Mão (mochila): o básico, e versões que rendem menos que na mesa.
+	{"id": &"graveto", "amount": 2, "station": "mao", "cost": {&"tabua": 1}},
+	{"id": &"tabua", "amount": 3, "station": "mao", "cost": {&"tronco": 1}},
+	{"id": &"machado_simples", "station": "mao", "cost": {&"graveto": 2, &"pedra": 2}},
+	{"id": &"picareta_simples", "station": "mao", "cost": {&"graveto": 2, &"pedra": 3}},
+	{"id": &"bandagem", "station": "mao", "cost": {&"pano": 3}},
+	{"id": &"capuz", "station": "mao", "cost": {&"pano": 4}},
 ]
-const TITLES := {"bancada": "Mesa de trabalho", "mesa": "Mesa de trabalho", "fornalha": "Fornalha"}
+const TITLES := {"mesa": "Mesa de trabalho", "fornalha": "Fornalha", "mao": "Fabricar"}
 ## Combustível da fornalha, na ordem de preferência: [item, quanto gasta].
 const FUELS := [[&"carvao", 1], [&"tronco", 1], [&"tabua", 2]]
 
 var player: Player
-var station := "bancada"
-var _list: VBoxContainer
+var station := "mesa"
 
 
-static func open_for(p: Node, station_ := "bancada") -> void:
+static func open_for(p: Node, station_ := "mesa") -> void:
 	if not p is Player or p.is_puppet() or p.ui_blocked:
 		return
 	var ui := CraftingUI.new()
 	ui.player = p
-	ui.station = station_
+	ui.station = "mesa" if station_ == "bancada" else station_
 	p.get_parent().add_child(ui) # junto da cena principal (o pai do jogador)
+
+
+static func recipes_for(station_: String) -> Array:
+	return RECIPES.filter(func(r): return r.station == station_)
+
+
+## Primeiro combustível disponível [item, quantidade] ou [].
+static func fuel_for(inventory: Inventory) -> Array:
+	for fuel in FUELS:
+		if inventory.count(fuel[0]) >= fuel[1]:
+			return fuel
+	return []
+
+
+static func can_craft(inventory: Inventory, recipe: Dictionary) -> bool:
+	if not Builder.can_afford(inventory, recipe.cost):
+		return false
+	if recipe.get("fuel", false):
+		var fuel := fuel_for(inventory)
+		if fuel.is_empty():
+			return false
+		# O combustível não pode ser o próprio ingrediente que vai faltar.
+		var need: Dictionary = recipe.cost.duplicate()
+		need[fuel[0]] = need.get(fuel[0], 0) + fuel[1]
+		return Builder.can_afford(inventory, need)
+	return true
+
+
+## Fabrica "times" vezes (para no que faltar). Devolve quantas fez.
+static func craft(player: Player, recipe: Dictionary, times := 1) -> int:
+	var done := 0
+	var made := 0
+	while done < times and can_craft(player.inventory, recipe):
+		if recipe.get("fuel", false):
+			var fuel := fuel_for(player.inventory)
+			Builder.pay(player.inventory, {fuel[0]: fuel[1]})
+		Builder.pay(player.inventory, recipe.cost)
+		made += recipe.get("amount", 1)
+		done += 1
+	if made > 0:
+		var left := player.inventory.add(recipe.id, made)
+		if left > 0:
+			Net.i.drop_item(recipe.id, left, player.global_transform.translated(Vector3.UP), Vector3.ZERO)
+		Sfx.play("knock", -4.0, 0.9 if recipe.get("fuel", false) else 1.0)
+	else:
+		Sfx.play("click", -6.0, 0.6) # faltou material
+	return done
+
+
+## Quantas vezes dá para fazer de uma vez (Shift): até encher uma pilha (100).
+static func max_times(recipe: Dictionary) -> int:
+	return maxi(1, int(ItemDB.max_stack(recipe.id) / recipe.get("amount", 1)))
 
 
 func _ready() -> void:
@@ -61,101 +127,11 @@ func _ready() -> void:
 	var center := CenterContainer.new()
 	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	add_child(center)
-	var column := LegacyGUI.box(center, TITLES.get(station, "Bancada"), 400.0)
-	var scroll := ScrollContainer.new()
-	scroll.custom_minimum_size = Vector2(0, 300)
-	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	column.add_child(scroll)
-	_list = VBoxContainer.new()
-	_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_list.add_theme_constant_override("separation", 4)
-	scroll.add_child(_list)
+	var column := LegacyGUI.box(center, TITLES.get(station, "Mesa de trabalho"), 400.0)
+	var grid := RecipeGrid.new()
+	grid.setup(player, station, 6, 250.0)
+	column.add_child(grid)
 	LegacyGUI.button(column, "Fechar", close)
-	player.inventory.changed.connect(_refresh)
-	_refresh()
-
-
-func _refresh() -> void:
-	for child in _list.get_children():
-		child.queue_free()
-	var icons := get_node_or_null("/root/ItemIcons")
-	for recipe: Dictionary in recipes():
-		var row := HBoxContainer.new()
-		row.add_theme_constant_override("separation", 6)
-		_list.add_child(row)
-		var slot := Panel.new()
-		slot.custom_minimum_size = Vector2(44, 44)
-		var style := StyleBoxFlat.new()
-		style.bg_color = LegacyGUI.SLOT
-		slot.add_theme_stylebox_override("panel", style)
-		row.add_child(slot)
-		if icons and icons.has_method("get_icon"):
-			var icon := TextureRect.new()
-			icon.texture = icons.get_icon(recipe.id)
-			icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-			icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-			icon.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
-			icon.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-			slot.add_child(icon)
-		var text := Label.new()
-		text.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		text.add_theme_font_size_override("font_size", 11)
-		var title := ItemDB.display_name(recipe.id)
-		if recipe.get("amount", 1) > 1:
-			title += " x%d" % recipe.amount
-		if recipe.has("note"):
-			title += " (%s)" % recipe.note
-		var cost_line := Builder.cost_text(recipe.cost, player.inventory)
-		if recipe.get("fuel", false):
-			cost_line += " + combustível%s" % ("" if _fuel() != [] else " (falta!)")
-		text.text = "%s\n%s" % [title, cost_line]
-		row.add_child(text)
-		var ok := _can_craft(recipe)
-		var button := LegacyGUI.button(row, "Fabricar", craft.bind(recipe))
-		button.disabled = not ok
-		if not ok:
-			text.modulate = Color(1, 1, 1, 0.55)
-
-
-## Receitas desta estação (a mesa de trabalho faz tudo da bancada também).
-func recipes() -> Array:
-	var allowed := ["bancada", "mesa"] if station in ["mesa", "bancada"] else [station]
-	return RECIPES.filter(func(r): return r.station in allowed)
-
-
-## Primeiro combustível disponível [item, quantidade] ou [].
-func _fuel() -> Array:
-	for fuel in FUELS:
-		if player.inventory.count(fuel[0]) >= fuel[1]:
-			return fuel
-	return []
-
-
-func _can_craft(recipe: Dictionary) -> bool:
-	if not Builder.can_afford(player.inventory, recipe.cost):
-		return false
-	if recipe.get("fuel", false):
-		var fuel := _fuel()
-		if fuel.is_empty():
-			return false
-		# O combustível não pode ser o próprio ingrediente que vai faltar.
-		var need: Dictionary = recipe.cost.duplicate()
-		need[fuel[0]] = need.get(fuel[0], 0) + fuel[1]
-		return Builder.can_afford(player.inventory, need)
-	return true
-
-
-func craft(recipe: Dictionary) -> void:
-	if not _can_craft(recipe):
-		return
-	if recipe.get("fuel", false):
-		var fuel := _fuel()
-		Builder.pay(player.inventory, {fuel[0]: fuel[1]})
-	Builder.pay(player.inventory, recipe.cost)
-	var left := player.pick_up(recipe.id, ItemDB.display_name(recipe.id), recipe.get("amount", 1))
-	if left > 0:
-		Net.i.drop_item(recipe.id, left, player.global_transform.translated(Vector3.UP), Vector3.ZERO)
-	Sfx.play("knock")
 
 
 func close() -> void:

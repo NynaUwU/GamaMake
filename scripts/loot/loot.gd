@@ -33,6 +33,13 @@ const FIXED := {
 	"ferro": [[&"minerio_ferro", 2, 4], [&"pedra", 1, 2]],
 	"cobre": [[&"minerio_cobre", 2, 4], [&"pedra", 1, 2]],
 	"carvao": [[&"carvao", 3, 5]],
+	# Móveis desmontados.
+	"movel_mesa": [[&"tabua", 2, 3], [&"graveto", 0, 2]],
+	"movel_cadeira": [[&"tabua", 1, 1], [&"graveto", 1, 2]],
+	"movel_cama": [[&"tabua", 2, 3], [&"pano", 2, 3]],
+	"movel_armario": [[&"tabua", 3, 4], [&"sucata", 0, 1]],
+	"movel_estante": [[&"tabua", 2, 3], [&"graveto", 1, 3]],
+	"movel_fogao": [[&"sucata", 2, 4], [&"pedra", 1, 2]],
 }
 
 
@@ -42,7 +49,9 @@ static func roll(table: String) -> Array:
 	if FIXED.has(table):
 		var fixed := []
 		for row in FIXED[table]:
-			fixed.append([row[0], randi_range(row[1], row[2])])
+			var amount := randi_range(row[1], row[2])
+			if amount > 0:
+				fixed.append([row[0], amount])
 		return fixed
 	var rows: Array = TABLES.get(table, TABLES.casa)
 	var result := []

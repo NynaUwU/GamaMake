@@ -65,7 +65,7 @@ static func interact(player: Player, obj: PlacedObject) -> void:
 		return
 	var id := player.inventory.selected_id()
 	if not COOK.has(id):
-		player.notify.emit("Segure comida crua na mão (batata, cenoura, abóbora, enlatado, pão, peixe, camarão, caranguejo, lagosta)")
+		Sfx.play("click", -6.0, 0.6)
 		return
 	for i in obj.crops.size():
 		if obj.crops[i].is_empty():
@@ -73,4 +73,4 @@ static func interact(player: Player, obj: PlacedObject) -> void:
 			manager.request("cook", [obj.net_id, i, String(id)])
 			Sfx.play_at("slap", obj.global_position + Vector3.UP * 0.6, -4.0, 0.6)
 			return
-	player.notify.emit("A grelha está cheia")
+	Sfx.play("click", -6.0, 0.6)

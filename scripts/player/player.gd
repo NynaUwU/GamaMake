@@ -397,6 +397,8 @@ func _unhandled_input(event: InputEvent) -> void:
 			exit_vehicle()
 		elif event.is_action_pressed("flashlight"):
 			vehicle.toggle_headlights()
+		elif event.is_action_pressed("reload") and vehicle.is_tipped():
+			Net.i.flip_car(vehicle) # R dirigindo: desvira
 		elif event is InputEventMouseButton and event.pressed and Input.mouse_mode != Input.MOUSE_MODE_CAPTURED:
 			Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 		return
@@ -1126,11 +1128,15 @@ func _apply_swing_hit(hit: Dictionary, direction: Vector3, swing: Dictionary) ->
 	elif collider.has_method("tool_hit"):
 		# Árvore / rocha / veio de minério: o machado e a picareta rendem muito mais.
 		_swing_hits.append(key)
-		collider.tool_hit(self, _weapon_type, stats.damage * swing.damage, hit.position)
+		# Ferramenta simples (de pedra) rende menos ("power" no ItemDB).
+		var power: float = ItemDB.def(inventory.selected_id()).get("power", 1.0)
+		collider.tool_hit(self, _weapon_type, stats.damage * swing.damage * power, hit.position)
 		_shake = 0.08
-	elif collider is PickupItem and collider.item_id == &"tronco" and _weapon_type == WeaponType.AXE:
+	elif collider is PickupItem and collider.item_id in [&"tronco", &"tabua"] and _weapon_type == WeaponType.AXE:
 		_swing_hits.append(key)
-		Net.i.convert_pickup(collider, &"tabua", 2 * collider.amount) # tronco cortado ali mesmo: 2 tábuas cada
+		# Cortado ali mesmo com o machado: tronco -> 2 tábuas; tábua -> 2 gravetos.
+		var into := &"tabua" if collider.item_id == &"tronco" else &"graveto"
+		Net.i.convert_pickup(collider, into, 2 * collider.amount)
 		Sfx.play_at("knock", hit.position, 4.0, 0.7)
 		_shake = 0.08
 	elif collider is RigidBody3D:
@@ -1359,6 +1365,7 @@ func take_damage(amount: float, from_direction := Vector3.ZERO, attacker: Node =
 			_hitstop(0.08)
 		if amount <= 0.0:
 			return
+	amount *= 1.0 - inventory.armor() # roupa/armadura vestida segura parte do golpe
 	health = maxf(health - amount, 0.0)
 	health_changed.emit(health, max_health)
 	_shake = 0.2
@@ -1423,7 +1430,6 @@ func enter_vehicle(car: VintageCar) -> void:
 	_set_arms_see_through(true)
 	interact_prompt_changed.emit("")
 	weapon_changed.emit("Carro")
-	notify.emit("W/S acelerar e ré · A/D virar · Espaço freio de mão · L faróis · E sair")
 
 
 ## Dirigindo: braços e mãos semitransparentes para enxergar a estrada.
@@ -1467,7 +1473,7 @@ func _eat_selected() -> void:
 	var food: float = ItemDB.def(id).get("hunger", 0)
 	var useful := (heal_amount > 0.0 and health < max_health) or (food > 0.0 and hunger < MAX_HUNGER - 2.0)
 	if not useful:
-		notify.emit("Vida cheia" if food <= 0.0 else "Sem fome")
+		Sfx.play("click", -6.0, 0.6)
 		return
 	inventory.take(inventory.selected, 1)
 	heal(heal_amount)
@@ -1478,7 +1484,7 @@ func _eat_selected() -> void:
 		parts.append("+%d fome" % food)
 	if heal_amount > 0.0:
 		parts.append("+%d vida" % heal_amount)
-	notify.emit("Comeu %s (%s)" % [ItemDB.display_name(id), ", ".join(parts)])
+	pass
 
 
 func eat(amount: float) -> void:
@@ -1502,7 +1508,7 @@ func _update_hunger(delta: float) -> void:
 		heal(0.25 * delta)
 	if hunger < 25.0 and not _hunger_warned:
 		_hunger_warned = true
-		notify.emit("Com fome... coma alguma coisa")
+		Sfx.play("growl", -14.0, 0.5) # barriga roncando
 	if int(hunger) != before:
 		hunger_changed.emit(hunger, MAX_HUNGER)
 
@@ -1515,11 +1521,16 @@ func _start_swing_visual_only() -> void:
 
 ## Salvo junto com o jogador (SaveGame).
 func save_extra() -> Dictionary:
-	return {"hunger": hunger}
+	return {"hunger": hunger, "equipment": inventory.equipment.duplicate(true)}
 
 
 func load_extra(data: Dictionary) -> void:
 	hunger = data.get("hunger", MAX_HUNGER)
+	var worn: Dictionary = data.get("equipment", {})
+	for slot in worn:
+		if inventory.equipment.has(slot):
+			inventory.equipment[slot] = worn[slot]
+	inventory.changed.emit()
 	hunger_changed.emit(hunger, MAX_HUNGER)
 
 
@@ -1527,11 +1538,11 @@ func load_extra(data: Dictionary) -> void:
 func pick_up(item_id: StringName, display_name: String, amount: int) -> int:
 	var left := inventory.add(item_id, amount)
 	if left == amount:
-		notify.emit("Inventário cheio")
+		Sfx.play("click", -6.0, 0.6)
 		return left
 	item_picked_up.emit(item_id, amount - left)
 	Sfx.play("pickup")
-	notify.emit("Pegou: %s x%d" % [display_name, amount - left])
+	pass
 	return left
 
 
@@ -1542,7 +1553,7 @@ func _drop_selected() -> void:
 	var taken := inventory.take(inventory.selected, 999)
 	var where := Transform3D(global_basis, camera.global_position - camera.global_basis.z * 0.7)
 	Net.i.drop_item(taken.id, taken.amount, where, -camera.global_basis.z * 2.0 + Vector3.UP)
-	notify.emit("Soltou: %s" % ItemDB.display_name(taken.id))
+	pass
 
 
 func _is_facing_attack(from_direction: Vector3) -> bool:
@@ -1591,6 +1602,9 @@ func _do_punch_hit() -> void:
 					direction, punch_force, HitInfo.Type.BLUNT))
 			_hitstop(0.04)
 			_shake = 0.08
+	elif collider.has_method("tool_hit"):
+		collider.tool_hit(self, WeaponType.FISTS, punch_damage, hit.position) # soco desmonta móvel (e machuca árvore)
+		_shake = 0.06
 	elif collider is RigidBody3D:
 		collider.apply_impulse(direction * punch_force * 0.3, hit.position - collider.global_position)
 
