@@ -6,12 +6,13 @@ extends CanvasLayer
 ## trocar ou juntar pilhas. Passando o mouse, o modelo 3D gira ao lado do nome.
 ## O baú é do mundo (o host guarda): todos veem o mesmo conteúdo e vai no save.
 
-const SLOT := Vector2(38, 38)
+const SLOT := Vector2(36, 36)
 
 var player: Player
 var key := ""
 var _chest_grid: GridContainer
 var _bag_grid: GridContainer
+var _hotbar_grid: GridContainer
 var _spinner: ItemSpinner
 var _name: Label
 var _picked := {} # {"from": "chest"/"bag", "index": i} enquanto arrasta
@@ -35,7 +36,8 @@ func _ready() -> void:
 	add_child(center)
 	var column := LegacyGUI.box(center, "Baú", 230.0)
 	_chest_grid = GridContainer.new()
-	_chest_grid.columns = 5
+	_chest_grid.columns = 7 # centralizado: quem define a largura é a mochila (9 colunas)
+	_chest_grid.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	_chest_grid.add_theme_constant_override("h_separation", 4)
 	_chest_grid.add_theme_constant_override("v_separation", 4)
 	column.add_child(_chest_grid)
@@ -52,11 +54,12 @@ func _ready() -> void:
 	mine.text = "Mochila"
 	mine.add_theme_font_size_override("font_size", 11)
 	column.add_child(mine)
-	_bag_grid = GridContainer.new()
-	_bag_grid.columns = 5
-	_bag_grid.add_theme_constant_override("h_separation", 4)
-	_bag_grid.add_theme_constant_override("v_separation", 4)
-	column.add_child(_bag_grid)
+	# Mesmo formato do inventário: mochila 9x4 e a hotbar separada embaixo.
+	_bag_grid = _player_grid(column)
+	var gap := Control.new()
+	gap.custom_minimum_size = Vector2(0, 2)
+	column.add_child(gap)
+	_hotbar_grid = _player_grid(column)
 	LegacyGUI.button(column, "Fechar", close)
 	ContainerManager.i.changed.connect(func(k: String): if k == key: _refresh())
 	player.inventory.changed.connect(_refresh)
@@ -70,14 +73,24 @@ func _refresh() -> void:
 		return
 	for child in _chest_grid.get_children():
 		child.queue_free()
-	for child in _bag_grid.get_children():
+	for child in _bag_grid.get_children() + _hotbar_grid.get_children():
 		child.queue_free()
 	var slots: Array = ContainerManager.i.slots_of(key)
 	for k in ContainerManager.STORAGE_SLOTS:
 		_chest_grid.add_child(_slot("chest", k, slots[k] if k < slots.size() else {}))
-	# Mochila: hotbar (1-5) primeiro, depois o resto.
 	for k in player.inventory.slots.size():
-		_bag_grid.add_child(_slot("bag", k, player.inventory.slots[k]))
+		var grid := _hotbar_grid if k < Inventory.HOTBAR_SIZE else _bag_grid
+		grid.add_child(_slot("bag", k, player.inventory.slots[k]))
+
+
+func _player_grid(parent: Control) -> GridContainer:
+	var grid := GridContainer.new()
+	grid.columns = Inventory.HOTBAR_SIZE
+	grid.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	grid.add_theme_constant_override("h_separation", 4)
+	grid.add_theme_constant_override("v_separation", 4)
+	parent.add_child(grid)
+	return grid
 
 
 func _slot(from: String, index: int, slot: Dictionary) -> Button:
