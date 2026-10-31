@@ -17,7 +17,7 @@ var equipment := {"head": {}, "body": {}, "legs": {}, "feet": {}} ## o que está
 
 
 ## Gasta "uses" usos do item do slot. Devolve true se quebrou (some do slot).
-func wear(index: int, uses := 1) -> bool:
+func wear(index: int, uses := 1.0) -> bool:
 	if index < 0 or index >= slots.size() or slots[index].is_empty():
 		return false
 	var broke := _wear_item(slots[index], uses)
@@ -38,11 +38,11 @@ func wear_equipment() -> bool:
 	return broke
 
 
-func _wear_item(item: Dictionary, uses: int) -> bool:
+func _wear_item(item: Dictionary, uses: float) -> bool:
 	var total := ItemDB.max_durability(item.id)
 	if total <= 0:
 		return false
-	item.dur = item.get("dur", 1.0) - float(uses) / total
+	item.dur = item.get("dur", 1.0) - uses / total
 	return item.dur <= 0.0
 
 

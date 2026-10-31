@@ -14,6 +14,11 @@ const TABLES := {
 		[&"tabua", 0.7, 3, 8], [&"pedra", 0.55, 2, 6], [&"sucata", 0.5, 1, 4], [&"fita", 0.25, 1, 2],
 		[&"pa", 0.05, 1, 1], [&"martelo", 0.04, 1, 1], [&"talhadeira", 0.04, 1, 1], [&"lata", 0.15, 1, 1],
 	],
+	"airdrop": [ # recompensa da onda noturna: suprimento bom
+		[&"bandagem", 0.9, 2, 4], [&"lata", 0.8, 2, 4], [&"sucata", 0.7, 4, 8], [&"pano", 0.6, 3, 6],
+		[&"barra_ferro", 0.5, 1, 3], [&"barra_cobre", 0.4, 1, 2], [&"vidro", 0.4, 1, 3], [&"fita", 0.5, 1, 2],
+		[&"carvao", 0.4, 2, 5], [&"colete", 0.12, 1, 1], [&"capacete", 0.08, 1, 1], [&"pistola", 0.05, 1, 1],
+	],
 	"ruina": [ # escombros: sucata e pedra, às vezes algo raro
 		[&"pedra", 0.7, 3, 7], [&"sucata", 0.6, 2, 5], [&"tabua", 0.35, 1, 4], [&"pano", 0.25, 1, 2],
 		[&"bumerangue", 0.03, 1, 1], [&"pa", 0.05, 1, 1], [&"semente_abobora", 0.15, 1, 2],

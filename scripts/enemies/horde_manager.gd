@@ -255,9 +255,31 @@ func _count_wave() -> void:
 				var world := _world()
 				if world and world.get("player"):
 					world.player.notify.emit("Onda da noite vencida! Nenhum zumbi novo até amanhecer.")
+				_drop_airdrops()
 		else:
 			alive += 1
 	wave_alive = alive
+
+
+## Onda vencida: cai um airdrop entre 10 e 25 m de cada jogador.
+func _drop_airdrops() -> void:
+	var placed: PlacedManager = _world().get_node_or_null("Placed")
+	var terrain := _terrain()
+	if placed == null:
+		return
+	for player in _player_nodes():
+		for attempt in 10:
+			var a := randf() * TAU
+			var r := randf_range(10.0, 25.0)
+			var p: Vector3 = player.global_position + Vector3(cos(a) * r, 0, sin(a) * r)
+			var query := PhysicsRayQueryParameters3D.create(p + Vector3.UP * 60.0, p - Vector3.UP * 60.0, 1)
+			var hit: Dictionary = player.get_world_3d().direct_space_state.intersect_ray(query)
+			if hit.is_empty() and terrain:
+				hit = {"position": Vector3(p.x, terrain.height_at(p.x, p.z), p.z), "normal": Vector3.UP}
+			if hit.is_empty() or hit.normal.y < 0.7 or placed.occupied(hit.position, 1.5):
+				continue
+			placed.drop_airdrop(Transform3D(Basis(Vector3.UP, randf() * TAU), hit.position))
+			break
 
 
 ## Nova noite = nova onda: zera os abatidos.

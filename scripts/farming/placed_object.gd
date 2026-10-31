@@ -210,6 +210,10 @@ func get_interact_text() -> String:
 			return "Árvore" if growth >= 1.0 else "Muda de árvore %d%%" % int(growth * 100.0)
 		"chest":
 			return "[E] Abrir baú"
+		"airdrop":
+			return "[E] Abrir airdrop"
+		"flag":
+			return "[E] Recolher bandeira"
 	if trap:
 		return trap.get_text()
 	var ready := ready_count(clock)
@@ -237,8 +241,12 @@ func interact(player: Node) -> void:
 	if board:
 		DrawUI.open_for(player, board)
 		return
-	if kind == "chest":
+	if kind in ["chest", "airdrop"]:
 		StorageUI.open_for(player, "placed_%d" % net_id)
+		return
+	if kind == "flag":
+		manager.request("remove", [net_id])
+		Sfx.play_at("step_soft", global_position, 0.0, 1.2)
 		return
 	if trap:
 		trap.interact(player)
@@ -256,6 +264,12 @@ func _build() -> void:
 	if kind in ["campfire", "furnace", "workbench", "chest"]:
 		StationModels.build(kind, self)
 		return
+	if kind == "airdrop":
+		var fx := AirdropFX.new()
+		add_child(fx)
+		fx.setup("placed_%d" % net_id)
+		_shape(Vector3(0, 0.42, 0), Vector3(1.1, 0.84, 1.1))
+		return
 	if kind == "drawboard":
 		board = DrawBoard.new()
 		add_child(board)
@@ -270,6 +284,15 @@ func _build() -> void:
 		return
 	var mb := MeshBuilder.new()
 	match kind:
+		"flag":
+			# Mastro alto e pano vermelho: dá para ver de longe (e aparece no mapa).
+			mb.color(Color(0.42, 0.3, 0.18))
+			mb.tube(PackedVector3Array([Vector3(0, -0.2, 0), Vector3(0, 2.6, 0)]), 0.035, 6)
+			mb.color(Color(0.78, 0.12, 0.1))
+			mb.box(Vector3(0.36, 2.3, 0), Vector3(0.66, 0.42, 0.02))
+			mb.color(Color(0.62, 0.08, 0.07))
+			mb.box(Vector3(0.36, 2.3, 0), Vector3(0.6, 0.06, 0.03))
+			_shape(Vector3(0, 1.2, 0), Vector3(0.2, 2.6, 0.2))
 		"pot_small":
 			mb.color(CLAY)
 			mb.lathe(PackedVector2Array([Vector2(0.002, 0.0), Vector2(0.15, 0.0), Vector2(0.2, 0.26), Vector2(0.23, 0.27),

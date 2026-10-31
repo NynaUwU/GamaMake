@@ -24,6 +24,12 @@ reação física a golpes e ragdoll (estilo Dying Light), visual de PC dos anos 
 - Os outros jogadores aparecem com o nome em cima, o item da mão, a lanterna acesa e uma bolinha
   azul no minimapa/mapa. Em cima, no meio da tela, aparece quem está online.
 
+## Airdrop, desgaste por uso, bandeira e menos fita (rodada de feedback)
+- **Zumbis da onda noturna não soltam nada.** Ao vencer a onda (cota da noite abatida), **cai um airdrop** a 10–25 m de cada jogador: caixa militar descendo de paraquedas, com uma **luz vermelha piscando** em cima e um quadrado vermelho pulsando no mapa/minimapa. Dentro: suprimentos bons (bandagem, comida, sucata, pano, barras, vidro, fita, carvão, às vezes colete/capacete/pistola). O sinal apaga quando a caixa fica vazia. `scripts/farming/airdrop_fx.gd`, `HordeManager._drop_airdrops`.
+- **Desgaste conforme o uso:** atacar gasta 100% (qualquer arma ou ferramenta); ferramenta no serviço certo gasta 75% (machado em árvore/tronco/móvel, picareta em pedra/minério, pá cavando, martelo/talhadeira construindo); no serviço errado gasta **200%** (espada na árvore, machado na pedra). A **maça** gasta sempre 100%. `Player._wear_cost`.
+- **Bandeira** (mesa: 2 gravetos + 2 panos): clique no chão para fincar; vira um **waypoint no mapa e no minimapa** para todo mundo (no minimapa, a que está longe fica presa na borda apontando a direção). [E] nela recolhe de volta.
+- **Fita só em coisa complexa:** saiu do machado, picareta, lança, bumerangue, chinelo e colete (trocada por sucata/pano/tábua). Continua só na lanterna.
+
 ## Carros nas cidades e mapa mais nítido (rodada de feedback)
 - **Carros abandonados nas cidades** (`scripts/world/city_cars.gd`): 1 nas vilas, 2 nas médias e 4 nas grandes (23 no mapa padrão), modelo e lugar sorteados pela semente da cidade, largados meio tortos na rua. Ficam **congelados** (sem física, sem rede) até alguém chegar a 150 m e o chão embaixo existir; voltam a congelar quando todos se afastam. Vão no save como os outros.
 - **Ícone do carro no mapa só depois de entrar nele uma vez** (vale para todos os carros, inclusive os da garagem; saves antigos já contam como conhecidos).

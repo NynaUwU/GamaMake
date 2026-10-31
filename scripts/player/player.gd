@@ -261,7 +261,8 @@ const HUNGER_RATE := 100.0 / (22.0 * 60.0) ## por segundo: ~22 min de cheia a ze
 var hunger := MAX_HUNGER
 var _hunger_warned := false
 var _last_repair: Node
-var _swing_wore := false # o golpe atual já gastou a arma
+var _swing_wore := false
+var _swing_wear := 0.0 # quanto este golpe já gastou da arma
 var grapple: Node3D ## lançador do gancho na mão
 var _grapple_active := false
 var _anchor := Vector3.ZERO
@@ -414,6 +415,8 @@ func _unhandled_input(event: InputEvent) -> void:
 			_eat_selected()
 		elif event.is_action_pressed("attack") and ItemDB.def(inventory.selected_id()).kind == "seed":
 			Farming.use(self, String(ItemDB.def(inventory.selected_id()).crop))
+		elif event.is_action_pressed("attack") and ItemDB.def(inventory.selected_id()).kind == "placeable":
+			_place_selected()
 		elif event.is_action_pressed("attack"):
 			if _blocking:
 				pass
@@ -443,7 +446,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		elif event.is_action_pressed("block") and _weapon_type == WeaponType.SHOVEL:
 			if Farming.use(self, ""):
 				_start_swing_visual_only()
-				_wear_selected()
+				_wear_selected(0.75) # cavar: serviço certo da pá
 		elif event.is_action_pressed("block") and _weapon_type == WeaponType.HAMMER:
 			builder.open_menu() # segurando: menu de construção; soltando: escolhe
 		elif event.is_action_pressed("reload") and _weapon_type == WeaponType.HAMMER:
@@ -974,6 +977,7 @@ func _start_swing(index: int) -> void:
 	_swing_queued = false
 	_swing_hits.clear()
 	_swing_wore = false
+	_swing_wear = 0.0
 	# Um golpe atravessa de 2 a 5 inimigos (sorteado a cada golpe): horda não é mais fácil.
 	max_targets = randi_range(2, 5)
 	_swing_angle = SWINGS[_swing_index].from
@@ -1118,15 +1122,37 @@ func _sweep_blade() -> void:
 func _apply_swing_hit(hit: Dictionary, direction: Vector3, swing: Dictionary) -> void:
 	var hits_before := _swing_hits.size()
 	_apply_swing_hit_inner(hit, direction, swing)
-	# Acertou alguma coisa: a arma/ferramenta gasta um uso (uma vez por golpe).
-	if _swing_hits.size() > hits_before and not _swing_wore:
-		_swing_wore = true
-		_wear_selected()
+	# Acertou alguma coisa: a arma/ferramenta gasta (uma vez por golpe; se o mesmo
+	# golpe pegar algo que gasta mais, cobra só a diferença).
+	if _swing_hits.size() > hits_before:
+		var cost := _wear_cost(hit.collider)
+		if cost > _swing_wear:
+			_wear_selected(cost - _swing_wear)
+			_swing_wear = cost
 
 
-## Gasta um uso do item da mão; quebrou: some com um estalo e volta para os punhos.
-func _wear_selected() -> void:
-	if inventory.wear(inventory.selected):
+## Quanto o golpe gasta: atacar = 100%; ferramenta no serviço certo = 75%;
+## no serviço errado (espada na árvore, machado na pedra) = 200%. A maça gasta
+## sempre 100%.
+func _wear_cost(collider: Object) -> float:
+	if inventory.selected_id() == &"taco" or collider.has_meta("enemy"):
+		return 1.0
+	var right := false
+	if collider is ResourceNode:
+		right = (collider.kind in ResourceNode.TREES and _weapon_type == WeaponType.AXE) \
+			or (collider.kind in ResourceNode.STONES and _weapon_type == WeaponType.PICKAXE)
+	elif collider is PlacedObject or collider is PickupItem: # árvore plantada, tronco no chão
+		right = _weapon_type == WeaponType.AXE
+	elif collider is Furniture:
+		right = _weapon_type in [WeaponType.AXE, WeaponType.HAMMER]
+	else:
+		return 1.0
+	return 0.75 if right else 2.0
+
+
+## Gasta usos do item da mão; quebrou: some com um estalo e volta para os punhos.
+func _wear_selected(uses := 1.0) -> void:
+	if inventory.wear(inventory.selected, uses):
 		Sfx.play("crunch", 0.0, 0.6)
 		_sync_equipped()
 
@@ -1795,6 +1821,22 @@ func _tool_kind() -> String:
 	return ""
 
 
+## Bandeira (e o que mais for "placeable"): finca onde a mira bate no chão.
+func _place_selected() -> void:
+	var def := ItemDB.def(inventory.selected_id())
+	var origin := camera.global_position
+	var query := PhysicsRayQueryParameters3D.create(origin, origin - camera.global_basis.z * 4.0, 1, [get_rid()])
+	var hit := get_world_3d().direct_space_state.intersect_ray(query)
+	var placed: PlacedManager = get_parent().get_node_or_null("Placed")
+	if hit.is_empty() or hit.normal.y < 0.6 or placed == null or placed.occupied(hit.position, 0.5):
+		Sfx.play("click", -6.0, 0.6)
+		return
+	var facing := Basis(Vector3.UP, rotation.y)
+	placed.request("place", [def.place, Transform3D(facing, hit.position)])
+	inventory.take(inventory.selected, 1)
+	Sfx.play_at("step_soft", hit.position, 2.0, 1.2)
+
+
 ## Clique com o martelo ou a talhadeira: a ferramenta bate e o Builder age.
 func _use_tool() -> void:
 	if _equip < 1.0 or _tool_hit > 0.4:
@@ -1803,7 +1845,7 @@ func _use_tool() -> void:
 	Net.i.send_player_action("tool", 0)
 	if builder.use(_tool_kind()):
 		_shake = maxf(_shake, 0.05)
-		_wear_selected()
+		_wear_selected(0.75) # construir/talhar: serviço certo
 
 
 # Arremessos ---------------------------------------------------------------------

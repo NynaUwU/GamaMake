@@ -55,7 +55,7 @@ func host_apply(action: String, args: Array) -> Array:
 			var kind: String = args[0]
 			var xform: Transform3D = args[1]
 			if kind not in ["pot_small", "pot_wide", "bed", "ground", "bench", "workbench", "furnace", "campfire",
-					"spikes", "beartrap", "barbed", "mine", "drawboard", "chest"]:
+					"spikes", "beartrap", "barbed", "mine", "drawboard", "chest", "flag"]:
 				return []
 			if kind == "bed":
 				var cell := Vector3i((xform.origin / BuildPiece.SEG).round())
@@ -67,11 +67,26 @@ func host_apply(action: String, args: Array) -> Array:
 			_next_id += 1
 			_spawn(id, kind, xform)
 			return [id, kind, xform]
+		"airdrop":
+			if Net.i.request_peer != Net.i.my_id():
+				return [] # só o próprio host solta airdrop
+			var id := _next_id
+			_next_id += 1
+			_spawn(id, "airdrop", args[0])
+			if ContainerManager.i:
+				var slots := ContainerManager.empty_slots(ContainerManager.STORAGE_SLOTS)
+				for k in 2:
+					for drop in Loot.roll("airdrop"):
+						ContainerManager.add_to(slots, drop[0], drop[1])
+				ContainerManager.i.contents["placed_%d" % id] = slots
+			return [id, "airdrop", args[0]]
 		"remove":
 			if not objects.has(args[0]):
 				return []
 			var obj: PlacedObject = objects[args[0]]
-			if obj.kind == "chest" and ContainerManager.i:
+			if obj.kind == "flag":
+				Net.i.give_to(Net.i.request_peer, &"bandeira", 1) # recolheu: volta para a mochila
+			if obj.kind in ["chest", "airdrop"] and ContainerManager.i:
 				ContainerManager.i.dump("placed_%d" % obj.net_id, obj.global_position) # o que tinha dentro cai
 			_remove(args[0])
 			return args
@@ -204,6 +219,11 @@ func _plant_tree(id: int, xform: Transform3D, planted: float, planter_id: int) -
 	obj.refresh(clock)
 
 
+## Host: airdrop da onda vencida, já cheio (o conteúdo é de um baú "placed_<id>").
+func drop_airdrop(xform: Transform3D) -> void:
+	Net.i.system_request(name, "airdrop", [xform])
+
+
 ## Árvore derrubada: some e libera o plantador.
 func _fell(obj: PlacedObject) -> void:
 	var planter: PlacedObject = objects.get(obj.extra.get("planter", -1))
@@ -258,7 +278,7 @@ func apply_remote(action: String, args: Array) -> void:
 			var obj: PlacedObject = objects.get(args[0])
 			if obj and obj.board:
 				obj.board.clear()
-		"place":
+		"place", "airdrop":
 			if not objects.has(args[0]):
 				_spawn(args[0], args[1], args[2])
 		"remove":

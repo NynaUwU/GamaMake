@@ -190,6 +190,7 @@ func _draw_minimap() -> void:
 	_draw_hordes(_minimap, to_screen, rect, false)
 	_draw_pings(_minimap, to_screen, rect)
 	_draw_car(_minimap, to_screen, rect)
+	_draw_placed(_minimap, to_screen, rect)
 	_draw_others(_minimap, to_screen, rect)
 	_draw_arrow(_minimap, rect.size * 0.5, 7.0)
 	_minimap.draw_string(get_theme_default_font(), Vector2(4, 12), "N", HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color(1, 1, 1, 0.8))
@@ -211,6 +212,7 @@ func _draw_world() -> void:
 	_draw_hordes(_big, to_screen, rect, true)
 	_draw_pings(_big, to_screen, rect)
 	_draw_car(_big, to_screen, rect)
+	_draw_placed(_big, to_screen, rect)
 	_draw_others(_big, to_screen, rect, true)
 	_draw_arrow(_big, to_screen.call(Vector2(player.global_position.x, player.global_position.z)), 8.0)
 	_big.draw_string(font, rect.position + Vector2(0, -8), "Mapa  ·  M fechar  ·  norte para cima", HORIZONTAL_ALIGNMENT_LEFT, -1, 14)
@@ -231,6 +233,29 @@ func _draw_car(target: Control, to_screen: Callable, clip: Rect2) -> void:
 		if clip.has_point(pos):
 			target.draw_rect(Rect2(pos - Vector2(4, 3), Vector2(8, 6)), COLOR_CAR)
 			target.draw_rect(Rect2(pos - Vector2(4, 3), Vector2(8, 6)), Color.BLACK, false, 1.0)
+
+
+## Bandeiras (waypoints de todo mundo) e airdrops ainda cheios (quadrado vermelho pulsando).
+func _draw_placed(target: Control, to_screen: Callable, clip: Rect2) -> void:
+	var placed: PlacedManager = player.get_parent().get_node_or_null("Placed") if player else null
+	if placed == null:
+		return
+	var pulse := 0.5 + 0.5 * sin(Time.get_ticks_msec() * 0.008)
+	for obj: PlacedObject in placed.objects.values():
+		if obj.kind != "flag" and obj.kind != "airdrop":
+			continue
+		var pos: Vector2 = to_screen.call(Vector2(obj.global_position.x, obj.global_position.z))
+		pos = pos.clamp(clip.position + Vector2(4, 4), clip.end - Vector2(4, 4)) # fora do minimapa: fica na borda
+		if obj.kind == "flag":
+			target.draw_line(pos + Vector2(0, 5), pos + Vector2(0, -8), Color(0.15, 0.1, 0.05), 2.0)
+			target.draw_colored_polygon(PackedVector2Array([pos + Vector2(1, -8), pos + Vector2(9, -5), pos + Vector2(1, -2)]), Color(0.85, 0.12, 0.1))
+		else:
+			var fx := obj.get_child(0) as AirdropFX
+			if fx and fx._emptied():
+				continue
+			var size := 6.0 + 4.0 * pulse
+			target.draw_rect(Rect2(pos - Vector2.ONE * size * 0.5, Vector2.ONE * size), Color(1.0, 0.15, 0.08, 0.6 + 0.4 * pulse))
+			target.draw_rect(Rect2(pos - Vector2(3, 3), Vector2(6, 6)), Color(0.3, 0.34, 0.2))
 
 
 ## Hordas andando pelo mapa: mancha vermelha (maior = mais zumbis) com a contagem.

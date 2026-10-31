@@ -499,8 +499,8 @@ func _die(bone: StringName, point: Vector3, impulse: Vector3) -> void:
 
 ## Zumbi morto às vezes larga sucata, pano ou uma roupa gasta (só o host sorteia).
 func _drop_loot() -> void:
-	if puppet or not Net.i.is_host():
-		return
+	if puppet or not Net.i.is_host() or has_meta("night"):
+		return # os da onda noturna não soltam nada: a recompensa é o airdrop
 	var where := Transform3D(Basis(), global_position + Vector3.UP * 0.8)
 	var push := Vector3(randf_range(-1.0, 1.0), 2.0, randf_range(-1.0, 1.0))
 	if randf() < 0.3:
