@@ -24,6 +24,7 @@ var _stages: Array = [] # estágio desenhado em cada vaga (-1 = vazia)
 var _plants: Array = [] # Node3D de cada vaga
 var extra := {} ## estado salvo de armadilhas (usos, armada, vida)
 var trap: Trap
+var board: DrawBoard
 
 static var _material: StandardMaterial3D
 
@@ -144,6 +145,8 @@ func get_interact_text() -> String:
 			return "[E] Fornalha (fundir minério, vidro, carvão)"
 		"campfire":
 			return Cooking.text(self, clock)
+		"drawboard":
+			return "[E] Desenhar na lousa"
 	if trap:
 		return trap.get_text()
 	var ready := ready_count(clock)
@@ -168,6 +171,9 @@ func interact(player: Node) -> void:
 	if kind == "campfire":
 		Cooking.interact(player, self)
 		return
+	if board:
+		DrawUI.open_for(player, board)
+		return
 	if trap:
 		trap.interact(player)
 		return
@@ -181,6 +187,11 @@ func interact(player: Node) -> void:
 func _build() -> void:
 	if kind in ["campfire", "furnace", "workbench"]:
 		StationModels.build(kind, self)
+		return
+	if kind == "drawboard":
+		board = DrawBoard.new()
+		add_child(board)
+		board.setup(self)
 		return
 	if kind in TRAPS:
 		trap = Trap.new()

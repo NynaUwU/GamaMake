@@ -15,12 +15,30 @@ extends CanvasLayer
 var _message_tween: Tween
 var _players_label: Label
 var _clock: Label
+var _wave: Label
+var _arcs: StatusArcs
 
 
 func _process(_delta: float) -> void:
 	if _clock and DayNight.i:
 		_clock.text = DayNight.i.clock_text()
 		_clock.modulate = Color(1.0, 0.95, 0.85) if not DayNight.i.is_night() else Color(0.7, 0.78, 1.0)
+		_wave.text = _wave_text()
+		_wave.modulate = Color(1.0, 0.55, 0.45) if DayNight.i.is_night() else Color(1, 1, 1, 0.75)
+
+
+## "Onda 2 · 5 vivos · 11 abatidos · amanhece em 3:10" / "Próxima noite em 6:20".
+func _wave_text() -> String:
+	var dn := DayNight.i
+	var hours := fposmod((DayNight.NIGHT_END if dn.is_night() else DayNight.NIGHT_START) - dn.hour, 24.0)
+	var seconds := int(hours / 24.0 * DayNight.DAY_LENGTH)
+	var clock := "%d:%02d" % [seconds / 60, seconds % 60]
+	if not dn.is_night():
+		return "Próxima noite em %s" % clock
+	var hm := HordeManager.i
+	var alive := hm.wave_alive if hm else 0
+	var killed := hm.wave_killed if hm else 0
+	return "Onda noturna %d  ·  %d vivos  ·  %d abatidos  ·  amanhece em %s" % [dn.day if dn.hour >= 12.0 else dn.day - 1, alive, killed, clock]
 
 
 func _ready() -> void:
@@ -31,19 +49,19 @@ func _ready() -> void:
 		return
 	player.health_changed.connect(_on_health_changed)
 	player.stamina_changed.connect(_on_stamina_changed)
-	# Fome: mesma barra da stamina, em laranja, logo abaixo.
-	var hunger_bar := stamina_bar.duplicate() as ProgressBar
-	hunger_bar.name = "HungerBar"
-	hunger_bar.unique_name_in_owner = false
-	var fill := (stamina_bar.get_theme_stylebox("fill") as StyleBoxFlat).duplicate() as StyleBoxFlat
-	fill.bg_color = Color(0.85, 0.5, 0.15)
-	hunger_bar.add_theme_stylebox_override("fill", fill)
-	hunger_bar.max_value = player.MAX_HUNGER
-	hunger_bar.value = player.hunger
-	stamina_bar.add_sibling(hunger_bar)
-	player.hunger_changed.connect(func(current: float, maximum: float):
-		hunger_bar.max_value = maximum
-		hunger_bar.value = current)
+	# Vida/stamina/fome: quarto de círculo no canto (as barras antigas ficam escondidas).
+	$Root/Bars.visible = false
+	_arcs = StatusArcs.new()
+	_arcs.name = "StatusArcs"
+	$Root.add_child(_arcs)
+	_arcs.set_value(1, player.health, player.max_health)
+	_arcs.set_value(0, player.stamina, player.max_stamina)
+	_arcs.set_value(2, player.hunger, player.MAX_HUNGER)
+	player.hunger_changed.connect(func(current: float, maximum: float): _arcs.set_value(2, current, maximum))
+	var plants := PlantPanel.new()
+	plants.name = "PlantPanel"
+	$Root.add_child(plants)
+	plants.setup(player)
 	player.interact_prompt_changed.connect(func(text: String): prompt_label.text = text)
 	player.notify.connect(show_message)
 	player.weapon_changed.connect(func(weapon_name: String): weapon_label.text = weapon_name)
@@ -82,6 +100,15 @@ func _ready() -> void:
 	_clock.offset_right = 100.0
 	_clock.offset_top = 22.0
 	_clock.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	# Contador da onda noturna logo abaixo do relógio.
+	_wave = Label.new()
+	_wave.set_anchors_and_offsets_preset(Control.PRESET_CENTER_TOP)
+	_wave.offset_left = -260.0
+	_wave.offset_right = 260.0
+	_wave.offset_top = 38.0
+	_wave.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_wave.add_theme_font_size_override("font_size", 11)
+	$Root.add_child(_wave)
 	_clock.add_theme_font_size_override("font_size", 13)
 	$Root.add_child(_clock)
 
@@ -98,11 +125,15 @@ func _refresh_players() -> void:
 func _on_health_changed(current: float, maximum: float) -> void:
 	health_bar.max_value = maximum
 	health_bar.value = current
+	if _arcs:
+		_arcs.set_value(1, current, maximum)
 
 
 func _on_stamina_changed(current: float, maximum: float) -> void:
 	stamina_bar.max_value = maximum
 	stamina_bar.value = current
+	if _arcs:
+		_arcs.set_value(0, current, maximum)
 
 
 func show_message(text: String) -> void:

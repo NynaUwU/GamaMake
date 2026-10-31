@@ -20,9 +20,13 @@ var _flickering: Array = [] # luzes de poste com mau contato
 var _flicker_time := 0.0
 const MAX_LAMP_LIGHTS := 45 ## por cidade (o resto dos postes fica apagado)
 var _lamps_on := true
+var _house_tasks: Array = [] # [cidade, lote, id da tarefa]
+var _house_results := {} # "cidade_lote" -> Node3D montado na thread
+var _house_mutex := Mutex.new()
 
 
 func _ready() -> void:
+	CityGen.material() # cria o material compartilhado aqui (as threads só usam)
 	_terrain = get_node(terrain_path) as TerrainWorld
 	_player = get_node(player_path) as Node3D
 
@@ -35,17 +39,38 @@ func _process(delta: float) -> void:
 	if _timer <= 0.0:
 		_timer = 0.5
 		_update_cities()
-	# Constrói aos poucos as casas que faltam.
-	var budget := houses_per_frame
+	# As casas são montadas (malha + colisão) em threads do WorkerThreadPool;
+	# aqui só entram na cena as que ficaram prontas (algumas por frame).
+	var budget := houses_per_frame * 3
 	for index in _built:
 		var entry: Dictionary = _built[index]
 		var city: Dictionary = _terrain.cities[index]
-		while budget > 0 and entry.next < city.lots.size():
-			_add_house(entry.node, city, city.lots[entry.next])
-			entry.next += 1
-			budget -= 1
-			if entry.next == city.lots.size():
-				_spawn_zombies(entry.node, city)
+		while entry.queued < city.lots.size() and _house_tasks.size() < 24:
+			var lot: Dictionary = city.lots[entry.queued]
+			_house_tasks.append([index, entry.queued, WorkerThreadPool.add_task(_build_house_task.bind(index, entry.queued, lot))])
+			entry.queued += 1
+	for task in _house_tasks.duplicate():
+		if budget <= 0:
+			break
+		if not WorkerThreadPool.is_task_completed(task[2]):
+			continue
+		WorkerThreadPool.wait_for_task_completion(task[2])
+		_house_tasks.erase(task)
+		_house_mutex.lock()
+		var house: Node3D = _house_results.get("%d_%d" % [task[0], task[1]])
+		_house_results.erase("%d_%d" % [task[0], task[1]])
+		_house_mutex.unlock()
+		if not _built.has(task[0]) or house == null:
+			if house:
+				house.free() # a cidade sumiu enquanto a casa era montada
+			continue
+		var entry: Dictionary = _built[task[0]]
+		var city: Dictionary = _terrain.cities[task[0]]
+		_place_house(entry.node, city, city.lots[task[1]], house)
+		entry.next += 1
+		budget -= 1
+		if entry.next == city.lots.size():
+			_spawn_zombies(entry.node, city)
 
 
 ## Cria/apaga cidades pela distância. build_all = constrói tudo agora (testes).
@@ -69,7 +94,7 @@ func _update_cities(build_all := false) -> void:
 			plaza.position = Vector3(plaza_pos.x, 0, plaza_pos.y)
 			node.add_child(plaza)
 			_add_lamps(node, city)
-			_built[i] = {"node": node, "next": 0}
+			_built[i] = {"node": node, "next": 0, "queued": 0}
 		elif distance > build_distance + 120.0 and _built.has(i):
 			_built[i].node.queue_free()
 			_built.erase(i)
@@ -80,6 +105,7 @@ func _update_cities(build_all := false) -> void:
 			while entry.next < city.lots.size():
 				_add_house(entry.node, city, city.lots[entry.next])
 				entry.next += 1
+			entry.queued = city.lots.size()
 
 
 ## Postes ao longo das ruas, alternando os lados. Cenário de fim de mundo:
@@ -134,8 +160,27 @@ func _flicker(delta: float) -> void:
 		light.light_energy = 0.05 if n > 0.55 else (0.8 if n > 0.3 else 1.4)
 
 
-func _add_house(city_node: Node3D, city: Dictionary, lot: Dictionary) -> void:
+## Roda numa thread: monta a casa fora da cena (permitido enquanto não entra na árvore).
+func _build_house_task(index: int, lot_index: int, lot: Dictionary) -> void:
 	var house := CityGen.build_house(lot)
+	_house_mutex.lock()
+	_house_results["%d_%d" % [index, lot_index]] = house
+	_house_mutex.unlock()
+
+
+func _exit_tree() -> void:
+	for task in _house_tasks:
+		WorkerThreadPool.wait_for_task_completion(task[2])
+	for house in _house_results.values():
+		if is_instance_valid(house):
+			house.free()
+
+
+func _add_house(city_node: Node3D, city: Dictionary, lot: Dictionary) -> void:
+	_place_house(city_node, city, lot, CityGen.build_house(lot))
+
+
+func _place_house(city_node: Node3D, city: Dictionary, lot: Dictionary, house: Node3D) -> void:
 	var local: Vector2 = lot.pos - city.center
 	house.position = Vector3(local.x, 0.0, local.y)
 	house.rotation.y = lot.yaw

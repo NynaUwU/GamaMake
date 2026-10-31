@@ -10,25 +10,17 @@ const RED := Color(0.55, 0.08, 0.05)
 
 
 func _configure() -> void:
+	# Dirige igual ao primeiro carro (VintageCar): só torque e velocidade são dele.
 	wheelbase = 3.3
 	track_width = 1.44
 	wheel_radius = 0.42
 	wheel_style = "disc"
-	car_mass = 1600.0
-	roll_influence = 0.1
-	center_of_mass_y = 0.1
 	max_engine_force = 5200.0
 	top_speed = 63.0 # ~225 km/h
 	speedo_max = 240.0
 	torque_low = 0.55
 	torque_peak = 0.6
 	torque_high = 0.9
-	front_grip = 2.6
-	rear_grip = 2.6
-	wheelspin = 0.0
-	max_steer = 0.42
-	steer_min = 0.14
-	steer_rate = 1.8
 	seat_offset = Vector3(0.0, 0.17, -0.55) # monoposto: no meio
 	exit_offset = Vector3(-1.3, 0.2, -0.55)
 	wheel_center = Vector3(0.0, 0.66, -0.15)

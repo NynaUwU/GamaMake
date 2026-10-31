@@ -35,6 +35,8 @@ func _process(delta: float) -> bool:
 		print("HOST taken=", Net.i.taken.keys(), " drops=", Net.i._drops)
 		var building: BuildingManager = main.get_node("Building")
 		print("HOST pings=", PingMarkers.i.list.map(func(p): return [p.from, p.kind]) if PingMarkers.i else [])
+		var boards: Array = main.get_node("Placed").objects.values().filter(func(o): return o.board != null)
+		print("HOST lousa: ", boards.size(), " pixel do cliente=", boards[0].board.image.get_pixel(20, 20) if boards.size() > 0 else null)
 		print("HOST building: peças=", building.pieces.size(), " tirados=", building.pieces.values()[0].removed.count(1) if building.pieces.size() > 0 else -1)
 		quit()
 	return false

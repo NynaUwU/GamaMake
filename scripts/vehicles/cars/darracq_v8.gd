@@ -10,26 +10,17 @@ const BRASS := Color(0.55, 0.45, 0.22)
 
 
 func _configure() -> void:
+	# Dirige igual ao primeiro carro (VintageCar): só torque e velocidade são dele.
 	wheelbase = 2.35
 	track_width = 1.3
 	wheel_radius = 0.44
 	wheel_style = "wood"
-	car_mass = 850.0
-	roll_influence = 0.1
-	center_of_mass_y = 0.05
 	max_engine_force = 4000.0
 	top_speed = 50.0 # ~180 km/h
 	speedo_max = 200.0
 	torque_low = 0.5 # fraco embaixo...
 	torque_peak = 0.55 # ...e bravo no meio
 	torque_high = 0.8
-	front_grip = 1.9
-	rear_grip = 1.8
-	wheelspin = 0.28
-	max_steer = 0.62
-	steer_min = 0.12
-	steer_rate = 4.2 # direção rápida e nervosa
-	max_brake = 22.0 # freio só atrás, fraco
 	seat_offset = Vector3(-0.24, 0.32, -0.62)
 	exit_offset = Vector3(-1.3, 0.3, -0.62)
 	eye_height = 0.78

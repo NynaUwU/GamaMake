@@ -105,10 +105,45 @@ const _VOLUME := {"groan": -4.0, "growl": -2.0, "step_soft": -14.0, "step_hard":
 	"wind": -20.0, "whirr": -8.0, "swing": -6.0, "pickup": -8.0, "explosion": 4.0, "shot": 2.0}
 
 
+const NAMES := ["swing", "hit", "slice", "thud", "shot", "explosion", "step_soft", "step_hard", "groan", "growl",
+	"death", "engine", "creak", "knock", "ping", "pickup", "crunch", "slap", "whirr", "wind", "click"]
+static var _mutex := Mutex.new()
+static var _warm_task := -1
+
+
+## Gera todos os sons em paralelo (WorkerThreadPool) no começo do jogo: antes
+## o primeiro gemido de zumbi travava ~40 ms sintetizando na hora.
+static func warmup() -> void:
+	if _warm_task != -1:
+		return
+	_warm_task = WorkerThreadPool.add_group_task(_warm_one, NAMES.size(), -1, false, "Sfx")
+
+
+## Espera a geração terminar (chamado ao sair da cena).
+static func finish_warmup() -> void:
+	if _warm_task >= 0:
+		WorkerThreadPool.wait_for_group_task_completion(_warm_task)
+		_warm_task = -2
+
+
+static func _warm_one(i: int) -> void:
+	var wav := _make(NAMES[i])
+	_mutex.lock()
+	if not _streams.has(NAMES[i]):
+		_streams[NAMES[i]] = wav
+	_mutex.unlock()
+
+
 static func stream(name: String) -> AudioStreamWAV:
-	if not _streams.has(name):
-		_streams[name] = _make(name)
-	return _streams[name]
+	_mutex.lock()
+	var wav: AudioStreamWAV = _streams.get(name)
+	_mutex.unlock()
+	if wav == null:
+		wav = _make(name) # ainda não ficou pronto na thread: gera agora
+		_mutex.lock()
+		_streams[name] = wav
+		_mutex.unlock()
+	return wav
 
 
 static func _make(name: String) -> AudioStreamWAV:

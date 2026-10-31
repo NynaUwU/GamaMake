@@ -24,6 +24,15 @@ reação física a golpes e ragdoll (estilo Dying Light), visual de PC dos anos 
 - Os outros jogadores aparecem com o nome em cima, o item da mão, a lanterna acesa e uma bolinha
   azul no minimapa/mapa. Em cima, no meio da tela, aparece quem está online.
 
+## HUD, lousa, carros e desempenho
+
+- **HUD em quarto de círculo** (canto de baixo à esquerda): stamina por fora (amarelo), vida no meio (vermelho, pisca quando baixa) e fome por dentro (laranja). `scripts/ui/status_arcs.gd`.
+- **Painel do canteiro:** mirando um pote/floreira/canteiro/cova (ou a grelha da fogueira) aparece ao lado da mira a foto de cada planta, a barra de crescimento e a porcentagem. `scripts/ui/plant_panel.gd`.
+- **Contador da onda noturna** abaixo do relógio: de dia "Próxima noite em 6:20"; de noite "Onda noturna 2 · 5 vivos · 11 abatidos · amanhece em 3:10".
+- **Lousa** (martelo → Outros, 4 tábuas + 1 pano): cavalete com tela. [E] abre a tela grande: 12 cores, 4 espessuras, borracha e Limpar. Todos desenham juntos e veem ao vivo; o desenho vai no save. `scripts/crafting/draw_board.gd`, `scripts/ui/draw_ui.gd`.
+- **Carros:** todos dirigem como o primeiro (mesma aderência, esterço, freio e estabilidade); cada um mantém só o próprio torque e a velocidade máxima.
+- **Multithread:** o terreno já era gerado em threads e o Jolt já usa vários núcleos na física. Agora também: casas das cidades montadas em threads (WorkerThreadPool), sons sintetizados em paralelo na abertura (o primeiro gemido não trava mais) e a navegação calculada em outra thread. O render em thread separada do Godot foi testado, mas quebra a leitura de malhas dos zumbis (é experimental), então ficou desligado.
+
 ## Recursos, estações, conserto e armadilhas
 
 ### Árvores, rochas e minérios (`scripts/world/resource_node.gd`)

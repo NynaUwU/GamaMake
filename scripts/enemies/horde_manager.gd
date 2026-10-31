@@ -24,6 +24,10 @@ static var i: HordeManager
 
 var hordes: Array = [] ## {id, pos: Vector2, dest: Vector2, size, live, zombies: []}
 var map_list: Array = [] ## [[pos, size]] para o mapa (host e clientes)
+## Onda noturna (HUD): vivos agora e abatidos nesta noite (host conta, clientes recebem).
+var wave_alive := 0
+var wave_killed := 0
+var _wave_seen := {} # zumbi noturno -> true (para contar quando morre)
 var _next_id := 1
 var _tick := 0.0
 var _night_tick := 0.0
@@ -43,6 +47,8 @@ func _exit_tree() -> void:
 
 func _ready() -> void:
 	add_to_group("persist")
+	if DayNight.i:
+		DayNight.i.nightfall.connect(_on_nightfall)
 
 
 func _world() -> Node:
@@ -78,8 +84,9 @@ func _process(delta: float) -> void:
 	if _broadcast <= 0.0:
 		_broadcast = 2.0
 		map_list = _make_map_list()
+		_count_wave()
 		if Net.i.online():
-			Net.i.broadcast_system_state(name, {"map": map_list})
+			Net.i.broadcast_system_state(name, {"map": map_list, "wave": [wave_alive, wave_killed]})
 
 
 # --- Hordas no mapa --------------------------------------------------------------------
@@ -227,6 +234,24 @@ func night_cap() -> int:
 	return mini(10 + day * 3, 30)
 
 
+func _count_wave() -> void:
+	var alive := 0
+	for z in _wave_seen.keys():
+		if not is_instance_valid(z):
+			_wave_seen.erase(z) # sumiu ao amanhecer: não conta como abatido
+		elif z.state == Zombie.State.DEAD:
+			_wave_seen.erase(z)
+			wave_killed += 1
+		else:
+			alive += 1
+	wave_alive = alive
+
+
+## Nova noite = nova onda: zera os abatidos.
+func _on_nightfall() -> void:
+	wave_killed = 0
+
+
 func _night_spawns() -> void:
 	var night := DayNight.i != null and DayNight.i.night > 0.6
 	var enemies := _world().get_node("Enemies")
@@ -252,6 +277,7 @@ func _night_spawns() -> void:
 			zombie.set_meta("night", true)
 			zombie.target = player
 			enemies.add_child(zombie)
+			_wave_seen[zombie] = true
 			zombie.alert(player) # já sabe onde você está
 
 
@@ -299,6 +325,9 @@ func load_data(data: Dictionary) -> void:
 			_next_id += 1
 		_next_id = maxi(_next_id, data.get("next", 1))
 	map_list = data.get("map", map_list)
+	if data.has("wave"):
+		wave_alive = data.wave[0]
+		wave_killed = data.wave[1]
 
 
 func net_sync_to(peer: int) -> void:

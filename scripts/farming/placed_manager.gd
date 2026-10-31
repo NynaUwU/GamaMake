@@ -55,7 +55,7 @@ func host_apply(action: String, args: Array) -> Array:
 			var kind: String = args[0]
 			var xform: Transform3D = args[1]
 			if kind not in ["pot_small", "pot_wide", "bed", "ground", "bench", "workbench", "furnace", "campfire",
-					"spikes", "beartrap", "barbed", "mine"]:
+					"spikes", "beartrap", "barbed", "mine", "drawboard"]:
 				return []
 			if kind == "bed":
 				var cell := Vector3i((xform.origin / BuildPiece.SEG).round())
@@ -109,6 +109,18 @@ func host_apply(action: String, args: Array) -> Array:
 				return []
 			obj.extra.merge(args[1], true)
 			obj.refresh(clock)
+			return args
+		"draw":
+			var obj: PlacedObject = objects.get(args[0])
+			if obj == null or obj.board == null or not args[1] is PackedVector2Array or args[1].size() > 400:
+				return []
+			obj.board.stroke(args[1], args[2], args[3])
+			return args
+		"clear_board":
+			var obj: PlacedObject = objects.get(args[0])
+			if obj == null or obj.board == null:
+				return []
+			obj.board.clear()
 			return args
 		"explode":
 			var obj: PlacedObject = objects.get(args[0])
@@ -171,6 +183,14 @@ func apply_remote(action: String, args: Array) -> void:
 			var obj: PlacedObject = objects.get(args[0])
 			if obj:
 				_explode(obj, true)
+		"draw":
+			var obj: PlacedObject = objects.get(args[0])
+			if obj and obj.board:
+				obj.board.stroke(args[1], args[2], args[3])
+		"clear_board":
+			var obj: PlacedObject = objects.get(args[0])
+			if obj and obj.board:
+				obj.board.clear()
 		"place":
 			if not objects.has(args[0]):
 				_spawn(args[0], args[1], args[2])
@@ -220,6 +240,8 @@ func save_data() -> Dictionary:
 	var list := []
 	for id in objects:
 		var obj: PlacedObject = objects[id]
+		if obj.board:
+			obj.extra["pixels"] = obj.board.packed() # desenho da lousa vai junto
 		list.append([id, obj.kind, obj.global_transform, obj.crops.duplicate(true), obj.extra.duplicate(true)])
 	return {"clock": clock, "next": _next_id, "list": list}
 
@@ -236,6 +258,8 @@ func load_data(data: Dictionary) -> void:
 			obj.crops[i] = entry[3][i]
 		if entry.size() > 4:
 			obj.extra.merge(entry[4], true)
+			if obj.board and obj.extra.has("pixels"):
+				obj.board.unpack(obj.extra.pixels)
 		obj.refresh(clock)
 
 

@@ -16,6 +16,7 @@ var _players_root: Node3D
 
 
 func _ready() -> void:
+	Sfx.warmup()
 	var pause := PauseMenu.new()
 	pause.name = "PauseMenu"
 	add_child(pause)
@@ -66,6 +67,7 @@ func _add_start_crate() -> void:
 
 
 func _exit_tree() -> void:
+	Sfx.finish_warmup()
 	Net.i.unregister_world(self)
 
 
@@ -91,7 +93,7 @@ func _bake_navigation() -> void:
 	region.name = "Navigation"
 	region.navigation_mesh = mesh
 	add_child(region)
-	region.bake_navigation_mesh(false)
+	region.bake_navigation_mesh(true) # em outra thread (não trava o começo)
 
 
 func _unhandled_input(event: InputEvent) -> void:
