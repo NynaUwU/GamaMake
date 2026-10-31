@@ -46,15 +46,14 @@ func refresh() -> void:
 
 
 func _slot(recipe: Dictionary) -> Control:
-	var box := VBoxContainer.new()
-	box.add_theme_constant_override("separation", 1)
 	var button := Button.new()
 	button.custom_minimum_size = SLOT
 	button.focus_mode = Control.FOCUS_NONE
 	button.expand_icon = true
 	button.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	button.vertical_icon_alignment = VERTICAL_ALIGNMENT_TOP
 	button.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
-	button.add_theme_constant_override("icon_max_width", 40)
+	button.add_theme_constant_override("icon_max_width", 34)
 	var icons := get_node_or_null("/root/ItemIcons")
 	if icons and icons.has_method("get_icon"):
 		button.icon = icons.get_icon(recipe.id)
@@ -67,32 +66,41 @@ func _slot(recipe: Dictionary) -> Control:
 		button.add_theme_stylebox_override(state, style)
 	if not ok:
 		button.modulate = Color(1, 1, 1, 0.4)
-	if recipe.get("amount", 1) > 1:
-		var count := Label.new()
-		count.text = "x%d" % recipe.amount
-		count.add_theme_font_size_override("font_size", 10)
-		count.add_theme_color_override("font_outline_color", Color.BLACK)
-		count.add_theme_constant_override("outline_size", 3)
-		count.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_RIGHT)
-		count.position -= Vector2(20, 15)
-		count.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		button.add_child(count)
+	slot_labels(button, ItemDB.short_name(recipe.id), recipe.get("amount", 1))
 	button.pressed.connect(func():
 		CraftingUI.craft(player, recipe, CraftingUI.max_times(recipe) if Input.is_key_pressed(KEY_SHIFT) else 1))
 	button.mouse_entered.connect(func(): _info.text = _describe(recipe))
-	box.add_child(button)
-	var label := Label.new()
-	label.text = ItemDB.display_name(recipe.id) + (" (%s)" % recipe.note if recipe.has("note") else "")
-	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	label.custom_minimum_size = Vector2(SLOT.x + 6, 0)
-	label.add_theme_font_size_override("font_size", 9)
-	box.add_child(label)
-	return box
+	return button
+
+
+## Nome curto dentro do slot (embaixo) e quantidade no canto de cima à esquerda.
+static func slot_labels(button: Button, short: String, amount := 1) -> void:
+	var name := Label.new()
+	name.text = short
+	name.add_theme_font_size_override("font_size", 8)
+	name.add_theme_color_override("font_outline_color", Color.BLACK)
+	name.add_theme_constant_override("outline_size", 3)
+	name.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	name.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_WIDE)
+	name.offset_top = -12.0
+	name.offset_bottom = -1.0
+	name.clip_text = true
+	name.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	button.add_child(name)
+	if amount > 1:
+		var count := Label.new()
+		count.text = str(amount)
+		count.add_theme_font_size_override("font_size", 9)
+		count.add_theme_color_override("font_outline_color", Color.BLACK)
+		count.add_theme_constant_override("outline_size", 3)
+		count.position = Vector2(3, 0)
+		count.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		button.add_child(count)
 
 
 func _describe(recipe: Dictionary) -> String:
-	var text := "%s\n%s" % [ItemDB.display_name(recipe.id), Builder.cost_text(recipe.cost, player.inventory)]
+	var text := "%s%s%s\n%s" % [ItemDB.display_name(recipe.id), " x%d" % recipe.amount if recipe.get("amount", 1) > 1 else "",
+		" (%s)" % recipe.note if recipe.has("note") else "", Builder.cost_text(recipe.cost, player.inventory)]
 	if recipe.get("fuel", false):
 		var fuel := CraftingUI.fuel_for(player.inventory)
 		text += " + combustível (%s)" % (ItemDB.display_name(fuel[0]) if not fuel.is_empty() else "falta")

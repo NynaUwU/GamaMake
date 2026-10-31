@@ -209,6 +209,19 @@ static func display_name(id: StringName) -> String:
 	return def(id).name
 
 
+## Nome curto para caber dentro de um slot ("Machado simples" -> "Machado").
+static func short_name(id: StringName) -> String:
+	var d := def(id)
+	if d.has("short"):
+		return d.short
+	return short_text(d.name)
+
+
+static func short_text(text: String) -> String:
+	var first := text.split(" ")[0]
+	return first if first.length() <= 9 else first.left(8) + "."
+
+
 static func description(id: StringName) -> String:
 	return def(id).get("desc", "")
 

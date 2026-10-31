@@ -40,6 +40,12 @@ const FIXED := {
 	"movel_armario": [[&"tabua", 3, 4], [&"sucata", 0, 1]],
 	"movel_estante": [[&"tabua", 2, 3], [&"graveto", 1, 3]],
 	"movel_fogao": [[&"sucata", 2, 4], [&"pedra", 1, 2]],
+	"movel_sofa": [[&"pano", 2, 4], [&"tabua", 1, 2]],
+	"movel_banheira": [[&"sucata", 3, 5]],
+	"movel_privada": [[&"pedra", 2, 3], [&"sucata", 0, 1]],
+	"movel_pia": [[&"pedra", 1, 2], [&"vidro", 0, 1]],
+	"movel_balcao": [[&"tabua", 2, 3], [&"pedra", 1, 2], [&"lata", 0, 1]],
+	"movel_comoda": [[&"tabua", 2, 3], [&"pano", 0, 2]],
 }
 
 

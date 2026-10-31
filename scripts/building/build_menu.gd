@@ -67,9 +67,9 @@ func close(apply: bool) -> void:
 
 func _slot_under_mouse() -> Dictionary:
 	var mouse := _grid.get_global_mouse_position()
-	for box in _grid.get_children():
-		var button := box.get_child(0) as Button
-		if button and not box.is_queued_for_deletion() and button.get_global_rect().has_point(mouse):
+	for child in _grid.get_children():
+		var button := child as Button
+		if button and not button.is_queued_for_deletion() and button.get_global_rect().has_point(mouse):
 			return button.get_meta("entry")
 	return {}
 
@@ -113,19 +113,17 @@ func _refresh() -> void:
 
 
 func _make_slot(entry: Dictionary) -> Control:
-	var box := VBoxContainer.new()
-	box.add_theme_constant_override("separation", 1)
 	var button := Button.new()
 	button.custom_minimum_size = SLOT_SIZE
 	button.focus_mode = Control.FOCUS_NONE
 	button.expand_icon = true
 	button.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	button.vertical_icon_alignment = VERTICAL_ALIGNMENT_TOP
 	button.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
-	button.add_theme_constant_override("icon_max_width", 56)
+	button.add_theme_constant_override("icon_max_width", 46)
 	button.icon = icons.get(entry.id)
 	button.set_meta("entry", entry)
-	if button.icon == null:
-		button.text = entry.name.left(6) # sem foto (headless): ao menos o nome
+	RecipeGrid.slot_labels(button, ItemDB.short_text(entry.name)) # nome curto dentro do quadrado
 	var current: bool = builder.selection.get("id") == entry.id
 	var affordable := Builder.can_afford(builder.player.inventory, entry.get("cost", {}))
 	if not affordable:
@@ -143,14 +141,7 @@ func _make_slot(entry: Dictionary) -> Control:
 		_hovered = entry
 		_info.text = "%s: %s\nCusto: %s" % [entry.name, entry.get("desc", ""), Builder.cost_text(entry.get("cost", {}), builder.player.inventory)])
 	button.mouse_exited.connect(func(): if _hovered == entry: _hovered = {})
-	box.add_child(button)
-	var label := Label.new()
-	label.text = entry.name
-	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	label.add_theme_font_size_override("font_size", 11)
-	label.custom_minimum_size = Vector2(SLOT_SIZE.x, 0)
-	box.add_child(label)
-	return box
+	return button
 
 
 func _set_tab(tab: String) -> void:

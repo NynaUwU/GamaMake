@@ -27,6 +27,7 @@ var _house_mutex := Mutex.new()
 
 func _ready() -> void:
 	CityGen.material() # cria o material compartilhado aqui (as threads só usam)
+	var _plans := HousePlans.PLANS.size() # carrega a classe aqui, não dentro das threads
 	_terrain = get_node(terrain_path) as TerrainWorld
 	_player = get_node(player_path) as Node3D
 
@@ -47,7 +48,7 @@ func _process(delta: float) -> void:
 		var city: Dictionary = _terrain.cities[index]
 		while entry.queued < city.lots.size() and _house_tasks.size() < 24:
 			var lot: Dictionary = city.lots[entry.queued]
-			_house_tasks.append([index, entry.queued, WorkerThreadPool.add_task(_build_house_task.bind(index, entry.queued, lot))])
+			_house_tasks.append([index, entry.queued, WorkerThreadPool.add_task(_build_house_task.bind(index, entry.queued, lot), true)])
 			entry.queued += 1
 	for task in _house_tasks.duplicate():
 		if budget <= 0:
@@ -185,6 +186,7 @@ func _place_house(city_node: Node3D, city: Dictionary, lot: Dictionary, house: N
 	house.position = Vector3(local.x, 0.0, local.y)
 	house.rotation.y = lot.yaw
 	city_node.add_child(house)
+	CityGen.furnish(house, lot)
 	_add_loot(house, lot)
 
 

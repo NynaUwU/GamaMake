@@ -116,7 +116,7 @@ static var _warm_task := -1
 static func warmup() -> void:
 	if _warm_task != -1:
 		return
-	_warm_task = WorkerThreadPool.add_group_task(_warm_one, NAMES.size(), -1, false, "Sfx")
+	_warm_task = WorkerThreadPool.add_group_task(_warm_one, NAMES.size(), -1, true, "Sfx")
 
 
 ## Espera a geração terminar (chamado ao sair da cena).

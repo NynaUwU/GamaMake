@@ -334,7 +334,8 @@ func _stream(wanted: Array, keep: Dictionary, budget: int) -> void:
 	# Pede os que faltam (os mais perto primeiro).
 	for coord in wanted:
 		if not _chunks.has(coord) and not _tasks.has(coord) and _tasks.size() < 10:
-			_tasks[coord] = WorkerThreadPool.add_task(_threaded_generate.bind(coord))
+			# Alta prioridade: tarefas comuns dividem só ~30% das threads (o mapa ocupava tudo).
+			_tasks[coord] = WorkerThreadPool.add_task(_threaded_generate.bind(coord), true)
 
 
 func _threaded_generate(coord: Vector2i) -> void:

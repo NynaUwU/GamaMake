@@ -10,7 +10,6 @@ extends Control
 
 const SLOT_SIZE := Vector2(46, 46) ## hotbar da tela (9 slots)
 const BAG_SLOT := Vector2(40, 40) ## slots dentro da mochila
-const EQUIP_ICONS := {"head": "Cab", "body": "Corpo", "legs": "Pern", "feet": "Pés"}
 const COLOR_SLOT := LegacyGUI.SLOT
 const COLOR_SELECTED := Color(0.95, 0.85, 0.4, 1)
 const COLOR_PICKED := Color(0.5, 0.8, 1.0, 1)
@@ -418,9 +417,9 @@ func _refresh() -> void:
 	for button in _equip_slots:
 		var slot_name: String = button.get_meta("equip")
 		var worn: Dictionary = inventory.equipment[slot_name]
-		button.icon = icons_node.get_icon(worn.id) if icons_node and not worn.is_empty() else null
-		button.text = "" if not worn.is_empty() else EQUIP_ICONS[slot_name]
-		button.add_theme_font_size_override("font_size", 9)
+		# Vazio: só a silhueta da roupa (sem texto).
+		button.icon = icons_node.get_icon(worn.id) if icons_node and not worn.is_empty() else EquipIcons.icon(slot_name)
+		button.text = ""
 		var equip_style := StyleBoxFlat.new()
 		equip_style.bg_color = COLOR_SLOT.darkened(0.2)
 		equip_style.set_border_width_all(2)

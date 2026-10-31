@@ -397,8 +397,6 @@ func _unhandled_input(event: InputEvent) -> void:
 			exit_vehicle()
 		elif event.is_action_pressed("flashlight"):
 			vehicle.toggle_headlights()
-		elif event.is_action_pressed("reload") and vehicle.is_tipped():
-			Net.i.flip_car(vehicle) # R dirigindo: desvira
 		elif event is InputEventMouseButton and event.pressed and Input.mouse_mode != Input.MOUSE_MODE_CAPTURED:
 			Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 		return

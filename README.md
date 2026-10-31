@@ -36,9 +36,13 @@ reação física a golpes e ragdoll (estilo Dying Light), visual de PC dos anos 
 - **Menos avisos na tela:** pesca, construção, plantio e grelha agora avisam por **som** (boia afundando, "clique" seco quando falta material ou não dá, martelada no conserto...). Sem frases de instrução nos menus.
 - **Pesca:** o peixe do minijogo ficou bem mais calmo; a linha sai da ponta da vara.
 - **Peixes repovoam a cada 5 dias:** cada lago tem uma quantidade padrão de cada bicho (sorteada na criação do mundo); o que você pega só volta no repovoamento.
-- **Carros:** mais pesados (gravidade 1,5x no carro, mola compensada, aceleração igual); **desvirar** com [E] no carro tombado (ou R dirigindo); **porta-malas** com [E] atrás do carro (20 slots, arrastar e soltar).
+- **Carros:** mais pesados (gravidade 1,5x no carro, mola compensada, aceleração igual); **desvirar** com [E] no carro tombado (só de fora do carro); **porta-malas** com [E] atrás do carro (20 slots, arrastar e soltar).
 - **Baús de saque** pintados em cores fortes (baú vermelho, armário turquesa, caixote amarelo).
-- **Casas com interior:** ~30% das casas têm o térreo oco com porta aberta, piso de tábua, lampião aceso e móveis (mesa, cadeiras, cama, armário, estante, fogão a lenha). **Qualquer golpe desmonta um móvel** (arma, ferramenta ou soco) e ele solta tábuas, gravetos, pano ou sucata.
+- **Casas com interior:** ~30% das casas grandes (9x9 m ou mais) têm o térreo oco, com porta aberta, **janelas de verdade** (vãos com moldura: dá para olhar e atirar através), piso de tábua e lampião aceso na sala.
+- **8 plantas prontas** (`scripts/world/house_plans.gd`) com **4 a 7 cômodos** (sala, cozinha, quartos, banheiro, corredor, escritório, oficina, despensa), paredes internas com vãos de passagem e móveis encostados nas paredes certas de cada cômodo.
+- **Móveis:** mesa (com cadeiras), cama, armário, estante, fogão a lenha, sofá, banheira, privada, pia, balcão de cozinha e cômoda. **Qualquer golpe desmonta** (arma, ferramenta ou soco) e eles soltam tábuas, gravetos, pano, sucata, pedra...
+- Slots de roupa vazios mostram só a **silhueta** da peça; nas grades de receitas e no menu de construção o **nome curto fica dentro do quadrado** e a quantidade no canto de cima (o resto aparece passando o mouse).
+- **Threads:** terreno, casas e sons usam tarefas de alta prioridade no WorkerThreadPool (as comuns dividem só ~30% das threads e a imagem do mapa, que leva ~20 s, ocupava tudo).
 
 ## Ajustes (feedback)
 
