@@ -39,6 +39,7 @@ var peers := {} ## id -> nome (todos, inclusive o host)
 var servers := {} ## "nome|porta" -> {"ip", "port", "name", "players", "max", "seen"} (achados na LAN)
 var taken := {} ## chaves de itens que já foram pegos
 var player_saves := {} ## host: nome -> último estado salvo de cada jogador (SaveGame)
+var request_peer := 1 ## host: quem fez o pedido que está sendo aplicado agora (system_request)
 var world: Node ## cena principal ativa (main.gd)
 
 var _zombies := {} # net_id -> Zombie
@@ -843,7 +844,29 @@ func system_request(system: String, action: String, args: Array) -> void:
 
 @rpc("any_peer", "reliable")
 func _req_system(system: String, action: String, args: Array) -> void:
+	request_peer = multiplayer.get_remote_sender_id()
 	system_request(system, action, args)
+	request_peer = 1
+
+
+## Host: entrega um item no inventário de um jogador (o que não couber cai no chão).
+func give_to(peer: int, item_id: StringName, amount: int) -> void:
+	var where := Transform3D()
+	if world:
+		var who: Node3D = world.player if peer == my_id() else world.puppets.get(peer)
+		if is_instance_valid(who):
+			where = who.global_transform.translated(Vector3.UP)
+	if peer == my_id() or not online():
+		_give(item_id, amount, where)
+	else:
+		_give.rpc_id(peer, item_id, amount, where)
+
+
+## Host: marca uma chave como usada para todos (baú aberto, árvore derrubada...).
+func mark_taken(key: String) -> void:
+	if online():
+		_taken.rpc(key)
+	_taken(key)
 
 
 @rpc("authority", "reliable")

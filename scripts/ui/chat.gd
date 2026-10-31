@@ -32,8 +32,8 @@ func setup(p: Player) -> void:
 	anchor_right = 0.0
 	anchor_top = 1.0
 	anchor_bottom = 1.0
-	offset_top = -370.0
-	offset_bottom = -150.0 # acima dos arcos de vida/stamina/fome
+	offset_top = -320.0
+	offset_bottom = -100.0 # acima dos arcos de vida/stamina/fome
 	offset_left = 12.0
 	offset_right = 432.0
 	_log = VBoxContainer.new()

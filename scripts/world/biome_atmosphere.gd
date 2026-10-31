@@ -88,7 +88,7 @@ func _apply(t: float) -> void:
 	if WaterManager.i and WaterManager.i.underwater:
 		# Debaixo d'água: enxerga pouco, tudo verde-azulado (mais escuro no fundo).
 		var deep := WaterManager.i.under_depth
-		target = {"end": lerpf(26.0, 12.0, deep), "begin": 0.5, "color": Color(0.14, 0.36, 0.38).darkened(deep * 0.5), "snow": 0.0}
+		target = {"end": lerpf(34.0, 18.0, deep), "begin": 1.0, "color": Color(0.22, 0.48, 0.48).darkened(deep * 0.25), "snow": 0.0}
 		t = 1.0
 	_environment.fog_depth_end = lerpf(_environment.fog_depth_end, target.end, t)
 	_environment.fog_depth_begin = lerpf(_environment.fog_depth_begin, target.begin, t)

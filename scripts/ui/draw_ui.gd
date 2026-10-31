@@ -24,7 +24,7 @@ static func open_for(p: Node, board_: DrawBoard) -> void:
 	var ui := DrawUI.new()
 	ui.player = p
 	ui.board = board_
-	p.get_tree().current_scene.add_child(ui)
+	p.get_parent().add_child(ui) # junto da cena principal (o pai do jogador)
 
 
 func _ready() -> void:

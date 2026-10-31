@@ -11,15 +11,13 @@ func _init() -> void:
 	var player: Player = main.player
 	var placed: PlacedManager = main.get_node("Placed")
 	print("bancada inicial=", placed.objects.values().map(func(o): return o.kind))
-	# Revista o caixote inicial e pega tudo que caiu.
+	# Abre o caixote inicial (inventário) e pega tudo.
 	var crate: LootBox = main.get_node("CaixoteInicial")
-	crate.interact(player)
-	await _frames(5)
-	var got := 0
-	for item in get_nodes_in_group("interactable"):
-		if item is PickupItem and item.global_position.distance_to(crate.global_position) < 4.0:
-			item.take_locally(player)
-			got += 1
+	var cm: ContainerManager = main.get_node("Containers")
+	cm.request("open", ["loot_inicio", "inicio"])
+	var got: int = cm.slots_of("loot_inicio").filter(func(x): return not x.is_empty()).size()
+	for k in ContainerManager.SLOTS:
+		cm.request("take", ["loot_inicio", k])
 	await _frames(2)
 	print("caixote: itens=", got, " tabua=", player.inventory.count(&"tabua"), " pedra=", player.inventory.count(&"pedra"),
 		" pa=", player.inventory.count(&"pa"), " revistado=", Net.i.taken.has("loot_inicio"), " interagível=", crate.is_in_group("interactable"))

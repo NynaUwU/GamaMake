@@ -38,11 +38,10 @@ const ENTRIES := {
 		{"id": "pot_small", "name": "Pote", "place": "pot_small", "desc": "Pote de barro: 1 planta (não cabe abóbora)", "cost": {&"pedra": 2}},
 		{"id": "pot_wide", "name": "Floreira", "place": "pot_wide", "desc": "Floreira larga: 3 plantas", "cost": {&"tabua": 2, &"pedra": 2}},
 		{"id": "bed", "name": "Canteiro", "place": "bed", "desc": "Piso de terra na grade da construção: 9 plantas", "cost": {&"tabua": 3, &"pedra": 4}},
-		{"id": "bench", "name": "Bancada", "place": "bench", "desc": "Bancada de fabricação: [E] abre as receitas", "cost": {&"tabua": 6, &"sucata": 2}},
 		{"id": "campfire", "name": "Fogueira", "place": "campfire", "desc": "Fogueira com grelha: assa comida (enche mais a fome) e ilumina", "cost": {&"pedra": 5, &"tabua": 3}},
 		{"id": "furnace", "name": "Fornalha", "place": "furnace", "desc": "Funde minério em barras, faz vidro e carvão", "cost": {&"pedra": 10, &"tabua": 2}},
 		{"id": "drawboard", "name": "Lousa", "place": "drawboard", "desc": "Cavalete com tela: desenhe junto com os outros jogadores", "cost": {&"tabua": 4, &"pano": 1}},
-		{"id": "workbench", "name": "Mesa de trabalho", "place": "workbench", "desc": "Receitas de metal: armas, lanterna, ferramentas", "cost": {&"tabua": 6, &"barra_ferro": 2, &"sucata": 2}},
+		{"id": "workbench", "name": "Mesa de trabalho", "place": "workbench", "desc": "A bancada de fabricação: ferramentas, armas, lanterna...", "cost": {&"tabua": 6, &"sucata": 3}},
 	],
 	"Armadilhas": [
 		{"id": "spikes", "name": "Estacas", "place": "spikes", "desc": "Machucam a perna de quem passa (30 usos)", "cost": {&"tabua": 4}},

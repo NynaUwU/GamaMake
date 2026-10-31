@@ -175,52 +175,65 @@ static func _tuna(mb: MeshBuilder, cooked: bool) -> void:
 		mb.box(Vector3(side * 0.1, -0.02, -0.18), Vector3(0.1, 0.01, 0.05), Basis(Vector3.UP, side * -0.5)) # peitoral
 
 
-## Peixe-baixo: um contrabaixo nadando. O corpo é o corpo do instrumento, o
-## braço com as tarraxas é o rabo, os olhos ficam na "cintura" de cima.
+## Peixe-baixo: um peixe de verdade (cabeça, boca, guelras, barbatanas e rabo
+## bifurcado) com "acabamento" de contrabaixo: corpo de madeira sunburst,
+## escudo claro, dois captadores e 4 cordas correndo pelo flanco, e a mão com
+## as tarraxas de latão fazendo de barbatana dorsal.
 static func _bass(mb: MeshBuilder, cooked: bool) -> void:
-	var wood := Color(0.62, 0.32, 0.12) if not cooked else Color(0.38, 0.18, 0.07)
-	var burst := Color(0.25, 0.1, 0.05) if not cooked else Color(0.15, 0.06, 0.03)
-	var guard := Color(0.9, 0.88, 0.8)
-	# Corpo em duas "bolas" desencontradas (a de baixo maior), fino de lado.
+	var wood := Color(0.66, 0.36, 0.14) if not cooked else Color(0.4, 0.2, 0.08)
+	var burst := Color(0.24, 0.1, 0.05) if not cooked else Color(0.14, 0.06, 0.03)
+	var belly := Color(0.86, 0.72, 0.5) if not cooked else Color(0.6, 0.42, 0.25)
+	# Corpo de peixe em fatias (alto no meio, afinando no rabo), borda escura (sunburst).
+	var sections := [[-0.26, 0.14, 0.11], [-0.17, 0.2, 0.13], [-0.06, 0.23, 0.14], [0.06, 0.21, 0.13], [0.17, 0.15, 0.1], [0.26, 0.08, 0.07]]
+	for s in sections:
+		mb.color(burst)
+		mb.box(Vector3(0, 0, s[0]), Vector3(s[2] * 0.62, s[1], 0.12))
+		mb.color(wood)
+		mb.box(Vector3(0, s[1] * 0.06, s[0]), Vector3(s[2] * 0.66, s[1] * 0.72, 0.1))
+		mb.color(belly)
+		mb.box(Vector3(0, -s[1] * 0.36, s[0]), Vector3(s[2] * 0.55, s[1] * 0.22, 0.11))
+	# Cabeça com boca aberta (o "groove") e guelra.
+	mb.color(wood.darkened(0.15))
+	mb.box(Vector3(0, 0.0, -0.34), Vector3(0.06, 0.1, 0.06))
+	mb.color(Color(0.3, 0.08, 0.06))
+	mb.box(Vector3(0, -0.02, -0.375), Vector3(0.04, 0.03, 0.02))
 	mb.color(burst)
-	mb.box(Vector3(0, 0, -0.1), Vector3(0.05, 0.26, 0.2))
-	mb.box(Vector3(0, 0, 0.08), Vector3(0.05, 0.3, 0.22))
-	mb.color(wood)
-	mb.box(Vector3(0, 0.0, -0.1), Vector3(0.056, 0.2, 0.15))
-	mb.box(Vector3(0, 0.0, 0.08), Vector3(0.056, 0.24, 0.17))
-	mb.box(Vector3(0, 0.13, -0.17), Vector3(0.05, 0.06, 0.08)) # chifre de cima
-	mb.box(Vector3(0, -0.12, -0.13), Vector3(0.05, 0.05, 0.06)) # chifre de baixo
-	mb.color(guard)
-	mb.box(Vector3(0.03, -0.04, -0.04), Vector3(0.004, 0.12, 0.16)) # escudo
-	mb.color(Color(0.08, 0.08, 0.08))
-	for z in [-0.02, 0.1]:
-		mb.box(Vector3(0.032, 0.0, z), Vector3(0.006, 0.09, 0.025)) # captadores
-	mb.box(Vector3(0.032, 0.0, 0.17), Vector3(0.006, 0.07, 0.02)) # ponte
-	# Braço (vira o rabo) com trastes e a mão com 4 tarraxas.
+	for side in [-1.0, 1.0]:
+		mb.box(Vector3(side * 0.045, 0.0, -0.22), Vector3(0.006, 0.12, 0.012)) # guelra
+	# Olhos grandes.
+	for side in [-1.0, 1.0]:
+		mb.color(Color(0.95, 0.95, 0.9))
+		mb.box(Vector3(side * 0.043, 0.035, -0.28), Vector3(0.008, 0.035, 0.035))
+		mb.color(Color(0.05, 0.05, 0.05))
+		mb.box(Vector3(side * 0.047, 0.035, -0.283), Vector3(0.004, 0.018, 0.018))
+	# Acabamento de contrabaixo no flanco: escudo, captadores, ponte e 4 cordas.
+	for side in [-1.0, 1.0]:
+		mb.color(Color(0.9, 0.88, 0.8))
+		mb.box(Vector3(side * 0.046, -0.02, -0.02), Vector3(0.004, 0.09, 0.16))
+		mb.color(Color(0.07, 0.07, 0.07))
+		for z in [-0.05, 0.07]:
+			mb.box(Vector3(side * 0.05, 0.01, z), Vector3(0.005, 0.07, 0.022))
+		mb.box(Vector3(side * 0.048, 0.005, 0.17), Vector3(0.005, 0.06, 0.018))
+		mb.color(Color(0.85, 0.85, 0.8))
+		for k in 4:
+			mb.box(Vector3(side * 0.054, -0.012 + k * 0.01, 0.0), Vector3(0.002, 0.002, 0.42))
+	# Barbatana dorsal = mão do baixo com 4 tarraxas de latão.
 	mb.color(Color(0.3, 0.17, 0.08))
-	mb.box(Vector3(0, 0.0, -0.34), Vector3(0.04, 0.05, 0.36))
-	mb.color(Color(0.75, 0.72, 0.65))
-	for k in 6:
-		mb.box(Vector3(0.021, 0.0, -0.2 - k * 0.05), Vector3(0.003, 0.052, 0.004))
-	mb.color(wood.darkened(0.1))
-	mb.box(Vector3(0, 0.01, -0.56), Vector3(0.035, 0.07, 0.1), Basis(Vector3.RIGHT, 0.2)) # mão
+	mb.box(Vector3(0, 0.14, -0.02), Vector3(0.025, 0.06, 0.16), Basis(Vector3.RIGHT, 0.15))
 	mb.color(ItemModels.BRASS)
 	for k in 4:
-		mb.box(Vector3(0, 0.05 if k % 2 == 0 else -0.03, -0.53 - (k / 2) * 0.04), Vector3(0.06, 0.012, 0.012))
-	# 4 cordas do rabo até a ponte.
-	mb.color(Color(0.85, 0.85, 0.8))
-	for k in 4:
-		mb.box(Vector3(0.026, -0.015 + k * 0.01, -0.18), Vector3(0.002, 0.002, 0.7))
-	# Cara: olhos e boquinha na cintura (é um peixe, afinal) e barbatanas.
-	mb.color(Color(0.95, 0.95, 0.95))
+		mb.box(Vector3(0.02 * (1 if k % 2 == 0 else -1), 0.15, -0.08 + k * 0.04), Vector3(0.025, 0.012, 0.012))
+	# Barbatanas peitorais e de baixo.
+	mb.color(wood.lightened(0.12))
 	for side in [-1.0, 1.0]:
-		mb.box(Vector3(side * 0.03, 0.08, -0.12), Vector3(0.006, 0.03, 0.03))
-	mb.color(Color(0.05, 0.05, 0.05))
-	for side in [-1.0, 1.0]:
-		mb.box(Vector3(side * 0.034, 0.08, -0.125), Vector3(0.004, 0.014, 0.014))
-	mb.color(wood.lightened(0.15))
-	for side in [-1.0, 1.0]:
-		mb.box(Vector3(side * 0.04, -0.06, 0.0), Vector3(0.05, 0.01, 0.06), Basis(Vector3.UP, side * 0.6))
+		mb.box(Vector3(side * 0.05, -0.04, -0.14), Vector3(0.05, 0.008, 0.05), Basis(Vector3.UP, side * 0.6))
+	mb.box(Vector3(0, -0.13, 0.1), Vector3(0.01, 0.05, 0.08), Basis(Vector3.RIGHT, -0.4))
+	# Rabo bifurcado.
+	mb.color(burst)
+	mb.box(Vector3(0, 0.0, 0.31), Vector3(0.03, 0.05, 0.04))
+	mb.color(wood)
+	mb.box(Vector3(0, 0.06, 0.37), Vector3(0.012, 0.12, 0.05), Basis(Vector3.RIGHT, 0.55))
+	mb.box(Vector3(0, -0.06, 0.37), Vector3(0.012, 0.12, 0.05), Basis(Vector3.RIGHT, -0.55))
 
 
 static func _stick(mb: MeshBuilder, a: Vector3, b: Vector3, thickness: float) -> void:

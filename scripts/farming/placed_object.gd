@@ -12,7 +12,7 @@ extends StaticBody3D
 ## As plantas crescem pelo relógio do PlacedManager (igual para todos e salvo).
 
 const FARM_KINDS := ["pot_small", "pot_wide", "bed", "ground"]
-const STATIONS := {"bench": "bancada", "workbench": "mesa", "furnace": "fornalha"}
+const STATIONS := {"bench": "mesa", "workbench": "mesa", "furnace": "fornalha"} # "bench" = saves antigos
 const TRAPS := ["spikes", "beartrap", "barbed", "mine"]
 const SOIL := Color(0.34, 0.23, 0.15)
 const CLAY := Color(0.62, 0.32, 0.2)

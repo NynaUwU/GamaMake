@@ -121,7 +121,7 @@ const ITEMS := {
 	&"atum": {"name": "Atum", "kind": "food", "hunger": 30, "heal": 5, "stack": 2, "size": Vector3(0.26, 0.3, 0.9),
 		"desc": "O peixe grande dos lagos fundos. Briga muito na linha.", "controls": ["Clique: come cru (+30 fome)"]},
 	&"baixo": {"name": "Peixe-baixo", "kind": "food", "hunger": 20, "stack": 4, "size": Vector3(0.3, 0.08, 0.7),
-		"desc": "Tem formato de contrabaixo, quatro cordas no lombo e cara de quem faz o groove. Comum em qualquer lago.",
+		"desc": "Peixe com acabamento de contrabaixo: madeira sunburst, captadores, 4 cordas no flanco e tarraxas na barbatana. Comum em qualquer lago.",
 		"controls": ["Clique: come cru (+20 fome)"]},
 	&"camarao_assado": {"name": "Camarão assado", "kind": "food", "hunger": 14, "heal": 2, "stack": 20, "size": Vector3(0.05, 0.05, 0.12),
 		"desc": "Rosinha e crocante.", "controls": ["Clique: come (+14 fome)"]},

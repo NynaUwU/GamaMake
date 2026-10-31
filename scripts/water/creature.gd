@@ -51,7 +51,8 @@ func tool_hit(player: Node, weapon_type: int, _damage: float, point: Vector3) ->
 		caught(player)
 	else:
 		target = global_position + (global_position - player.global_position).normalized() * 6.0 # assustou
-		speed = 4.0
+		speed = 2.8
+		think = 2.0
 
 
 func caught(player: Node) -> void:

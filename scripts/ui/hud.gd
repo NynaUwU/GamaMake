@@ -15,7 +15,7 @@ extends CanvasLayer
 var _message_tween: Tween
 var _players_label: Label
 var _clock: Label
-var _wave: Label
+var _wave: ProgressBar
 var _arcs: StatusArcs
 
 
@@ -23,22 +23,12 @@ func _process(_delta: float) -> void:
 	if _clock and DayNight.i:
 		_clock.text = DayNight.i.clock_text()
 		_clock.modulate = Color(1.0, 0.95, 0.85) if not DayNight.i.is_night() else Color(0.7, 0.78, 1.0)
-		_wave.text = _wave_text()
-		_wave.modulate = Color(1.0, 0.55, 0.45) if DayNight.i.is_night() else Color(1, 1, 1, 0.75)
-
-
-## "Onda 2 · 5 vivos · 11 abatidos · amanhece em 3:10" / "Próxima noite em 6:20".
-func _wave_text() -> String:
-	var dn := DayNight.i
-	var hours := fposmod((DayNight.NIGHT_END if dn.is_night() else DayNight.NIGHT_START) - dn.hour, 24.0)
-	var seconds := int(hours / 24.0 * DayNight.DAY_LENGTH)
-	var clock := "%d:%02d" % [seconds / 60, seconds % 60]
-	if not dn.is_night():
-		return "Próxima noite em %s" % clock
-	var hm := HordeManager.i
-	var alive := hm.wave_alive if hm else 0
-	var killed := hm.wave_killed if hm else 0
-	return "Onda noturna %d  ·  %d vivos  ·  %d abatidos  ·  amanhece em %s" % [dn.day if dn.hour >= 12.0 else dn.day - 1, alive, killed, clock]
+		# Onda noturna: só uma barra que esvazia conforme os zumbis da noite morrem.
+		var hm := HordeManager.i
+		_wave.visible = DayNight.i.is_night() and hm != null
+		if _wave.visible:
+			_wave.max_value = hm.wave_quota
+			_wave.value = lerpf(_wave.value, maxf(hm.wave_quota - hm.wave_killed, 0), 0.15)
 
 
 func _ready() -> void:
@@ -100,14 +90,20 @@ func _ready() -> void:
 	_clock.offset_right = 100.0
 	_clock.offset_top = 22.0
 	_clock.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	# Contador da onda noturna logo abaixo do relógio.
-	_wave = Label.new()
+	# Barra da onda noturna logo abaixo do relógio (só de noite).
+	_wave = ProgressBar.new()
 	_wave.set_anchors_and_offsets_preset(Control.PRESET_CENTER_TOP)
-	_wave.offset_left = -260.0
-	_wave.offset_right = 260.0
-	_wave.offset_top = 38.0
-	_wave.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_wave.add_theme_font_size_override("font_size", 11)
+	_wave.offset_left = -90.0
+	_wave.offset_right = 90.0
+	_wave.offset_top = 42.0
+	_wave.offset_bottom = 48.0
+	_wave.show_percentage = false
+	var fill := StyleBoxFlat.new()
+	fill.bg_color = Color(0.75, 0.12, 0.1)
+	var bg := StyleBoxFlat.new()
+	bg.bg_color = Color(0, 0, 0, 0.55)
+	_wave.add_theme_stylebox_override("fill", fill)
+	_wave.add_theme_stylebox_override("background", bg)
 	$Root.add_child(_wave)
 	_clock.add_theme_font_size_override("font_size", 13)
 	$Root.add_child(_clock)

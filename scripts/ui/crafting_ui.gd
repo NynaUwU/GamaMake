@@ -2,8 +2,8 @@ class_name CraftingUI
 extends CanvasLayer
 ## Fabricação por estação ([E] na estação). Lista as receitas com foto, custo
 ## (tem/precisa) e o botão Fabricar. ESC, E ou Fechar saem.
-##   bancada   madeira e pedra: tábuas do tronco, machado, picareta, pá...
-##   mesa      mesa de trabalho: tudo da bancada + metal (barras, vidro)
+##   mesa      mesa de trabalho (a única bancada de fabricação): ferramentas,
+##             armas, tábuas do tronco, e as receitas de metal (barras, vidro)
 ##   fornalha  funde minério/sucata em barras, pedra em vidro, tronco em
 ##             carvão. Cada fundição gasta combustível (carvão, tronco ou 2 tábuas).
 
@@ -36,7 +36,7 @@ const RECIPES := [
 	{"id": &"vidro", "station": "fornalha", "fuel": true, "cost": {&"pedra": 3}},
 	{"id": &"carvao", "amount": 2, "station": "fornalha", "cost": {&"tronco": 1}},
 ]
-const TITLES := {"bancada": "Bancada", "mesa": "Mesa de trabalho", "fornalha": "Fornalha"}
+const TITLES := {"bancada": "Mesa de trabalho", "mesa": "Mesa de trabalho", "fornalha": "Fornalha"}
 ## Combustível da fornalha, na ordem de preferência: [item, quanto gasta].
 const FUELS := [[&"carvao", 1], [&"tronco", 1], [&"tabua", 2]]
 
@@ -51,7 +51,7 @@ static func open_for(p: Node, station_ := "bancada") -> void:
 	var ui := CraftingUI.new()
 	ui.player = p
 	ui.station = station_
-	p.get_tree().current_scene.add_child(ui)
+	p.get_parent().add_child(ui) # junto da cena principal (o pai do jogador)
 
 
 func _ready() -> void:
@@ -119,7 +119,7 @@ func _refresh() -> void:
 
 ## Receitas desta estação (a mesa de trabalho faz tudo da bancada também).
 func recipes() -> Array:
-	var allowed := ["bancada", "mesa"] if station == "mesa" else [station]
+	var allowed := ["bancada", "mesa"] if station in ["mesa", "bancada"] else [station]
 	return RECIPES.filter(func(r): return r.station in allowed)
 
 

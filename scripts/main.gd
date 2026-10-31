@@ -38,6 +38,9 @@ func _ready() -> void:
 	var hordes := HordeManager.new()
 	hordes.name = "Hordes"
 	add_child(hordes)
+	var containers := ContainerManager.new()
+	containers.name = "Containers"
+	add_child(containers)
 	var water := WaterManager.new()
 	water.name = "Water"
 	add_child(water)
@@ -53,7 +56,7 @@ func _ready() -> void:
 	SaveGame.apply(self)
 	if not loading and Net.i.is_host():
 		# Mundo novo: uma bancada de fabricação ao lado da mesa de armas.
-		placed.host_apply("place", ["bench", Transform3D(Basis(Vector3.UP, PI / 2), Vector3(-5.6, 0.0, 11.0))])
+		placed.host_apply("place", ["workbench", Transform3D(Basis(Vector3.UP, PI / 2), Vector3(-5.6, 0.0, 11.0))])
 	# O CSG monta a geometria só depois do primeiro frame: espera para gerar a navegação.
 	await get_tree().process_frame
 	await get_tree().physics_frame

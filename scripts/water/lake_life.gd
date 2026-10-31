@@ -99,17 +99,20 @@ func _process(delta: float) -> void:
 		if not is_instance_valid(c):
 			continue
 		c.think -= delta
-		var near := c.global_position.distance_to(ppos) < (5.0 if c.swimmer else 2.5)
+		# Só fogem com alguém MUITO perto, ou se a pessoa ataca por perto.
+		var distance := c.global_position.distance_to(ppos)
+		var attacking: bool = player != null and player.get("_swing_phase") != null and player._swing_phase != 0
+		var near := distance < (1.8 if c.swimmer else 1.2) or (attacking and distance < 4.5)
 		if near:
 			# Foge para o lado oposto de quem chegou.
 			var away := (c.global_position - ppos)
 			away.y = 0.0
 			c.target = c.global_position + away.normalized() * 5.0
-			c.speed = 3.5 if c.swimmer else 1.0
-			c.think = 1.0
+			c.speed = 2.6 if c.swimmer else 0.8
+			c.think = 1.5
 		elif c.think <= 0.0:
 			c.think = _rng.randf_range(2.0, 6.0)
-			c.speed = _rng.randf_range(0.6, 1.6) if c.swimmer else _rng.randf_range(0.1, 0.35)
+			c.speed = _rng.randf_range(0.25, 0.6) if c.swimmer else _rng.randf_range(0.06, 0.2)
 			var p := _random_point(1.5 if c.swimmer else 0.3)
 			if not c.swimmer:
 				var step := Vector3(_rng.randf_range(-2, 2), 0, _rng.randf_range(-2, 2))

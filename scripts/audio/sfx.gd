@@ -106,7 +106,7 @@ const _VOLUME := {"groan": -4.0, "growl": -2.0, "step_soft": -14.0, "step_hard":
 
 
 const NAMES := ["swing", "hit", "slice", "thud", "shot", "explosion", "step_soft", "step_hard", "groan", "growl",
-	"death", "engine", "creak", "knock", "ping", "pickup", "crunch", "slap", "whirr", "wind", "click"]
+	"death", "engine", "creak", "knock", "ping", "pickup", "crunch", "slap", "whirr", "wind", "click", "punch"]
 static var _mutex := Mutex.new()
 static var _warm_task := -1
 
@@ -190,6 +190,8 @@ static func _make(name: String) -> AudioStreamWAV:
 			return _wav(_whirr(rng), true)
 		"wind": # vento ambiente (loop)
 			return _wav(_wind(rng), true)
+		"punch": # soco: "fup" grave e curto (ar deslocado), sem chiado
+			return _wav(_mix([_sweep_noise(rng, 0.12, 180.0, 650.0, 0.02), _tone(0.08, 120.0, 70.0, 0.005, 0.05, 0.35)]))
 		"click":
 			return _wav(_tone(0.03, 700.0, 650.0, 0.001, 0.02, 0.4))
 	return _wav(_tone(0.1, 440.0, 440.0, 0.01, 0.08, 0.3))
@@ -298,19 +300,26 @@ static func _voice(rng: RandomNumberGenerator, duration: float, f0: float, rough
 	return out
 
 
-static func _engine(rng: RandomNumberGenerator) -> PackedFloat32Array:
-	var n := int(RATE * 0.4) # 0,4 s com nº inteiro de ciclos de 50 Hz: loop sem estalo
+## Motor em loop SEM estalo: tudo periódico em 0,4 s (50 Hz, 100 Hz, 12,5 Hz e
+## o "ronco" feito de senos com nº inteiro de ciclos) e o filtro já assentado
+## (gera 2 voltas e guarda só a segunda: o fim emenda certinho no começo).
+static func _engine(_rng: RandomNumberGenerator) -> PackedFloat32Array:
+	var n := int(RATE * 0.4)
 	var out := PackedFloat32Array()
 	out.resize(n)
 	var lp := 0.0
-	for i in n:
-		var t := float(i) / RATE
+	var lp2 := 0.0
+	for i in n * 2:
+		var t := float(i % n) / RATE
 		var saw := fmod(t * 50.0, 1.0) * 2.0 - 1.0
 		var saw2 := fmod(t * 100.0, 1.0) * 2.0 - 1.0
-		var chug := 0.7 + 0.3 * sin(t * TAU * 12.5) # explosões dos cilindros
-		var s := (saw * 0.6 + saw2 * 0.3 + rng.randf_range(-1.0, 1.0) * 0.15) * chug
-		lp += (s - lp) * 0.18
-		out[i] = lp * 0.9
+		var chug := 0.75 + 0.25 * sin(t * TAU * 12.5) # explosões dos cilindros
+		var rumble := sin(t * TAU * 35.0) * 0.2 + sin(t * TAU * 72.5 + 1.0) * 0.12 + sin(t * TAU * 157.5 + 2.0) * 0.06
+		var s := (saw * 0.5 + saw2 * 0.25 + rumble) * chug
+		lp += (s - lp) * 0.12
+		lp2 += (lp - lp2) * 0.2 # dois passa-baixas: sem chiado agudo
+		if i >= n:
+			out[i - n] = lp2
 	return out
 
 

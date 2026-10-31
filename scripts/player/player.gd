@@ -1573,7 +1573,7 @@ func _punch() -> void:
 	_punch_timer = punch_rate
 	_punch_anim[_punch_side] = 1.0
 	Net.i.send_player_action("punch", _punch_side)
-	Sfx.play_at("swing", camera.global_position, -6.0, 1.6)
+	Sfx.play_at("punch", camera.global_position - camera.global_basis.z * 0.5, -3.0, 1.0)
 	_punch_side = 1 - _punch_side
 	get_tree().create_timer(0.07).timeout.connect(_do_punch_hit)
 

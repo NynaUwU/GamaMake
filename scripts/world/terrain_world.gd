@@ -495,7 +495,9 @@ func _color_for(x: float, z: float, h: float, biome: Dictionary) -> Color:
 			lake = l
 	if not lake.is_empty() and h < lake.level + 0.6:
 		var under := clampf((lake.level + 0.6 - h) / 1.5, 0.0, 1.0)
-		color = color.lerp(Color(0.5, 0.45, 0.33), under * 0.8).lerp(Color(0.26, 0.24, 0.17), clampf((lake.level - h) / lake.depth, 0.0, 1.0) * 0.7)
+		# Margem de areia molhada; fundo verde de alga (mais forte no fundo).
+		var deep := clampf((lake.level - h) / lake.depth, 0.0, 1.0)
+		color = color.lerp(Color(0.46, 0.44, 0.3), under * 0.7).lerp(Color(0.24, 0.46, 0.16), clampf(under * 1.4, 0.0, 1.0) * (0.6 + deep * 0.4))
 	var jitter := _noise_detail.get_noise_2d(x * 3.0, z * 3.0) * 0.06
 	return Color(color.r + jitter, color.g + jitter, color.b + jitter)
 

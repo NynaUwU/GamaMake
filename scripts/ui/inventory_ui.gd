@@ -20,6 +20,7 @@ var _picked := -1
 var _tooltip: PanelContainer
 var _tooltip_title: Label
 var _tooltip_body: Label
+var _spinner: ItemSpinner
 var _hovered := -1
 var _showing_controls := false
 
@@ -187,9 +188,17 @@ func _build_tooltip() -> void:
 	column.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	column.add_theme_constant_override("separation", 4)
 	_tooltip.add_child(column)
+	# Título: modelo 3D do item girando à esquerda do nome.
+	var title_row := HBoxContainer.new()
+	title_row.add_theme_constant_override("separation", 8)
+	title_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	column.add_child(title_row)
+	_spinner = ItemSpinner.new(56)
+	title_row.add_child(_spinner)
 	_tooltip_title = Label.new()
 	_tooltip_title.add_theme_color_override("font_color", Color(0.95, 0.85, 0.4))
-	column.add_child(_tooltip_title)
+	_tooltip_title.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	title_row.add_child(_tooltip_title)
 	_tooltip_body = Label.new()
 	_tooltip_body.add_theme_font_size_override("font_size", 12)
 	_tooltip_body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -206,6 +215,7 @@ func _hover(index: int) -> void:
 	var id: StringName = inventory.slots[index].id
 	var item := ItemDB.def(id)
 	_tooltip_title.text = item.name
+	_spinner.show_item(id)
 	var lines: Array[String] = []
 	if item.has("damage_type"):
 		lines.append("Tipo de dano: %s" % item.damage_type)

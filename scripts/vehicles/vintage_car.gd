@@ -347,6 +347,7 @@ func _process(delta: float) -> void:
 ## Motor: liga com alguém dirigindo; o tom sobe com a velocidade (e acelerando).
 var _engine: AudioStreamPlayer3D
 var _rev := 0.0
+var _engine_level := 0.0 # 0..1 (fade)
 
 
 func _engine_sound(kmh: float, delta: float) -> void:
@@ -355,15 +356,17 @@ func _engine_sound(kmh: float, delta: float) -> void:
 		if not running:
 			return
 		_engine = Sfx.loop_player("engine", self, -4.0)
-	if running and not _engine.playing:
+	# Liga/desliga com fade (cortar o som seco dava um "pop").
+	_engine_level = move_toward(_engine_level, 1.0 if running else 0.0, delta * 2.5)
+	if _engine_level > 0.0 and not _engine.playing:
 		_engine.play()
-	elif not running and _engine.playing:
+	elif _engine_level <= 0.0 and _engine.playing:
 		_engine.stop()
-	if running:
-		var effort := absf(engine_force) / max_engine_force
-		_rev = lerpf(_rev, clampf(kmh / speedo_max, 0.0, 1.0) + effort * 0.25, minf(delta * 4.0, 1.0))
-		_engine.pitch_scale = 0.7 + _rev * 1.6
-		_engine.volume_db = -6.0 + _rev * 6.0
+	if _engine.playing:
+		var effort := absf(engine_force) / max_engine_force if running else 0.0
+		_rev = lerpf(_rev, clampf(kmh / speedo_max, 0.0, 1.0) + effort * 0.25, minf(delta * 3.0, 1.0))
+		_engine.pitch_scale = 0.75 + _rev * 1.1
+		_engine.volume_db = Sfx.BASE_DB - 8.0 + _rev * 5.0 + linear_to_db(maxf(_engine_level, 0.001))
 
 
 # --- Atropelar ---------------------------------------------------------------

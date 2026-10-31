@@ -19,6 +19,7 @@ func _process(delta: float) -> bool:
 		main = current_scene
 		var player: Player = main.player
 		Net.i.send_chat("oi do cliente")
+		main.get_node("Containers").request("open", ["loot_inicio", "inicio"])
 		main.get_node("Placed").request("place", ["drawboard", Transform3D(Basis(), Vector3(-9, 0, 18))])
 		Net.i.send_ping(player.global_position + Vector3(0, 0, -5), "zumbi")
 		print("CLIENT bancada recebida=", main.get_node("Placed").objects.values().map(func(o): return o.kind), " hora=", DayNight.i.clock_text())
@@ -43,6 +44,9 @@ func _process(delta: float) -> bool:
 	elif step == 3 and t > 1.0:
 		step = 4
 		t = 0.0
+		var cm: ContainerManager = main.get_node("Containers")
+		print("CLIENT caixote visto=", cm.slots_of("loot_inicio").filter(func(x): return not x.is_empty()).size(), " tábuas antes=", main.player.inventory.count(&"tabua"))
+		cm.request("take", ["loot_inicio", 0])
 		var boards: Array = main.get_node("Placed").objects.values().filter(func(o): return o.board != null)
 		if boards.size() > 0:
 			main.get_node("Placed").request("draw", [boards[0].net_id, PackedVector2Array([Vector2(5, 20), Vector2(40, 20)]), Color(0.2, 0.45, 0.8), 6])

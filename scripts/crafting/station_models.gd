@@ -54,25 +54,46 @@ static func _campfire(mb: MeshBuilder, obj: PlacedObject) -> void:
 	_fire(obj, Vector3(0, 0.12, 0), 0.22, 1.0)
 
 
+## Fornalha de barro: cúpula redonda sobre base de pedras, boca em arco acesa,
+## chaminé de barro torta em cima e marcas de fuligem.
 static func _furnace(mb: MeshBuilder, obj: PlacedObject) -> void:
-	mb.color(STONE)
-	mb.box(Vector3(0, 0.55, 0), Vector3(1.2, 1.1, 1.0))
-	mb.color(STONE.darkened(0.15))
-	mb.box(Vector3(0, 1.15, 0), Vector3(1.0, 0.2, 0.85))
-	mb.box(Vector3(0.25, 1.75, 0.1), Vector3(0.36, 1.1, 0.36)) # chaminé
-	mb.color(IRON)
-	mb.box(Vector3(0, 0.62, 0.505), Vector3(0.58, 0.5, 0.03)) # moldura da boca
-	mb.box(Vector3(0, 0.25, 0.53), Vector3(0.8, 0.06, 0.08)) # aparador
-	# Boca acesa (brilha sozinha).
+	var clay := Color(0.66, 0.4, 0.26)
+	var soot := Color(0.2, 0.15, 0.12)
+	for k in 10: # base de pedras em volta
+		var a := TAU * k / 10.0
+		mb.color(STONE.darkened(0.08 * (k % 3)))
+		mb.box(Vector3(cos(a) * 0.62, 0.1, sin(a) * 0.62), Vector3(0.3, 0.2, 0.22), Basis(Vector3.UP, -a))
+	mb.color(clay)
+	mb.lathe(PackedVector2Array([Vector2(0.62, 0.12), Vector2(0.64, 0.4), Vector2(0.58, 0.72), Vector2(0.45, 0.98),
+		Vector2(0.26, 1.14), Vector2(0.12, 1.2)]), 14)
+	mb.color(clay.darkened(0.12))
+	mb.lathe(PackedVector2Array([Vector2(0.65, 0.38), Vector2(0.65, 0.44)]), 14) # cinta de barro
+	# Chaminé de barro.
+	mb.color(clay.lightened(0.05))
+	mb.lathe(PackedVector2Array([Vector2(0.14, 1.12), Vector2(0.12, 1.5), Vector2(0.15, 1.56)]), 10, Basis(Vector3.BACK, 0.06), Vector3(0.05, 0, 0))
+	mb.color(soot)
+	mb.lathe(PackedVector2Array([Vector2(0.155, 1.53), Vector2(0.155, 1.57)]), 10, Basis(Vector3.BACK, 0.06), Vector3(0.05, 0, 0))
+	# Boca em arco (moldura de pedra) e fuligem em cima dela.
+	mb.color(STONE.darkened(0.2))
+	for k in 7:
+		var a := PI * k / 6.0
+		mb.box(Vector3(cos(a) * 0.27, 0.3 + sin(a) * 0.27, 0.6), Vector3(0.1, 0.09, 0.1), Basis(Vector3.BACK, a))
+	mb.color(soot)
+	mb.box(Vector3(0, 0.66, 0.56), Vector3(0.3, 0.16, 0.06), Basis(Vector3.RIGHT, -0.3))
 	var glow := MeshInstance3D.new()
-	var plane := BoxMesh.new()
-	plane.size = Vector3(0.46, 0.38, 0.02)
-	glow.mesh = plane
+	var disc := CylinderMesh.new()
+	disc.top_radius = 0.24
+	disc.bottom_radius = 0.24
+	disc.height = 0.02
+	disc.radial_segments = 12
+	glow.mesh = disc
 	glow.material_override = _glow_mat()
-	glow.position = Vector3(0, 0.6, 0.515)
+	glow.rotation.x = PI / 2
+	glow.position = Vector3(0, 0.3, 0.58)
+	glow.scale = Vector3(1.0, 1.0, 1.0)
 	obj.add_child(glow)
-	obj._shape(Vector3(0, 0.6, 0), Vector3(1.2, 1.2, 1.0))
-	_fire(obj, Vector3(0, 0.55, 0.62), 0.0, 0.8)
+	obj._shape(Vector3(0, 0.6, 0), Vector3(1.3, 1.2, 1.3))
+	_fire(obj, Vector3(0, 0.3, 0.66), 0.0, 0.8)
 
 
 static func _workbench(mb: MeshBuilder, obj: PlacedObject) -> void:

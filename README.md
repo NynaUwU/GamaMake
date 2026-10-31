@@ -24,6 +24,20 @@ reação física a golpes e ragdoll (estilo Dying Light), visual de PC dos anos 
 - Os outros jogadores aparecem com o nome em cima, o item da mão, a lanterna acesa e uma bolinha
   azul no minimapa/mapa. Em cima, no meio da tela, aparece quem está online.
 
+## Ajustes (feedback)
+
+- **HUD** de arcos menor (letrinhas S/V/F na ponta).
+- **Onda noturna:** só uma barra vermelha abaixo do relógio que esvazia conforme os zumbis da noite morrem. Cada noite tem uma **cota** maior (12 na 1ª, +6 por noite); matou a cota, a onda acaba e não nascem mais noturnos até amanhecer.
+- **Mesa de trabalho** é a única bancada de fabricação (6 tábuas + 3 sucatas, sem ferro); a "bancada" antiga saiu do martelo (as já construídas abrem a mesa). Uma já vem na área inicial.
+- **Fornalha** de barro: cúpula redonda sobre pedras, boca em arco e chaminé de barro.
+- **Pedras soltas** no chão em volta de rochas e veios ([E] pega): dá para fazer a primeira picareta sem ferramenta.
+- **Baús, armários e caixotes são inventários:** [E] abre; em cima os slots do baú, embaixo a mochila. Clique num item do baú pega, clique num item seu guarda; "Pegar tudo". O saque é sorteado na primeira abertura, sincronizado no multiplayer e salvo.
+- **Modelo 3D girando** ao lado do nome do item (janela de detalhes da mochila e no baú). `scripts/ui/item_spinner.gd`.
+- **Som:** soco com som próprio (grave e curto); motor sem "pop" (loop periódico sem emenda e liga/desliga com fade, mais baixo).
+- **Água** mais transparente, fundo do lago verde de alga; debaixo d'água bem menos escuro.
+- **Peixes** nadam devagar e só fogem se você chega muito perto ou ataca por perto.
+- **Peixe-baixo** agora é um peixe (cabeça, boca, guelras, barbatanas, rabo bifurcado) com acabamento de contrabaixo (madeira sunburst, captadores, 4 cordas no flanco, tarraxas na barbatana).
+
 ## Lagos, pesca e vida aquática (`scripts/water/`, `shaders/`)
 
 - **Lagos e lagoas:** 9 lagos (raio 22-48 m, até 9 m de fundo) e 16 lagoas (9-18 m, 2,5-4 m), sorteados pela semente e longe de cidades, pista, avenidas e da área inicial. O terreno afunda numa bacia com fundo de areia/lodo. Aparecem em azul no mapa. Lagos na neve **congelam** (dá para andar no gelo).
@@ -32,9 +46,9 @@ reação física a golpes e ragdoll (estilo Dying Light), visual de PC dos anos 
 - **Debaixo d'água:** tela ondulando, verde-azulada e mais escura no fundo, neblina curta, som abafado, bolhas saindo e sujeirinha flutuando.
 - **Plantas:** algas compridas que balançam no fundo, juncos e taboas na margem, vitórias-régias boiando (algumas com flor) e pedras com musgo.
 - **Bichos (em blocos):** camarão, lagosta, caranguejo, caranguejo-aranha (pernas enormes), atum (só nos lagos grandes) e o **peixe-baixo**: corpo de contrabaixo sunburst, braço com tarraxas fazendo de rabo, 4 cordas e captadores. Nadam/andam pelo lago, caranguejos andam de lado e alguns ficam na margem; fogem de quem chega perto. Pegos voltam depois de 1 min.
-- **Lança** (bancada: 2 tábuas + 1 sucata + 1 fita): estocada longa que pega qualquer bicho (funciona debaixo d'água) e machuca zumbi.
+- **Lança** (mesa de trabalho: 2 tábuas + 1 sucata + 1 fita): estocada longa que pega qualquer bicho (funciona debaixo d'água) e machuca zumbi.
 - **Com a mão:** [E] pega camarão, lagosta e caranguejos (os do fundo e da margem).
-- **Vara de pesca** (bancada: 2 tábuas + 1 pano + 1 sucata): clique lança a boia onde você mira na água (até 22 m). Espere a boia **afundar** e clique em até 1,2 s. No minijogo, segure o clique para empurrar a faixa verde e manter o peixe dentro dela até a barra amarela encher. O atum briga muito; o camarão é fácil. Botão direito recolhe a linha. À noite eles mordem mais rápido.
+- **Vara de pesca** (mesa de trabalho: 2 tábuas + 1 pano + 1 sucata): clique lança a boia onde você mira na água (até 22 m). Espere a boia **afundar** e clique em até 1,2 s. No minijogo, segure o clique para empurrar a faixa verde e manter o peixe dentro dela até a barra amarela encher. O atum briga muito; o camarão é fácil. Botão direito recolhe a linha. À noite eles mordem mais rápido.
 - **Na grelha:** todos viram versões assadas que enchem muito mais a fome (atum assado +80, lagosta +55, peixe-baixo +48...).
 - Teste: `tests/test_water.gd`.
 

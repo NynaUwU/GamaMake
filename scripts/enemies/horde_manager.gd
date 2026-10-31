@@ -27,6 +27,9 @@ var map_list: Array = [] ## [[pos, size]] para o mapa (host e clientes)
 ## Onda noturna (HUD): vivos agora e abatidos nesta noite (host conta, clientes recebem).
 var wave_alive := 0
 var wave_killed := 0
+## Quantos zumbis a onda desta noite tem para matar (cresce a cada noite).
+var wave_quota := 12
+var wave_done := false
 var _wave_seen := {} # zumbi noturno -> true (para contar quando morre)
 var _next_id := 1
 var _tick := 0.0
@@ -86,7 +89,7 @@ func _process(delta: float) -> void:
 		map_list = _make_map_list()
 		_count_wave()
 		if Net.i.online():
-			Net.i.broadcast_system_state(name, {"map": map_list, "wave": [wave_alive, wave_killed]})
+			Net.i.broadcast_system_state(name, {"map": map_list, "wave": [wave_alive, wave_killed, wave_quota]})
 
 
 # --- Hordas no mapa --------------------------------------------------------------------
@@ -234,6 +237,11 @@ func night_cap() -> int:
 	return mini(10 + day * 3, 30)
 
 
+## Cota da noite N: 12 na primeira, +6 a cada noite.
+static func quota_for(night_number: int) -> int:
+	return 12 + 6 * maxi(night_number - 1, 0)
+
+
 func _count_wave() -> void:
 	var alive := 0
 	for z in _wave_seen.keys():
@@ -242,6 +250,11 @@ func _count_wave() -> void:
 		elif z.state == Zombie.State.DEAD:
 			_wave_seen.erase(z)
 			wave_killed += 1
+			if wave_killed >= wave_quota and not wave_done:
+				wave_done = true
+				var world := _world()
+				if world and world.get("player"):
+					world.player.notify.emit("Onda da noite vencida! Nenhum zumbi novo até amanhecer.")
 		else:
 			alive += 1
 	wave_alive = alive
@@ -250,6 +263,8 @@ func _count_wave() -> void:
 ## Nova noite = nova onda: zera os abatidos.
 func _on_nightfall() -> void:
 	wave_killed = 0
+	wave_done = false
+	wave_quota = quota_for(DayNight.i.day if DayNight.i else 1)
 
 
 func _night_spawns() -> void:
@@ -267,7 +282,11 @@ func _night_spawns() -> void:
 		var near := night_zombies.filter(func(z): return z.global_position.distance_to(player.global_position) < 80.0).size()
 		if near >= night_cap():
 			continue
-		for k in mini(3, night_cap() - near):
+		# A onda acaba quando a cota da noite foi morta (vivos + abatidos não passam dela).
+		var left := wave_quota - wave_killed - _wave_seen.size()
+		if left <= 0:
+			continue
+		for k in mini(mini(3, night_cap() - near), left):
 			var a := randf() * TAU
 			var r := randf_range(45.0, 65.0)
 			var p: Vector3 = player.global_position + Vector3(cos(a) * r, 0, sin(a) * r)
@@ -328,6 +347,8 @@ func load_data(data: Dictionary) -> void:
 	if data.has("wave"):
 		wave_alive = data.wave[0]
 		wave_killed = data.wave[1]
+		if data.wave.size() > 2:
+			wave_quota = data.wave[2]
 
 
 func net_sync_to(peer: int) -> void:

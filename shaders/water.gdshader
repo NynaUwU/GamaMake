@@ -3,8 +3,8 @@ shader_type spatial;
 // reflexo mais forte olhando de lado (fresnel) e brilho do sol picotado.
 render_mode blend_mix, cull_disabled, depth_draw_always, specular_schlick_ggx;
 
-uniform vec4 shallow : source_color = vec4(0.42, 0.62, 0.66, 0.5);
-uniform vec4 deep : source_color = vec4(0.16, 0.36, 0.48, 0.82);
+uniform vec4 shallow : source_color = vec4(0.45, 0.66, 0.66, 0.28);
+uniform vec4 deep : source_color = vec4(0.24, 0.48, 0.55, 0.58);
 uniform float wave_height = 0.04;
 uniform float frozen = 0.0;
 
@@ -30,8 +30,8 @@ void fragment() {
 	ALBEDO = water.rgb + vec3(0.08) * r * 0.25;
 	// Um pouco de luz própria + céu refletido de lado: a água não fica preta
 	// em cima do lodo do fundo.
-	EMISSION = water.rgb * 0.35 + vec3(0.55, 0.6, 0.62) * fresnel * 0.25;
-	ALPHA = clamp(water.a + fresnel * 0.35, 0.0, 0.95);
+	EMISSION = water.rgb * 0.2 + vec3(0.55, 0.6, 0.62) * fresnel * 0.2;
+	ALPHA = clamp(water.a + fresnel * 0.3, 0.0, 0.85);
 	ROUGHNESS = 0.12;
 	METALLIC = 0.0;
 	SPECULAR = 0.6;

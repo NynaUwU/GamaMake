@@ -10,27 +10,31 @@ func _init() -> void:
 	var player: Player = main.player
 	for e in main.get_node("Enemies").get_children():
 		e.queue_free()
-	# 1) Baús: 3 tipos, 4 vezes cada; nenhum item pode ficar dentro.
-	var stuck := 0
-	var total := 0
-	for style in ["bau", "armario", "caixote"]:
-		for k in 4:
-			var box := LootBox.new()
-			box.setup("teste_%s_%d" % [style, k], style, "caixote")
-			main.add_child(box)
-			box.global_transform = Transform3D(Basis(Vector3.UP, k * 1.3), Vector3(30 + k * 4, 0, 40 + ["bau", "armario", "caixote"].find(style) * 4))
-			var before := get_nodes_in_group("interactable").filter(func(i): return i is PickupItem).size()
-			box.interact(player)
-			for f in 90:
-				await physics_frame
-			for item in get_nodes_in_group("interactable"):
-				if item is PickupItem and item.global_position.distance_to(box.global_position) < 4.0:
-					total += 1
-					var local := box.to_local(item.global_position)
-					if absf(local.x) < 0.42 and absf(local.z) < 0.27 and local.y < (1.8 if style == "armario" else 0.62):
-						stuck += 1
-					item.queue_free()
-	print("baús: itens=", total, " presos dentro=", stuck)
+	# 1) Baús são inventários: abrir sorteia, pegar e guardar.
+	var cm: ContainerManager = main.get_node("Containers")
+	var box := LootBox.new()
+	box.setup("teste_bau", "bau", "casa")
+	main.add_child(box)
+	box.global_position = Vector3(30, 0, 40)
+	box.interact(player)
+	await _frames(2)
+	var cui: ContainerUI = main.get_children().filter(func(c): return c is ContainerUI)[0]
+	var slots: Array = cm.slots_of("teste_bau")
+	var filled := slots.filter(func(x): return not x.is_empty())
+	print("baú aberto: itens=", filled.size(), " tampa aberta=", box._opened, " UI=", cui != null)
+	var first: Dictionary = filled[0].duplicate()
+	var before := player.inventory.count(first.id)
+	cui._take(slots.find(filled[0]))
+	print("pegou ", first.id, ": ", before, " -> ", player.inventory.count(first.id))
+	player.inventory.slots[4] = {"id": &"pedra", "amount": 5}
+	cui._put(4)
+	print("guardou pedra: baú tem=", cm.slots_of("teste_bau").filter(func(x): return not x.is_empty() and x.id == &"pedra").map(func(x): return x.amount), " mochila slot4=", player.inventory.slots[4])
+	cui._take_all()
+	print("pegar tudo: baú vazio=", cm.slots_of("teste_bau").all(func(x): return x.is_empty()))
+	cui.close()
+	var saved := cm.save_data()
+	cm.load_data(saved)
+	print("save do baú ok=", cm.contents.has("teste_bau"))
 	# 2) Fogueira: assa batata.
 	var placed: PlacedManager = main.get_node("Placed")
 	var fire := placed.host_apply("place", ["campfire", Transform3D(Basis(), Vector3(-10, 0, 20))])

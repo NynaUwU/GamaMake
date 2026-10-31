@@ -10,6 +10,7 @@ var key := ""
 var style := "bau"
 var table := "casa"
 var _lid: Node3D
+var _opened := false
 
 static var _material: StandardMaterial3D
 
@@ -21,28 +22,31 @@ func setup(key_: String, style_: String, table_: String) -> void:
 	collision_layer = 1 | (1 << 5)
 	collision_mask = 0
 	_build()
+	add_to_group("interactable") # é um inventário: dá para abrir sempre
 	if Net.i.taken.has(key):
 		_set_open(false)
-	else:
-		add_to_group("interactable")
 	Net.i.looted.connect(_on_looted)
 
 
 func get_interact_text() -> String:
-	return "[E] Revistar %s" % {"bau": "baú", "armario": "armário", "caixote": "caixote"}[style]
+	return "[E] Abrir %s" % _title().to_lower()
 
 
-func interact(_player: Node) -> void:
-	Net.i.loot_request(key, global_transform, table)
+func _title() -> String:
+	return {"bau": "Baú", "armario": "Armário", "caixote": "Caixote"}[style]
+
+
+func interact(player: Node) -> void:
+	ContainerUI.open_for(player, key, table, _title())
 
 
 func _on_looted(k: String) -> void:
-	if k == key and is_in_group("interactable"):
+	if k == key and not _opened:
 		_set_open(true)
 
 
 func _set_open(animate: bool) -> void:
-	remove_from_group("interactable")
+	_opened = true
 	if animate:
 		Sfx.play_at("creak", global_position + Vector3.UP * 0.6, 0.0, 1.3)
 	if _lid == null:
