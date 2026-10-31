@@ -25,9 +25,25 @@ const TABLES := {
 const START := [[&"tabua", 20], [&"pedra", 10], [&"semente_cenoura", 4], [&"semente_batata", 3], [&"lata", 2], [&"pa", 1]]
 
 
+## Recursos do mapa: sempre dão isso (quantidade sorteada no intervalo).
+const FIXED := {
+	"arvore": [[&"tronco", 2, 3]],
+	"arvore_fruta": [[&"tronco", 1, 2], [&"fruta", 1, 3]],
+	"rocha": [[&"pedra", 3, 5]],
+	"ferro": [[&"minerio_ferro", 2, 4], [&"pedra", 1, 2]],
+	"cobre": [[&"minerio_cobre", 2, 4], [&"pedra", 1, 2]],
+	"carvao": [[&"carvao", 3, 5]],
+}
+
+
 static func roll(table: String) -> Array:
 	if table == "inicio":
 		return START.duplicate(true)
+	if FIXED.has(table):
+		var fixed := []
+		for row in FIXED[table]:
+			fixed.append([row[0], randi_range(row[1], row[2])])
+		return fixed
 	var rows: Array = TABLES.get(table, TABLES.casa)
 	var result := []
 	var want := randi_range(2, 4)

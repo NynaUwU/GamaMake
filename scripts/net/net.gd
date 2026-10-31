@@ -661,6 +661,36 @@ func _taken(key: String) -> void:
 		item.queue_free()
 
 
+## Transforma um item do chão em outro (tronco cortado com o machado -> tábuas).
+func convert_pickup(item: PickupItem, new_id: StringName, amount: int) -> void:
+	if item.is_queued_for_deletion():
+		return
+	var where := item.global_transform
+	if not online() or item.net_key == "":
+		if item.net_key != "":
+			taken[item.net_key] = true
+		item.queue_free()
+		drop_item(new_id, amount, where, Vector3(0, 2.0, 0))
+	elif multiplayer.is_server():
+		_do_convert(item.net_key, new_id, amount, where)
+	else:
+		_req_convert.rpc_id(1, item.net_key, new_id, amount, where)
+
+
+@rpc("any_peer", "reliable")
+func _req_convert(key: String, new_id: StringName, amount: int, where: Transform3D) -> void:
+	if new_id == &"tabua" and amount <= 8:
+		_do_convert(key, new_id, amount, where)
+
+
+func _do_convert(key: String, new_id: StringName, amount: int, where: Transform3D) -> void:
+	if taken.has(key):
+		return
+	_taken.rpc(key)
+	_taken(key)
+	drop_item(new_id, amount, where, Vector3(0, 2.0, 0))
+
+
 ## Solta um item no mundo (player soltando, zumbi largando a arma).
 func drop_item(item_id: StringName, amount: int, where: Transform3D, impulse: Vector3) -> void:
 	if not online():
@@ -863,9 +893,12 @@ func _do_loot(key: String, where: Transform3D, table: String) -> void:
 		_taken.rpc(key)
 	_taken(key)
 	for drop in Loot.roll(table):
-		var spot := where.translated(Vector3(randf_range(-0.3, 0.3), 0.9, randf_range(-0.3, 0.3)))
-		var push := where.basis.z * randf_range(1.0, 2.2) + Vector3(randf_range(-0.8, 0.8), randf_range(1.5, 2.5), 0)
-		drop_item(drop[0], drop[1], spot, push)
+		# Troncos saem um por um (cada um é carregado/cortado separado).
+		var pieces: int = drop[1] if drop[0] == &"tronco" else 1
+		for k in pieces:
+			var spot := where.translated(Vector3(randf_range(-0.3, 0.3) + k * 0.5, 0.9, randf_range(-0.3, 0.3)))
+			var push := where.basis.z * randf_range(1.0, 2.2) + Vector3(randf_range(-0.8, 0.8), randf_range(1.5, 2.5), 0)
+			drop_item(drop[0], drop[1] / pieces, spot, push)
 
 
 # --- Chat e ping -----------------------------------------------------------------

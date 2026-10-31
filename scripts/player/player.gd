@@ -16,18 +16,18 @@ signal item_picked_up(item_id: StringName, amount: int) ## gancho para o invent�
 signal died
 signal weapon_changed(weapon_text: String) ## nome da arma (+ munição)
 
-enum WeaponType { FISTS, SWORD, BAT, STAFF, PISTOL, CHARGER, SPOON, GRAPPLE, HAMMER, CHISEL, SLIPPER, BOOMERANG, SHOVEL }
+enum WeaponType { FISTS, SWORD, BAT, STAFF, PISTOL, CHARGER, SPOON, GRAPPLE, HAMMER, CHISEL, SLIPPER, BOOMERANG, SHOVEL, AXE, PICKAXE }
 const WEAPON_NAMES := {
 	WeaponType.FISTS: "Mãos", WeaponType.SWORD: "Espada", WeaponType.BAT: "Taco",
 	WeaponType.STAFF: "Cajado", WeaponType.PISTOL: "Pistola", WeaponType.CHARGER: "Carregador", WeaponType.SPOON: "Colherona", WeaponType.GRAPPLE: "Gancho",
 	WeaponType.HAMMER: "Martelo", WeaponType.CHISEL: "Talhadeira",
-	WeaponType.SLIPPER: "Chinelo", WeaponType.BOOMERANG: "Bumerangue", WeaponType.SHOVEL: "Pá",
+	WeaponType.SLIPPER: "Chinelo", WeaponType.BOOMERANG: "Bumerangue", WeaponType.SHOVEL: "Pá", WeaponType.AXE: "Machado", WeaponType.PICKAXE: "Picareta",
 }
 ## ItemDB "weapon" -> tipo de arma do player.
 const WEAPON_FROM_ITEM := {"sword": WeaponType.SWORD, "bat": WeaponType.BAT,
 	"staff": WeaponType.STAFF, "pistol": WeaponType.PISTOL, "charger": WeaponType.CHARGER, "spoon": WeaponType.SPOON, "grapple": WeaponType.GRAPPLE,
 	"hammer": WeaponType.HAMMER, "chisel": WeaponType.CHISEL,
-	"slipper": WeaponType.SLIPPER, "boomerang": WeaponType.BOOMERANG, "shovel": WeaponType.SHOVEL}
+	"slipper": WeaponType.SLIPPER, "boomerang": WeaponType.BOOMERANG, "shovel": WeaponType.SHOVEL, "axe": WeaponType.AXE, "pickaxe": WeaponType.PICKAXE}
 const SLIPPER_REST := Vector3(0.2, -0.24, -0.4)
 const BOOMERANG_REST := Vector3(0.2, -0.22, -0.42)
 const HAMMER_REST := Vector3(0.24, -0.26, -0.44)
@@ -166,8 +166,8 @@ var flashlight_charge := 0.5 ## bateria da lanterna (0..1)
 
 @export_group("Status")
 @export var max_health := 100.0
-@export var max_stamina := 100.0
-@export var stamina_regen := 25.0
+@export var max_stamina := 400.0 ## 4x o original: corre bem mais antes de cansar
+@export var stamina_regen := 100.0 ## enche no mesmo tempo de antes
 @export var sprint_drain := 14.0
 @export var interact_range := 2.5
 
@@ -246,6 +246,8 @@ var _punch_anim := [0.0, 0.0] # direita, esquerda (1 = braço esticado)
 
 var spoon: Node3D ## colherona na mão
 var shovel: Node3D ## pá na mão
+var axe: Node3D ## machado na mão
+var pickaxe: Node3D ## picareta na mão
 
 ## Fome: cai devagar (mais rápido correndo). Cheia (> 80) recupera vida aos
 ## pouquinhos; zerada, a vida vai caindo. Comida enche ("hunger" no ItemDB).
@@ -323,6 +325,12 @@ func _ready() -> void:
 	shovel = Node3D.new()
 	shovel.name = "Shovel"
 	camera.add_child(shovel)
+	axe = Node3D.new()
+	axe.name = "Axe"
+	camera.add_child(axe)
+	pickaxe = Node3D.new()
+	pickaxe.name = "Pickaxe"
+	camera.add_child(pickaxe)
 	_melee = {
 		WeaponType.SWORD: {"node": weapon, "damage": melee_damage, "force": melee_force, "speed": 1.0,
 			"cut": true, "length": 0.98, "trail": Color(1.0, 1.0, 0.95), "hitstop": 0.06},
@@ -332,6 +340,10 @@ func _ready() -> void:
 			"cut": false, "length": 1.5, "trail": Color(0.9, 0.9, 0.95), "hitstop": 0.12},
 		WeaponType.SHOVEL: {"node": shovel, "damage": 26.0, "force": 50.0, "speed": 0.85,
 			"cut": false, "length": 1.1, "trail": Color(0.75, 0.7, 0.6), "hitstop": 0.08},
+		WeaponType.AXE: {"node": axe, "damage": 32.0, "force": 34.0, "speed": 0.9,
+			"cut": true, "length": 0.8, "trail": Color(0.9, 0.9, 0.85), "hitstop": 0.08},
+		WeaponType.PICKAXE: {"node": pickaxe, "damage": 28.0, "force": 30.0, "speed": 0.85,
+			"cut": false, "length": 0.8, "trail": Color(0.8, 0.8, 0.8), "hitstop": 0.08},
 	}
 	if not is_puppet():
 		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
@@ -635,6 +647,8 @@ func _install_weapon_models() -> void:
 	pistol.add_child(ItemModels.build(&"pistola"))
 	spoon.add_child(ItemModels.build(&"colher"))
 	shovel.add_child(ItemModels.build(&"pa"))
+	axe.add_child(ItemModels.build(&"machado"))
+	pickaxe.add_child(ItemModels.build(&"picareta"))
 	grapple.add_child(ItemModels.build(&"gancho"))
 	hammer.add_child(ItemModels.build(&"martelo"))
 	slipper.add_child(ItemModels.build(&"chinelo"))
@@ -713,6 +727,10 @@ func _update_fp_arm() -> void:
 			grip = spoon.transform.translated_local(Vector3(0, 0, 0.0))
 		WeaponType.SHOVEL:
 			grip = shovel.transform.translated_local(Vector3(0, 0, -0.05))
+		WeaponType.AXE:
+			grip = axe.transform.translated_local(Vector3(0, 0, -0.03))
+		WeaponType.PICKAXE:
+			grip = pickaxe.transform.translated_local(Vector3(0, 0, -0.03))
 		WeaponType.GRAPPLE:
 			grip = grapple.transform.translated_local(Vector3(0, -0.05, 0.03))
 		WeaponType.STAFF:
@@ -760,7 +778,7 @@ func _update_parkour_hands() -> void:
 	if both:
 		if not _hands_busy and w > 0.3:
 			_hands_busy = true
-			for node in [weapon, bat, staff, pistol, charger, spoon, grapple, hammer, chisel, slipper, boomerang, shovel]:
+			for node in [weapon, bat, staff, pistol, charger, spoon, grapple, hammer, chisel, slipper, boomerang, shovel, axe, pickaxe]:
 				node.visible = false
 		var rest_r := Vector3(0.2, -0.26, -0.38)
 		var planted_r: Vector3 = visible_point.call(to_camera * parkour.hand_targets[1])
@@ -813,6 +831,8 @@ func _show_weapon(type: WeaponType) -> void:
 	spoon.visible = type == WeaponType.SPOON
 	if shovel:
 		shovel.visible = type == WeaponType.SHOVEL
+		axe.visible = type == WeaponType.AXE
+		pickaxe.visible = type == WeaponType.PICKAXE
 	if grapple:
 		grapple.visible = type == WeaponType.GRAPPLE
 	if type != WeaponType.GRAPPLE:
@@ -1039,6 +1059,16 @@ func _apply_swing_hit(hit: Dictionary, direction: Vector3, swing: Dictionary) ->
 			key.take_hit(info)
 			_hitstop(stats.hitstop)
 			_shake = 0.12
+	elif collider.has_method("tool_hit"):
+		# Árvore / rocha / veio de minério: o machado e a picareta rendem muito mais.
+		_swing_hits.append(key)
+		collider.tool_hit(self, _weapon_type, stats.damage * swing.damage, hit.position)
+		_shake = 0.08
+	elif collider is PickupItem and collider.item_id == &"tronco" and _weapon_type == WeaponType.AXE:
+		_swing_hits.append(key)
+		Net.i.convert_pickup(collider, &"tabua", 2 * collider.amount) # tronco cortado ali mesmo: 2 tábuas cada
+		Sfx.play_at("knock", hit.position, 4.0, 0.7)
+		_shake = 0.08
 	elif collider is RigidBody3D:
 		_swing_hits.append(key)
 		collider.apply_impulse(direction * stats.force * 0.4, hit.position - collider.global_position)
@@ -1322,7 +1352,7 @@ func enter_vehicle(car: VintageCar) -> void:
 	_vehicle_pitch = 0.0
 	# Primeira pessoa: guarda a arma; as mãos vão para o volante.
 	_release_grapple()
-	for node in [weapon, bat, staff, pistol, charger, spoon, grapple, hammer, chisel, slipper, boomerang, shovel, foot]:
+	for node in [weapon, bat, staff, pistol, charger, spoon, grapple, hammer, chisel, slipper, boomerang, shovel, axe, pickaxe, foot]:
 		node.visible = false
 	_fp_arm_left.visible = true
 	_fp_hand_left.visible = true

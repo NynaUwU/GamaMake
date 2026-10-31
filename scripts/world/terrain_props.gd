@@ -48,7 +48,7 @@ func plan(world: TerrainWorld, coord: Vector2i, origin: Vector2) -> Dictionary:
 		if not placed.has(kind):
 			placed[kind] = []
 		placed[kind].append(Transform3D(basis, local))
-		collisions.append([kind, local, scale])
+		collisions.append([kind, local, scale, placed[kind].size() - 1])
 		if kind == "fruit_tree":
 			for k in rng.randi_range(2, 3):
 				var a := rng.randf() * TAU
@@ -59,8 +59,7 @@ func plan(world: TerrainWorld, coord: Vector2i, origin: Vector2) -> Dictionary:
 
 ## Parte leve (thread principal): cria MultiMeshes, colisões e frutas.
 func apply(data: Dictionary, chunk: Node3D, body: StaticBody3D) -> void:
-	for c in data.collisions:
-		_add_collision(body, c[0], c[1], c[2])
+	var multimeshes := {}
 	for i in data.fruits.size():
 		var pos: Vector3 = data.fruits[i]
 		var fruit: PickupItem = PICKUP_SCENE.instantiate()
@@ -83,11 +82,24 @@ func apply(data: Dictionary, chunk: Node3D, body: StaticBody3D) -> void:
 				multimesh.set_instance_color(i, placed[kind][i][1])
 			else:
 				multimesh.set_instance_transform(i, placed[kind][i])
+		multimeshes[kind] = multimesh
 		var instance := MultiMeshInstance3D.new()
 		instance.multimesh = multimesh
 		if foliage:
 			instance.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF # grama não suja de sombra
 		chunk.add_child(instance)
+	# Árvores, rochas e veios viram ResourceNode (derrubar/minerar); o resto só colide.
+	for ci in data.collisions.size():
+		var c: Array = data.collisions[ci]
+		if not (c[0] in ResourceNode.TREES or c[0] in ResourceNode.STONES):
+			_add_collision(body, c[0], c[1], c[2])
+			continue
+		var node := ResourceNode.new()
+		node.setup("%s_r%d" % [chunk.name, ci], c[0], multimeshes.get(c[0]), c[3], c[2])
+		node.position = c[1]
+		chunk.add_child(node)
+		if Net.i.taken.has(node.key):
+			node.gone(false) # já derrubada/quebrada neste mundo
 
 
 func _pick_kind(biome: Dictionary, rng: RandomNumberGenerator) -> String:
@@ -99,7 +111,9 @@ func _pick_kind(biome: Dictionary, rng: RandomNumberGenerator) -> String:
 		["fruit_tree", biome.plains * 0.035], ["giant_tree", biome.plains * 0.012 + low_mountain * 0.008],
 		["bush", biome.plains * 0.08],
 		["cactus", biome.desert * 0.08], ["dead_bush", biome.desert * 0.06],
-		["pine", biome.winter * 0.6 + biome.mountain * 0.08], ["rock", biome.mountain * 0.16 + biome.winter * 0.03],
+		["pine", biome.winter * 0.6 + biome.mountain * 0.08], ["rock", biome.mountain * 0.16 + biome.winter * 0.03 + biome.plains * 0.012 + biome.desert * 0.02],
+		["ore_iron", biome.mountain * 0.06 + biome.winter * 0.01], ["ore_copper", biome.mountain * 0.04 + biome.desert * 0.012],
+		["ore_coal", biome.mountain * 0.05 + biome.plains * 0.005],
 	]
 	for pair in weights:
 		if roll < pair[1]:
@@ -214,6 +228,15 @@ static func _mesh(kind: String) -> Mesh:
 		"rock":
 			_box(st, Vector3(0, 0.4, 0), Vector3(1.6, 1.0, 1.6), Color(0.45, 0.43, 0.41))
 			_box(st, Vector3(0.3, 0.95, -0.2), Vector3(0.9, 0.5, 0.8), Color(0.5, 0.48, 0.46))
+		"ore_iron", "ore_copper", "ore_coal":
+			# Rocha com pedaços do minério à mostra (cor diz o que é).
+			var ore: Color = {"ore_iron": Color(0.66, 0.36, 0.2), "ore_copper": Color(0.25, 0.62, 0.52), "ore_coal": Color(0.07, 0.07, 0.07)}[kind]
+			_box(st, Vector3(0, 0.4, 0), Vector3(1.5, 1.0, 1.5), Color(0.4, 0.38, 0.37))
+			_box(st, Vector3(-0.25, 0.9, 0.2), Vector3(0.8, 0.45, 0.7), Color(0.44, 0.42, 0.4))
+			for k in 7:
+				var a := TAU * k / 7.0
+				_box(st, Vector3(cos(a) * 0.72, 0.25 + (k % 3) * 0.25, sin(a) * 0.72), Vector3(0.26, 0.22, 0.26), ore, Basis(Vector3.UP, a))
+			_box(st, Vector3(0.1, 1.15, -0.1), Vector3(0.3, 0.2, 0.3), ore)
 	st.generate_normals()
 	var mesh := st.commit()
 	var material := StandardMaterial3D.new()

@@ -72,6 +72,42 @@ static func build(id: StringName) -> Node3D:
 			_scrap(parts)
 		&"pa":
 			_shovel(parts)
+		&"machado":
+			_axe(parts)
+		&"picareta":
+			_pickaxe(parts)
+		&"tronco":
+			_mb(parts, Color(0.36, 0.24, 0.14)).lathe(PackedVector2Array([Vector2(0.002, -0.55), Vector2(0.14, -0.55), Vector2(0.15, 0.55), Vector2(0.002, 0.55)]), 7, AXIS_Z)
+			_mb(parts, Color(0.62, 0.48, 0.3)).lathe(PackedVector2Array([Vector2(0.002, 0.553), Vector2(0.13, 0.553)]), 7, AXIS_Z) # anéis do corte
+			_mb(parts, Color(0.62, 0.48, 0.3)).lathe(PackedVector2Array([Vector2(0.12, -0.553), Vector2(0.002, -0.553)]), 7, AXIS_Z)
+		&"minerio_ferro":
+			_rock(_mb(parts, Color(0.48, 0.32, 0.26)))
+			_mb(parts, Color(0.62, 0.36, 0.2)).box(Vector3(0.03, 0.04, 0.02), Vector3(0.05, 0.03, 0.04))
+		&"minerio_cobre":
+			_rock(_mb(parts, Color(0.42, 0.4, 0.37)))
+			_mb(parts, Color(0.25, 0.6, 0.5)).box(Vector3(0.03, 0.04, 0.02), Vector3(0.05, 0.03, 0.04))
+			_mb(parts, COPPER).box(Vector3(-0.03, 0.03, -0.02), Vector3(0.04, 0.03, 0.03))
+		&"carvao":
+			_rock(_mb(parts, Color(0.09, 0.08, 0.08)))
+		&"barra_ferro":
+			_mb(parts, IRON.lightened(0.15)).lathe(PackedVector2Array([Vector2(0.002, -0.14), Vector2(0.045, -0.14), Vector2(0.04, 0.14), Vector2(0.002, 0.14)]), 4, AXIS_Z)
+		&"barra_cobre":
+			_mb(parts, COPPER.lightened(0.1)).lathe(PackedVector2Array([Vector2(0.002, -0.14), Vector2(0.045, -0.14), Vector2(0.04, 0.14), Vector2(0.002, 0.14)]), 4, AXIS_Z)
+		&"vidro":
+			_mb(parts, Color(0.62, 0.78, 0.8)).box(Vector3.ZERO, Vector3(0.24, 0.015, 0.24))
+		&"batata_assada":
+			_ball(_mb(parts, Color(0.5, 0.32, 0.15)), Vector3.ZERO, 0.055, 6)
+			_mb(parts, Color(0.95, 0.85, 0.5)).box(Vector3(0, 0.045, 0), Vector3(0.04, 0.02, 0.06))
+		&"cenoura_assada":
+			_mb(parts, Color(0.62, 0.28, 0.08)).lathe(PackedVector2Array([Vector2(0.002, -0.1), Vector2(0.02, -0.04), Vector2(0.025, 0.06), Vector2(0.002, 0.075)]), 6, AXIS_Z)
+		&"abobora_assada":
+			_ball(_mb(parts, Color(0.66, 0.3, 0.08)), Vector3.ZERO, 0.12, 8)
+			_mb(parts, Color(0.95, 0.62, 0.2)).box(Vector3(0, 0.09, 0), Vector3(0.12, 0.03, 0.12))
+		&"lata_quente":
+			_mb(parts, Color(0.35, 0.33, 0.3)).lathe(PackedVector2Array([Vector2(0.002, -0.065), Vector2(0.048, -0.065), Vector2(0.05, 0.06), Vector2(0.002, 0.065)]), 10)
+			_mb(parts, Color(0.55, 0.2, 0.12)).lathe(PackedVector2Array([Vector2(0.051, -0.035), Vector2(0.051, 0.035)]), 10)
+		&"torrada":
+			_mb(parts, Color(0.45, 0.27, 0.1)).box(Vector3.ZERO, Vector3(0.18, 0.04, 0.11))
 		&"lata":
 			_mb(parts, Color(0.52, 0.5, 0.46)).lathe(PackedVector2Array([Vector2(0.002, -0.065), Vector2(0.048, -0.065), Vector2(0.05, -0.06), Vector2(0.05, 0.06), Vector2(0.048, 0.065), Vector2(0.002, 0.065)]), 10)
 			_mb(parts, Color(0.55, 0.2, 0.12)).lathe(PackedVector2Array([Vector2(0.051, -0.035), Vector2(0.051, 0.035)]), 10)
@@ -401,6 +437,25 @@ static func _shovel(p: Dictionary) -> void:
 	_mb(p, BRASS).lathe(PackedVector2Array([Vector2(0.024, 0.78), Vector2(0.026, 0.86)]), 8, AXIS_Z)
 	var blade := PackedVector2Array([Vector2(-0.09, 0.0), Vector2(0.09, 0.0), Vector2(0.085, -0.16), Vector2(0.0, -0.24), Vector2(-0.085, -0.16)])
 	_mb(p, IRON).extrude(blade, 0.012, Basis(Vector3.RIGHT, PI / 2), Vector3(0, 0, -0.86))
+
+
+## Machado: cabo de madeira levemente curvo, cabeça de ferro de um gume e cinta de latão.
+static func _axe(p: Dictionary) -> void:
+	_mb(p, WOOD).lathe(PackedVector2Array([Vector2(0.019, -0.06), Vector2(0.021, 0.72)]), 8, AXIS_Z)
+	_mb(p, LEATHER).lathe(PackedVector2Array([Vector2(0.024, -0.05), Vector2(0.024, 0.1)]), 8, AXIS_Z)
+	_mb(p, BRASS).lathe(PackedVector2Array([Vector2(0.025, 0.62), Vector2(0.025, 0.66)]), 8, AXIS_Z)
+	_mb(p, IRON).box(Vector3(0, 0.0, -0.71), Vector3(0.05, 0.07, 0.08)) # olho
+	var blade := PackedVector2Array([Vector2(0.0, 0.035), Vector2(0.14, 0.09), Vector2(0.16, 0.0), Vector2(0.14, -0.09), Vector2(0.0, -0.035)])
+	_mb(p, STEEL).extrude(blade, 0.018, Basis(Vector3(1, 0, 0), Vector3(0, 0, 1), Vector3(0, 1, 0)), Vector3(0.02, 0, -0.71)) # gume para o lado, fino em Y
+
+
+## Picareta: cabo longo e cabeça curva de ferro com duas pontas.
+static func _pickaxe(p: Dictionary) -> void:
+	_mb(p, WOOD).lathe(PackedVector2Array([Vector2(0.019, -0.06), Vector2(0.021, 0.74)]), 8, AXIS_Z)
+	_mb(p, LEATHER).lathe(PackedVector2Array([Vector2(0.024, -0.05), Vector2(0.024, 0.1)]), 8, AXIS_Z)
+	_mb(p, BRASS).box(Vector3(0, 0, -0.74), Vector3(0.06, 0.06, 0.07))
+	for side in [-1.0, 1.0]:
+		_mb(p, IRON).tube(PackedVector3Array([Vector3(0, 0, -0.74), Vector3(side * 0.12, -0.02, -0.75), Vector3(side * 0.2, -0.07, -0.74)]), 0.022, 4)
 
 
 static func _seed_pouch(p: Dictionary, color: Color) -> void:
