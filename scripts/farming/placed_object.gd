@@ -82,6 +82,8 @@ var _tree_visual: Node3D
 
 
 func tree_growth(clock: float) -> float:
+	if extra.get("deco", false):
+		return 0.0 # no vaso/floreira não cresce
 	return clampf((clock - extra.get("t", clock)) / TREE_TIME, 0.0, 1.0)
 
 
@@ -94,7 +96,7 @@ func _refresh_tree(clock: float) -> void:
 		_tree_visual.queue_free()
 	if stage == 0:
 		_tree_visual = ItemModels.build(&"muda")
-		_tree_visual.scale = Vector3.ONE * 1.6
+		_tree_visual.scale = Vector3.ONE * (1.1 if extra.get("deco", false) else 1.6)
 	else:
 		_tree_visual = MeshInstance3D.new()
 		(_tree_visual as MeshInstance3D).mesh = TerrainProps._mesh("tree")
@@ -120,7 +122,7 @@ func tool_hit(_player: Node, weapon_type: int, damage: float, point: Vector3) ->
 	var manager := get_parent() as PlacedManager
 	ImpactFX.burst(manager.get_parent(), point, Vector3.UP, Color(0.5, 0.35, 0.2), 8, 2.0, 0.05)
 	Sfx.play_at("knock", point, 2.0, 0.6)
-	if tree_growth(manager.clock) < 1.0:
+	if tree_growth(manager.clock) < 1.0 and not extra.get("deco", false):
 		return # muda: ainda não dá madeira
 	manager.request("chop", [net_id, damage * (1.0 if weapon_type == Player.WeaponType.AXE else 0.2)])
 
@@ -203,6 +205,8 @@ func get_interact_text() -> String:
 			return "[E] Desenhar na lousa"
 		"tree":
 			var growth := tree_growth(clock)
+			if extra.get("deco", false):
+				return "Muda"
 			return "Árvore" if growth >= 1.0 else "Muda de árvore %d%%" % int(growth * 100.0)
 		"chest":
 			return "[E] Abrir baú"

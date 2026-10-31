@@ -30,12 +30,18 @@ func _init() -> void:
 			if i.item_id == &"muda": saplings += i.amount
 			if i.item_id == &"tronco": logs += 1
 	print("derrubada: existe=", placed.objects.has(t1[0]), " mudas=", saplings, " troncos=", logs)
-	placed.clock += 0.0
 	var tree2: PlacedObject = placed.objects[t2[0]]
 	tree2.refresh(placed.clock)
-	for k in 3:
+	print("floreira depois de 500 s: ", tree2.get_interact_text(), " estágio=", tree2._tree_stage)
+	for k in 1:
 		tree2.tool_hit(player, Player.WeaponType.AXE, 34.0, tree2.global_position)
-	print("árvore da floreira derrubada: floreira livre=", not planter.extra.has("tree"))
+	print("muda na floreira é decoração=", tree2.extra.get("deco", false), " texto=", tree2.get_interact_text(), " arrancada: floreira livre=", not planter.extra.has("tree"))
+	var bed := placed.host_apply("place", ["bed", Transform3D(Basis(), Vector3(30, 0, 30))])
+	var t3 := placed.host_apply("plant_tree", [Transform3D(Basis(), Vector3(31.4, 0.22, 31.4)), bed[0]])
+	var tree3: PlacedObject = placed.objects[t3[0]]
+	placed.clock += 500.0
+	tree3.refresh(placed.clock)
+	print("canteiro cresce: ", tree3.get_interact_text())
 	var data := placed.save_data()
 	placed.load_data(data)
 	print("save ok: objetos=", placed.objects.size())

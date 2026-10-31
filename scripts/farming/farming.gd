@@ -67,10 +67,8 @@ static func use(player: Player, crop: String) -> bool:
 	# Pá no chão de terra (terreno, não rua/construção): cava uma cova.
 	if crop == "" and _is_terrain(hit.collider) and hit.normal.y > 0.65:
 		if _desert(player, hit.position):
-			# Deserto: o solo não presta para plantar; a pá junta areia (e às vezes vidro).
+			# Deserto: o solo não presta para plantar; a pá junta areia (vidro sai na fornalha).
 			player.pick_up(&"areia", ItemDB.display_name(&"areia"), randi_range(1, 2))
-			if randf() < 0.25:
-				player.pick_up(&"vidro", ItemDB.display_name(&"vidro"), 1)
 			Sfx.play_at("step_soft", hit.position, 4.0, 1.1)
 			return true
 		if placed.occupied(hit.position, 0.85):
@@ -96,11 +94,13 @@ static func _desert(player: Node, at: Vector3) -> bool:
 static func _plant_tree(player: Player, placed: PlacedManager, hit: Dictionary, obj: PlacedObject) -> bool:
 	var xform := Transform3D()
 	var planter := -1
-	if obj and obj.kind in ["pot_wide", "bed"]:
+	# Canteiro: a muda cresce. Vaso/floreira: fica pequena, de decoração.
+	if obj and obj.kind in ["pot_small", "pot_wide", "bed"]:
 		if obj.extra.has("tree") or obj.crops.any(func(c): return not c.is_empty()):
 			Sfx.play("click", -6.0, 0.6)
 			return false
-		var center := Vector3(0, 0.34, 0) if obj.kind == "pot_wide" else Vector3(BuildPiece.SIZE * 0.5, 0.22, BuildPiece.SIZE * 0.5)
+		var center: Vector3 = {"pot_small": Vector3(0, 0.3, 0), "pot_wide": Vector3(0, 0.34, 0)}.get(obj.kind,
+			Vector3(BuildPiece.SIZE * 0.5, 0.22, BuildPiece.SIZE * 0.5))
 		xform = Transform3D(Basis(Vector3.UP, randf() * TAU), obj.to_global(center))
 		planter = obj.net_id
 	elif _is_terrain(hit.collider) and hit.normal.y > 0.65 and not _desert(player, hit.position) \

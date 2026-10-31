@@ -233,7 +233,9 @@ func _show_dur(button: Button, item: Dictionary) -> void:
 		var width := button.custom_minimum_size.x - 8.0
 		bar.position = Vector2(4, button.custom_minimum_size.y - 6)
 		bar.size = Vector2(maxf(width * dur, 2.0), 3)
-		bar.color = Color(0.85, 0.2, 0.15).lerp(Color(0.35, 0.85, 0.3), dur)
+		# Verde > amarelo > vermelho conforme gasta.
+		bar.color = Color(0.9, 0.2, 0.15).lerp(Color(0.95, 0.8, 0.2), dur * 2.0) if dur < 0.5 \
+			else Color(0.95, 0.8, 0.2).lerp(Color(0.35, 0.85, 0.3), (dur - 0.5) * 2.0)
 
 
 func _build_tooltip() -> void:
@@ -294,8 +296,6 @@ func _show_tooltip(id: StringName, amount: int, dur := 1.0) -> void:
 		lines.append("Quantidade: %d" % amount)
 	if item.has("armor"):
 		lines.append("Proteção: %d%%" % int(item.armor * 100.0))
-	if ItemDB.max_durability(id) > 0:
-		lines.append("Durabilidade: %d%%" % int(ceil(dur * 100.0)))
 	lines.append("")
 	lines.append(ItemDB.description(id))
 	var controls: Array = item.get("controls", [])

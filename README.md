@@ -25,13 +25,13 @@ reação física a golpes e ragdoll (estilo Dying Light), visual de PC dos anos 
   azul no minimapa/mapa. Em cima, no meio da tela, aparece quem está online.
 
 ## Durabilidade, mudas, degraus e vidro (rodada de feedback)
-- **Durabilidade** em roupas/armaduras, ferramentas e armas corpo a corpo: barra embaixo do slot e "Durabilidade: %" no tooltip. Cada golpe que acerta gasta 1 uso (uma vez por golpe, mesmo acertando vários); cada dano recebido gasta a roupa vestida. Ao zerar, quebra com um som de estalo. Ferramentas simples (de pedra) duram ~35% das de metal. `ItemDB.max_durability`, `Inventory.wear`.
+- **Durabilidade** em roupas/armaduras, ferramentas e armas corpo a corpo: só uma barra embaixo do ícone (verde → amarelo → vermelho), sem texto. Cada golpe que acerta gasta 1 uso (uma vez por golpe, mesmo acertando vários); cada dano recebido gasta a roupa vestida. Ao zerar, quebra com um som de estalo. Ferramentas simples (de pedra) duram ~35% das de metal. `ItemDB.max_durability`, `Inventory.wear`.
 - **Golpe acerta 2 a 5 zumbis** (sorteado a cada golpe): hordas voltaram a ser perigosas.
 - **Zumbis soltam recursos** ao morrer: 30% sucata, 30% pano e 12% uma roupa já gasta (capuz, calça, botas ou colete).
-- **Mudas de árvore:** árvores do mapa às vezes soltam uma muda. Plante no solo ou numa **floreira larga/canteiro** (ocupa o plantador inteiro). Cresce em ~8 min (muda → arvoreta → árvore); só dá para derrubar depois de crescida (machado corta bem, o resto mal arranha). Árvore plantada pelo jogador sempre solta **1 muda (10% de chance de 2)**, troncos e gravetos.
+- **Mudas de árvore:** árvores do mapa às vezes soltam uma muda. Plante no solo ou num **canteiro** (ocupa o canteiro inteiro). No **vaso ou floreira** ela não cresce: fica de decoração (um golpe arranca e devolve a muda). Cresce em ~8 min (muda → arvoreta → árvore); só dá para derrubar depois de crescida (machado corta bem, o resto mal arranha). Árvore plantada pelo jogador sempre solta **1 muda (10% de chance de 2)**, troncos e gravetos.
 - **Subir degraus** de até 0,42 m (altura da canela, um passo da grade) andando, sem pular: jogador e zumbis (os animais vão usar o mesmo `scripts/physics/step_climb.gd`). A câmera sobe suave, sem tranco. Resolve o degrau do piso na entrada das casas construídas.
 - **Janela** agora custa 2 gravetos + 1 vidro (era tábua + sucata).
-- **Deserto:** a pá não abre cova (o solo é ruim: só dá para plantar em plantadores construídos), mas cava **areia** (1–2) e às vezes **vidro** (25%). Na fornalha: 2 areia → 1 vidro.
+- **Deserto:** a pá não abre cova (o solo é ruim: só dá para plantar em plantadores construídos), mas cava **areia** (1–2). O vidro sai só da fornalha: 2 areia → 1 vidro.
 
 ## Inventário, crafting, carros e casas (rodada de feedback)
 

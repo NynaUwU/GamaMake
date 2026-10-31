@@ -126,7 +126,14 @@ func host_apply(action: String, args: Array) -> Array:
 			return [id, xform, clock, args[1]]
 		"chop":
 			var obj: PlacedObject = objects.get(args[0])
-			if obj == null or obj.kind != "tree" or obj.tree_growth(clock) < 1.0:
+			if obj == null or obj.kind != "tree":
+				return []
+			if obj.extra.get("deco", false):
+				# Muda de decoração (vaso/floreira): um golpe arranca e devolve a muda.
+				Net.i.drop_item(&"muda", 1, Transform3D(Basis(), obj.global_position + Vector3.UP * 0.5), Vector3.UP * 2.0)
+				_fell(obj)
+				return [args[0]]
+			if obj.tree_growth(clock) < 1.0:
 				return []
 			obj.extra.hp = obj.extra.get("hp", 90.0) - float(args[1])
 			if obj.extra.hp > 0.0:
@@ -190,6 +197,8 @@ func _plant_tree(id: int, xform: Transform3D, planted: float, planter_id: int) -
 	var obj: PlacedObject = objects[id]
 	obj.extra.merge({"t": planted, "hp": 90.0, "planter": planter_id}, true)
 	var planter: PlacedObject = objects.get(planter_id)
+	if planter and planter.kind != "bed":
+		obj.extra.deco = true # vaso/floreira não tem terra para virar árvore
 	if planter:
 		planter.extra.tree = id # floreira/canteiro fica todo ocupado
 	obj.refresh(clock)
