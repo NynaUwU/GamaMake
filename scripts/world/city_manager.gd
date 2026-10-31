@@ -19,6 +19,7 @@ var _timer := 0.0
 var _flickering: Array = [] # luzes de poste com mau contato
 var _flicker_time := 0.0
 const MAX_LAMP_LIGHTS := 45 ## por cidade (o resto dos postes fica apagado)
+var _lamps_on := true
 
 
 func _ready() -> void:
@@ -109,12 +110,22 @@ func _add_lamps(city_node: Node3D, city: Dictionary) -> void:
 			if lit:
 				lights += 1
 				var light: OmniLight3D = lamp.get_node("Light")
+				light.add_to_group("street_light")
+				light.set_meta("energy", light.light_energy)
 				if rng.randf() < 0.25:
 					_flickering.append(light) # mau contato: pisca
 
 
 func _flicker(delta: float) -> void:
 	_flicker_time += delta
+	# Postes só acesos de noite (acendem no fim da tarde).
+	var lit := DayNight.i == null or DayNight.i.night > 0.25
+	if lit != _lamps_on or int(_flicker_time * 2.0) != int((_flicker_time - delta) * 2.0):
+		_lamps_on = lit
+		for light: OmniLight3D in get_tree().get_nodes_in_group("street_light"):
+			light.visible = lit
+	if not lit:
+		return
 	_flickering = _flickering.filter(func(l): return is_instance_valid(l))
 	for light: OmniLight3D in _flickering:
 		var seed := float(light.get_instance_id() % 997)

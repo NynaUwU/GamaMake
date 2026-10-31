@@ -826,6 +826,10 @@ func send_system_state(peer: int, system: String, data: Variant) -> void:
 	_system_state.rpc_id(peer, system, data)
 
 
+func broadcast_system_state(system: String, data: Variant) -> void:
+	_system_state.rpc(system, data)
+
+
 @rpc("authority", "reliable")
 func _system_state(system: String, data: Variant) -> void:
 	if world and world.get_node_or_null(system):
@@ -862,6 +866,40 @@ func _do_loot(key: String, where: Transform3D, table: String) -> void:
 		var spot := where.translated(Vector3(randf_range(-0.3, 0.3), 0.9, randf_range(-0.3, 0.3)))
 		var push := where.basis.z * randf_range(1.0, 2.2) + Vector3(randf_range(-0.8, 0.8), randf_range(1.5, 2.5), 0)
 		drop_item(drop[0], drop[1], spot, push)
+
+
+# --- Chat e ping -----------------------------------------------------------------
+
+signal chat_received(from: String, text: String)
+
+
+func send_chat(text: String) -> void:
+	text = text.left(160)
+	if online():
+		_chat.rpc(player_name, text)
+	_chat(player_name, text)
+
+
+@rpc("any_peer", "reliable")
+func _chat(from: String, text: String) -> void:
+	var sender := multiplayer.get_remote_sender_id()
+	if sender != 0 and peers.has(sender):
+		from = peers[sender] # o nome vem da lista do host (ninguém finge ser outro)
+	chat_received.emit(from, text.left(160))
+
+
+func send_ping(pos: Vector3, kind: String) -> void:
+	if online():
+		_ping.rpc(pos, kind)
+	_ping(pos, kind)
+
+
+@rpc("any_peer", "unreliable_ordered")
+func _ping(pos: Vector3, kind: String) -> void:
+	var sender := multiplayer.get_remote_sender_id()
+	var from: String = peers.get(sender, player_name) if sender != 0 else player_name
+	if PingMarkers.i:
+		PingMarkers.i.add(pos, from, kind)
 
 
 # --- Efeitos -------------------------------------------------------------------

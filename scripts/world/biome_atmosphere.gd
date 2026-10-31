@@ -86,13 +86,14 @@ func _sample() -> void:
 func _apply(t: float) -> void:
 	_environment.fog_depth_end = lerpf(_environment.fog_depth_end, _target.end, t)
 	_environment.fog_depth_begin = lerpf(_environment.fog_depth_begin, _target.begin, t)
-	_environment.fog_light_color = _environment.fog_light_color.lerp(_target.color, t)
+	var tint: Color = DayNight.i.fog_tint if DayNight.i else Color.WHITE
+	_environment.fog_light_color = _environment.fog_light_color.lerp(_target.color * tint, t)
 	_snow_amount = lerpf(_snow_amount, _target.snow, t)
 	_snow.emitting = _snow_amount > 0.25
 	_snow.speed_scale = 0.6 + _snow_amount * 0.6
 	if _sun:
 		# Nevasca escurece o sol.
-		_sun.light_energy = lerpf(1.2, 0.55, _snow_amount)
+		_sun.light_energy = lerpf(1.2, 0.55, _snow_amount) * (DayNight.i.sun_factor if DayNight.i else 1.0)
 
 
 func _make_snow() -> CPUParticles3D:

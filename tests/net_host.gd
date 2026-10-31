@@ -9,6 +9,7 @@ func _process(delta: float) -> bool:
 	if not started:
 		started = true
 		Net.i.host_game("Host", 0)
+		Net.i.chat_received.connect(func(from, text): print("HOST chat de ", from, ": ", text))
 	if current_scene and current_scene.name == "Main" and int(t) == 18 and int(t - delta) == 17:
 		var main: Node = current_scene
 		var items := []
@@ -33,6 +34,7 @@ func _process(delta: float) -> bool:
 			" car pos=", car.global_position.snapped(Vector3.ONE * 0.1))
 		print("HOST taken=", Net.i.taken.keys(), " drops=", Net.i._drops)
 		var building: BuildingManager = main.get_node("Building")
+		print("HOST pings=", PingMarkers.i.list.map(func(p): return [p.from, p.kind]) if PingMarkers.i else [])
 		print("HOST building: peças=", building.pieces.size(), " tirados=", building.pieces.values()[0].removed.count(1) if building.pieces.size() > 0 else -1)
 		quit()
 	return false

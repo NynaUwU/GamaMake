@@ -147,6 +147,8 @@ func _draw_minimap() -> void:
 		var pos: Vector2 = to_screen.call(Vector2(enemy.global_position.x, enemy.global_position.z))
 		if rect.has_point(pos):
 			_minimap.draw_rect(Rect2(pos - Vector2(2, 2), Vector2(4, 4)), COLOR_ZOMBIE)
+	_draw_hordes(_minimap, to_screen, rect, false)
+	_draw_pings(_minimap, to_screen, rect)
 	_draw_car(_minimap, to_screen, rect)
 	_draw_others(_minimap, to_screen, rect)
 	_draw_arrow(_minimap, rect.size * 0.5, 7.0)
@@ -166,6 +168,8 @@ func _draw_world() -> void:
 	_big.draw_texture_rect(_texture, rect, false)
 	var to_screen := func(world: Vector2) -> Vector2:
 		return rect.position + (world / terrain.world_size + Vector2(0.5, 0.5)) * side
+	_draw_hordes(_big, to_screen, rect, true)
+	_draw_pings(_big, to_screen, rect)
 	_draw_car(_big, to_screen, rect)
 	_draw_others(_big, to_screen, rect, true)
 	_draw_arrow(_big, to_screen.call(Vector2(player.global_position.x, player.global_position.z)), 8.0)
@@ -187,6 +191,35 @@ func _draw_car(target: Control, to_screen: Callable, clip: Rect2) -> void:
 		if clip.has_point(pos):
 			target.draw_rect(Rect2(pos - Vector2(4, 3), Vector2(8, 6)), COLOR_CAR)
 			target.draw_rect(Rect2(pos - Vector2(4, 3), Vector2(8, 6)), Color.BLACK, false, 1.0)
+
+
+## Hordas andando pelo mapa: mancha vermelha (maior = mais zumbis) com a contagem.
+func _draw_hordes(target: Control, to_screen: Callable, clip: Rect2, big: bool) -> void:
+	if HordeManager.i == null:
+		return
+	var pulse := 0.75 + 0.25 * sin(Time.get_ticks_msec() * 0.006)
+	for entry in HordeManager.i.map_list:
+		var pos: Vector2 = to_screen.call(entry[0])
+		if not clip.has_point(pos):
+			continue
+		var radius := (4.0 + sqrt(float(entry[1])) * (1.6 if big else 1.0)) * pulse
+		target.draw_circle(pos, radius, Color(0.75, 0.05, 0.05, 0.55))
+		target.draw_arc(pos, radius, 0.0, TAU, 16, Color(0.2, 0, 0, 0.9), 1.0)
+		if big:
+			target.draw_string(get_theme_default_font(), pos + Vector2(radius + 3, 4), "Horda (%d)" % entry[1], HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color(1, 0.7, 0.65))
+
+
+## Pings: losango na cor do marcador (preso na borda do minimapa se estiver fora).
+func _draw_pings(target: Control, to_screen: Callable, clip: Rect2) -> void:
+	if PingMarkers.i == null:
+		return
+	for entry in PingMarkers.i.list:
+		var pos: Vector2 = to_screen.call(Vector2(entry.pos.x, entry.pos.z))
+		pos = pos.clamp(clip.position + Vector2(5, 5), clip.end - Vector2(5, 5))
+		var color: Color = PingMarkers.COLORS.get(entry.kind, Color.YELLOW)
+		var points := PackedVector2Array([pos + Vector2(0, -6), pos + Vector2(5, 0), pos + Vector2(0, 6), pos + Vector2(-5, 0)])
+		target.draw_colored_polygon(points, color)
+		target.draw_polyline(points + PackedVector2Array([points[0]]), Color.BLACK, 1.0)
 
 
 ## Outros jogadores (online): bolinha azul (no mapa grande, com o nome).

@@ -14,6 +14,13 @@ extends CanvasLayer
 
 var _message_tween: Tween
 var _players_label: Label
+var _clock: Label
+
+
+func _process(_delta: float) -> void:
+	if _clock and DayNight.i:
+		_clock.text = DayNight.i.clock_text()
+		_clock.modulate = Color(1.0, 0.95, 0.85) if not DayNight.i.is_night() else Color(0.7, 0.78, 1.0)
 
 
 func _ready() -> void:
@@ -47,6 +54,11 @@ func _ready() -> void:
 	inventory_ui.name = "InventoryUI"
 	$Root.add_child(inventory_ui)
 	inventory_ui.setup(player)
+	var chat := Chat.new()
+	chat.name = "Chat"
+	$Root.add_child(chat)
+	chat.setup(player)
+	Net.i.message.connect(func(text: String): chat.add_line("", text))
 	var map := WorldMap.new()
 	map.name = "WorldMap"
 	$Root.add_child(map)
@@ -63,6 +75,15 @@ func _ready() -> void:
 	$Root.add_child(_players_label)
 	Net.i.peers_changed.connect(_refresh_players)
 	_refresh_players()
+	# Relógio (dia e hora) em cima, no meio (abaixo da lista de jogadores online).
+	_clock = Label.new()
+	_clock.set_anchors_and_offsets_preset(Control.PRESET_CENTER_TOP)
+	_clock.offset_left = -100.0
+	_clock.offset_right = 100.0
+	_clock.offset_top = 22.0
+	_clock.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_clock.add_theme_font_size_override("font_size", 13)
+	$Root.add_child(_clock)
 
 
 func _refresh_players() -> void:

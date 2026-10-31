@@ -18,6 +18,9 @@ func _process(delta: float) -> bool:
 		t = 0.0
 		main = current_scene
 		var player: Player = main.player
+		Net.i.send_chat("oi do cliente")
+		Net.i.send_ping(player.global_position + Vector3(0, 0, -5), "zumbi")
+		print("CLIENT bancada recebida=", main.get_node("Placed").objects.values().map(func(o): return o.kind), " hora=", DayNight.i.clock_text())
 		print("CLIENT online=", Net.i.online(), " host=", Net.i.is_host(), " id=", Net.i.my_id(), " peers=", Net.i.peers.values())
 		print("CLIENT puppet zombies=", Net.i._zombies.size(), " host puppet=", main.puppets.size(),
 			" host puppet pos=", main.puppet_position(1).snapped(Vector3.ONE * 0.1), " own zombies (deveria ser 0)=",

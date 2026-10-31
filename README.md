@@ -24,6 +24,37 @@ reação física a golpes e ragdoll (estilo Dying Light), visual de PC dos anos 
 - Os outros jogadores aparecem com o nome em cima, o item da mão, a lanterna acesa e uma bolinha
   azul no minimapa/mapa. Em cima, no meio da tela, aparece quem está online.
 
+## Chat e marcador (`scripts/ui/chat.gd`, `scripts/ui/ping_markers.gd`)
+
+- **Enter** abre o chat (Enter envia, Esc cancela). As mensagens aparecem no canto de baixo à esquerda e somem depois de uns segundos; entradas/saídas de jogadores também aparecem ali.
+- **Comandos do host:** `/noite`, `/dia`, `/hora 14`, `/horda` (uma horda a ~90 m vindo até você). `/ajuda` lista.
+- **B ou botão do meio do mouse:** marca onde você mira (até 300 m). Todos veem um losango por cima de tudo (atravessa paredes) com o nome, o que é (**Zumbi!**, Item, Carro ou Aqui) e a distância; também aparece no mapa e no minimapa (preso na borda se estiver longe). Some em 12 s.
+- O nome no chat vem da lista do host (ninguém consegue falar como outro jogador).
+- Teste: `tests/test_chat.gd` (e `net_host.gd`/`net_client.gd` na rede).
+
+## Dia e noite, hordas e zumbis quebrando construções
+
+### Dia e noite (`scripts/world/day_night.gd`)
+- Um dia dura **20 minutos**: dia das 6h às 20h, noite das 20h às 6h. Relógio no canto de cima ("Dia 2  21:30").
+- O sol gira (nasce, põe), o céu e a neblina escurecem; à noite entra uma lua azulada fraca. Lanterna (L) e faróis fazem diferença.
+- Os **postes das cidades só acendem à noite** (os quebrados continuam piscando).
+- O host manda a hora para todos; ela vai no save.
+
+### Hordas noturnas (`scripts/enemies/horde_manager.gd`)
+- De noite nascem zumbis a 45-65 m de cada jogador, fora da vista, **já vindo atrás dele**.
+- Limite por jogador: 13 na 1ª noite, +3 a cada dia (até 30). Ao amanhecer os que estão longe vão embora.
+
+### Hordas no mapa
+- 5 hordas (7 de noite) de 12-30 zumbis andando **de cidade em cidade** (mais rápido de noite). Aparecem no mapa/minimapa como manchas vermelhas pulsando, com a contagem.
+- Longe de todo mundo são só um ponto no mapa; a **120 m** de um jogador surgem de verdade e **marcham juntas**; se todos se afastam (200 m), os vivos voltam a ser um ponto.
+- Matou todos: a horda some; outra nasce longe depois de um tempo. As hordas vão no save.
+
+### Zumbis quebram construções
+- Zumbi perseguindo alguém com uma parede/porta/janela de construção na frente **para e bate nela**.
+- **Parede:** cava um buraco de ~1,2 m de largura do chão para cima (cada pedaço aguenta 2 golpes). Um zumbi sozinho demora; uma horda passa rápido.
+- **Janela** aguenta 3 golpes e **porta** 6; depois caem.
+- Teste: `tests/test_night.gd`.
+
 ## Saque, fome, fabricação e plantação
 
 ### Saque (`scripts/loot/`)
@@ -152,6 +183,9 @@ Todos os sons são **sintetizados no código** ao abrir o jogo (sem arquivos de 
 | M | mapa do mundo (o minimapa fica no canto de baixo à direita) |
 | L | lanterna (precisa estar no inventário e ter bateria) |
 | R | recarregar a pistola |
+| Enter | chat (comandos do host: `/noite`, `/dia`, `/hora N`, `/horda`) |
+| B / botão do meio | marcar (ping) onde mira |
+| Botão direito (pá) | cavar cova / plantar / colher |
 | E (no carro) | entrar/sair. Dirigindo: W/S acelera/ré, A/D vira, Espaço freio de mão |
 | Z / H | novo zumbi / **100 zumbis** em volta (teste, só o host online) · Backspace recomeça · **Esc pausa** (Continuar / Recomeçar / Sair) |
 

@@ -148,6 +148,9 @@ var _net_spawn := {}
 var _stiff_axis := Vector3.ZERO # eixo do tombo duro (zero = não está caindo duro)
 var _stiff_basis := Basis()
 var _stun_time := 0.0
+var march_to := Vector3.INF ## horda: para onde andar enquanto não vê ninguém
+var _wall := {} # parede/porta/janela que está quebrando {collider, normal}
+var _wall_check := 0.0
 # Nível de detalhe pela distância até o jogador mais perto (0 perto, 1 médio, 2 longe).
 var _lod := 0
 var hitboxes_active := true ## false = longe; golpes à distância usam a cápsula
@@ -252,9 +255,22 @@ func _physics_process(delta: float) -> void:
 # --- Estados ---------------------------------------------------------------
 
 func _update_idle(delta: float) -> void:
-	_brake(delta)
 	if _can_see_target():
 		_set_state(State.CHASE)
+		return
+	if march_to != Vector3.INF:
+		# Horda marchando: anda devagar junto com o grupo.
+		var to := march_to - global_position
+		to.y = 0.0
+		if to.length() < 3.0:
+			march_to = Vector3.INF
+		else:
+			var desired := to.normalized() * (crawl_speed if crawler else move_speed * 0.45) + _separation() * 2.0
+			velocity.x = lerpf(velocity.x, desired.x, 1.0 - exp(-4.0 * delta))
+			velocity.z = lerpf(velocity.z, desired.z, 1.0 - exp(-4.0 * delta))
+			_face(to, delta, turn_speed * 0.4)
+			return
+	_brake(delta)
 
 
 func _update_chase(delta: float) -> void:
@@ -271,6 +287,9 @@ func _update_chase(delta: float) -> void:
 		return
 	if _climb_mode and _try_start_climb(direction):
 		return
+	if _cooldown <= 0.0 and _check_wall(direction, delta):
+		_set_state(State.ATTACK) # construção no caminho: bate nela
+		return
 	var desired := direction * (crawl_speed if crawler else move_speed) + _separation() * 2.5
 	velocity.x = lerpf(velocity.x, desired.x, 1.0 - exp(-5.0 * delta))
 	velocity.z = lerpf(velocity.z, desired.z, 1.0 - exp(-5.0 * delta))
@@ -278,14 +297,17 @@ func _update_chase(delta: float) -> void:
 
 func _update_attack(delta: float) -> void:
 	_brake(delta)
-	_face(_flat_to_target(), delta, turn_speed * 0.4)
+	_face(-_wall.normal if not _wall.is_empty() else _flat_to_target(), delta, turn_speed * 0.4)
 	var windup := clampf(_state_time / attack_windup, 0.0, 1.0)
 	locomotion.attack = windup
 	if _state_time >= attack_windup:
 		locomotion.swing = clampf((_state_time - attack_windup) / 0.15, 0.0, 1.0)
 		if not _attack_hit_done:
 			_attack_hit_done = true
-			_try_damage_target()
+			if _wall.is_empty():
+				_try_damage_target()
+			else:
+				_damage_wall()
 	if _state_time >= attack_windup + 0.45:
 		_end_attack()
 		_cooldown = attack_cooldown
@@ -977,6 +999,72 @@ func _arm_count() -> int:
 
 # --- Utilidades ------------------------------------------------------------
 
+# --- Quebrar construções --------------------------------------------------------
+
+## Andando e com uma parede/porta/janela de construção logo à frente (mais perto
+## que o alvo): para e bate nela. Checa poucas vezes por segundo.
+func _check_wall(direction: Vector3, delta: float) -> bool:
+	_wall_check -= delta
+	if _wall_check > 0.0 or crawler:
+		return false
+	_wall_check = 0.3
+	var reach := minf(1.0, _flat_to_target().length())
+	var hit := {}
+	# Pés, peito e cabeça: com o buraco ainda baixo, a parte de cima ainda segura.
+	for height: float in [0.4, 1.0, 1.6]:
+		var from := global_position + Vector3.UP * height
+		var query := PhysicsRayQueryParameters3D.create(from, from + direction * reach, 1, [get_rid()])
+		hit = get_world_3d().direct_space_state.intersect_ray(query)
+		if hit and (hit.collider is BuildPiece or hit.collider is BuildFill):
+			break
+		hit = {}
+	if hit.is_empty():
+		return false
+	var normal: Vector3 = hit.normal
+	if normal.dot(direction) > 0.0:
+		normal = -normal
+	_wall = {"normal": normal, "direction": direction}
+	return true
+
+
+## Golpe na construção: porta/janela perde "vida" e cai; parede perde o
+## quadrado mais baixo atingido (eles cavam um buraco do chão para cima).
+func _damage_wall() -> void:
+	var space := get_world_3d().direct_space_state
+	var direction: Vector3 = _wall.direction
+	for height: float in [0.2, 0.6, 1.0, 1.4, 1.8]:
+		var from := global_position + Vector3.UP * height
+		var query := PhysicsRayQueryParameters3D.create(from, from + direction * 1.3, 1, [get_rid()])
+		var hit := space.intersect_ray(query)
+		if hit.is_empty():
+			continue
+		if hit.collider is BuildFill:
+			var fill: BuildFill = hit.collider
+			var hp: int = fill.get_meta("hp", 3 if fill.type == "window" else 6) - 1
+			fill.set_meta("hp", hp)
+			Sfx.play_at("knock", hit.position, 3.0, 0.7)
+			if hp <= 0:
+				Sfx.play_at("crunch", hit.position, 6.0, 0.6)
+				Net.i.build_request("unfill", [fill.piece.net_id, fill.fill_index])
+			return
+		if hit.collider is BuildPiece:
+			var piece: BuildPiece = hit.collider
+			var normal: Vector3 = hit.normal if hit.normal.dot(direction) < 0.0 else -hit.normal
+			var square := piece.square_at(hit.position, normal, 1)
+			if square.is_empty():
+				continue
+			# Cada pedaço aguenta 2 golpes (uma horda passa rápido; um zumbi sozinho demora).
+			var key := square[0] / 4
+			var hits: Dictionary = piece.get_meta("hits", {})
+			hits[key] = hits.get(key, 0) + 1
+			piece.set_meta("hits", hits)
+			Sfx.play_at("knock", hit.position, 3.0, 0.75)
+			if hits[key] >= 2:
+				Sfx.play_at("crunch", hit.position, 5.0, 0.7)
+				Net.i.build_request("cut_many", [piece.net_id, square])
+			return
+
+
 func _try_damage_target() -> void:
 	if not is_instance_valid(target):
 		return
@@ -991,6 +1079,7 @@ func _try_damage_target() -> void:
 
 
 func _end_attack() -> void:
+	_wall = {}
 	_attack_hit_done = false
 	locomotion.attack = 0.0
 	locomotion.swing = 0.0

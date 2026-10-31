@@ -89,6 +89,24 @@ func half_at(world_point: Vector3, world_normal: Vector3, diag: String) -> Packe
 	return result
 
 
+## Os quartos que ainda existem do quadrado atingido e de "spread" vizinhos de
+## cada lado na mesma fileira (zumbi quebrando: abre um buraco da largura dele).
+func square_at(world_point: Vector3, world_normal: Vector3, spread := 0) -> PackedInt32Array:
+	var result := PackedInt32Array()
+	if not has_panel():
+		return result
+	var uv := _to_uv(to_local(world_point - world_normal * 0.02))
+	if uv.x < 0.0 or uv.y < 0.0 or uv.x >= SIZE or uv.y >= SIZE:
+		return result
+	var i := clampi(floori(uv.x / SEG), 0, N - 1)
+	var j := clampi(floori(uv.y / SEG), 0, N - 1)
+	for k in range(maxi(i - spread, 0), mini(i + spread, N - 1) + 1):
+		for q in 4:
+			if removed[(j * N + k) * 4 + q] == 0:
+				result.append((j * N + k) * 4 + q)
+	return result
+
+
 ## Quais quartos formam o meio quadrado que contém o ponto (fu, fv em 0..1).
 static func half_quarters(fu: float, fv: float, diag: String) -> Array:
 	if diag == "/":

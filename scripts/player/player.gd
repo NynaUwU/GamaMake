@@ -434,6 +434,8 @@ func _unhandled_input(event: InputEvent) -> void:
 			_kick()
 		elif _hotbar_key(event) >= 0:
 			inventory.select(_hotbar_key(event))
+		elif event.is_action_pressed("ping"):
+			PingMarkers.ping_from(self)
 		elif event.is_action_pressed("interact") and is_instance_valid(_interact_target):
 			_interact_target.interact(self)
 			# O item some ao ser pego: limpa o aviso na hora.

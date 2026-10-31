@@ -31,6 +31,15 @@ func _ready() -> void:
 	var placed := PlacedManager.new()
 	placed.name = "Placed"
 	add_child(placed)
+	var day_night := DayNight.new()
+	day_night.name = "DayNight"
+	add_child(day_night)
+	var hordes := HordeManager.new()
+	hordes.name = "Hordes"
+	add_child(hordes)
+	var pings := PingMarkers.new()
+	pings.name = "Pings"
+	add_child(pings)
 	_add_start_crate()
 	Net.i.message.connect(_on_net_message)
 	# Vento de fundo baixinho (preso no jogador).
