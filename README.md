@@ -24,6 +24,16 @@ reação física a golpes e ragdoll (estilo Dying Light), visual de PC dos anos 
 - Os outros jogadores aparecem com o nome em cima, o item da mão, a lanterna acesa e uma bolinha
   azul no minimapa/mapa. Em cima, no meio da tela, aparece quem está online.
 
+## Máquinas — Tier 0 (primitivo). Plano completo em `docs/ROADMAP_MAQUINAS.md`
+- **Sede** (arco azul "A" no HUD, por dentro da fome): esvazia em ~15 min (correndo, mais rápido). Zerada, a vida cai. Com sede baixa a vida não regenera; aviso só por som.
+- **Garrafa** (fornalha: 1 vidro → 2 garrafas; casas e caixote inicial): clique com ela na **água do lago** → **água suja**; num **coletor de chuva** → **água potável**. Beber devolve a garrafa vazia.
+- **Doença** (água suja: 60% de chance): por 3 min a vida cai devagar (até 15), a stamina enche pela metade e fome/sede gastam 60% mais rápido. Arco da vida fica verde. Some sozinha.
+- **Clima** (`scripts/world/weather.gd`): o host sorteia o tempo a cada 2–5 min (~35% de chuva) e o vento (mais forte com chuva; vai mover moinhos no Tier 2). Chuva: gotas em volta da câmera, céu cinza, sol fraco, som de chuva. Vai no save e na rede.
+- **Coletor de água da chuva** (martelo → Outros: 4 tábuas + 1 pano): barril com funil; chovendo enche (chuva forte ≈ 1 garrafa a cada 25 s, até 10). A água aparece subindo dentro.
+- **Secador** (martelo → Outros: 6 gravetos + 1 pano): varal com 4 ganchos; peixe/frutos do lago viram **peixe seco** em 90 s (+40 fome, não queima). Pele → couro entra quando houver animais.
+- **Argila → tijolo:** a pá na **beira dos lagos** (até ~1 m acima da água) tira argila em vez de abrir cova; na grelha da fogueira vira tijolo e **não queima** (pode esquecer lá). O tijolo é a base da fornalha de pedra (Tier 1).
+- **A fogueira afasta zumbis à noite:** eles não entram a menos de ~6 m dela, nem indo atrás de quem está ao lado do fogo; ficam rondando a borda da luz. De dia não adianta.
+
 ## Airdrop, desgaste por uso, bandeira e menos fita (rodada de feedback)
 - **Zumbis da onda noturna não soltam nada.** Ao vencer a onda (cota da noite abatida), **cai um airdrop** a 10–25 m de cada jogador: caixa militar descendo de paraquedas, com uma **luz vermelha piscando** em cima e um quadrado vermelho pulsando no mapa/minimapa. Dentro: suprimentos bons (bandagem, comida, sucata, pano, barras, vidro, fita, carvão, às vezes colete/capacete/pistola). O sinal apaga quando a caixa fica vazia. `scripts/farming/airdrop_fx.gd`, `HordeManager._drop_airdrops`.
 - **Desgaste conforme o uso:** atacar gasta 100% (qualquer arma ou ferramenta); ferramenta no serviço certo gasta 75% (machado em árvore/tronco/móvel, picareta em pedra/minério, pá cavando, martelo/talhadeira construindo); no serviço errado gasta **200%** (espada na árvore, machado na pedra). A **maça** gasta sempre 100%. `Player._wear_cost`.

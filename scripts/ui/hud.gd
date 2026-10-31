@@ -48,6 +48,9 @@ func _ready() -> void:
 	_arcs.set_value(0, player.stamina, player.max_stamina)
 	_arcs.set_value(2, player.hunger, player.MAX_HUNGER)
 	player.hunger_changed.connect(func(current: float, maximum: float): _arcs.set_value(2, current, maximum))
+	_arcs.set_value(3, player.thirst, player.MAX_THIRST)
+	player.thirst_changed.connect(func(current: float, maximum: float): _arcs.set_value(3, current, maximum))
+	player.sick_changed.connect(func(sick: bool): _arcs.sick = sick)
 	var plants := PlantPanel.new()
 	plants.name = "PlantPanel"
 	$Root.add_child(plants)

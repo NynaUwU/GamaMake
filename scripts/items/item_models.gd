@@ -52,6 +52,20 @@ static func build(id: StringName) -> Node3D:
 		&"bandeira":
 			_mb(parts, Color(0.42, 0.3, 0.18)).tube(PackedVector3Array([Vector3(0, -0.6, 0), Vector3(0, 0.6, 0)]), 0.02, 6)
 			_mb(parts, Color(0.75, 0.12, 0.1)).box(Vector3(0.17, 0.44, 0), Vector3(0.32, 0.22, 0.015))
+		&"garrafa", &"agua", &"agua_suja":
+			var glass := Color(0.55, 0.68, 0.62)
+			if id != &"garrafa":
+				_mb(parts, Color(0.35, 0.55, 0.75) if id == &"agua" else Color(0.42, 0.4, 0.26)).lathe(PackedVector2Array([Vector2(0.002, 0.005), Vector2(0.04, 0.005), Vector2(0.04, 0.15), Vector2(0.002, 0.15)]), 8)
+			_mb(parts, glass).lathe(PackedVector2Array([Vector2(0.002, 0.0), Vector2(0.045, 0.0), Vector2(0.045, 0.17),
+				Vector2(0.02, 0.22), Vector2(0.018, 0.27), Vector2(0.002, 0.27)]), 8)
+			_mb(parts, Color(0.5, 0.36, 0.2)).box(Vector3(0, 0.275, 0), Vector3(0.04, 0.03, 0.04)) # rolha
+		&"argila":
+			_rock(_mb(parts, Color(0.62, 0.45, 0.35)))
+		&"tijolo":
+			_mb(parts, Color(0.66, 0.3, 0.2)).box(Vector3.ZERO, Vector3(0.22, 0.07, 0.11))
+		&"peixe_seco":
+			_mb(parts, Color(0.7, 0.58, 0.38)).box(Vector3.ZERO, Vector3(0.26, 0.03, 0.1))
+			_mb(parts, Color(0.6, 0.48, 0.3)).box(Vector3(0.15, 0, 0), Vector3(0.05, 0.02, 0.12)) # rabo
 		&"areia":
 			_rock(_mb(parts, Color(0.82, 0.72, 0.5)))
 		&"graveto":

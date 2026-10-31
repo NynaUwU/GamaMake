@@ -66,6 +66,11 @@ static func use(player: Player, crop: String) -> bool:
 		return true
 	# Pá no chão de terra (terreno, não rua/construção): cava uma cova.
 	if crop == "" and _is_terrain(hit.collider) and hit.normal.y > 0.65:
+		if _shore(hit.position):
+			# Beira do lago (até ~1 m acima da água): a pá tira argila em vez de abrir cova.
+			player.pick_up(&"argila", ItemDB.display_name(&"argila"), randi_range(1, 2))
+			Sfx.play_at("step_soft", hit.position, 4.0, 0.8)
+			return true
 		if _desert(player, hit.position):
 			# Deserto: o solo não presta para plantar; a pá junta areia (vidro sai na fornalha).
 			player.pick_up(&"areia", ItemDB.display_name(&"areia"), randi_range(1, 2))
@@ -81,6 +86,18 @@ static func use(player: Player, crop: String) -> bool:
 		return true
 	if crop != "":
 		Sfx.play("click", -6.0, 0.6)
+	return false
+
+
+static func _shore(at: Vector3) -> bool:
+	if WaterManager.i == null:
+		return false
+	for lake in WaterManager.i.lakes():
+		if lake.frozen:
+			continue
+		var d := Vector2(at.x, at.z).distance_to(lake.center)
+		if d < lake.radius + 6.0 and at.y < lake.level + 1.0:
+			return true
 	return false
 
 

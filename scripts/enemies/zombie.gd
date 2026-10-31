@@ -281,6 +281,14 @@ func _update_chase(delta: float) -> void:
 		return
 	var to_target := _flat_to_target()
 	var direction := _chase_direction(to_target, delta)
+	var afraid := _fire_fear()
+	if afraid != Vector3.ZERO:
+		# Fogueira acesa à noite: não entra no círculo da luz; fica rondando a borda.
+		_face(to_target, delta, turn_speed * 0.6)
+		var desired_out := afraid * move_speed * 0.8 + _separation() * 2.5
+		velocity.x = lerpf(velocity.x, desired_out.x, 1.0 - exp(-5.0 * delta))
+		velocity.z = lerpf(velocity.z, desired_out.z, 1.0 - exp(-5.0 * delta))
+		return
 	# Longe: olha para onde anda (contorna obstáculos). Perto: olha para o player.
 	_face(direction if to_target.length() > 3.0 else to_target, delta, turn_speed * (0.5 if crawler else 1.0))
 	var reach := attack_range * (0.8 if crawler else 1.0)
@@ -295,6 +303,31 @@ func _update_chase(delta: float) -> void:
 	var desired := direction * (crawl_speed if crawler else move_speed) + _separation() * 2.5
 	velocity.x = lerpf(velocity.x, desired.x, 1.0 - exp(-5.0 * delta))
 	velocity.z = lerpf(velocity.z, desired.z, 1.0 - exp(-5.0 * delta))
+
+
+## À noite a fogueira assusta: dentro de FIRE_FEAR metros dela (ou indo atrás de
+## alguém que está nela) o zumbi recua e ronda. Devolve a direção ou ZERO.
+const FIRE_FEAR := 6.0
+var _fear_check := 0.0
+var _fire := Vector3.INF
+func _fire_fear() -> Vector3:
+	if DayNight.i == null or DayNight.i.night < 0.5 or Cooking.fires.is_empty():
+		return Vector3.ZERO
+	_fear_check -= get_physics_process_delta_time()
+	if _fear_check <= 0.0:
+		_fear_check = 0.4
+		_fire = Cooking.nearest_fire(global_position, FIRE_FEAR + 3.0)
+	if _fire == Vector3.INF:
+		return Vector3.ZERO
+	var away := Vector3(global_position.x - _fire.x, 0.0, global_position.z - _fire.z)
+	var d := away.length()
+	if d > FIRE_FEAR + 1.0:
+		return Vector3.ZERO
+	var out := away / maxf(d, 0.01)
+	var around := out.cross(Vector3.UP) * (1.0 if get_instance_id() % 2 == 0 else -1.0)
+	if d < FIRE_FEAR:
+		return (out * 1.5 + around * 0.3).normalized() # perto demais: afasta
+	return around * 0.5 # na borda: ronda devagar
 
 
 func _update_attack(delta: float) -> void:

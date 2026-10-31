@@ -24,6 +24,7 @@ const RECIPES := [
 	{"id": &"bumerangue", "station": "mesa", "cost": {&"tabua": 3}},
 	{"id": &"chinelo", "station": "mesa", "cost": {&"pano": 2}},
 	{"id": &"bandagem", "station": "mesa", "cost": {&"pano": 2}},
+	{"id": &"garrafa", "amount": 2, "station": "fornalha", "fuel": true, "cost": {&"vidro": 1}},
 	{"id": &"bandeira", "station": "mesa", "cost": {&"graveto": 2, &"pano": 2}},
 	{"id": &"capuz", "station": "mesa", "cost": {&"pano": 3}},
 	{"id": &"colete", "station": "mesa", "cost": {&"sucata": 6, &"pano": 2}},

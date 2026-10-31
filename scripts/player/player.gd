@@ -9,6 +9,8 @@ extends CharacterBody3D
 
 signal health_changed(current: float, maximum: float)
 signal hunger_changed(current: float, maximum: float)
+signal thirst_changed(current: float, maximum: float)
+signal sick_changed(sick: bool)
 signal stamina_changed(current: float, maximum: float)
 signal interact_prompt_changed(text: String) ## "" = nada para interagir
 signal notify(text: String) ## mensagens curtas no HUD
@@ -258,6 +260,15 @@ var swimming := false ## dentro d'água funda (nada em vez de andar)
 ## pouquinhos; zerada, a vida vai caindo. Comida enche ("hunger" no ItemDB).
 const MAX_HUNGER := 100.0
 const HUNGER_RATE := 100.0 / (22.0 * 60.0) ## por segundo: ~22 min de cheia a zero
+## Sede: esvazia mais rápido que a fome (~15 min); zerada, a vida cai mais rápido.
+const MAX_THIRST := 100.0
+const THIRST_RATE := 100.0 / (15.0 * 60.0)
+## Doença (água suja): por SICK_TIME segundos a vida cai devagar, a stamina enche
+## pela metade e fome/sede gastam 60% mais rápido.
+const SICK_TIME := 180.0
+var thirst := MAX_THIRST
+var sick_time := 0.0
+var _thirst_warned := false
 var hunger := MAX_HUNGER
 var _hunger_warned := false
 var _last_repair: Node
@@ -415,6 +426,8 @@ func _unhandled_input(event: InputEvent) -> void:
 			_eat_selected()
 		elif event.is_action_pressed("attack") and ItemDB.def(inventory.selected_id()).kind == "seed":
 			Farming.use(self, String(ItemDB.def(inventory.selected_id()).crop))
+		elif event.is_action_pressed("attack") and inventory.selected_id() == &"garrafa":
+			_fill_bottle()
 		elif event.is_action_pressed("attack") and ItemDB.def(inventory.selected_id()).kind == "placeable":
 			_place_selected()
 		elif event.is_action_pressed("attack"):
@@ -1523,14 +1536,23 @@ func _eat_selected() -> void:
 	var id := inventory.selected_id()
 	var heal_amount: float = ItemDB.def(id).get("heal", 0)
 	var food: float = ItemDB.def(id).get("hunger", 0)
-	var useful := (heal_amount > 0.0 and health < max_health) or (food > 0.0 and hunger < MAX_HUNGER - 2.0)
+	var water: float = ItemDB.def(id).get("thirst", 0)
+	var useful := (heal_amount > 0.0 and health < max_health) or (food > 0.0 and hunger < MAX_HUNGER - 2.0) \
+		or (water > 0.0 and thirst < MAX_THIRST - 2.0)
 	if not useful:
 		Sfx.play("click", -6.0, 0.6)
 		return
 	inventory.take(inventory.selected, 1)
 	heal(heal_amount)
 	eat(food)
-	Sfx.play("crunch")
+	if water > 0.0:
+		drink(water)
+	if randf() < ItemDB.def(id).get("sick", 0.0):
+		get_sick()
+	var returns: StringName = ItemDB.def(id).get("returns", &"")
+	if returns != &"":
+		pick_up(returns, ItemDB.display_name(returns), 1) # garrafa vazia volta
+	Sfx.play("slap" if water > 0.0 and food <= 0.0 else "crunch", -6.0 if water > 0.0 else 0.0, 0.7 if water > 0.0 else 1.0)
 	var parts := []
 	if food > 0.0:
 		parts.append("+%d fome" % food)
@@ -1546,8 +1568,73 @@ func eat(amount: float) -> void:
 	hunger_changed.emit(hunger, MAX_HUNGER)
 
 
+func _update_thirst(delta: float) -> void:
+	var rate := THIRST_RATE * (1.6 if _is_sprinting() else 1.0) * (1.6 if sick_time > 0.0 else 1.0)
+	var before := int(thirst)
+	thirst = maxf(thirst - rate * delta, 0.0)
+	if thirst <= 0.0:
+		health = maxf(health - 1.0 * delta, 0.0) # desidratado: perde vida
+		health_changed.emit(health, max_health)
+		if health <= 0.0:
+			notify.emit("Você morreu de sede - aperte Backspace para %s" % ("renascer" if Net.i.online() else "recomeçar"))
+			died.emit()
+	if thirst < 25.0 and not _thirst_warned:
+		_thirst_warned = true
+		Sfx.play("crunch", -16.0, 0.4) # garganta seca (som, sem aviso escrito)
+	if int(thirst) != before:
+		thirst_changed.emit(thirst, MAX_THIRST)
+	if sick_time > 0.0:
+		sick_time = maxf(sick_time - delta, 0.0)
+		if health > 15.0:
+			health -= 0.12 * delta
+			health_changed.emit(health, max_health)
+		if sick_time == 0.0:
+			sick_changed.emit(false)
+
+
+func drink(amount: float) -> void:
+	thirst = clampf(thirst + amount, 0.0, MAX_THIRST)
+	if thirst > 25.0:
+		_thirst_warned = false
+	thirst_changed.emit(thirst, MAX_THIRST)
+
+
+func get_sick(seconds := SICK_TIME) -> void:
+	var was := sick_time > 0.0
+	sick_time = maxf(sick_time, seconds)
+	if not was:
+		sick_changed.emit(true)
+		Sfx.play("growl", -10.0, 0.4) # barriga revirando
+
+
+## Garrafa vazia na mão: clique na água do lago (água suja) ou num coletor de chuva (potável).
+func _fill_bottle() -> void:
+	var origin := camera.global_position
+	var to := origin - camera.global_basis.z * 4.0
+	var query := PhysicsRayQueryParameters3D.create(origin, to, MASK_INTERACT, [get_rid()])
+	var hit := get_world_3d().direct_space_state.intersect_ray(query)
+	if hit and hit.collider is PlacedObject and hit.collider.kind == "rain_collector":
+		if hit.collider.extra.get("water", 0.0) < 1.0:
+			Sfx.play("click", -6.0, 0.6)
+			return
+		inventory.take(inventory.selected, 1)
+		(get_parent().get_node("Placed") as PlacedManager).request("draw_water", [hit.collider.net_id])
+		Sfx.play_at("slap", hit.position, -6.0, 1.4)
+		return
+	# Lago: a mira bate abaixo do nível da água, ou o jogador está dentro d'água.
+	var end: Vector3 = hit.position if hit else to
+	var wet := WaterManager.i != null and (WaterManager.i.depth_at(end) > 0.0 or WaterManager.i.depth_at(global_position) > 0.2)
+	if not wet:
+		Sfx.play("click", -6.0, 0.6)
+		return
+	inventory.take(inventory.selected, 1)
+	pick_up(&"agua_suja", ItemDB.display_name(&"agua_suja"), 1)
+	Sfx.play_at("slap", end, -4.0, 1.2)
+
+
 func _update_hunger(delta: float) -> void:
-	var rate := HUNGER_RATE * (1.8 if _is_sprinting() else 1.0)
+	_update_thirst(delta)
+	var rate := HUNGER_RATE * (1.8 if _is_sprinting() else 1.0) * (1.6 if sick_time > 0.0 else 1.0)
 	var before := int(hunger)
 	hunger = maxf(hunger - rate * delta, 0.0)
 	if hunger <= 0.0:
@@ -1556,7 +1643,7 @@ func _update_hunger(delta: float) -> void:
 		if health <= 0.0:
 			notify.emit("Você morreu de fome - aperte Backspace para %s" % ("renascer" if Net.i.online() else "recomeçar"))
 			died.emit()
-	elif hunger > 80.0 and health < max_health:
+	elif hunger > 80.0 and thirst > 30.0 and sick_time <= 0.0 and health < max_health:
 		heal(0.25 * delta)
 	if hunger < 25.0 and not _hunger_warned:
 		_hunger_warned = true
@@ -1573,11 +1660,15 @@ func _start_swing_visual_only() -> void:
 
 ## Salvo junto com o jogador (SaveGame).
 func save_extra() -> Dictionary:
-	return {"hunger": hunger, "equipment": inventory.equipment.duplicate(true)}
+	return {"hunger": hunger, "thirst": thirst, "sick": sick_time, "equipment": inventory.equipment.duplicate(true)}
 
 
 func load_extra(data: Dictionary) -> void:
 	hunger = data.get("hunger", MAX_HUNGER)
+	thirst = data.get("thirst", MAX_THIRST)
+	sick_time = data.get("sick", 0.0)
+	thirst_changed.emit(thirst, MAX_THIRST)
+	sick_changed.emit(sick_time > 0.0)
 	var worn: Dictionary = data.get("equipment", {})
 	for slot in worn:
 		if inventory.equipment.has(slot):
@@ -1984,7 +2075,7 @@ func _use_stamina(amount: float, delay := 0.8) -> void:
 func _update_stamina(delta: float) -> void:
 	_regen_delay -= delta
 	if _regen_delay <= 0.0 and stamina < max_stamina:
-		stamina = minf(stamina + stamina_regen * delta, max_stamina)
+		stamina = minf(stamina + stamina_regen * delta * (0.5 if sick_time > 0.0 else 1.0), max_stamina)
 		stamina_changed.emit(stamina, max_stamina)
 
 
@@ -2046,6 +2137,10 @@ func respawn() -> void:
 	stamina = max_stamina
 	hunger = maxf(hunger, 70.0)
 	hunger_changed.emit(hunger, MAX_HUNGER)
+	thirst = maxf(thirst, 70.0)
+	thirst_changed.emit(thirst, MAX_THIRST)
+	sick_time = 0.0
+	sick_changed.emit(false)
 	velocity = Vector3.ZERO
 	if spawn_point != Vector3.INF:
 		global_position = spawn_point

@@ -106,7 +106,13 @@ func _apply() -> void:
 	var dusk := maxf(1.0 - absf(hour - 19.0) / 1.6, 1.0 - absf(hour - 6.2) / 1.4)
 	dusk = clampf(dusk, 0.0, 1.0) * (1.0 - night)
 	var palette := _mix(_mix(DAY, DUSK, dusk), NIGHT, night)
-	sun_factor = (1.0 - night) * lerpf(1.0, 0.6, dusk)
+	# Chuva: céu cinza, menos sol e menos luz ambiente.
+	var wet := Weather.i.rain if Weather.i else 0.0
+	if wet > 0.0:
+		var grey := {"top": Color(0.3, 0.32, 0.35) * (1.0 - night * 0.9), "horizon": Color(0.45, 0.46, 0.47) * (1.0 - night * 0.9),
+			"ambient": palette.ambient * 0.75, "sun": palette.sun}
+		palette = _mix(palette, grey, wet * 0.85)
+	sun_factor = (1.0 - night) * lerpf(1.0, 0.6, dusk) * lerpf(1.0, 0.35, wet)
 	fog_tint = Color(1, 1, 1).lerp(Color(1.0, 0.75, 0.6), dusk).lerp(Color(0.1, 0.11, 0.16), night)
 	if _sky:
 		_sky.sky_top_color = palette.top
@@ -122,8 +128,9 @@ func _apply() -> void:
 			dir = Vector3(dir.x, 0.05, dir.z).normalized()
 		_sun.global_basis = Basis.looking_at(-dir, Vector3.UP)
 		_sun.light_color = palette.sun
+		_sun.light_energy = lerpf(1.0, 0.35, wet)
 		_sun.visible = sun_factor > 0.02
-		_sun.shadow_enabled = sun_factor > 0.15
+		_sun.shadow_enabled = sun_factor > 0.15 and wet < 0.6
 	if _moon:
 		_moon.light_energy = 0.22 * night
 		_moon.visible = night > 0.02

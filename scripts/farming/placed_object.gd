@@ -67,11 +67,32 @@ func slot_positions() -> Array:
 			return [Vector3(0, 0.06, 0)]
 		"campfire":
 			return [Vector3(-0.22, 0.6, 0), Vector3(0, 0.6, 0), Vector3(0.22, 0.6, 0)]
+		"dryer":
+			return [Vector3(-0.45, 1.12, 0), Vector3(-0.15, 1.12, 0), Vector3(0.15, 1.12, 0), Vector3(0.45, 1.12, 0)]
 	return []
 
 
 func allows(crop: String) -> bool:
 	return is_farm() and not extra.has("tree") and not (kind == "pot_small" and crop == "abobora")
+
+
+# --- Coletor de água da chuva ----------------------------------------------------
+
+const COLLECTOR_CAP := 10 ## garrafas
+var _water_mesh: Node3D
+
+
+func _refresh_collector() -> void:
+	if _water_mesh == null:
+		_water_mesh = get_node_or_null("Water")
+	if _water_mesh:
+		var level := clampf(extra.get("water", 0.0) / COLLECTOR_CAP, 0.0, 1.0)
+		_water_mesh.visible = level > 0.01
+		_water_mesh.scale.y = maxf(level, 0.01)
+
+
+func _exit_tree() -> void:
+	Cooking.fires.erase(self)
 
 
 # --- Árvore plantada (muda) ----------------------------------------------------------
@@ -157,7 +178,10 @@ func refresh(clock: float) -> void:
 	if kind == "tree":
 		_refresh_tree(clock)
 		return
-	if kind == "campfire":
+	if kind == "rain_collector":
+		_refresh_collector()
+		return
+	if kind in ["campfire", "dryer"]:
 		for i in crops.size():
 			var st := Cooking.stage(crops[i], clock)
 			if st != _stages[i]:
@@ -199,8 +223,11 @@ func get_interact_text() -> String:
 			return "[E] Mesa de trabalho (metal, armas, ferramentas)"
 		"furnace":
 			return "[E] Fornalha (fundir minério, vidro, carvão)"
-		"campfire":
+		"campfire", "dryer":
 			return Cooking.text(self, clock)
+		"rain_collector":
+			var water: float = extra.get("water", 0.0)
+			return "Coletor de chuva: %d de %d garrafas%s" % [int(water), COLLECTOR_CAP, "  (clique com uma garrafa vazia)" if water >= 1.0 else ""]
 		"drawboard":
 			return "[E] Desenhar na lousa"
 		"tree":
@@ -235,7 +262,7 @@ func interact(player: Node) -> void:
 	if STATIONS.has(kind):
 		CraftingUI.open_for(player, STATIONS[kind])
 		return
-	if kind == "campfire":
+	if kind in ["campfire", "dryer"]:
 		Cooking.interact(player, self)
 		return
 	if board:
@@ -261,8 +288,10 @@ func interact(player: Node) -> void:
 func _build() -> void:
 	if kind == "tree":
 		return # desenho e colisão vêm do crescimento (_refresh_tree)
-	if kind in ["campfire", "furnace", "workbench", "chest"]:
+	if kind in ["campfire", "furnace", "workbench", "chest", "dryer", "rain_collector"]:
 		StationModels.build(kind, self)
+		if kind == "campfire":
+			Cooking.fires.append(self)
 		return
 	if kind == "airdrop":
 		var fx := AirdropFX.new()

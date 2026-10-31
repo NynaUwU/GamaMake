@@ -8,14 +8,14 @@ const TABLES := {
 		[&"lata", 0.45, 1, 2], [&"pao", 0.35, 1, 2], [&"fruta", 0.25, 1, 3], [&"pano", 0.4, 1, 3],
 		[&"tabua", 0.45, 2, 5], [&"fita", 0.2, 1, 1], [&"bandagem", 0.15, 1, 1],
 		[&"semente_cenoura", 0.25, 2, 4], [&"semente_batata", 0.2, 2, 3], [&"semente_abobora", 0.12, 1, 3],
-		[&"chinelo", 0.02, 1, 1],
+		[&"chinelo", 0.02, 1, 1], [&"garrafa", 0.3, 1, 2], [&"agua", 0.25, 1, 1],
 	],
 	"caixote": [ # caixote de rua: material de construção
 		[&"tabua", 0.7, 3, 8], [&"pedra", 0.55, 2, 6], [&"sucata", 0.5, 1, 4], [&"fita", 0.25, 1, 2],
 		[&"pa", 0.05, 1, 1], [&"martelo", 0.04, 1, 1], [&"talhadeira", 0.04, 1, 1], [&"lata", 0.15, 1, 1],
 	],
 	"airdrop": [ # recompensa da onda noturna: suprimento bom
-		[&"bandagem", 0.9, 2, 4], [&"lata", 0.8, 2, 4], [&"sucata", 0.7, 4, 8], [&"pano", 0.6, 3, 6],
+		[&"bandagem", 0.9, 2, 4], [&"lata", 0.8, 2, 4], [&"agua", 0.8, 2, 4], [&"sucata", 0.7, 4, 8], [&"pano", 0.6, 3, 6],
 		[&"barra_ferro", 0.5, 1, 3], [&"barra_cobre", 0.4, 1, 2], [&"vidro", 0.4, 1, 3], [&"fita", 0.5, 1, 2],
 		[&"carvao", 0.4, 2, 5], [&"colete", 0.12, 1, 1], [&"capacete", 0.08, 1, 1], [&"pistola", 0.05, 1, 1],
 	],
@@ -27,7 +27,7 @@ const TABLES := {
 
 
 ## Caixote da área inicial: o básico para começar a construir e plantar.
-const START := [[&"tabua", 20], [&"pedra", 10], [&"semente_cenoura", 4], [&"semente_batata", 3], [&"lata", 2], [&"pa", 1]]
+const START := [[&"tabua", 20], [&"pedra", 10], [&"semente_cenoura", 4], [&"semente_batata", 3], [&"lata", 2], [&"pa", 1], [&"agua", 2], [&"garrafa", 2]]
 
 
 ## Recursos do mapa: sempre dão isso (quantidade sorteada no intervalo).

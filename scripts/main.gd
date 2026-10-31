@@ -35,6 +35,9 @@ func _ready() -> void:
 	var day_night := DayNight.new()
 	day_night.name = "DayNight"
 	add_child(day_night)
+	var weather := Weather.new()
+	weather.name = "Weather"
+	add_child(weather)
 	var hordes := HordeManager.new()
 	hordes.name = "Hordes"
 	add_child(hordes)

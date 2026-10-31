@@ -20,8 +20,25 @@ func _process(delta: float) -> void:
 	_refresh -= delta
 	if _refresh <= 0.0:
 		_refresh = 1.0
+		_collect_rain()
 		for obj: PlacedObject in objects.values():
 			obj.refresh(clock)
+
+
+## Host, 1x por segundo: chovendo, os coletores enchem (chuva forte: ~1 garrafa a cada 25 s).
+## Manda o nível para os outros só quando muda uma garrafa inteira.
+var _rain_sent := {}
+func _collect_rain() -> void:
+	if not Net.i.is_host() or Weather.i == null or Weather.i.rain < 0.05:
+		return
+	for obj: PlacedObject in objects.values():
+		if obj.kind != "rain_collector":
+			continue
+		var water: float = minf(obj.extra.get("water", 0.0) + Weather.i.rain * 0.04, PlacedObject.COLLECTOR_CAP)
+		obj.extra.water = water
+		if int(water) != _rain_sent.get(obj.net_id, -1):
+			_rain_sent[obj.net_id] = int(water)
+			request("extra", [obj.net_id, {"water": water}])
 
 
 ## Pedido de qualquer jogador (vai para o host).
@@ -55,7 +72,7 @@ func host_apply(action: String, args: Array) -> Array:
 			var kind: String = args[0]
 			var xform: Transform3D = args[1]
 			if kind not in ["pot_small", "pot_wide", "bed", "ground", "bench", "workbench", "furnace", "campfire",
-					"spikes", "beartrap", "barbed", "mine", "drawboard", "chest", "flag"]:
+					"spikes", "beartrap", "barbed", "mine", "drawboard", "chest", "flag", "rain_collector", "dryer"]:
 				return []
 			if kind == "bed":
 				var cell := Vector3i((xform.origin / BuildPiece.SEG).round())
@@ -67,6 +84,16 @@ func host_apply(action: String, args: Array) -> Array:
 			_next_id += 1
 			_spawn(id, kind, xform)
 			return [id, kind, xform]
+		"draw_water":
+			# Encheu uma garrafa no coletor (a garrafa vazia já saiu da mochila de quem pediu).
+			var obj: PlacedObject = objects.get(args[0])
+			if obj == null or obj.kind != "rain_collector" or obj.extra.get("water", 0.0) < 1.0:
+				Net.i.give_to(Net.i.request_peer, &"garrafa", 1) # sem água: devolve a garrafa
+				return []
+			obj.extra.water = obj.extra.water - 1.0
+			Net.i.give_to(Net.i.request_peer, &"agua", 1)
+			obj.refresh(clock)
+			return [args[0], obj.extra.water]
 		"airdrop":
 			if Net.i.request_peer != Net.i.my_id():
 				return [] # só o próprio host solta airdrop
@@ -103,16 +130,16 @@ func host_apply(action: String, args: Array) -> Array:
 		"cook":
 			var obj: PlacedObject = objects.get(args[0])
 			var slot: int = args[1]
-			if obj == null or obj.kind != "campfire" or slot < 0 or slot >= obj.crops.size() \
-					or not obj.crops[slot].is_empty() or not Cooking.COOK.has(StringName(args[2])):
+			if obj == null or obj.kind not in ["campfire", "dryer"] or slot < 0 or slot >= obj.crops.size() \
+					or not obj.crops[slot].is_empty() or not Cooking.table(obj.kind).has(StringName(args[2])):
 				return []
-			obj.crops[slot] = {"food": StringName(args[2]), "t": clock}
+			obj.crops[slot] = Cooking.make_entry(obj.kind, StringName(args[2]), clock)
 			obj.refresh(clock)
 			return [args[0], slot, args[2], clock]
 		"take_cooked":
 			var obj: PlacedObject = objects.get(args[0])
 			var slot: int = args[1]
-			if obj == null or obj.kind != "campfire" or slot < 0 or slot >= obj.crops.size():
+			if obj == null or obj.kind not in ["campfire", "dryer"] or slot < 0 or slot >= obj.crops.size():
 				return []
 			var result := Cooking.result_of(obj.crops[slot], clock)
 			if result == &"":
@@ -247,7 +274,7 @@ func apply_remote(action: String, args: Array) -> void:
 		"cook":
 			var obj: PlacedObject = objects.get(args[0])
 			if obj:
-				obj.crops[args[1]] = {"food": StringName(args[2]), "t": args[3]}
+				obj.crops[args[1]] = Cooking.make_entry(obj.kind, StringName(args[2]), args[3])
 				obj.refresh(clock)
 		"take_cooked":
 			var obj: PlacedObject = objects.get(args[0])
@@ -278,6 +305,11 @@ func apply_remote(action: String, args: Array) -> void:
 			var obj: PlacedObject = objects.get(args[0])
 			if obj and obj.board:
 				obj.board.clear()
+		"draw_water":
+			var obj: PlacedObject = objects.get(args[0])
+			if obj:
+				obj.extra.water = args[1]
+				obj.refresh(clock)
 		"place", "airdrop":
 			if not objects.has(args[0]):
 				_spawn(args[0], args[1], args[2])

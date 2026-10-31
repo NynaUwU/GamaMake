@@ -102,11 +102,11 @@ static func _setup_bus() -> void:
 
 ## Ajuste de volume por som (dB).
 const _VOLUME := {"groan": -4.0, "growl": -2.0, "step_soft": -14.0, "step_hard": -10.0, "engine": -6.0,
-	"wind": -20.0, "whirr": -8.0, "swing": -6.0, "pickup": -8.0, "explosion": 4.0, "shot": 2.0}
+	"wind": -20.0, "rain": -6.0, "whirr": -8.0, "swing": -6.0, "pickup": -8.0, "explosion": 4.0, "shot": 2.0}
 
 
 const NAMES := ["swing", "hit", "slice", "thud", "shot", "explosion", "step_soft", "step_hard", "groan", "growl",
-	"death", "engine", "creak", "knock", "ping", "pickup", "crunch", "slap", "whirr", "wind", "click", "punch"]
+	"death", "engine", "creak", "knock", "ping", "pickup", "crunch", "slap", "whirr", "wind", "click", "punch", "rain"]
 static var _mutex := Mutex.new()
 static var _warm_task := -1
 
@@ -190,6 +190,8 @@ static func _make(name: String) -> AudioStreamWAV:
 			return _wav(_whirr(rng), true)
 		"wind": # vento ambiente (loop)
 			return _wav(_wind(rng), true)
+		"rain": # chuva (loop): chiado agudo + pingos
+			return _wav(_rain(rng), true)
 		"punch": # soco: "fup" grave e curto (ar deslocado), sem chiado
 			return _wav(_mix([_sweep_noise(rng, 0.12, 180.0, 650.0, 0.02), _tone(0.08, 120.0, 70.0, 0.005, 0.05, 0.35)]))
 		"click":
@@ -357,6 +359,25 @@ static func _wind(rng: RandomNumberGenerator) -> PackedFloat32Array:
 		var t := float(i) / n
 		lp += (rng.randf_range(-1.0, 1.0) - lp) * 0.02
 		out[i] = lp * (0.6 + 0.4 * sin(t * TAU)) * 3.0 # sobe e desce (o loop fecha no mesmo ponto)
+	return out
+
+
+static func _rain(rng: RandomNumberGenerator) -> PackedFloat32Array:
+	var n := RATE * 3
+	var out := PackedFloat32Array()
+	out.resize(n)
+	var hp := 0.0
+	var last := 0.0
+	for i in n:
+		var white := rng.randf_range(-1.0, 1.0)
+		hp = white - last * 0.6 # tira o grave: chiado de chuva
+		last = white
+		out[i] = hp * 0.35
+	for k in 900: # pingos: estalinhos curtos espalhados
+		var at := rng.randi_range(0, n - 200)
+		var amp := rng.randf_range(0.2, 0.6)
+		for j in 120:
+			out[at + j] += sin(j * 0.9) * amp * exp(-j / 25.0)
 	return out
 
 
