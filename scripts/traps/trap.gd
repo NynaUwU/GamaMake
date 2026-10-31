@@ -78,6 +78,8 @@ func _physics_process(delta: float) -> void:
 
 
 func _trigger(zombie: Zombie) -> void:
+	if _manager() == null:
+		return # saindo da cena: o gerenciador já foi embora
 	match kind:
 		"spikes":
 			var now := Time.get_ticks_msec() / 1000.0

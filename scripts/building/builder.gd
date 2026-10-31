@@ -40,11 +40,23 @@ const ENTRIES := {
 		{"id": "bed", "name": "Canteiro", "place": "bed", "desc": "Piso de terra na grade da construção: 9 plantas", "cost": {&"tabua": 3, &"pedra": 4}},
 		{"id": "campfire", "name": "Fogueira", "place": "campfire", "desc": "Fogueira com grelha: assa comida (enche mais a fome) e ilumina", "cost": {&"pedra": 5, &"tabua": 3}},
 		{"id": "furnace", "name": "Fornalha", "place": "furnace", "desc": "Funde minério em barras, faz vidro e carvão", "cost": {&"pedra": 10, &"tabua": 2}},
-		{"id": "rain_collector", "name": "Coletor", "place": "rain_collector", "desc": "Barril com funil: junta água da chuva (potável). Clique nele com uma garrafa vazia", "cost": {&"tabua": 4, &"pano": 1}},
-		{"id": "dryer", "name": "Secador", "place": "dryer", "desc": "Varal de galhos: peixe e frutos do lago viram peixe seco (enche mais, não queima)", "cost": {&"graveto": 6, &"pano": 1}},
 		{"id": "chest", "name": "Baú", "place": "chest", "desc": "Guarda 20 itens (arraste entre o baú e a mochila)", "cost": {&"tabua": 6, &"sucata": 1}},
 		{"id": "drawboard", "name": "Lousa", "place": "drawboard", "desc": "Cavalete com tela: desenhe junto com os outros jogadores", "cost": {&"tabua": 4, &"pano": 1}},
 		{"id": "workbench", "name": "Mesa de trabalho", "place": "workbench", "desc": "A bancada de fabricação: ferramentas, armas, lanterna...", "cost": {&"tabua": 6, &"sucata": 3}},
+	],
+	"Máquinas": [
+		{"id": "rain_collector", "name": "Coletor", "place": "rain_collector", "desc": "Barril com funil: junta água da chuva (potável). Clique nele com uma garrafa vazia", "cost": {&"tabua": 4, &"pano": 1}},
+		{"id": "dryer", "name": "Secador", "place": "dryer", "desc": "Varal de galhos: peixe e frutos do lago viram peixe seco (enche mais, não queima)", "cost": {&"graveto": 6, &"pano": 1}},
+		{"id": "grindstone", "name": "Amolar", "place": "grindstone", "desc": "Pedra de amolar: segure E com a ferramenta/arma na mão para recuperar a durabilidade (gasta stamina)", "cost": {&"pedra": 6, &"tabua": 2, &"graveto": 2}},
+		{"id": "quern", "name": "Moinho", "place": "quern", "desc": "Moinho manual: ponha trigo e segure E para moer em farinha (gasta stamina)", "cost": {&"pedra": 8, &"tabua": 2}},
+		{"id": "oven", "name": "Forno", "place": "oven", "desc": "Forno de tijolo: farinha + água = pão (com combustível)", "cost": {&"tijolo": 10, &"pedra": 4}},
+		{"id": "pump", "name": "Bomba", "place": "pump", "desc": "Bomba d'água manual: só na beira do lago. Segure E com uma garrafa vazia: água suja sem fim", "cost": {&"barra_ferro": 2, &"tabua": 3, &"sucata": 2}},
+		{"id": "filter", "name": "Filtro", "place": "filter", "desc": "Areia + carvão: ponha água suja e espere, sai potável", "cost": {&"tabua": 3, &"areia": 4, &"carvao": 3, &"pano": 1}},
+		{"id": "stone_furnace", "name": "Forn. pedra", "place": "stone_furnace", "desc": "Fornalha de tijolo com fole: a única que funde minério de ferro. Segure E para esquentar no fole", "cost": {&"tijolo": 12, &"pedra": 6, &"pano": 2}},
+		{"id": "spinning", "name": "Roca", "place": "spinning", "desc": "Fibra de algodão vira fio (segure E)", "cost": {&"tabua": 4, &"graveto": 4, &"sucata": 1}},
+		{"id": "loom", "name": "Tear", "place": "loom", "desc": "Fio vira tecido (segure E)", "cost": {&"tabua": 6, &"graveto": 6}},
+		{"id": "smoker", "name": "Defumador", "place": "smoker", "desc": "Peixe cru vira defumado: enche muito e nunca estraga", "cost": {&"tijolo": 4, &"tabua": 4, &"sucata": 1}},
+		{"id": "compost", "name": "Composteira", "place": "compost", "desc": "Comida estragada e restos viram adubo (colheitas em dobro)", "cost": {&"tabua": 5, &"graveto": 2}},
 	],
 	"Armadilhas": [
 		{"id": "spikes", "name": "Estacas", "place": "spikes", "desc": "Machucam a perna de quem passa (30 usos)", "cost": {&"tabua": 4}},
@@ -58,9 +70,13 @@ const ENTRIES := {
 const PLACE_SIZE := {"pot_small": Vector3(0.46, 0.31, 0.46), "pot_wide": Vector3(1.24, 0.36, 0.48), "bench": Vector3(1.6, 0.9, 0.75),
 	"campfire": Vector3(1.0, 0.6, 1.0), "furnace": Vector3(1.2, 1.2, 1.0), "workbench": Vector3(1.9, 1.95, 0.85),
 	"spikes": Vector3(1.2, 0.35, 1.2), "beartrap": Vector3(0.55, 0.1, 0.55), "barbed": Vector3(2.4, 1.1, 0.3), "mine": Vector3(0.36, 0.1, 0.36), "drawboard": Vector3(1.1, 1.8, 0.6), "chest": Vector3(1.0, 0.84, 0.62),
-	"rain_collector": Vector3(0.8, 1.1, 0.8), "dryer": Vector3(1.5, 1.5, 0.5)}
+	"rain_collector": Vector3(0.8, 1.1, 0.8), "dryer": Vector3(1.5, 1.5, 0.5), "grindstone": Vector3(0.9, 1.1, 0.5),
+	"quern": Vector3(0.8, 0.9, 0.8), "oven": Vector3(1.24, 1.1, 1.24), "pump": Vector3(0.6, 1.2, 0.6), "filter": Vector3(0.7, 0.9, 0.45),
+	"stone_furnace": Vector3(1.6, 1.6, 1.1), "spinning": Vector3(1.0, 1.1, 0.4), "loom": Vector3(1.3, 1.2, 0.8),
+	"smoker": Vector3(0.8, 1.4, 0.6), "compost": Vector3(1.0, 0.7, 0.9)}
 const PLACE_RADIUS := {"pot_small": 0.35, "pot_wide": 0.7, "bench": 0.9, "campfire": 0.6, "furnace": 0.8, "workbench": 1.0,
-	"spikes": 0.7, "beartrap": 0.35, "barbed": 0.9, "mine": 0.3, "drawboard": 0.6, "chest": 0.6, "rain_collector": 0.5, "dryer": 0.8}
+	"spikes": 0.7, "beartrap": 0.35, "barbed": 0.9, "mine": 0.3, "drawboard": 0.6, "chest": 0.6, "rain_collector": 0.5, "dryer": 0.8, "grindstone": 0.5,
+	"quern": 0.5, "oven": 0.7, "pump": 0.35, "filter": 0.45, "stone_furnace": 0.9, "spinning": 0.55, "loom": 0.7, "smoker": 0.5, "compost": 0.6}
 
 var player: Player
 var selection: Dictionary = ENTRIES["Estrutura"][0]
@@ -347,6 +363,9 @@ func use(tool: String) -> bool:
 				return true
 			return false
 		if selection.has("place"):
+			if selection.place == "pump" and not target.is_empty() and not Farming._shore(target.xform.origin):
+				Sfx.play("click", -6.0, 0.6) # bomba só na beira do lago
+				return false
 			if not target.is_empty() and target.valid and _paid(selection):
 				_placed().request("place", [selection.place, target.xform])
 				return true

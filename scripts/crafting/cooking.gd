@@ -16,19 +16,32 @@ const NO_BURN := [&"argila"] ## tijolo não queima: pode esquecer no fogo
 const DRY := {&"camarao": &"peixe_seco", &"lagosta": &"peixe_seco", &"caranguejo": &"peixe_seco",
 	&"caranguejo_aranha": &"peixe_seco", &"atum": &"peixe_seco", &"baixo": &"peixe_seco"}
 const DRY_TIME := 90.0
+## Filtro de areia e carvão: água suja vira potável.
+const FILTER := {&"agua_suja": &"agua"}
+## Defumador: peixe cru vira defumado (nunca estraga).
+const SMOKE := {&"camarao": &"peixe_defumado", &"lagosta": &"peixe_defumado", &"caranguejo": &"peixe_defumado",
+	&"caranguejo_aranha": &"peixe_defumado", &"atum": &"peixe_defumado", &"baixo": &"peixe_defumado"}
+## Composteira: restos e comida estragada viram adubo.
+const COMPOST := {&"comida_estragada": &"adubo", &"cenoura": &"adubo", &"batata": &"adubo", &"abobora": &"adubo",
+	&"fruta": &"adubo", &"trigo": &"adubo"}
+const KINDS := ["campfire", "dryer", "filter", "smoker", "compost"]
+const WAIT_TIME := {"dryer": DRY_TIME, "filter": 30.0, "smoker": 60.0, "compost": 120.0}
+const LABELS := {"campfire": ["Assando", "da grelha", "Fogueira"], "dryer": ["Secando", "do varal", "Secador"],
+	"filter": ["Filtrando", "do filtro", "Filtro de água"], "smoker": ["Defumando", "do defumador", "Defumador"],
+	"compost": ["Compostando", "da composteira", "Composteira"]}
 
 ## Fogueiras acesas (os zumbis não chegam perto delas à noite).
 static var fires: Array = []
 
 
 static func table(kind: String) -> Dictionary:
-	return DRY if kind == "dryer" else COOK
+	return {"dryer": DRY, "filter": FILTER, "smoker": SMOKE, "compost": COMPOST}.get(kind, COOK)
 
 
 ## O que vai na grelha/varal: cada entrada guarda o próprio tempo, se queima e no que vira.
 static func make_entry(kind: String, food: StringName, clock: float) -> Dictionary:
-	if kind == "dryer":
-		return {"food": food, "t": clock, "cook": DRY_TIME, "burn": false, "into": DRY[food]}
+	if WAIT_TIME.has(kind):
+		return {"food": food, "t": clock, "cook": WAIT_TIME[kind], "burn": false, "into": table(kind)[food]}
 	return {"food": food, "t": clock, "cook": COOK_TIME, "burn": food not in NO_BURN, "into": COOK[food]}
 
 
@@ -73,7 +86,7 @@ static func model(entry: Dictionary, clock: float) -> Node3D:
 static func text(obj: PlacedObject, clock: float) -> String:
 	var ready := 0
 	var cooking := []
-	var dryer := obj.kind == "dryer"
+	var label: Array = LABELS.get(obj.kind, LABELS.campfire)
 	for entry in obj.crops:
 		var st := stage(entry, clock)
 		if st >= 1:
@@ -81,10 +94,10 @@ static func text(obj: PlacedObject, clock: float) -> String:
 		elif st == 0:
 			cooking.append("%s %d%%" % [ItemDB.display_name(entry.food), (clock - entry.t) / entry.get("cook", COOK_TIME) * 100.0])
 	if ready > 0:
-		return "[E] Tirar %s (%d pronto%s)" % ["do varal" if dryer else "da grelha", ready, "s" if ready > 1 else ""]
+		return "[E] Tirar %s (%d pronto%s)" % [label[1], ready, "s" if ready > 1 else ""]
 	if not cooking.is_empty():
-		return ("Secando: " if dryer else "Assando: ") + " · ".join(cooking)
-	return "Secador" if dryer else "Fogueira"
+		return label[0] + ": " + " · ".join(cooking)
+	return label[2]
 
 
 static func interact(player: Player, obj: PlacedObject) -> void:

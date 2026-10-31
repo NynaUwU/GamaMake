@@ -7,7 +7,7 @@ const TABLES := {
 	"casa": [ # baú/armário de casa: comida, pano, um pouco de material
 		[&"lata", 0.45, 1, 2], [&"pao", 0.35, 1, 2], [&"fruta", 0.25, 1, 3], [&"pano", 0.4, 1, 3],
 		[&"tabua", 0.45, 2, 5], [&"fita", 0.2, 1, 1], [&"bandagem", 0.15, 1, 1],
-		[&"semente_cenoura", 0.25, 2, 4], [&"semente_batata", 0.2, 2, 3], [&"semente_abobora", 0.12, 1, 3],
+		[&"semente_cenoura", 0.25, 2, 4], [&"semente_batata", 0.2, 2, 3], [&"semente_abobora", 0.12, 1, 3], [&"semente_trigo", 0.22, 2, 4], [&"semente_algodao", 0.18, 2, 3],
 		[&"chinelo", 0.02, 1, 1], [&"garrafa", 0.3, 1, 2], [&"agua", 0.25, 1, 1],
 	],
 	"caixote": [ # caixote de rua: material de construção

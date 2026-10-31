@@ -72,8 +72,11 @@ func host_apply(action: String, args: Array) -> Array:
 			var kind: String = args[0]
 			var xform: Transform3D = args[1]
 			if kind not in ["pot_small", "pot_wide", "bed", "ground", "bench", "workbench", "furnace", "campfire",
-					"spikes", "beartrap", "barbed", "mine", "drawboard", "chest", "flag", "rain_collector", "dryer"]:
+					"spikes", "beartrap", "barbed", "mine", "drawboard", "chest", "flag", "rain_collector", "dryer",
+					"grindstone", "quern", "pump", "spinning", "loom", "stone_furnace", "oven", "filter", "smoker", "compost"]:
 				return []
+			if kind == "pump" and not Farming._shore(xform.origin):
+				return [] # bomba só na beira do lago
 			if kind == "bed":
 				var cell := Vector3i((xform.origin / BuildPiece.SEG).round())
 				if bed_at(cell):
@@ -84,6 +87,31 @@ func host_apply(action: String, args: Array) -> Array:
 			_next_id += 1
 			_spawn(id, kind, xform)
 			return [id, kind, xform]
+		"machine_put":
+			# Material entrando numa máquina de manivela (já saiu da mochila de quem pôs).
+			var obj: PlacedObject = objects.get(args[0])
+			var amount: int = args[1]
+			if obj == null or not Machines.PROCESS.has(obj.kind) or amount <= 0:
+				return []
+			var room: int = Machines.CAPACITY - obj.extra.get("in", 0)
+			var put := mini(room, amount)
+			if amount > put:
+				Net.i.give_to(Net.i.request_peer, Machines.PROCESS[obj.kind][0], amount - put) # não coube: volta
+			obj.extra["in"] = obj.extra.get("in", 0) + put
+			return [args[0], obj.extra]
+		"machine_take":
+			var obj: PlacedObject = objects.get(args[0])
+			if obj == null or not Machines.PROCESS.has(obj.kind) or obj.extra.get("out", 0) <= 0:
+				return []
+			Net.i.give_to(Net.i.request_peer, Machines.PROCESS[obj.kind][2], obj.extra.out)
+			obj.extra.out = 0
+			return [args[0], obj.extra]
+		"crank":
+			var obj: PlacedObject = objects.get(args[0])
+			if obj == null or not Machines.is_crank(obj.kind):
+				return []
+			var extra := Machines.host_crank(obj, float(args[1]), clock)
+			return [] if extra.is_empty() else [args[0], extra]
 		"draw_water":
 			# Encheu uma garrafa no coletor (a garrafa vazia já saiu da mochila de quem pediu).
 			var obj: PlacedObject = objects.get(args[0])
@@ -130,7 +158,7 @@ func host_apply(action: String, args: Array) -> Array:
 		"cook":
 			var obj: PlacedObject = objects.get(args[0])
 			var slot: int = args[1]
-			if obj == null or obj.kind not in ["campfire", "dryer"] or slot < 0 or slot >= obj.crops.size() \
+			if obj == null or obj.kind not in Cooking.KINDS or slot < 0 or slot >= obj.crops.size() \
 					or not obj.crops[slot].is_empty() or not Cooking.table(obj.kind).has(StringName(args[2])):
 				return []
 			obj.crops[slot] = Cooking.make_entry(obj.kind, StringName(args[2]), clock)
@@ -139,7 +167,7 @@ func host_apply(action: String, args: Array) -> Array:
 		"take_cooked":
 			var obj: PlacedObject = objects.get(args[0])
 			var slot: int = args[1]
-			if obj == null or obj.kind not in ["campfire", "dryer"] or slot < 0 or slot >= obj.crops.size():
+			if obj == null or obj.kind not in Cooking.KINDS or slot < 0 or slot >= obj.crops.size():
 				return []
 			var result := Cooking.result_of(obj.crops[slot], clock)
 			if result == &"":
@@ -227,6 +255,9 @@ func _drop_harvest(obj: PlacedObject, slot: int) -> void:
 	var def: Dictionary = Farming.CROPS[obj.crops[slot].crop]
 	var where := Transform3D(Basis(), obj.slot_world(slot) + Vector3.UP * 0.3)
 	var food := randi_range(def.yield[0], def.yield[1])
+	if obj.extra.get("fert", 0) > 0: # adubado: rende o dobro (3 colheitas)
+		food *= 2
+		obj.extra.fert = obj.extra.fert - 1
 	var seeds := randi_range(def.seeds[0], def.seeds[1])
 	Net.i.drop_item(def.food, food, where, Vector3(randf_range(-1, 1), 2.5, randf_range(-1, 1)))
 	if seeds > 0:
@@ -305,6 +336,10 @@ func apply_remote(action: String, args: Array) -> void:
 			var obj: PlacedObject = objects.get(args[0])
 			if obj and obj.board:
 				obj.board.clear()
+		"machine_put", "machine_take", "crank":
+			var obj: PlacedObject = objects.get(args[0])
+			if obj:
+				obj.extra = args[1].duplicate()
 		"draw_water":
 			var obj: PlacedObject = objects.get(args[0])
 			if obj:

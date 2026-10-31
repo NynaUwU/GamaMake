@@ -232,7 +232,8 @@ func _show_dur(button: Button, item: Dictionary) -> void:
 	if bar == null:
 		return
 	var dur: float = item.get("dur", 1.0) if not item.is_empty() else 1.0
-	bar.visible = not item.is_empty() and dur < 0.999 and ItemDB.max_durability(item.id) > 0
+	var food := not item.is_empty() and ItemDB.spoils(item.id)
+	bar.visible = not item.is_empty() and dur < 0.999 and (ItemDB.max_durability(item.id) > 0 or food)
 	if bar.visible:
 		var width := button.custom_minimum_size.x - 8.0
 		bar.position = Vector2(4, button.custom_minimum_size.y - 6)
@@ -240,6 +241,8 @@ func _show_dur(button: Button, item: Dictionary) -> void:
 		# Verde > amarelo > vermelho conforme gasta.
 		bar.color = Color(0.9, 0.2, 0.15).lerp(Color(0.95, 0.8, 0.2), dur * 2.0) if dur < 0.5 \
 			else Color(0.95, 0.8, 0.2).lerp(Color(0.35, 0.85, 0.3), (dur - 0.5) * 2.0)
+		if food: # frescor: verde -> marrom (estragando)
+			bar.color = Color(0.45, 0.32, 0.15).lerp(Color(0.45, 0.85, 0.35), dur)
 
 
 func _build_tooltip() -> void:

@@ -180,8 +180,45 @@ static func build(id: StringName) -> Node3D:
 			_mb(parts, Color(0.3, 0.42, 0.15)).box(Vector3(0, 0.13, 0), Vector3(0.025, 0.06, 0.025))
 		&"bandagem":
 			_mb(parts, CREAM).lathe(PackedVector2Array([Vector2(0.02, -0.03), Vector2(0.055, -0.03), Vector2(0.055, 0.03), Vector2(0.02, 0.03)]), 10)
-		&"semente_cenoura", &"semente_batata", &"semente_abobora":
-			_seed_pouch(parts, {&"semente_cenoura": Color(0.85, 0.42, 0.1), &"semente_batata": Color(0.6, 0.46, 0.28)}.get(id, Color(0.86, 0.6, 0.15)))
+		&"semente_cenoura", &"semente_batata", &"semente_abobora", &"semente_trigo", &"semente_algodao":
+			_seed_pouch(parts, {&"semente_cenoura": Color(0.85, 0.42, 0.1), &"semente_batata": Color(0.6, 0.46, 0.28),
+				&"semente_trigo": Color(0.85, 0.72, 0.35), &"semente_algodao": Color(0.92, 0.92, 0.88)}.get(id, Color(0.86, 0.6, 0.15)))
+		&"trigo":
+			for k in 3:
+				var x := (k - 1) * 0.025
+				_mb(parts, Color(0.75, 0.66, 0.3)).box(Vector3(x, 0.1, 0), Vector3(0.012, 0.3, 0.012))
+				_mb(parts, Color(0.88, 0.75, 0.38)).box(Vector3(x, 0.3, 0), Vector3(0.03, 0.1, 0.03))
+		&"farinha":
+			_mb(parts, Color(0.82, 0.78, 0.66)).box(Vector3(0, 0.09, 0), Vector3(0.16, 0.18, 0.1)) # saco
+			_mb(parts, Color(0.95, 0.93, 0.88)).box(Vector3(0, 0.19, 0), Vector3(0.1, 0.03, 0.06))
+			_mb(parts, Color(0.6, 0.5, 0.35)).box(Vector3(0, 0.205, 0), Vector3(0.12, 0.01, 0.02)) # amarra
+		&"pao_fresco":
+			_mb(parts, Color(0.78, 0.5, 0.22)).box(Vector3(0, 0.04, 0), Vector3(0.22, 0.08, 0.11))
+			_mb(parts, Color(0.88, 0.62, 0.3)).box(Vector3(0, 0.085, 0), Vector3(0.18, 0.02, 0.07))
+		&"fibra":
+			_mb(parts, Color(0.95, 0.94, 0.9)).box(Vector3(0, 0.05, 0), Vector3(0.12, 0.08, 0.12))
+			_mb(parts, Color(0.88, 0.87, 0.83)).box(Vector3(0.03, 0.09, 0.02), Vector3(0.07, 0.05, 0.07))
+		&"fio":
+			_mb(parts, Color(0.85, 0.82, 0.74)).lathe(PackedVector2Array([Vector2(0.002, 0.0), Vector2(0.05, 0.0), Vector2(0.05, 0.1), Vector2(0.002, 0.1)]), 8)
+			_mb(parts, Color(0.45, 0.3, 0.18)).box(Vector3(0, 0.05, 0), Vector3(0.015, 0.14, 0.015)) # carretel
+		&"tecido":
+			_mb(parts, Color(0.68, 0.62, 0.5)).box(Vector3(0, 0.015, 0), Vector3(0.24, 0.03, 0.2))
+			_mb(parts, Color(0.6, 0.54, 0.43)).box(Vector3(0, 0.032, 0.05), Vector3(0.24, 0.005, 0.02))
+		&"casaco":
+			var coat := Color(0.5, 0.38, 0.26)
+			_mb(parts, coat).box(Vector3(0, 0.25, 0), Vector3(0.42, 0.5, 0.18))
+			for side in [-0.27, 0.27]:
+				_mb(parts, coat.darkened(0.1)).box(Vector3(side, 0.28, 0), Vector3(0.12, 0.44, 0.15)) # mangas
+			_mb(parts, Color(0.85, 0.82, 0.72)).box(Vector3(0, 0.48, 0.0), Vector3(0.3, 0.06, 0.2)) # gola forrada
+		&"adubo":
+			_mb(parts, Color(0.25, 0.18, 0.1)).box(Vector3(0, 0.05, 0), Vector3(0.16, 0.1, 0.16))
+			_mb(parts, Color(0.35, 0.45, 0.2)).box(Vector3(0.03, 0.1, 0.02), Vector3(0.03, 0.03, 0.03))
+		&"peixe_defumado":
+			_mb(parts, Color(0.45, 0.28, 0.15)).box(Vector3.ZERO, Vector3(0.26, 0.04, 0.1))
+			_mb(parts, Color(0.35, 0.2, 0.1)).box(Vector3(0.15, 0, 0), Vector3(0.05, 0.03, 0.12))
+		&"comida_estragada":
+			_rock(_mb(parts, Color(0.35, 0.4, 0.2)))
+			_mb(parts, Color(0.5, 0.55, 0.3)).box(Vector3(0.03, 0.05, 0.02), Vector3(0.04, 0.03, 0.04)) # mofo
 		&"tabua":
 			_mb(parts, WOOD).box(Vector3.ZERO, Vector3(0.12, 0.025, 0.6))
 			_mb(parts, IRON).box(Vector3(0, 0.014, 0.22), Vector3(0.012, 0.006, 0.012))

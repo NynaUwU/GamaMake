@@ -484,6 +484,12 @@ func _unhandled_input(event: InputEvent) -> void:
 			inventory.select(_hotbar_key(event))
 		elif event.is_action_pressed("ping"):
 			PingMarkers.ping_from(self)
+		elif event.is_action_pressed("interact") and _interact_target is PlacedObject and Machines.is_crank(_interact_target.kind):
+			# Máquina de manivela: toque = abrir/pôr/tirar; segurando = girar (ver _update_crank).
+			_crank_target = _interact_target
+			_crank_hold = 0.0
+		elif event.is_action_pressed("attack") and inventory.selected_id() == &"adubo":
+			_fertilize()
 		elif event.is_action_pressed("interact") and is_instance_valid(_interact_target):
 			_interact_target.interact(self)
 			# O item some ao ser pego: limpa o aviso na hora.
@@ -495,6 +501,7 @@ func _physics_process(delta: float) -> void:
 	_net_send(delta)
 	if health <= 0.0:
 		return
+	_update_crank(delta)
 	if not is_puppet():
 		_update_hunger(delta)
 	if vehicle:
@@ -1537,6 +1544,7 @@ func _eat_selected() -> void:
 	var heal_amount: float = ItemDB.def(id).get("heal", 0)
 	var food: float = ItemDB.def(id).get("hunger", 0)
 	var water: float = ItemDB.def(id).get("thirst", 0)
+	var fresh: float = inventory.slots[inventory.selected].get("dur", 1.0)
 	var useful := (heal_amount > 0.0 and health < max_health) or (food > 0.0 and hunger < MAX_HUNGER - 2.0) \
 		or (water > 0.0 and thirst < MAX_THIRST - 2.0)
 	if not useful:
@@ -1547,7 +1555,8 @@ func _eat_selected() -> void:
 	eat(food)
 	if water > 0.0:
 		drink(water)
-	if randf() < ItemDB.def(id).get("sick", 0.0):
+	# Quase estragada (menos de 25% de frescor) também pode fazer mal.
+	if randf() < ItemDB.def(id).get("sick", 0.0) or (ItemDB.spoils(id) and fresh < 0.25 and randf() < 0.3):
 		get_sick()
 	var returns: StringName = ItemDB.def(id).get("returns", &"")
 	if returns != &"":
@@ -1632,8 +1641,13 @@ func _fill_bottle() -> void:
 	Sfx.play_at("slap", end, -4.0, 1.2)
 
 
+var _spoil_timer := 5.0
 func _update_hunger(delta: float) -> void:
 	_update_thirst(delta)
+	_spoil_timer -= delta
+	if _spoil_timer <= 0.0:
+		_spoil_timer = 5.0
+		inventory.spoil(5.0) # comida na mochila estraga aos poucos
 	var rate := HUNGER_RATE * (1.8 if _is_sprinting() else 1.0) * (1.6 if sick_time > 0.0 else 1.0)
 	var before := int(hunger)
 	hunger = maxf(hunger - rate * delta, 0.0)
@@ -1910,6 +1924,59 @@ func _tool_kind() -> String:
 		WeaponType.CHISEL:
 			return "chisel"
 	return ""
+
+
+# Máquinas de manivela (Tier 1) ------------------------------------------------
+
+const CRANK_HOLD := 0.25 ## segurar mais que isso = girar (menos = toque)
+var _crank_target: PlacedObject
+var _crank_hold := 0.0
+var _crank_send := 0.0
+
+
+func _update_crank(delta: float) -> void:
+	if _crank_target == null:
+		return
+	if not is_instance_valid(_crank_target):
+		_crank_target = null
+		return
+	if not Input.is_action_pressed("interact") or ui_blocked:
+		if _crank_hold < CRANK_HOLD and not ui_blocked:
+			Machines.tap(self, _crank_target) # foi só um toque
+		_flush_crank()
+		_crank_target = null
+		return
+	_crank_hold += delta
+	if _crank_hold < CRANK_HOLD:
+		return
+	if _crank_target.global_position.distance_to(global_position) > interact_range + 1.5:
+		_flush_crank()
+		_crank_target = null
+		return
+	if Machines.crank_local(self, _crank_target, delta):
+		_regen_delay = 0.6 # girando: a stamina não enche
+		_crank_send += delta
+		if _crank_send >= 0.3:
+			_flush_crank()
+
+
+func _flush_crank() -> void:
+	if _crank_send > 0.0 and is_instance_valid(_crank_target) and _crank_target.kind != "grindstone" and _crank_target.kind != "pump":
+		(get_parent().get_node("Placed") as PlacedManager).request("crank", [_crank_target.net_id, _crank_send])
+	_crank_send = 0.0
+
+
+## Adubo na mão: clique num plantador (as próximas 3 colheitas dele rendem o dobro).
+func _fertilize() -> void:
+	var origin := camera.global_position
+	var query := PhysicsRayQueryParameters3D.create(origin, origin - camera.global_basis.z * interact_range, MASK_INTERACT, [get_rid()])
+	var hit := get_world_3d().direct_space_state.intersect_ray(query)
+	if hit.is_empty() or not hit.collider is PlacedObject or not hit.collider.is_farm():
+		Sfx.play("click", -6.0, 0.6)
+		return
+	inventory.take(inventory.selected, 1)
+	(get_parent().get_node("Placed") as PlacedManager).request("extra", [hit.collider.net_id, {"fert": 3}])
+	Sfx.play_at("step_soft", hit.position, 2.0, 0.9)
 
 
 ## Bandeira (e o que mais for "placeable"): finca onde a mira bate no chão.

@@ -101,6 +101,9 @@ static func slot_labels(button: Button, short: String, amount := 1) -> void:
 func _describe(recipe: Dictionary) -> String:
 	var text := "%s%s%s\n%s" % [ItemDB.display_name(recipe.id), " x%d" % recipe.amount if recipe.get("amount", 1) > 1 else "",
 		" (%s)" % recipe.note if recipe.has("note") else "", Builder.cost_text(recipe.cost, player.inventory)]
+	if recipe.get("heat", false):
+		var hot := Machines.heat(CraftingUI.heat_source) if is_instance_valid(CraftingUI.heat_source) else 0.0
+		text += " + fornalha quente (%d%% de %d%%: segure E no fole)" % [int(hot * 100.0), int(Machines.HEAT_NEEDED * 100.0)]
 	if recipe.get("fuel", false):
 		var fuel := CraftingUI.fuel_for(player.inventory)
 		text += " + combustível (%s)" % (ItemDB.display_name(fuel[0]) if not fuel.is_empty() else "falta")

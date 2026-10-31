@@ -97,7 +97,7 @@ func add(id: StringName, amount := 1, dur := 1.0) -> int:
 			break
 		if not slots[i].is_empty() and slots[i].id == id and slots[i].amount < stack:
 			var moved := mini(stack - slots[i].amount, left)
-			slots[i].amount += moved
+			ItemDB.merge_into(slots[i], moved, dur)
 			left -= moved
 	var order := _fill_order(id)
 	for i in order:
@@ -106,12 +106,26 @@ func add(id: StringName, amount := 1, dur := 1.0) -> int:
 		if slots[i].is_empty():
 			var moved := mini(stack, left)
 			slots[i] = {"id": id, "amount": moved}
-			if dur < 1.0 and ItemDB.max_durability(id) > 0:
+			if dur < 1.0 and (ItemDB.max_durability(id) > 0 or ItemDB.spoils(id)):
 				slots[i].dur = dur # item gasto (do chão, de zumbi...)
 			left -= moved
 	if left != amount:
 		changed.emit()
 	return left
+
+
+## Comida estragando (chamado pelo jogador a cada poucos segundos). true = mudou algo.
+func spoil(seconds: float) -> bool:
+	var any := false
+	for i in slots.size():
+		if not slots[i].is_empty() and ItemDB.spoils(slots[i].id):
+			slots[i].dur = slots[i].get("dur", 1.0) - seconds / ItemDB.SPOIL[slots[i].id]
+			any = true
+			if slots[i].dur <= 0.0:
+				slots[i] = {"id": &"comida_estragada", "amount": slots[i].amount}
+	if any:
+		changed.emit()
+	return any
 
 
 ## Tira "amount" do slot; devolve o que saiu ({} se vazio).
@@ -137,7 +151,7 @@ func swap(a: int, b: int) -> void:
 		var stack := ItemDB.max_stack(slots[a].id)
 		var moved := mini(stack - slots[b].amount, slots[a].amount)
 		if moved > 0:
-			slots[b].amount += moved
+			ItemDB.merge_into(slots[b], moved, slots[a].get("dur", 1.0))
 			slots[a].amount -= moved
 			if slots[a].amount <= 0:
 				slots[a] = {}

@@ -24,6 +24,20 @@ reação física a golpes e ragdoll (estilo Dying Light), visual de PC dos anos 
 - Os outros jogadores aparecem com o nome em cima, o item da mão, a lanterna acesa e uma bolinha
   azul no minimapa/mapa. Em cima, no meio da tela, aparece quem está online.
 
+## Máquinas — Tier 1 (manual: o jogador é a energia)
+- **Comida estraga:** peixe cru ~8 min, assados ~15 min, legumes 25–40 min, pão caseiro 20 min (enlatado, pão velho, peixe seco/defumado e farinha não estragam). O frescor é a barrinha embaixo do ícone (verde → marrom); ao zerar vira **comida estragada** (quase não enche, 80% de doença). Pilhas juntam pela média do frescor. Estraga na mochila e nos baús (no chão fica parado). Comer algo com menos de 25% de frescor pode deixar doente.
+- **Martelo → aba Máquinas** (o coletor e o secador foram para lá).
+- **Manivela:** toque em [E] = pôr material / tirar o pronto / abrir; **segure [E] = girar**, gastando stamina (30/s, sem encher enquanto gira). O modelo gira e range.
+  - **Pedra de amolar:** segure E com a ferramenta/arma na mão: ~14 s de 0 a 100% de durabilidade.
+  - **Moinho manual:** trigo → farinha (2,5 s de manivela cada).
+  - **Bomba d'água:** só na beira do lago; segure E com garrafa vazia → água suja sem fim (1,5 s cada).
+  - **Roca:** 2 fibra → 1 fio. **Tear:** 3 fio → 1 tecido. Tecido → **casaco** (isolamento térmico para o frio, 8% de proteção) ou 3 panos na mesa.
+  - **Fornalha de pedra + fole** (12 tijolos): a **única que funde minério de ferro** (a de barro não funde mais; continua com cobre, vidro, carvão e sucata). Segure E no fole: ~3 s esquenta acima de 50%, esfria em 90 s. Rende mais: 2 sucata → 1 barra, 2 minério de cobre → 2 barras, argila → tijolo.
+- **Forno de tijolo** (estação): 2 farinha + 1 água → 2 pães caseiros (devolve a garrafa); torrada; batata assada em lote.
+- **Esperam sozinhos** (como a grelha): **filtro** de areia/carvão (água suja → potável, 30 s), **defumador** (peixe cru → defumado, nunca estraga, 60 s), **composteira** (estragada/legumes → adubo, 120 s).
+- **Adubo:** clique num plantador → as próximas 3 colheitas dele rendem o dobro.
+- **Plantas novas:** trigo (sementes nas casas) e algodão (dá fibra).
+
 ## Máquinas — Tier 0 (primitivo). Plano completo em `docs/ROADMAP_MAQUINAS.md`
 - **Sede** (arco azul "A" no HUD, por dentro da fome): esvazia em ~15 min (correndo, mais rápido). Zerada, a vida cai. Com sede baixa a vida não regenera; aviso só por som.
 - **Garrafa** (fornalha: 1 vidro → 2 garrafas; casas e caixote inicial): clique com ela na **água do lago** → **água suja**; num **coletor de chuva** → **água potável**. Beber devolve a garrafa vazia.

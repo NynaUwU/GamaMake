@@ -40,12 +40,24 @@ const RECIPES := [
 	{"id": &"colher", "station": "mesa", "cost": {&"barra_ferro": 4}},
 	{"id": &"cajado", "station": "mesa", "cost": {&"barra_cobre": 3, &"vidro": 2, &"tronco": 1}},
 	# Fornalha
-	{"id": &"barra_ferro", "station": "fornalha", "fuel": true, "cost": {&"minerio_ferro": 2}},
 	{"id": &"barra_cobre", "station": "fornalha", "fuel": true, "cost": {&"minerio_cobre": 2}},
 	{"id": &"barra_ferro", "station": "fornalha", "fuel": true, "cost": {&"sucata": 3}, "note": "sucata"},
 	{"id": &"vidro", "station": "fornalha", "fuel": true, "cost": {&"areia": 2}},
 	{"id": &"vidro", "station": "fornalha", "fuel": true, "cost": {&"pedra": 4}, "note": "pedra"},
 	{"id": &"carvao", "amount": 2, "station": "fornalha", "cost": {&"tronco": 1}},
+	# Fornalha de pedra (Tier 1): a única que funde minério de ferro; precisa de calor do fole.
+	{"id": &"barra_ferro", "station": "fornalha_pedra", "fuel": true, "heat": true, "cost": {&"minerio_ferro": 2}},
+	{"id": &"barra_ferro", "station": "fornalha_pedra", "fuel": true, "heat": true, "cost": {&"sucata": 2}, "note": "sucata"},
+	{"id": &"barra_cobre", "amount": 2, "station": "fornalha_pedra", "fuel": true, "cost": {&"minerio_cobre": 2}},
+	{"id": &"vidro", "amount": 2, "station": "fornalha_pedra", "fuel": true, "cost": {&"areia": 2}},
+	{"id": &"tijolo", "amount": 2, "station": "fornalha_pedra", "fuel": true, "cost": {&"argila": 2}},
+	# Forno de tijolo: pão e assados.
+	{"id": &"pao_fresco", "amount": 2, "station": "forno", "fuel": true, "cost": {&"farinha": 2, &"agua": 1}},
+	{"id": &"torrada", "amount": 2, "station": "forno", "fuel": true, "cost": {&"pao_fresco": 1}},
+	{"id": &"batata_assada", "amount": 3, "station": "forno", "fuel": true, "cost": {&"batata": 3}},
+	# Mesa: roupas de tecido (Tier 1).
+	{"id": &"casaco", "station": "mesa", "cost": {&"tecido": 4, &"pano": 1}},
+	{"id": &"pano", "amount": 3, "station": "mesa", "cost": {&"tecido": 1}},
 	# Mão (mochila): o básico, e versões que rendem menos que na mesa.
 	{"id": &"graveto", "amount": 2, "station": "mao", "cost": {&"tabua": 1}},
 	{"id": &"tabua", "amount": 3, "station": "mao", "cost": {&"tronco": 1}},
@@ -54,7 +66,10 @@ const RECIPES := [
 	{"id": &"bandagem", "station": "mao", "cost": {&"pano": 3}},
 	{"id": &"capuz", "station": "mao", "cost": {&"pano": 4}},
 ]
-const TITLES := {"mesa": "Mesa de trabalho", "fornalha": "Fornalha", "mao": "Fabricar"}
+const TITLES := {"mesa": "Mesa de trabalho", "fornalha": "Fornalha", "mao": "Fabricar", "forno": "Forno de tijolo",
+	"fornalha_pedra": "Fornalha de pedra"}
+## Fornalha de pedra aberta agora (o calor do fole libera as receitas "heat").
+static var heat_source: PlacedObject
 ## Combustível da fornalha, na ordem de preferência: [item, quanto gasta].
 const FUELS := [[&"carvao", 1], [&"tronco", 1], [&"tabua", 2]]
 
@@ -62,9 +77,10 @@ var player: Player
 var station := "mesa"
 
 
-static func open_for(p: Node, station_ := "mesa") -> void:
+static func open_for(p: Node, station_ := "mesa", source: PlacedObject = null) -> void:
 	if not p is Player or p.is_puppet() or p.ui_blocked:
 		return
+	heat_source = source
 	var ui := CraftingUI.new()
 	ui.player = p
 	ui.station = "mesa" if station_ == "bancada" else station_
@@ -86,6 +102,8 @@ static func fuel_for(inventory: Inventory) -> Array:
 static func can_craft(inventory: Inventory, recipe: Dictionary) -> bool:
 	if not Builder.can_afford(inventory, recipe.cost):
 		return false
+	if recipe.get("heat", false) and (not is_instance_valid(heat_source) or Machines.heat(heat_source) < Machines.HEAT_NEEDED):
+		return false # fornalha fria: segure E no fole
 	if recipe.get("fuel", false):
 		var fuel := fuel_for(inventory)
 		if fuel.is_empty():
@@ -106,6 +124,10 @@ static func craft(player: Player, recipe: Dictionary, times := 1) -> int:
 			var fuel := fuel_for(player.inventory)
 			Builder.pay(player.inventory, {fuel[0]: fuel[1]})
 		Builder.pay(player.inventory, recipe.cost)
+		for id in recipe.cost: # água usada: a garrafa vazia volta
+			var returns: StringName = ItemDB.def(id).get("returns", &"")
+			if returns != &"":
+				player.inventory.add(returns, recipe.cost[id])
 		made += recipe.get("amount", 1)
 		done += 1
 	if made > 0:
@@ -136,6 +158,18 @@ func _ready() -> void:
 	var grid := RecipeGrid.new()
 	grid.setup(player, station, 6, 250.0)
 	column.add_child(grid)
+
+
+var _heat_refresh := 1.0
+func _process(delta: float) -> void:
+	# Fornalha de pedra: o calor cai com o tempo; reavalia o que dá para fundir.
+	if heat_source == null:
+		return
+	_heat_refresh -= delta
+	if _heat_refresh <= 0.0:
+		_heat_refresh = 1.0
+		for grid in find_children("*", "RecipeGrid", true, false):
+			grid.refresh()
 
 
 func close() -> void:

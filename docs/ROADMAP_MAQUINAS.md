@@ -72,7 +72,7 @@ Cada fase só usa o que as anteriores já entregaram.
    - Secador (peixe → peixe seco).
    - Argila → tijolo na fogueira.
    - Fogueira acesa afasta zumbis à noite.
-2. **Comida estragando + Tier 1 manual**
+2. **Comida estragando + Tier 1 manual** *(feito)*
    - Base `Machine` com manivela, gastando stamina.
    - Pedra de amolar, moinho manual (trigo → farinha → pão no forno).
    - Bomba manual (água suja), filtro de areia/carvão.

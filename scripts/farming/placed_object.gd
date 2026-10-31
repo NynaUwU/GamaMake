@@ -69,6 +69,12 @@ func slot_positions() -> Array:
 			return [Vector3(-0.22, 0.6, 0), Vector3(0, 0.6, 0), Vector3(0.22, 0.6, 0)]
 		"dryer":
 			return [Vector3(-0.45, 1.12, 0), Vector3(-0.15, 1.12, 0), Vector3(0.15, 1.12, 0), Vector3(0.45, 1.12, 0)]
+		"filter":
+			return [Vector3(-0.2, 1.02, 0), Vector3(0.2, 1.02, 0)]
+		"smoker":
+			return [Vector3(-0.22, 1.0, 0), Vector3(0, 1.0, 0), Vector3(0.22, 1.0, 0)]
+		"compost":
+			return [Vector3(-0.25, 0.7, 0), Vector3(0.25, 0.7, 0)]
 	return []
 
 
@@ -181,7 +187,7 @@ func refresh(clock: float) -> void:
 	if kind == "rain_collector":
 		_refresh_collector()
 		return
-	if kind in ["campfire", "dryer"]:
+	if kind in Cooking.KINDS:
 		for i in crops.size():
 			var st := Cooking.stage(crops[i], clock)
 			if st != _stages[i]:
@@ -223,8 +229,10 @@ func get_interact_text() -> String:
 			return "[E] Mesa de trabalho (metal, armas, ferramentas)"
 		"furnace":
 			return "[E] Fornalha (fundir minério, vidro, carvão)"
-		"campfire", "dryer":
+		"campfire", "dryer", "filter", "smoker", "compost":
 			return Cooking.text(self, clock)
+		"grindstone", "quern", "pump", "spinning", "loom", "stone_furnace", "oven":
+			return Machines.text(self)
 		"rain_collector":
 			var water: float = extra.get("water", 0.0)
 			return "Coletor de chuva: %d de %d garrafas%s" % [int(water), COLLECTOR_CAP, "  (clique com uma garrafa vazia)" if water >= 1.0 else ""]
@@ -262,8 +270,11 @@ func interact(player: Node) -> void:
 	if STATIONS.has(kind):
 		CraftingUI.open_for(player, STATIONS[kind])
 		return
-	if kind in ["campfire", "dryer"]:
+	if kind in Cooking.KINDS:
 		Cooking.interact(player, self)
+		return
+	if Machines.is_crank(kind) or kind == "oven":
+		Machines.tap(player, self)
 		return
 	if board:
 		DrawUI.open_for(player, board)
@@ -288,6 +299,9 @@ func interact(player: Node) -> void:
 func _build() -> void:
 	if kind == "tree":
 		return # desenho e colisão vêm do crescimento (_refresh_tree)
+	if Machines.is_crank(kind) or kind in ["oven", "filter", "smoker", "compost"]:
+		Machines.build(kind, self)
+		return
 	if kind in ["campfire", "furnace", "workbench", "chest", "dryer", "rain_collector"]:
 		StationModels.build(kind, self)
 		if kind == "campfire":

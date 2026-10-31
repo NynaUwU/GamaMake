@@ -157,6 +157,27 @@ const ITEMS := {
 	&"peixe_seco": {"name": "Peixe seco", "short": "Peixe seco", "kind": "food", "hunger": 40, "heal": 6, "stack": 100,
 		"size": Vector3(0.28, 0.04, 0.12), "desc": "Peixe salgado e seco no varal. Enche bem e não estraga.",
 		"controls": ["Clique: come (+40 fome)"]},
+	&"comida_estragada": {"name": "Comida estragada", "short": "Estragada", "kind": "food", "hunger": 5, "sick": 0.8, "stack": 100,
+		"size": Vector3(0.18, 0.08, 0.16), "desc": "Passou do ponto. Quase não enche e quase sempre deixa doente. Na composteira vira adubo.",
+		"controls": ["Clique: come (risco alto de doença)"]},
+	&"semente_trigo": {"name": "Sementes de trigo", "short": "Sem. trigo", "kind": "seed", "crop": "trigo", "stack": 100, "size": Vector3(0.1, 0.03, 0.14),
+		"desc": "Planta trigo (não se come cru: moa no moinho manual).", "controls": ["Clique num pote, floreira, canteiro ou cova: planta"]},
+	&"trigo": {"name": "Trigo", "kind": "material", "stack": 100, "size": Vector3(0.06, 0.4, 0.06), "desc": "Moa no moinho manual para fazer farinha."},
+	&"farinha": {"name": "Farinha", "kind": "material", "stack": 100, "size": Vector3(0.16, 0.2, 0.12), "desc": "Farinha + água no forno de tijolo = pão."},
+	&"pao_fresco": {"name": "Pão caseiro", "short": "Pão", "kind": "food", "hunger": 38, "heal": 4, "stack": 100, "size": Vector3(0.22, 0.1, 0.12),
+		"desc": "Saído do forno. Estraga em uns 20 min.", "controls": ["Clique: come (+38 fome)"]},
+	&"semente_algodao": {"name": "Sementes de algodão", "short": "Sem. algodão", "kind": "seed", "crop": "algodao", "stack": 100, "size": Vector3(0.1, 0.03, 0.14),
+		"desc": "Planta algodão: dá fibra para a roca.", "controls": ["Clique num pote, floreira, canteiro ou cova: planta"]},
+	&"fibra": {"name": "Fibra de algodão", "short": "Fibra", "kind": "material", "stack": 100, "size": Vector3(0.14, 0.1, 0.14), "desc": "Fie na roca para fazer fio."},
+	&"fio": {"name": "Fio", "kind": "material", "stack": 100, "size": Vector3(0.1, 0.1, 0.1), "desc": "Teça no tear para fazer tecido."},
+	&"tecido": {"name": "Tecido", "kind": "material", "stack": 100, "size": Vector3(0.24, 0.03, 0.2), "desc": "Pano firme do tear: roupas quentes e pano melhor."},
+	&"casaco": {"name": "Casaco de tecido", "kind": "armor", "slot": "body", "armor": 0.08, "warm": 0.6, "stack": 1, "size": Vector3(0.44, 0.52, 0.24),
+		"desc": "Forrado: protege do frio (isolamento térmico) e um pouco dos golpes (8%)."},
+	&"adubo": {"name": "Adubo", "kind": "material", "stack": 100, "size": Vector3(0.16, 0.12, 0.16),
+		"desc": "Da composteira. Clique num plantador: as próximas 3 colheitas dele rendem o dobro.",
+		"controls": ["Clique num pote, floreira, canteiro ou cova: aduba"]},
+	&"peixe_defumado": {"name": "Peixe defumado", "short": "Defumado", "kind": "food", "hunger": 50, "heal": 10, "stack": 100,
+		"size": Vector3(0.28, 0.05, 0.12), "desc": "Do defumador. Enche muito e nunca estraga.", "controls": ["Clique: come (+50 fome)"]},
 	&"areia": {"name": "Areia", "kind": "material", "stack": 100, "size": Vector3(0.16, 0.08, 0.16),
 		"desc": "Cavada no deserto com a pá. Na fornalha vira vidro."},
 	&"graveto": {"name": "Graveto", "kind": "material", "stack": 100, "size": Vector3(0.04, 0.04, 0.5),
@@ -219,6 +240,31 @@ const ITEMS := {
 
 ## Armas que zumbis podem carregar (só corpo a corpo).
 const ZOMBIE_WEAPONS := [&"taco", &"espada"]
+
+
+## Comida que estraga: segundos de fresca até estragar. O frescor (0..1) fica no
+## campo "dur" do slot (o mesmo da durabilidade, que já passa por mochila, baús,
+## chão e rede); ao zerar vira "comida estragada".
+const SPOIL := {
+	&"camarao": 480.0, &"lagosta": 480.0, &"caranguejo": 480.0, &"caranguejo_aranha": 480.0, &"atum": 480.0, &"baixo": 480.0,
+	&"camarao_assado": 900.0, &"lagosta_assada": 900.0, &"caranguejo_assado": 900.0, &"caranguejo_aranha_assado": 900.0,
+	&"atum_assado": 900.0, &"baixo_assado": 900.0,
+	&"cenoura": 1500.0, &"batata": 1800.0, &"abobora": 2400.0, &"fruta": 900.0,
+	&"cenoura_assada": 900.0, &"batata_assada": 900.0, &"abobora_assada": 900.0, &"lata_quente": 600.0,
+	&"pao_fresco": 1200.0, &"torrada": 1500.0,
+}
+
+
+static func spoils(id: StringName) -> bool:
+	return SPOIL.has(id)
+
+
+## Junta "moved" itens com frescor "dur" numa pilha: o frescor vira a média ponderada.
+static func merge_into(target: Dictionary, moved: int, dur := 1.0) -> void:
+	if spoils(target.id):
+		var total: int = target.amount + moved
+		target.dur = (target.get("dur", 1.0) * target.amount + dur * moved) / maxf(total, 1)
+	target.amount += moved
 
 
 static func has(id: StringName) -> bool:

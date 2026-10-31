@@ -14,8 +14,12 @@ const CROPS := {
 		"leaf": Color(0.25, 0.45, 0.2), "fruit": Color(0.85, 0.82, 0.95)},
 	"abobora": {"time": 420.0, "food": &"abobora", "seed": &"semente_abobora", "yield": [1, 2], "seeds": [1, 3],
 		"leaf": Color(0.28, 0.5, 0.18), "fruit": Color(0.86, 0.45, 0.1)},
+	"trigo": {"time": 300.0, "food": &"trigo", "seed": &"semente_trigo", "yield": [2, 4], "seeds": [1, 2],
+		"leaf": Color(0.55, 0.6, 0.25), "fruit": Color(0.85, 0.72, 0.35)},
+	"algodao": {"time": 360.0, "food": &"fibra", "seed": &"semente_algodao", "yield": [2, 3], "seeds": [1, 2],
+		"leaf": Color(0.3, 0.45, 0.22), "fruit": Color(0.95, 0.94, 0.9)},
 }
-const SEED_ORDER := ["cenoura", "batata", "abobora"]
+const SEED_ORDER := ["cenoura", "batata", "abobora", "trigo", "algodao"]
 
 
 static func manager(player: Node) -> PlacedManager:

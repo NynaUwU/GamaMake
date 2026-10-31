@@ -51,7 +51,7 @@ static func add_to(slots: Array, id: StringName, amount: int) -> int:
 			break
 		if not s.is_empty() and s.id == id and s.amount < stack:
 			var moved := mini(stack - s.amount, amount)
-			s.amount += moved
+			ItemDB.merge_into(s, moved)
 			amount -= moved
 	for k in slots.size():
 		if amount <= 0:
@@ -130,7 +130,7 @@ func _host(action: String, args: Array) -> Array:
 					slots[index].dur = dur
 			elif target.id == id:
 				var moved := mini(ItemDB.max_stack(id) - target.amount, amount)
-				target.amount += moved
+				ItemDB.merge_into(target, moved, dur)
 				if amount - moved > 0:
 					Net.i.give_to(Net.i.request_peer, id, amount - moved)
 			else:
@@ -146,7 +146,7 @@ static func _swap(slots: Array, a: int, b: int) -> void:
 	if not slots[a].is_empty() and not slots[b].is_empty() and slots[a].id == slots[b].id:
 		var moved := mini(ItemDB.max_stack(slots[a].id) - slots[b].amount, slots[a].amount)
 		if moved > 0:
-			slots[b].amount += moved
+			ItemDB.merge_into(slots[b], moved, slots[a].get("dur", 1.0))
 			slots[a].amount -= moved
 			if slots[a].amount <= 0:
 				slots[a] = {}
@@ -157,6 +157,30 @@ static func _swap(slots: Array, a: int, b: int) -> void:
 
 
 ## Baú construído desmontado: o que tinha dentro cai no chão.
+## Host: a comida guardada também estraga (geladeira, no Tier 4, vai pular isso).
+var _spoil_timer := 10.0
+func _process(delta: float) -> void:
+	_spoil_timer -= delta
+	if _spoil_timer > 0.0 or not Net.i.is_host():
+		return
+	_spoil_timer = 10.0
+	for key in contents:
+		if cold_keys.has(key):
+			continue
+		var touched := false
+		for k in contents[key].size():
+			var s: Dictionary = contents[key][k]
+			if not s.is_empty() and ItemDB.spoils(s.id):
+				s.dur = s.get("dur", 1.0) - 10.0 / ItemDB.SPOIL[s.id]
+				touched = true
+				if s.dur <= 0.0:
+					contents[key][k] = {"id": &"comida_estragada", "amount": s.amount}
+		if touched:
+			changed.emit(key)
+
+var cold_keys := {} ## baús frios (geladeira): a comida não estraga
+
+
 func dump(key: String, where: Vector3) -> void:
 	for slot in contents.get(key, []):
 		if not slot.is_empty():
