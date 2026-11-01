@@ -85,13 +85,31 @@ func _build() -> void:
 					body.box(Vector3(x, 0.25, z), Vector3(0.04, 0.52, 0.04))
 				body.tube(PackedVector3Array([Vector3(x * 1.04, 0.33, -0.07), Vector3(x * 1.1, 0.27, 0.0), Vector3(x * 1.04, 0.33, 0.07)]), 0.012, 4)
 			hinge = Vector3(0, 0.5, -0.275)
-			for k in 5: # tampa arredondada em ripas
-				var t := lerpf(0.0, PI, k / 4.0)
+			# Tampa arredondada: ripas num arco de círculo (mesmo raio em altura e
+			# profundidade, cada ripa tangente ao arco), tampas laterais e cintas.
+			var arc_center := Vector3(0, -0.09, 0.275)
+			var radius := 0.31
+			var span := deg_to_rad(62.0)
+			var slats := 6
+			for k in slats:
+				var a := lerpf(-span, span, (k + 0.5) / slats)
 				lid.color(wood.darkened(0.04 * (k % 2) + 0.06))
-				lid.box(Vector3(0, 0.02 + sin(t) * 0.14, 0.275 - cos(t) * 0.26), Vector3(0.9, 0.035, 0.13), Basis(Vector3.RIGHT, -t + PI / 2))
+				lid.box(arc_center + Vector3(0, cos(a), sin(a)) * radius, Vector3(0.9, 0.035, radius * 2.0 * span / slats + 0.004), Basis(Vector3.RIGHT, a))
+			lid.color(wood.darkened(0.15))
+			for x in [-0.45, 0.45]: # tampas laterais (meia-lua)
+				for k in 12:
+					var a0 := lerpf(-span, span, k / 12.0)
+					var a1 := lerpf(-span, span, (k + 1) / 12.0)
+					var c := Vector3(x, arc_center.y + cos(span) * radius, arc_center.z)
+					var p0 := Vector3(x, arc_center.y + cos(a0) * radius, arc_center.z + sin(a0) * radius)
+					var p1 := Vector3(x, arc_center.y + cos(a1) * radius, arc_center.z + sin(a1) * radius)
+					lid.tri(c, p0, p1)
+					lid.tri(c, p1, p0)
 			lid.color(ItemModels.IRON)
-			for x in [-0.32, 0.32]:
-				lid.lathe(PackedVector2Array([Vector2(0.28, -0.025), Vector2(0.28, 0.025)]), 8, Basis(Vector3.BACK, PI / 2), Vector3(x, 0.02, 0.275))
+			for x in [-0.32, 0.32]: # cintas de ferro acompanhando o arco
+				for k in slats:
+					var a := lerpf(-span, span, (k + 0.5) / slats)
+					lid.box(arc_center + Vector3(x, cos(a) * (radius + 0.02), sin(a) * (radius + 0.02)), Vector3(0.05, 0.008, radius * 2.0 * span / slats + 0.006), Basis(Vector3.RIGHT, a))
 			lid.color(ItemModels.BRASS)
 			lid.box(Vector3(0, 0.02, 0.56), Vector3(0.09, 0.12, 0.03))
 			lid.color(Color(0.08, 0.06, 0.05))

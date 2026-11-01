@@ -114,6 +114,22 @@ static func _grip(p: Dictionary, from: float, to: float, radius: float, color: C
 		_mb(p, color.darkened(0.25)).lathe(PackedVector2Array([Vector2(radius + 0.003, z - step * 0.18), Vector2(radius + 0.004, z), Vector2(radius + 0.003, z + step * 0.18)]), 8, AXIS_Z)
 
 
+## Peça curva que afina: anéis perpendiculares ao caminho (seção de "sides"
+## lados), ligados e tampados. "across" = eixo que fica fixo de lado (não gira).
+static func _taper(mb: MeshBuilder, path: PackedVector3Array, r0: float, r1: float, across: Vector3, sides := 4) -> void:
+	var rings := []
+	for i in path.size():
+		var tangent := (path[mini(i + 1, path.size() - 1)] - path[maxi(i - 1, 0)]).normalized()
+		var normal := tangent.cross(across).normalized()
+		var radius := lerpf(r0, r1, float(i) / (path.size() - 1))
+		var ring := PackedVector3Array()
+		for k in sides:
+			var a := TAU * k / sides + PI / sides
+			ring.append(path[i] + (normal * cos(a) + across * sin(a)) * radius)
+		rings.append(ring)
+	mb.loft(rings, true, true)
+
+
 static func _rivet(p: Dictionary, at: Vector3, color := Color(0.5, 0.45, 0.35), r := 0.006) -> void:
 	_mb(p, color).box(at, Vector3(r, r, r) * 2.0)
 
@@ -195,7 +211,7 @@ static func _sword(p: Dictionary) -> void:
 	for side in [-1.0, 1.0]:
 		ItemModels._ball(_mb(p, ItemModels.BRASS), Vector3(side * 0.115, 0, -0.008), 0.016, 6)
 	_mb(p, ItemModels.BRASS).box(Vector3(0, 0, -0.045), Vector3(0.05, 0.022, 0.03)) # ricasso
-	_grip(p, -0.03, 0.14, 0.02, ItemModels.LEATHER, 6)
+	_grip(p, -0.15, -0.01, 0.02, ItemModels.LEATHER, 6) # atrás da guarda (h negativo = +Z, lado da mão)
 	# Pomo redondo com aro.
 	ItemModels._ball(_mb(p, ItemModels.IRON), Vector3(0, 0, 0.165), 0.028, 8)
 	_mb(p, ItemModels.BRASS).torus(0.024, 0.004, 10, 4, AXIS_Z, Vector3(0, 0, 0.145))
@@ -279,13 +295,11 @@ static func _pickaxe(p: Dictionary) -> void:
 	_mb(p, ItemModels.IRON).box(Vector3(0, 0, -0.74), Vector3(0.07, 0.065, 0.08))
 	for side in [-1.0, 1.0]:
 		var pts := PackedVector3Array()
-		for k in 6:
-			var t := k / 5.0
-			pts.append(Vector3(side * (0.03 + t * 0.2), -0.09 * t * t, -0.74))
-		# Ponta: tubo afinando (anéis posicionados ao longo da curva).
-		for k in pts.size() - 1:
-			var r0 := lerpf(0.026, 0.004, float(k) / (pts.size() - 1))
-			_mb(p, ItemModels.IRON.lightened(0.05)).tube(PackedVector3Array([pts[k], pts[k + 1]]), r0, 4)
+		for k in 8:
+			var t := k / 7.0
+			pts.append(Vector3(side * (0.03 + t * 0.21), -0.085 * t * t, -0.74))
+		# Ponta contínua: seção quadrada que afina ao longo da curva, até a ponta.
+		_taper(_mb(p, ItemModels.IRON.lightened(0.05)), pts, 0.027, 0.003, Vector3(0, 0, 1))
 	_mb(p, ItemModels.STEEL).box(Vector3(0, 0, -0.74), Vector3(0.072, 0.006, 0.02))
 
 
