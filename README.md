@@ -62,6 +62,12 @@ Martelo → aba **Vapor**. Ordem natural: torno (ferro) → parafusos/engrenagen
   - **Antisséptico:** bandagem + álcool (mesa) = **bandagem com álcool** (+60 vida e cura a doença).
 - **Itens novos:** barra de aço, parafusos, engrenagem, eixo torneado, cano, suco, óleo, álcool, bandagem com álcool (modelos próprios).
 
+## Não cair pelo mundo e saque mais raro (rodada de feedback)
+- **Descer do carro tombado ou capotado:** o jogador desce num ponto livre em volta do carro (porta, outro lado, atrás, frente, mais longe, por cima), sempre em cima do chão e só onde o corpo cabe. Antes descia dentro do terreno e caía pelo mundo. `Player._safe_exit`.
+- **Barreira no fundo do mundo** (`scripts/world/world_floor.gd`): 4x por segundo, quem passou de y = -60 ou ficou mais de 4 m abaixo do terreno volta **para cima da terra** (ou boiando na água), parado. Vale para o jogador, zumbis de pé, bichos, itens no chão e carros. Item que cai onde o chão ainda não tem colisão (longe de todo mundo) fica congelado até o chão aparecer.
+- **Drop de bicho não atravessa mais o chão:** o item nascia dentro da caixa do bicho morto e era empurrado para baixo. Agora o bicho sai da física antes de soltar, o item nasce acima do corpo, nunca abaixo do terreno, e com detecção contínua (não atravessa rápido).
+- **Zumbis não soltam mais roupa**, e soltam bem menos: 10% uma sucata ou 8% um pano (antes 30% + 30% + 12% de roupa). Arma de zumbi: 2% (antes 4%).
+
 ## Bichos, pássaros e fazenda de animais (rodada de feedback)
 - **15 espécies, todas caçáveis** (`scripts/animals/`, em blocos; `AnimalModels` monta cada uma com poucas malhas guardadas por espécie):
   - **Selvagens:** cervo, coelho, raposa e cabra (fogem); javali (revida quando apanha); **lobo** (ataca quem chega a 12 m, de noite de ~19 m, e a matilha vem junto; uiva à noite); **urso** (220 de vida, ataca quem chega a 7 m ou bate).
@@ -109,7 +115,7 @@ Martelo → aba **Vapor**. Ordem natural: torno (ferro) → parafusos/engrenagen
 - **Construção:** o fantasma do martelo agora é o **modelo de verdade** translúcido (verde = cabe, vermelho = não cabe). **Segure Shift** para alinhar com a grade do piso construído (0,4 m e 90°); **desmontar é segurar Shift + clique direito** (o que vai sair fica vermelho), o botão esquerdo só constrói. Nova **escada** (Estrutura: 6 tábuas + 2 gravetos): sobe um andar (2,8 m) andando, com corrimão.
 - **Carros com marchas:** 5 marchas automáticas que dão para sentir (tranco e corte do motor na troca, giro do motor cai); a 1ª tem força para subir rampa de 20° saindo parado. Em curva fechada rápida os pneus perdem aderência e o carro **derrapa** em vez de tombar (barra anti-rolagem).
 - **Airdrop some às 8h** da manhã seguinte, com ou sem coisas dentro.
-- **Armas dos zumbis** só caem raramente (4%).
+- **Armas dos zumbis** só caem raramente (2%).
 - **Receitas:** martelo na mão (1 tronco + 2 tábuas); talhadeira na mesa (2 tábuas + 2 sucatas).
 - **Painel da plantação** do tamanho dos itens que tem (não cresce mais para fora da tela).
 
@@ -154,7 +160,7 @@ Martelo → aba **Vapor**. Ordem natural: torno (ferro) → parafusos/engrenagen
 - **Mudas** também crescem nas covas da pá.
 - **Modelos novos:** filtro em funil com garrafas embaixo, defumador de tijolo com armário de madeira aberto, composteira de ripas com tampa, coletor com barril redondo e funil cônico (a água é redonda e fica dentro).
 - **Aba Máquinas:** mesa de trabalho, fogueira e fornalha saíram de "Outros". O menu de construção tem 5 colunas.
-- **Zumbis naturais voltaram a soltar itens** em qualquer tipo de morte (explosão, empalado, atropelado...).
+- **Zumbis naturais voltaram a soltar itens** em qualquer tipo de morte (explosão, empalado, atropelado...) — raramente.
 - **Itens pequenos** (graveto, cenoura, sementes) têm uma área de mira maior para pegar.
 - **Comida estragada** junta numa pilha só.
 - **Botão Organizar** na mochila: armas, ferramentas, recursos brutos, refinados, outros, sementes e comida (alfabético; comida pelo que vence antes). A hotbar não mexe.
@@ -202,7 +208,7 @@ Martelo → aba **Vapor**. Ordem natural: torno (ferro) → parafusos/engrenagen
 ## Durabilidade, mudas, degraus e vidro (rodada de feedback)
 - **Durabilidade** em roupas/armaduras, ferramentas e armas corpo a corpo: só uma barra embaixo do ícone (verde → amarelo → vermelho), sem texto. Cada golpe que acerta gasta 1 uso (uma vez por golpe, mesmo acertando vários); cada dano recebido gasta a roupa vestida. Ao zerar, quebra com um som de estalo. Ferramentas simples (de pedra) duram ~35% das de metal. `ItemDB.max_durability`, `Inventory.wear`.
 - **Golpe acerta 2 a 5 zumbis** (sorteado a cada golpe): hordas voltaram a ser perigosas.
-- **Zumbis soltam recursos** ao morrer: 30% sucata, 30% pano e 12% uma roupa já gasta (capuz, calça, botas ou colete).
+- **Zumbis soltam recursos** ao morrer: 10% uma sucata ou 8% um pano (roupa não cai mais).
 - **Mudas de árvore:** árvores do mapa às vezes soltam uma muda. Plante no solo ou num **canteiro** (ocupa o canteiro inteiro). No **vaso ou floreira** ela não cresce: fica de decoração (um golpe arranca e devolve a muda). Cresce em ~8 min (muda → arvoreta → árvore); só dá para derrubar depois de crescida (machado corta bem, o resto mal arranha). Árvore plantada pelo jogador sempre solta **1 muda (10% de chance de 2)**, troncos e gravetos.
 - **Subir degraus** de até 0,42 m (altura da canela, um passo da grade) andando, sem pular: jogador e zumbis (os animais vão usar o mesmo `scripts/physics/step_climb.gd`). A câmera sobe suave, sem tranco. Resolve o degrau do piso na entrada das casas construídas.
 - **Menus sem botão "Fechar":** clicar fora do painel fecha qualquer menu (mochila, baú, porta-malas, baú do mapa, mesa/fornalha, lousa, construção e pausa). `LegacyGUI.close_on_outside`.

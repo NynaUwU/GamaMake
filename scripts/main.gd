@@ -41,6 +41,9 @@ func _ready() -> void:
 	var animals := AnimalManager.new()
 	animals.name = "Animals"
 	add_child(animals)
+	var floor_net := WorldFloor.new()
+	floor_net.name = "WorldFloor" # barreira no fundo do mundo: quem cai volta para cima da terra
+	add_child(floor_net)
 	var hordes := HordeManager.new()
 	hordes.name = "Hordes"
 	add_child(hordes)
@@ -249,6 +252,13 @@ func spawn_pickup(key: String, item_id: StringName, amount: int, where: Transfor
 	item.dur = dur
 	item.net_key = key
 	add_child(item)
+	item.continuous_cd = true # item pequeno e rápido não atravessa o chão
+	var terrain := get_node_or_null("Terrain") as TerrainWorld
+	if terrain:
+		# Nunca nasce dentro/abaixo do terreno (bicho morto em ladeira, corpo afundado).
+		var ground := terrain.height_at(where.origin.x, where.origin.z) + 0.25
+		if where.origin.y < ground:
+			where.origin.y = ground
 	item.global_transform = where
 	if impulse != Vector3.ZERO:
 		item.apply_central_impulse(impulse)

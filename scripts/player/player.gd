@@ -1609,17 +1609,64 @@ func exit_vehicle() -> void:
 	if vehicle == null:
 		return
 	var car := vehicle
-	var exit := car.exit_point()
+	var exit := _safe_exit(car)
 	car.set_driver(null)
 	Net.i.leave_car(car)
 	vehicle = null
 	global_position = exit
-	rotation = Vector3(0, car.rotation.y + PI, 0)
+	velocity = Vector3.ZERO
+	var forward := car.global_basis.z
+	forward.y = 0.0
+	rotation = Vector3(0, (atan2(forward.x, forward.z) if forward.length() > 0.1 else rotation.y) + PI, 0)
 	$CollisionShape3D.set_deferred("disabled", false)
 	head.rotation = Vector3.ZERO
 	_set_arms_see_through(false)
 	_show_weapon(_weapon_type)
 	_emit_weapon_text()
+
+
+## Onde descer do carro sem cair pelo mundo: em pé, a porta do motorista; tombado,
+## virado ou com o lado bloqueado, tenta o outro lado, atrás, na frente, mais longe
+## e por cima. Sempre em cima do chão (raio de cima para baixo, nunca abaixo do
+## terreno) e só onde o corpo cabe.
+func _safe_exit(car: VintageCar) -> Vector3:
+	var space := get_world_3d().direct_space_state
+	var center := car.global_position
+	var forward := car.global_basis.z
+	forward.y = 0.0
+	if forward.length() < 0.1:
+		forward = car.global_basis.y # de nariz para cima/baixo: usa o teto como "frente"
+		forward.y = 0.0
+	var yaw := Basis(Vector3.UP, atan2(forward.x, forward.z)) if forward.length() > 0.01 else Basis()
+	var candidates: Array[Vector3] = []
+	if car.global_basis.y.y > 0.75:
+		candidates.append(car.exit_point()) # em pé: a porta de sempre
+	for off in [Vector3(-1.6, 0, 0), Vector3(1.6, 0, 0), Vector3(0, 0, -3.0), Vector3(0, 0, 3.0),
+			Vector3(-2.6, 0, 0), Vector3(2.6, 0, 0), Vector3(-2.2, 0, -2.6), Vector3(2.2, 0, 2.6)]:
+		candidates.append(center + yaw * off)
+	candidates.append(center + Vector3.UP * 1.5) # em cima do carro
+	var shape: CapsuleShape3D = $CollisionShape3D.shape
+	var terrain := get_parent().get_node_or_null("Terrain") as TerrainWorld
+	for c in candidates:
+		var from := Vector3(c.x, maxf(c.y, center.y) + 3.0, c.z)
+		var hit := space.intersect_ray(PhysicsRayQueryParameters3D.create(from, from + Vector3.DOWN * 12.0, 1, [get_rid(), car.get_rid()]))
+		var p := Vector3(c.x, c.y, c.z)
+		if hit:
+			p.y = hit.position.y + 0.05
+		if terrain:
+			p.y = maxf(p.y, terrain.height_at(p.x, p.z) + 0.05)
+		var query := PhysicsShapeQueryParameters3D.new()
+		query.shape = shape
+		query.transform = Transform3D(Basis(), p + Vector3.UP * (shape.height * 0.5 + 0.05))
+		query.collision_mask = 1
+		query.exclude = [get_rid()]
+		if space.intersect_shape(query, 1).is_empty():
+			return p
+	# Nada livre (preso no meio de coisas): em cima do carro, acima do chão.
+	var top := center + Vector3.UP * 2.2
+	if terrain:
+		top.y = maxf(top.y, terrain.height_at(top.x, top.z) + 1.0)
+	return top
 
 
 ## Come o item de comida do slot selecionado: enche a fome e/ou recupera vida.

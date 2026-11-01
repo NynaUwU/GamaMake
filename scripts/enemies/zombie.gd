@@ -584,18 +584,19 @@ func _die(bone: StringName, point: Vector3, impulse: Vector3) -> void:
 
 
 ## Zumbi morto às vezes larga sucata, pano ou uma roupa gasta (só o host sorteia).
+const LOOT_SCRAP := 0.1
+const LOOT_CLOTH := 0.08
 func _drop_loot() -> void:
 	if puppet or not Net.i.is_host() or has_meta("night"):
 		return # os da onda noturna não soltam nada: a recompensa é o airdrop
 	var where := Transform3D(Basis(), global_position + Vector3.UP * 0.8)
 	var push := Vector3(randf_range(-1.0, 1.0), 2.0, randf_range(-1.0, 1.0))
-	if randf() < 0.3:
-		Net.i.drop_item(&"sucata", randi_range(1, 2), where, push)
-	if randf() < 0.3:
-		Net.i.drop_item(&"pano", randi_range(1, 2), where, push * Vector3(-1, 1, -1))
-	if randf() < 0.12:
-		var clothes := [&"capuz", &"calca", &"botas", &"colete"]
-		Net.i.drop_item(clothes[randi() % clothes.size()], 1, where, push * 0.7, randf_range(0.15, 0.5))
+	# Raro: 1 sucata (10%) ou 1 pano (8%). Roupa não cai mais de zumbi.
+	var roll := randf()
+	if roll < LOOT_SCRAP:
+		Net.i.drop_item(&"sucata", 1, where, push)
+	elif roll < LOOT_SCRAP + LOOT_CLOTH:
+		Net.i.drop_item(&"pano", 1, where, push * Vector3(-1, 1, -1))
 
 
 func _enter_ragdoll() -> void:
@@ -960,7 +961,7 @@ func _equip_weapon(id: StringName) -> void:
 
 
 ## Solta a arma no chão (morreu, ou o braço direito quebrou/saiu).
-const WEAPON_DROP_CHANCE := 0.04 ## a arma do zumbi quase sempre quebra/some ao cair
+const WEAPON_DROP_CHANCE := 0.02 ## a arma do zumbi quase sempre quebra/some ao cair
 
 
 func _drop_weapon() -> void:

@@ -512,7 +512,14 @@ func apply_hit(damage: float, direction: Vector3) -> void:
 
 
 func _die() -> void:
-	var where := Transform3D(Basis(), global_position + Vector3.UP * 0.4)
+	# Sai da física antes de soltar: o item nascia dentro da caixa do bicho (ainda
+	# viva até o fim do quadro) e era empurrado para baixo, atravessando o chão.
+	collision_layer = 0
+	collision_mask = 0
+	for child in get_children():
+		if child is CollisionShape3D:
+			child.disabled = true
+	var where := Transform3D(Basis(), global_position + Vector3.UP * maxf(0.5, def().size.y * 0.7))
 	var baby := is_baby()
 	for drop in def().drops:
 		var amount := randi_range(drop[1], drop[2])
