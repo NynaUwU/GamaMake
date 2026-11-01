@@ -34,6 +34,22 @@ func _build_from_db() -> void:
 	shape.shape = box
 	shape.position = ItemDB.shape_center(item_id)
 	add_child(shape)
+	# Item pequeno ou fino (graveto, cenoura, semente): área de mira maior, só para pegar.
+	var size: Vector3 = box.size
+	if minf(size.x, minf(size.y, size.z)) < 0.2:
+		var grab := Area3D.new()
+		grab.name = "Grab"
+		grab.collision_layer = 1 << 5 # interagível
+		grab.collision_mask = 0
+		grab.monitoring = false
+		grab.set_meta("pickup", self)
+		var grab_shape := CollisionShape3D.new()
+		var grab_box := BoxShape3D.new()
+		grab_box.size = size.max(Vector3.ONE * 0.35)
+		grab_shape.shape = grab_box
+		grab_shape.position = shape.position
+		grab.add_child(grab_shape)
+		add_child(grab)
 
 
 func get_interact_text() -> String:

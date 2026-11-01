@@ -136,6 +136,19 @@ func _build_backpack() -> void:
 	craft.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	top.add_child(craft)
 	craft.setup(player, "mao", 4, 118.0)
+	# Botão de organizar a mochila (à direita, pequeno).
+	var sort_row := HBoxContainer.new()
+	sort_row.alignment = BoxContainer.ALIGNMENT_END
+	column.add_child(sort_row)
+	var sort := Button.new()
+	sort.text = "Organizar"
+	sort.focus_mode = Control.FOCUS_NONE
+	sort.add_theme_font_size_override("font_size", 10)
+	sort.custom_minimum_size = Vector2(0, 18)
+	sort.pressed.connect(func():
+		inventory.sort_backpack()
+		Sfx.play("click", -6.0, 1.2))
+	sort_row.add_child(sort)
 	# Mochila 9x4 e a hotbar (1-9) embaixo.
 	var grid := GridContainer.new()
 	grid.columns = Inventory.HOTBAR_SIZE

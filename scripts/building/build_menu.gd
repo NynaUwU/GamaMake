@@ -6,7 +6,7 @@ extends CanvasLayer
 ## Solte o botão em cima de um slot para escolher (ou clique nele).
 
 const SLOT_SIZE := Vector2(64, 64)
-const COLUMNS := 4
+const COLUMNS := 5
 
 static var icons := {} ## id da entrada -> foto (tirada uma vez do modelo 3D)
 static var _rendering := false

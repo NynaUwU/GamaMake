@@ -75,7 +75,7 @@ func host_apply(action: String, args: Array) -> Array:
 ## Baús do mundo ("loot_...") só deixam retirar; baús construídos ("placed_...")
 ## guardam também (21 slots, arrastar e soltar).
 static func is_storage(key: String) -> bool:
-	return key.begins_with("placed_") or key.begins_with("car_") # baú construído e porta-malas
+	return key.begins_with("placed_") or key.begins_with("car_") or key.begins_with("furnace_") # baú, porta-malas, fornalha
 
 
 func _host(action: String, args: Array) -> Array:
@@ -83,12 +83,12 @@ func _host(action: String, args: Array) -> Array:
 	match action:
 		"open":
 			if not contents.has(key):
-				var slots := empty_slots(STORAGE_SLOTS if is_storage(key) else SLOTS)
+				var slots := empty_slots(3 if key.begins_with("furnace_") else (STORAGE_SLOTS if is_storage(key) else SLOTS))
 				if not is_storage(key) and not Net.i.taken.has(key): # baú de save antigo já revistado: vazio
 					for drop in Loot.roll(args[1]):
 						add_to(slots, drop[0], drop[1])
 				contents[key] = slots
-			if is_storage(key):
+			if is_storage(key) and not key.begins_with("furnace_"):
 				while contents[key].size() < STORAGE_SLOTS: # baú de save antigo (20)
 					contents[key].append({})
 			if not is_storage(key) and not Net.i.taken.has(key):
@@ -110,15 +110,24 @@ func _host(action: String, args: Array) -> Array:
 			var b: int = args[2]
 			if not is_storage(key) or a == b or a < 0 or b < 0 or a >= slots.size() or b >= slots.size():
 				return []
+			if key.begins_with("furnace_") and (not slots[a].is_empty() and not Smelting.accepts(b, slots[a].id) \
+					or not slots[b].is_empty() and not Smelting.accepts(a, slots[b].id)):
+				return [] # combustível só no lugar do combustível; resultado não recebe nada
 			_swap(slots, a, b)
 			return [key, slots]
+		"sync":
+			# Host avisando todos (a fornalha fundiu algo).
+			if Net.i.request_peer != Net.i.my_id() or not contents.has(key):
+				return []
+			return [key, contents[key]]
 		"put_at":
 			# Item vindo da mochila para um slot certo do baú construído.
 			var slots: Array = contents.get(key, [])
 			var index: int = args[1]
 			var id := StringName(args[2])
 			var amount: int = args[3]
-			if not is_storage(key) or index < 0 or index >= slots.size() or not ItemDB.has(id) or amount <= 0:
+			if not is_storage(key) or index < 0 or index >= slots.size() or not ItemDB.has(id) or amount <= 0 \
+					or (key.begins_with("furnace_") and not Smelting.accepts(index, id)):
 				if ItemDB.has(id) and amount > 0:
 					Net.i.give_to(Net.i.request_peer, id, amount) # recusado: devolve
 				return []

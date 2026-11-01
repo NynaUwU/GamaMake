@@ -522,7 +522,6 @@ func _knock_down(bone: StringName, point: Vector3, impulse: Vector3) -> void:
 
 func _die(bone: StringName, point: Vector3, impulse: Vector3) -> void:
 	_drop_weapon()
-	_drop_loot()
 	_end_attack()
 	_enter_ragdoll()
 	_rag_hit(bone, impulse, point)
@@ -1139,9 +1138,13 @@ func _end_attack() -> void:
 	locomotion.swing = 0.0
 
 
+var _loot_dropped := false
 func _set_state(new_state: State) -> void:
 	if new_state != state:
 		_state_sound(new_state)
+	if new_state == State.DEAD and not _loot_dropped:
+		_loot_dropped = true # qualquer morte (golpe, explosão, empalado, carro...) solta o saque
+		_drop_loot()
 	state = new_state
 	_state_time = 0.0
 	if new_state == State.ATTACK:

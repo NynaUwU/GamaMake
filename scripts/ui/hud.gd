@@ -57,6 +57,10 @@ func _ready() -> void:
 	plants.setup(player)
 	player.interact_prompt_changed.connect(func(text: String): prompt_label.text = text)
 	player.notify.connect(show_message)
+	var feed := PickupFeed.new()
+	feed.name = "PickupFeed"
+	$Root.add_child(feed)
+	feed.setup(player.inventory)
 	player.weapon_changed.connect(func(weapon_name: String): weapon_label.text = weapon_name)
 	player._emit_weapon_text() # o primeiro aviso saiu antes do HUD conectar
 	prompt_label.text = ""

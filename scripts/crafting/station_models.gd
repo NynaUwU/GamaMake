@@ -42,50 +42,48 @@ static func _dryer(mb: MeshBuilder, obj: PlacedObject) -> void:
 		mb.tube(PackedVector3Array([Vector3(x, 0, 0.35), Vector3(x, 1.45, 0)]), 0.035, 5)
 	mb.tube(PackedVector3Array([Vector3(-0.78, 1.42, 0), Vector3(0.78, 1.42, 0)]), 0.03, 5)
 	mb.color(Color(0.72, 0.66, 0.5))
-	for x in [-0.45, -0.15, 0.15, 0.45]:
-		mb.box(Vector3(x, 1.3, 0), Vector3(0.012, 0.24, 0.012)) # cordinha de cada peça
+	for k in 6:
+		mb.box(Vector3((k - 2.5) * 0.22, 1.3, 0), Vector3(0.012, 0.24, 0.012)) # cordinha de cada peça
 	mb.color(WOOD.darkened(0.2))
 	mb.box(Vector3(0, 0.03, 0), Vector3(1.5, 0.06, 0.08)) # trava no chão
 	obj._shape(Vector3(0, 0.75, 0), Vector3(1.5, 1.5, 0.5))
 
 
-## Coletor de chuva: barril de tábuas com funil de pano em cima; a água sobe dentro.
+## Coletor de chuva: barril redondo de aduelas com aros de ferro e um funil de
+## pano em cone por cima; a água (cilindro) sobe lá dentro.
 static func _rain_collector(mb: MeshBuilder, obj: PlacedObject) -> void:
-	for k in 10:
-		var a := TAU * k / 10.0
-		mb.color(WOOD.darkened(0.08 * (k % 2)))
-		mb.box(Vector3(cos(a) * 0.34, 0.45, sin(a) * 0.34), Vector3(0.22, 0.9, 0.05), Basis(Vector3.UP, -a + PI / 2))
+	# Barril: perfil com barriga (aduelas), fundo e boca aberta.
+	mb.color(WOOD)
+	mb.lathe(PackedVector2Array([Vector2(0.002, 0.02), Vector2(0.3, 0.02), Vector2(0.34, 0.25), Vector2(0.355, 0.47),
+		Vector2(0.34, 0.7), Vector2(0.31, 0.92)]), 14)
+	mb.color(WOOD.darkened(0.25)) # borda da boca
+	mb.lathe(PackedVector2Array([Vector2(0.31, 0.92), Vector2(0.29, 0.94), Vector2(0.28, 0.9)]), 14)
 	mb.color(IRON)
-	for y in [0.15, 0.75]:
-		for k in 10:
-			var a := TAU * k / 10.0
-			mb.box(Vector3(cos(a) * 0.365, y, sin(a) * 0.365), Vector3(0.23, 0.05, 0.02), Basis(Vector3.UP, -a + PI / 2))
-	mb.color(WOOD.darkened(0.3))
-	mb.box(Vector3(0, 0.04, 0), Vector3(0.62, 0.08, 0.62)) # fundo
-	# Funil de pano esticado em 4 varetas.
-	mb.color(Color(0.62, 0.58, 0.48))
-	for k in 4:
-		var a := TAU * k / 4.0 + PI / 4.0
-		mb.box(Vector3(cos(a) * 0.42, 1.0, sin(a) * 0.42), Vector3(0.5, 0.03, 0.34), Basis(Vector3.UP, -a) * Basis(Vector3.BACK, 0.35))
+	for y in [0.14, 0.47, 0.8]:
+		var r := 0.345 + (0.012 if y == 0.47 else 0.0) - (0.02 if y == 0.8 else 0.0)
+		mb.lathe(PackedVector2Array([Vector2(r, y - 0.03), Vector2(r + 0.012, y - 0.03), Vector2(r + 0.012, y + 0.03), Vector2(r, y + 0.03)]), 14)
+	# Funil: cone de pano largo em cima, afinando até a boca do barril.
+	mb.color(Color(0.66, 0.62, 0.52))
+	mb.lathe(PackedVector2Array([Vector2(0.14, 0.95), Vector2(0.62, 1.2), Vector2(0.64, 1.23)]), 14)
 	mb.color(WOOD)
 	for k in 4:
-		var a := TAU * k / 4.0
-		mb.tube(PackedVector3Array([Vector3(cos(a) * 0.36, 0.85, sin(a) * 0.36), Vector3(cos(a) * 0.62, 1.12, sin(a) * 0.62)]), 0.015, 4)
+		var a := TAU * k / 4.0 + PI / 4.0
+		mb.tube(PackedVector3Array([Vector3(cos(a) * 0.33, 0.6, sin(a) * 0.33), Vector3(cos(a) * 0.64, 1.24, sin(a) * 0.64)]), 0.015, 4)
 	var shape := CollisionShape3D.new()
 	var cyl := CylinderShape3D.new()
-	cyl.radius = 0.4
+	cyl.radius = 0.38
 	cyl.height = 0.95
 	shape.shape = cyl
 	shape.position.y = 0.48
 	obj.add_child(shape)
-	# Água dentro (sobe com o nível: escala em Y a partir do fundo).
+	# Água: cilindro dentro do barril (escala em Y a partir do fundo).
 	var water := MeshBuilder.new()
 	water.color(Color(0.3, 0.45, 0.55))
-	water.box(Vector3(0, 0.5, 0), Vector3(0.6, 1.0, 0.6))
+	water.lathe(PackedVector2Array([Vector2(0.002, 0.0), Vector2(0.3, 0.0), Vector2(0.3, 0.86), Vector2(0.002, 0.86)]), 14)
 	var mesh := MeshInstance3D.new()
 	mesh.name = "Water"
 	mesh.mesh = water.finish(PlacedObject._mat(), false)
-	mesh.position.y = 0.08
+	mesh.position.y = 0.03
 	mesh.scale = Vector3(1, 0.01, 1)
 	mesh.visible = false
 	obj.add_child(mesh)
@@ -208,7 +206,7 @@ static func _workbench(mb: MeshBuilder, obj: PlacedObject) -> void:
 
 
 ## Chamas (partículas) + luz alaranjada que tremula.
-static func _fire(obj: PlacedObject, at: Vector3, radius: float, strength: float) -> void:
+static func _fire(obj: Node3D, at: Vector3, radius: float, strength: float) -> void:
 	var flames := CPUParticles3D.new()
 	flames.amount = 26
 	flames.lifetime = 0.7

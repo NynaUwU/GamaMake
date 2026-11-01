@@ -6,6 +6,7 @@ extends Node
 
 signal changed ## qualquer slot mudou
 signal selection_changed(index: int)
+signal gained(id: StringName, amount: int) ## entrou na mochila (aviso de coleta)
 
 const HOTBAR_SIZE := 9
 const BACKPACK_SIZE := 36
@@ -110,19 +111,100 @@ func add(id: StringName, amount := 1, dur := 1.0) -> int:
 				slots[i].dur = dur # item gasto (do chão, de zumbi...)
 			left -= moved
 	if left != amount:
+		gained.emit(id, amount - left)
 		changed.emit()
 	return left
+
+
+## Recursos "brutos" (o resto dos materiais conta como refinado).
+const RAW := [&"tronco", &"pedra", &"minerio_ferro", &"minerio_cobre", &"argila", &"areia", &"sucata", &"fibra",
+	&"trigo", &"carvao", &"muda"]
+
+
+## Ordem do botão Organizar: armas, ferramentas, recursos brutos, refinados,
+## outros, sementes, comida. Alfabético em cada grupo; comida pelo que vence antes.
+static func sort_group(id: StringName) -> int:
+	var kind: String = ItemDB.def(id).get("kind", "material")
+	if id in RAW:
+		return 2
+	match kind:
+		"weapon":
+			return 0
+		"tool":
+			return 1
+		"material":
+			return 3
+		"seed":
+			return 5
+		"food":
+			return 6
+	return 4
+
+
+## Organiza só a mochila (a hotbar fica como está): junta pilhas e ordena.
+func sort_backpack() -> void:
+	var items: Array = []
+	for i in range(HOTBAR_SIZE, slots.size()):
+		if slots[i].is_empty():
+			continue
+		var item: Dictionary = slots[i].duplicate()
+		var merged := false
+		for other in items:
+			if other.id == item.id and other.amount < ItemDB.max_stack(item.id) and ItemDB.max_durability(item.id) <= 0:
+				var moved := mini(ItemDB.max_stack(item.id) - other.amount, item.amount)
+				ItemDB.merge_into(other, moved, item.get("dur", 1.0))
+				item.amount -= moved
+				if item.amount <= 0:
+					merged = true
+					break
+		if not merged:
+			items.append(item)
+	items.sort_custom(func(a, b):
+		var ga := sort_group(a.id)
+		var gb := sort_group(b.id)
+		if ga != gb:
+			return ga < gb
+		if ga == 6: # comida: o que vence antes primeiro (o que não estraga por último)
+			var ta: float = ItemDB.SPOIL.get(a.id, INF) * a.get("dur", 1.0)
+			var tb: float = ItemDB.SPOIL.get(b.id, INF) * b.get("dur", 1.0)
+			if ta != tb:
+				return ta < tb
+		return ItemDB.display_name(a.id).naturalnocasecmp_to(ItemDB.display_name(b.id)) < 0)
+	for i in range(HOTBAR_SIZE, slots.size()):
+		var k := i - HOTBAR_SIZE
+		slots[i] = items[k] if k < items.size() else {}
+	changed.emit()
 
 
 ## Comida estragando (chamado pelo jogador a cada poucos segundos). true = mudou algo.
 func spoil(seconds: float) -> bool:
 	var any := false
+	var rotten := 0
 	for i in slots.size():
 		if not slots[i].is_empty() and ItemDB.spoils(slots[i].id):
 			slots[i].dur = slots[i].get("dur", 1.0) - seconds / ItemDB.SPOIL[slots[i].id]
 			any = true
 			if slots[i].dur <= 0.0:
-				slots[i] = {"id": &"comida_estragada", "amount": slots[i].amount}
+				rotten += slots[i].amount
+				slots[i] = {}
+	if rotten > 0:
+		# Junta com a comida estragada que já tinha (uma pilha só).
+		var first := -1
+		for i in slots.size():
+			if not slots[i].is_empty() and slots[i].id == &"comida_estragada":
+				if first < 0:
+					first = i
+				else:
+					slots[first].amount += slots[i].amount
+					slots[i] = {}
+		if first >= 0:
+			slots[first].amount += rotten
+		else:
+			for i in slots.size():
+				if slots[i].is_empty():
+					slots[i] = {"id": &"comida_estragada", "amount": rotten}
+					break
+		gained.emit(&"comida_estragada", rotten)
 	if any:
 		changed.emit()
 	return any

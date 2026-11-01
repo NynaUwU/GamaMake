@@ -178,6 +178,8 @@ const ITEMS := {
 		"controls": ["Clique num pote, floreira, canteiro ou cova: aduba"]},
 	&"peixe_defumado": {"name": "Peixe defumado", "short": "Defumado", "kind": "food", "hunger": 50, "heal": 10, "stack": 100,
 		"size": Vector3(0.28, 0.05, 0.12), "desc": "Do defumador. Enche muito e nunca estraga.", "controls": ["Clique: come (+50 fome)"]},
+	&"tocha": {"name": "Tocha", "kind": "tool", "durability": 600, "stack": 1, "size": Vector3(0.06, 0.45, 0.06),
+		"desc": "Ilumina em volta enquanto está na mão. Queima por meio dia (10 min) e acaba."},
 	&"areia": {"name": "Areia", "kind": "material", "stack": 100, "size": Vector3(0.16, 0.08, 0.16),
 		"desc": "Cavada no deserto com a pá. Na fornalha vira vidro."},
 	&"graveto": {"name": "Graveto", "kind": "material", "stack": 100, "size": Vector3(0.04, 0.04, 0.5),

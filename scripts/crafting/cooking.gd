@@ -25,7 +25,9 @@ const SMOKE := {&"camarao": &"peixe_defumado", &"lagosta": &"peixe_defumado", &"
 const COMPOST := {&"comida_estragada": &"adubo", &"cenoura": &"adubo", &"batata": &"adubo", &"abobora": &"adubo",
 	&"fruta": &"adubo", &"trigo": &"adubo"}
 const KINDS := ["campfire", "dryer", "filter", "smoker", "compost"]
-const WAIT_TIME := {"dryer": DRY_TIME, "filter": 30.0, "smoker": 60.0, "compost": 120.0}
+const WAIT_TIME := {"dryer": DRY_TIME, "filter": 20.0, "smoker": 60.0, "compost": 120.0}
+## Defumador: 1 carvão defuma 4 peças (3 carvões = 2 rodadas de 6).
+const SMOKE_PER_COAL := 4
 const LABELS := {"campfire": ["Assando", "da grelha", "Fogueira"], "dryer": ["Secando", "do varal", "Secador"],
 	"filter": ["Filtrando", "do filtro", "Filtro de água"], "smoker": ["Defumando", "do defumador", "Defumador"],
 	"compost": ["Compostando", "da composteira", "Composteira"]}
@@ -41,7 +43,8 @@ static func table(kind: String) -> Dictionary:
 ## O que vai na grelha/varal: cada entrada guarda o próprio tempo, se queima e no que vira.
 static func make_entry(kind: String, food: StringName, clock: float) -> Dictionary:
 	if WAIT_TIME.has(kind):
-		return {"food": food, "t": clock, "cook": WAIT_TIME[kind], "burn": false, "into": table(kind)[food]}
+		return {"food": food, "t": clock, "cook": WAIT_TIME[kind], "burn": false, "into": table(kind)[food],
+			"hang": kind in ["dryer", "smoker"], "small": kind == "smoker"}
 	return {"food": food, "t": clock, "cook": COOK_TIME, "burn": food not in NO_BURN, "into": COOK[food]}
 
 
@@ -80,6 +83,13 @@ static func model(entry: Dictionary, clock: float) -> Node3D:
 	var id: StringName = entry.food if st == 0 else result_of(entry, clock)
 	var node := ItemModels.build(id)
 	node.rotation.y = PI / 2
+	if entry.get("hang", false):
+		node.rotation = Vector3(PI / 2, 0, 0) # pendurado (secador, defumador)
+		# Cabe dentro do armário do defumador: no máximo ~25 cm, pendurado pela ponta.
+		var reach: float = ItemDB.def(id).size.z
+		var fit := minf(1.0, 0.25 / maxf(reach, 0.01)) if entry.get("small", false) else 1.0
+		node.scale = Vector3.ONE * fit
+		node.position.y = -reach * fit * 0.5
 	return node
 
 
@@ -105,18 +115,48 @@ static func interact(player: Player, obj: PlacedObject) -> void:
 	var took := false
 	for i in obj.crops.size():
 		if stage(obj.crops[i], manager.clock) >= 1:
+			ItemFly.play(result_of(obj.crops[i], manager.clock), obj.slot_world(i), player)
 			manager.request("take_cooked", [obj.net_id, i])
 			took = true
 	if took:
 		return
-	var id := player.inventory.selected_id()
-	if not table(obj.kind).has(id):
-		Sfx.play("click", -6.0, 0.6)
-		return
+	# Grelha: o que está na mão. As outras (filtro, secador, defumador, composteira)
+	# puxam o que servir de qualquer lugar da mochila e enchem todos os lugares livres.
+	var accepted := table(obj.kind)
+	var put := 0
+	var charge: int = obj.extra.get("charge", 0)
 	for i in obj.crops.size():
-		if obj.crops[i].is_empty():
-			player.inventory.take(player.inventory.selected, 1)
-			manager.request("cook", [obj.net_id, i, String(id)])
-			Sfx.play_at("slap", obj.global_position + Vector3.UP * 0.6, -4.0, 0.6)
-			return
-	Sfx.play("click", -6.0, 0.6)
+		if not obj.crops[i].is_empty():
+			continue
+		var index := player.inventory.selected
+		if obj.kind != "campfire" and not accepted.has(player.inventory.selected_id()):
+			index = find_any(player.inventory, accepted)
+		if index < 0 or player.inventory.slots[index].is_empty() or not accepted.has(player.inventory.slots[index].id):
+			break
+		var coal := false
+		if obj.kind == "smoker" and charge <= 0:
+			var coal_index := find_any(player.inventory, {&"carvao": true})
+			if coal_index < 0:
+				break # defumador sem carvão
+			player.inventory.take(coal_index, 1)
+			charge += SMOKE_PER_COAL
+			coal = true
+		var id: StringName = player.inventory.slots[index].id
+		player.inventory.take(index, 1)
+		manager.request("cook", [obj.net_id, i, String(id), coal])
+		charge -= 1 if obj.kind == "smoker" else 0
+		put += 1
+		if obj.kind == "campfire":
+			break # grelha: um por toque, como antes
+	if put > 0:
+		Sfx.play_at("slap", obj.global_position + Vector3.UP * 0.6, -4.0, 0.6)
+	else:
+		Sfx.play("click", -6.0, 0.6)
+
+
+## Primeiro slot da mochila com algum item de "ids" (dicionário id -> qualquer coisa). -1 = nenhum.
+static func find_any(inventory: Inventory, ids: Dictionary) -> int:
+	for i in inventory.slots.size():
+		if not inventory.slots[i].is_empty() and ids.has(inventory.slots[i].id):
+			return i
+	return -1

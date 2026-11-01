@@ -21,8 +21,22 @@ func _process(delta: float) -> void:
 	if _refresh <= 0.0:
 		_refresh = 1.0
 		_collect_rain()
+		_smelt()
 		for obj: PlacedObject in objects.values():
 			obj.refresh(clock)
+
+
+## Host, 1x por segundo: as fornalhas fundem sozinhas e avisam todos do que mudou.
+func _smelt() -> void:
+	if not Net.i.is_host() or ContainerManager.i == null:
+		return
+	for obj: PlacedObject in objects.values():
+		if obj.kind in Smelting.KINDS and Smelting.host_tick(obj, clock):
+			var key := Smelting.key_of(obj)
+			ContainerManager.i.changed.emit(key)
+			Net.i.system_request("Containers", "sync", [key])
+			request("extra", [obj.net_id, {"burn": obj.extra.get("burn", 0.0), "prog": obj.extra.get("prog", 0.0),
+				"burn_max": obj.extra.get("burn_max", 1.0)}])
 
 
 ## Host, 1x por segundo: chovendo, os coletores enchem (chuva forte: ~1 garrafa a cada 25 s).
@@ -73,7 +87,7 @@ func host_apply(action: String, args: Array) -> Array:
 			var xform: Transform3D = args[1]
 			if kind not in ["pot_small", "pot_wide", "bed", "ground", "bench", "workbench", "furnace", "campfire",
 					"spikes", "beartrap", "barbed", "mine", "drawboard", "chest", "flag", "rain_collector", "dryer",
-					"grindstone", "quern", "pump", "spinning", "loom", "stone_furnace", "oven", "filter", "smoker", "compost"]:
+					"grindstone", "quern", "pump", "spinning", "loom", "stone_furnace", "oven", "filter", "smoker", "compost", "sieve"]:
 				return []
 			if kind == "pump" and not Farming._shore(xform.origin):
 				return [] # bomba só na beira do lago
@@ -143,6 +157,8 @@ func host_apply(action: String, args: Array) -> Array:
 				Net.i.give_to(Net.i.request_peer, &"bandeira", 1) # recolheu: volta para a mochila
 			if obj.kind in ["chest", "airdrop"] and ContainerManager.i:
 				ContainerManager.i.dump("placed_%d" % obj.net_id, obj.global_position) # o que tinha dentro cai
+			if obj.kind in Smelting.KINDS and ContainerManager.i:
+				ContainerManager.i.dump(Smelting.key_of(obj), obj.global_position)
 			_remove(args[0])
 			return args
 		"plant":
@@ -161,9 +177,17 @@ func host_apply(action: String, args: Array) -> Array:
 			if obj == null or obj.kind not in Cooking.KINDS or slot < 0 or slot >= obj.crops.size() \
 					or not obj.crops[slot].is_empty() or not Cooking.table(obj.kind).has(StringName(args[2])):
 				return []
+			if obj.kind == "smoker":
+				# Precisa de carvão: quem pôs mandou junto (args[3]) quando acabou a carga.
+				if args.size() > 3 and args[3]:
+					obj.extra.charge = obj.extra.get("charge", 0) + Cooking.SMOKE_PER_COAL
+				if obj.extra.get("charge", 0) <= 0:
+					Net.i.give_to(Net.i.request_peer, StringName(args[2]), 1) # sem carvão: devolve
+					return []
+				obj.extra.charge = obj.extra.charge - 1
 			obj.crops[slot] = Cooking.make_entry(obj.kind, StringName(args[2]), clock)
 			obj.refresh(clock)
-			return [args[0], slot, args[2], clock]
+			return [args[0], slot, args[2], clock, obj.extra.get("charge", 0)]
 		"take_cooked":
 			var obj: PlacedObject = objects.get(args[0])
 			var slot: int = args[1]
@@ -172,7 +196,7 @@ func host_apply(action: String, args: Array) -> Array:
 			var result := Cooking.result_of(obj.crops[slot], clock)
 			if result == &"":
 				return []
-			Net.i.drop_item(result, 1, Transform3D(Basis(), obj.slot_world(slot) + Vector3.UP * 0.25), Vector3(randf_range(-0.5, 0.5), 2.0, randf_range(-0.5, 0.5)))
+			Net.i.give_to(Net.i.request_peer, result, 1) # direto para a mochila (voa até quem pegou)
 			obj.crops[slot] = {}
 			obj.refresh(clock)
 			return args
@@ -270,7 +294,7 @@ func _plant_tree(id: int, xform: Transform3D, planted: float, planter_id: int) -
 	var obj: PlacedObject = objects[id]
 	obj.extra.merge({"t": planted, "hp": 90.0, "planter": planter_id}, true)
 	var planter: PlacedObject = objects.get(planter_id)
-	if planter and planter.kind != "bed":
+	if planter and planter.kind not in ["bed", "ground"]:
 		obj.extra.deco = true # vaso/floreira não tem terra para virar árvore
 	if planter:
 		planter.extra.tree = id # floreira/canteiro fica todo ocupado
@@ -306,6 +330,8 @@ func apply_remote(action: String, args: Array) -> void:
 			var obj: PlacedObject = objects.get(args[0])
 			if obj:
 				obj.crops[args[1]] = Cooking.make_entry(obj.kind, StringName(args[2]), args[3])
+				if args.size() > 4:
+					obj.extra.charge = args[4]
 				obj.refresh(clock)
 		"take_cooked":
 			var obj: PlacedObject = objects.get(args[0])

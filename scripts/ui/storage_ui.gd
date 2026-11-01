@@ -16,15 +16,85 @@ var _hotbar_grid: GridContainer
 var _spinner: ItemSpinner
 var _name: Label
 var _picked := {} # {"from": "chest"/"bag", "index": i} enquanto arrasta
+## Fornalha (key "furnace_"): os 3 lugares ficam em volta da seta de progresso.
+var source: PlacedObject
+var _furnace_slots: Array[Control] = [] # onde cada um dos 3 lugares entra
+var _arrow: ProgressBar
+var _flame: ProgressBar
+var _bellows: ProgressBar
 
 
-static func open_for(p: Node, key_: String) -> void:
+static func open_for(p: Node, key_: String, source_: PlacedObject = null) -> void:
 	if not p is Player or p.is_puppet() or p.ui_blocked or ContainerManager.i == null:
 		return
 	var ui := StorageUI.new()
 	ui.player = p
 	ui.key = key_
+	ui.source = source_
 	p.get_parent().add_child(ui)
+
+
+func _is_furnace() -> bool:
+	return key.begins_with("furnace_")
+
+
+## Material e combustível à esquerda, seta (progresso) no meio, resultado à direita;
+## a chama embaixo do material mostra quanto falta do combustível aceso.
+func _build_furnace(column: VBoxContainer) -> void:
+	var row := HBoxContainer.new()
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	row.add_theme_constant_override("separation", 10)
+	column.add_child(row)
+	var left := VBoxContainer.new()
+	left.add_theme_constant_override("separation", 4)
+	row.add_child(left)
+	for k in 3:
+		var holder := CenterContainer.new()
+		holder.custom_minimum_size = SLOT
+		_furnace_slots.append(holder)
+	left.add_child(_furnace_slots[Smelting.INPUT])
+	_flame = _bar(left, Color(1.0, 0.55, 0.15))
+	left.add_child(_furnace_slots[Smelting.FUEL])
+	var middle := VBoxContainer.new()
+	middle.alignment = BoxContainer.ALIGNMENT_CENTER
+	row.add_child(middle)
+	var arrow_label := Label.new()
+	arrow_label.text = "→"
+	arrow_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	middle.add_child(arrow_label)
+	_arrow = _bar(middle, Color(0.95, 0.85, 0.4))
+	_arrow.custom_minimum_size = Vector2(60, 6)
+	if source and source.kind == "stone_furnace":
+		_bellows = _bar(middle, Color(0.9, 0.3, 0.15)) # calor do fole
+		_bellows.custom_minimum_size = Vector2(60, 4)
+	var right := CenterContainer.new()
+	row.add_child(right)
+	right.add_child(_furnace_slots[Smelting.OUTPUT])
+
+
+func _bar(parent: Control, color: Color) -> ProgressBar:
+	var bar := ProgressBar.new()
+	bar.custom_minimum_size = Vector2(SLOT.x, 5)
+	bar.show_percentage = false
+	bar.max_value = 1.0
+	var fill := StyleBoxFlat.new()
+	fill.bg_color = color
+	var bg := StyleBoxFlat.new()
+	bg.bg_color = Color(0, 0, 0, 0.5)
+	bar.add_theme_stylebox_override("fill", fill)
+	bar.add_theme_stylebox_override("background", bg)
+	parent.add_child(bar)
+	return bar
+
+
+func _process(_delta: float) -> void:
+	if not _is_furnace() or not is_instance_valid(source):
+		return
+	var burn_max: float = maxf(source.extra.get("burn_max", 1.0), 0.01)
+	_flame.value = clampf(source.extra.get("burn", 0.0) / burn_max, 0.0, 1.0)
+	_arrow.value = clampf(source.extra.get("prog", 0.0) / Smelting.SMELT_TIME.get(source.kind, 8.0), 0.0, 1.0)
+	if _bellows:
+		_bellows.value = Machines.heat(source)
 
 
 func _ready() -> void:
@@ -36,7 +106,12 @@ func _ready() -> void:
 	center.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(center)
 	LegacyGUI.close_on_outside(self, close)
-	var column := LegacyGUI.box(center, "Baú", 230.0)
+	var title := "Baú"
+	if _is_furnace():
+		title = Machines.NAMES.get(source.kind, "Fornalha") if source else "Fornalha"
+	var column := LegacyGUI.box(center, title, 230.0)
+	if _is_furnace():
+		_build_furnace(column)
 	_chest_grid = GridContainer.new()
 	_chest_grid.columns = 7 # centralizado: quem define a largura é a mochila (9 colunas)
 	_chest_grid.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
@@ -77,8 +152,14 @@ func _refresh() -> void:
 	for child in _bag_grid.get_children() + _hotbar_grid.get_children():
 		child.queue_free()
 	var slots: Array = ContainerManager.i.slots_of(key)
-	for k in ContainerManager.STORAGE_SLOTS:
-		_chest_grid.add_child(_slot("chest", k, slots[k] if k < slots.size() else {}))
+	if _is_furnace():
+		for k in 3:
+			for child in _furnace_slots[k].get_children():
+				child.queue_free()
+			_furnace_slots[k].add_child(_slot("chest", k, slots[k] if k < slots.size() else {}))
+	else:
+		for k in ContainerManager.STORAGE_SLOTS:
+			_chest_grid.add_child(_slot("chest", k, slots[k] if k < slots.size() else {}))
 	for k in player.inventory.slots.size():
 		var grid := _hotbar_grid if k < Inventory.HOTBAR_SIZE else _bag_grid
 		grid.add_child(_slot("bag", k, player.inventory.slots[k]))
@@ -139,7 +220,7 @@ func _slot(from: String, index: int, slot: Dictionary) -> Button:
 		button.mouse_entered.connect(func():
 			_spinner.show_item(slot.id)
 			_name.text = "%s%s" % [ItemDB.display_name(slot.id), "  x%d" % slot.amount if slot.amount > 1 else ""])
-	button.set_drag_forwarding(_drag_from.bind(button, from, index, slot), _can_drop, _drop_on.bind(from, index))
+	button.set_drag_forwarding(_drag_from.bind(button, from, index, slot), _can_drop.bind(from, index), _drop_on.bind(from, index))
 	button.pressed.connect(func():
 		if Input.is_key_pressed(KEY_SHIFT) and not slot.is_empty():
 			_quick(from, index))
@@ -163,8 +244,13 @@ func _drag_from(_at: Vector2, button: Button, from: String, index: int, slot: Di
 	return {"storage_slot": true, "from": from, "index": index}
 
 
-func _can_drop(_at: Vector2, data: Variant) -> bool:
-	return data is Dictionary and data.has("storage_slot")
+func _can_drop(_at: Vector2, data: Variant, to := "", index := -1) -> bool:
+	if not (data is Dictionary and data.has("storage_slot")):
+		return false
+	if _is_furnace() and to == "chest" and data.from == "bag":
+		var slot: Dictionary = player.inventory.slots[data.index]
+		return not slot.is_empty() and Smelting.accepts(index, slot.id)
+	return true
 
 
 func _drop_on(_at: Vector2, data: Variant, to: String, index: int) -> void:
@@ -199,6 +285,15 @@ func _quick(from: String, index: int) -> void:
 	var item: Dictionary = player.inventory.slots[index]
 	var slots: Array = manager.slots_of(key)
 	var target := -1
+	if _is_furnace():
+		target = _furnace_target(item.id, slots)
+		if target < 0:
+			Sfx.play("click", -6.0, 0.6)
+			return
+		var moved_f := player.inventory.take(index, item.amount)
+		manager.request("put_at", [key, target, String(moved_f.id), moved_f.amount, moved_f.get("dur", 1.0)])
+		Sfx.play("knock", -8.0, 1.0)
+		return
 	for k in slots.size(): # pilha igual com espaço, senão o primeiro vazio
 		if not slots[k].is_empty() and slots[k].id == item.id and slots[k].amount < ItemDB.max_stack(item.id):
 			target = k
@@ -211,6 +306,18 @@ func _quick(from: String, index: int) -> void:
 	var moved := player.inventory.take(index, item.amount)
 	manager.request("put_at", [key, target, String(moved.id), moved.amount, moved.get("dur", 1.0)])
 	Sfx.play("knock", -8.0, 1.0)
+
+
+## Shift + clique na fornalha: combustível vai para o lugar dele; o que funde, para o material.
+func _furnace_target(id: StringName, slots: Array) -> int:
+	var kind: String = source.kind if source else "furnace"
+	var fits := func(k: int) -> bool:
+		return slots.size() > k and (slots[k].is_empty() or (slots[k].id == id and slots[k].amount < ItemDB.max_stack(id)))
+	if not Smelting.recipe(kind, id).is_empty() and fits.call(Smelting.INPUT):
+		return Smelting.INPUT
+	if Smelting.is_fuel(id) and fits.call(Smelting.FUEL):
+		return Smelting.FUEL
+	return -1
 
 
 func _notification(what: int) -> void:

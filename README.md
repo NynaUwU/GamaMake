@@ -24,6 +24,24 @@ reação física a golpes e ragdoll (estilo Dying Light), visual de PC dos anos 
 - Os outros jogadores aparecem com o nome em cima, o item da mão, a lanterna acesa e uma bolinha
   azul no minimapa/mapa. Em cima, no meio da tela, aparece quem está online.
 
+## Ajustes do Tier 1 (feedback)
+- **Mais lugares:** grelha 6, filtro 6 (20 s por garrafa), defumador 6, composteira 9, secador 6.
+- **Defumador gasta carvão:** 1 carvão defuma 4 peças (3 carvões = 2 rodadas de 6), puxado sozinho da mochila; sem carvão não aceita. Frente aberta: dá para ver os peixes pendurados dentro.
+- **Puxam da mochila inteira** (não precisa estar na mão): coletor de chuva ([E] enche uma garrafa vazia de onde estiver), bomba, filtro, secador, defumador, composteira, moinho, roca, tear e peneira (põem tudo o que tiver de uma vez). A grelha continua pelo item da mão.
+- **Fornalhas estilo Minecraft** (barro e pedra): janela com material, combustível e resultado; fundem sozinhas pelo host, mesmo sem ninguém olhando (carvão 40 s, tronco 30 s, tábua 12 s, graveto 4 s). Shift+clique manda o combustível e o material para o lugar certo; o resultado não aceita nada. Na de pedra, a barra vermelha é o calor do fole (ferro só com ela acima de 50%).
+- **O que sai das máquinas voa até você** e vai direto para a mochila (grelha, secador, filtro, moinho, coletor...): não cai mais no chão.
+- **Mudas** também crescem nas covas da pá.
+- **Modelos novos:** filtro em funil com garrafas embaixo, defumador de tijolo com armário de madeira aberto, composteira de ripas com tampa, coletor com barril redondo e funil cônico (a água é redonda e fica dentro).
+- **Aba Máquinas:** mesa de trabalho, fogueira e fornalha saíram de "Outros". O menu de construção tem 5 colunas.
+- **Zumbis naturais voltaram a soltar itens** em qualquer tipo de morte (explosão, empalado, atropelado...).
+- **Itens pequenos** (graveto, cenoura, sementes) têm uma área de mira maior para pegar.
+- **Comida estragada** junta numa pilha só.
+- **Botão Organizar** na mochila: armas, ferramentas, recursos brutos, refinados, outros, sementes e comida (alfabético; comida pelo que vence antes). A hotbar não mexe.
+- **Aviso de coleta** discreto no canto de cima à esquerda ("+3 Graveto", também quando algo estraga).
+- **Tocha** (mão: graveto + pano; mesa: 2 gravetos + pano + carvão → 3): na mão ilumina em volta, queima por meio dia (10 min) e acaba.
+- **Peneira** (aba Máquinas): argila → 50% de chance de pedra, segurando E. **Areia:** 10 pedras → 1 areia (mão ou mesa).
+- **Pá:** 1 s entre uma cavada e outra.
+
 ## Máquinas — Tier 1 (manual: o jogador é a energia)
 - **Comida estraga:** peixe cru ~8 min, assados ~15 min, legumes 25–40 min, pão caseiro 20 min (enlatado, pão velho, peixe seco/defumado e farinha não estragam). O frescor é a barrinha embaixo do ícone (verde → marrom); ao zerar vira **comida estragada** (quase não enche, 80% de doença). Pilhas juntam pela média do frescor. Estraga na mochila e nos baús (no chão fica parado). Comer algo com menos de 25% de frescor pode deixar doente.
 - **Martelo → aba Máquinas** (o coletor e o secador foram para lá).

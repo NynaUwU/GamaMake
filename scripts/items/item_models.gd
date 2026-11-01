@@ -66,6 +66,10 @@ static func build(id: StringName) -> Node3D:
 		&"peixe_seco":
 			_mb(parts, Color(0.7, 0.58, 0.38)).box(Vector3.ZERO, Vector3(0.26, 0.03, 0.1))
 			_mb(parts, Color(0.6, 0.48, 0.3)).box(Vector3(0.15, 0, 0), Vector3(0.05, 0.02, 0.12)) # rabo
+		&"tocha":
+			_mb(parts, Color(0.42, 0.3, 0.18)).tube(PackedVector3Array([Vector3(0, -0.2, 0), Vector3(0, 0.15, 0)]), 0.022, 6)
+			_mb(parts, Color(0.62, 0.58, 0.48)).box(Vector3(0, 0.17, 0), Vector3(0.07, 0.08, 0.07)) # pano enrolado
+			_mb(parts, Color(0.15, 0.12, 0.1)).box(Vector3(0, 0.22, 0), Vector3(0.05, 0.03, 0.05))
 		&"areia":
 			_rock(_mb(parts, Color(0.82, 0.72, 0.5)))
 		&"graveto":

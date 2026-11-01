@@ -25,6 +25,8 @@ const RECIPES := [
 	{"id": &"chinelo", "station": "mesa", "cost": {&"pano": 2}},
 	{"id": &"bandagem", "station": "mesa", "cost": {&"pano": 2}},
 	{"id": &"garrafa", "amount": 2, "station": "fornalha", "fuel": true, "cost": {&"vidro": 1}},
+	{"id": &"areia", "station": "mesa", "cost": {&"pedra": 10}},
+	{"id": &"tocha", "amount": 3, "station": "mesa", "cost": {&"graveto": 2, &"pano": 1, &"carvao": 1}},
 	{"id": &"bandeira", "station": "mesa", "cost": {&"graveto": 2, &"pano": 2}},
 	{"id": &"capuz", "station": "mesa", "cost": {&"pano": 3}},
 	{"id": &"colete", "station": "mesa", "cost": {&"sucata": 6, &"pano": 2}},
@@ -65,6 +67,8 @@ const RECIPES := [
 	{"id": &"picareta_simples", "station": "mao", "cost": {&"graveto": 2, &"pedra": 3}},
 	{"id": &"bandagem", "station": "mao", "cost": {&"pano": 3}},
 	{"id": &"capuz", "station": "mao", "cost": {&"pano": 4}},
+	{"id": &"areia", "station": "mao", "cost": {&"pedra": 10}},
+	{"id": &"tocha", "station": "mao", "cost": {&"graveto": 1, &"pano": 1}},
 ]
 const TITLES := {"mesa": "Mesa de trabalho", "fornalha": "Fornalha", "mao": "Fabricar", "forno": "Forno de tijolo",
 	"fornalha_pedra": "Fornalha de pedra"}

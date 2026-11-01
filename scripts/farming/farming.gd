@@ -116,11 +116,11 @@ static func _plant_tree(player: Player, placed: PlacedManager, hit: Dictionary, 
 	var xform := Transform3D()
 	var planter := -1
 	# Canteiro: a muda cresce. Vaso/floreira: fica pequena, de decoração.
-	if obj and obj.kind in ["pot_small", "pot_wide", "bed"]:
+	if obj and obj.kind in ["pot_small", "pot_wide", "bed", "ground"]:
 		if obj.extra.has("tree") or obj.crops.any(func(c): return not c.is_empty()):
 			Sfx.play("click", -6.0, 0.6)
 			return false
-		var center: Vector3 = {"pot_small": Vector3(0, 0.3, 0), "pot_wide": Vector3(0, 0.34, 0)}.get(obj.kind,
+		var center: Vector3 = {"pot_small": Vector3(0, 0.3, 0), "pot_wide": Vector3(0, 0.34, 0), "ground": Vector3(0, 0.04, 0)}.get(obj.kind,
 			Vector3(BuildPiece.SIZE * 0.5, 0.22, BuildPiece.SIZE * 0.5))
 		xform = Transform3D(Basis(Vector3.UP, randf() * TAU), obj.to_global(center))
 		planter = obj.net_id

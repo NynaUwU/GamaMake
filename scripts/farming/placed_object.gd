@@ -12,7 +12,7 @@ extends StaticBody3D
 ## As plantas crescem pelo relógio do PlacedManager (igual para todos e salvo).
 
 const FARM_KINDS := ["pot_small", "pot_wide", "bed", "ground"]
-const STATIONS := {"bench": "mesa", "workbench": "mesa", "furnace": "fornalha"} # "bench" = saves antigos
+const STATIONS := {"bench": "mesa", "workbench": "mesa"} # "bench" = saves antigos (fornalhas: Smelting)
 const TRAPS := ["spikes", "beartrap", "barbed", "mine"]
 const SOIL := Color(0.34, 0.23, 0.15)
 const CLAY := Color(0.62, 0.32, 0.2)
@@ -66,16 +66,25 @@ func slot_positions() -> Array:
 		"ground":
 			return [Vector3(0, 0.06, 0)]
 		"campfire":
-			return [Vector3(-0.22, 0.6, 0), Vector3(0, 0.6, 0), Vector3(0.22, 0.6, 0)]
+			return _grid_slots(3, 2, 0.22, 0.2, 0.6)
 		"dryer":
-			return [Vector3(-0.45, 1.12, 0), Vector3(-0.15, 1.12, 0), Vector3(0.15, 1.12, 0), Vector3(0.45, 1.12, 0)]
+			return _grid_slots(6, 1, 0.22, 0.0, 1.05)
 		"filter":
-			return [Vector3(-0.2, 1.02, 0), Vector3(0.2, 1.02, 0)]
+			return _grid_slots(3, 2, 0.16, 0.16, 0.0) # garrafas na base do funil
 		"smoker":
-			return [Vector3(-0.22, 1.0, 0), Vector3(0, 1.0, 0), Vector3(0.22, 1.0, 0)]
+			return _grid_slots(3, 2, 0.2, 0.16, 1.2) # penduradas nas varas, dentro
 		"compost":
-			return [Vector3(-0.25, 0.7, 0), Vector3(0.25, 0.7, 0)]
+			return _grid_slots(3, 3, 0.26, 0.24, 0.5)
 	return []
+
+
+## Lugares em grade (colunas x linhas), centralizada, na altura y.
+func _grid_slots(cols: int, rows: int, dx: float, dz: float, y: float) -> Array:
+	var list := []
+	for j in rows:
+		for i in cols:
+			list.append(Vector3((i - (cols - 1) * 0.5) * dx, y, (j - (rows - 1) * 0.5) * dz))
+	return list
 
 
 func allows(crop: String) -> bool:
@@ -231,11 +240,11 @@ func get_interact_text() -> String:
 			return "[E] Fornalha (fundir minério, vidro, carvão)"
 		"campfire", "dryer", "filter", "smoker", "compost":
 			return Cooking.text(self, clock)
-		"grindstone", "quern", "pump", "spinning", "loom", "stone_furnace", "oven":
+		"grindstone", "quern", "pump", "spinning", "loom", "stone_furnace", "oven", "sieve":
 			return Machines.text(self)
 		"rain_collector":
 			var water: float = extra.get("water", 0.0)
-			return "Coletor de chuva: %d de %d garrafas%s" % [int(water), COLLECTOR_CAP, "  (clique com uma garrafa vazia)" if water >= 1.0 else ""]
+			return "Coletor de chuva: %d de %d garrafas%s" % [int(water), COLLECTOR_CAP, "  [E] encher garrafa" if water >= 1.0 else ""]
 		"drawboard":
 			return "[E] Desenhar na lousa"
 		"tree":
@@ -270,6 +279,9 @@ func interact(player: Node) -> void:
 	if STATIONS.has(kind):
 		CraftingUI.open_for(player, STATIONS[kind])
 		return
+	if kind == "furnace":
+		StorageUI.open_for(player, Smelting.key_of(self), self)
+		return
 	if kind in Cooking.KINDS:
 		Cooking.interact(player, self)
 		return
@@ -281,6 +293,17 @@ func interact(player: Node) -> void:
 		return
 	if kind in ["chest", "airdrop"]:
 		StorageUI.open_for(player, "placed_%d" % net_id)
+		return
+	if kind == "rain_collector":
+		# Garrafa vazia de qualquer lugar da mochila.
+		var bottle := Cooking.find_any(player.inventory, {&"garrafa": true})
+		if bottle < 0 or extra.get("water", 0.0) < 1.0:
+			Sfx.play("click", -6.0, 0.6)
+			return
+		player.inventory.take(bottle, 1)
+		ItemFly.play(&"agua", global_position + Vector3.UP * 1.0, player)
+		manager.request("draw_water", [net_id])
+		Sfx.play_at("slap", global_position + Vector3.UP, -6.0, 1.4)
 		return
 	if kind == "flag":
 		manager.request("remove", [net_id])

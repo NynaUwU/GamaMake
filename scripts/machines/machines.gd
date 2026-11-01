@@ -13,16 +13,18 @@ extends RefCounted
 ## A máquina guarda {"in", "out", "prog"} (ou "heat"/"ht" no fole) em PlacedObject.extra,
 ## e o host avança: o resultado é o mesmo para todos e vai no save.
 
-const CRANK := ["grindstone", "quern", "pump", "spinning", "loom", "stone_furnace"]
+const CRANK := ["grindstone", "quern", "pump", "spinning", "loom", "stone_furnace", "sieve"]
 const STAMINA_PER_SECOND := 30.0
 ## Processadoras: [entrada, quantas, saída, segundos de manivela por unidade]
 const PROCESS := {
 	"quern": [&"trigo", 1, &"farinha", 2.5],
 	"spinning": [&"fibra", 2, &"fio", 3.0],
 	"loom": [&"fio", 3, &"tecido", 5.0],
+	"sieve": [&"argila", 1, &"pedra", 2.0, 0.5], # peneira: 50% de chance de sair uma pedra
 }
 const NAMES := {"grindstone": "Pedra de amolar", "quern": "Moinho manual", "pump": "Bomba d'água",
-	"spinning": "Roca", "loom": "Tear", "stone_furnace": "Fornalha de pedra", "oven": "Forno de tijolo"}
+	"spinning": "Roca", "loom": "Tear", "stone_furnace": "Fornalha de pedra", "oven": "Forno de tijolo",
+	"sieve": "Peneira", "furnace": "Fornalha"}
 const HEAT_DECAY := 90.0 ## segundos para a fornalha esfriar de 1 a 0
 const HEAT_NEEDED := 0.5 ## ferro só funde com a fornalha a pelo menos 50%
 const CAPACITY := 100
@@ -46,7 +48,7 @@ static func text(obj: PlacedObject) -> String:
 		"grindstone":
 			return name + "  [segure E com a ferramenta na mão]"
 		"pump":
-			return name + "  [segure E com uma garrafa vazia]"
+			return name + "  [segure E: enche garrafas vazias]"
 		"stone_furnace":
 			return "%s %d%%  [E] abrir · [segure E] fole" % [name, int(heat(obj) * 100.0)]
 		"oven":
@@ -64,7 +66,7 @@ static func tap(player: Player, obj: PlacedObject) -> void:
 	var manager := obj.get_parent() as PlacedManager
 	match obj.kind:
 		"stone_furnace":
-			CraftingUI.open_for(player, "fornalha_pedra", obj)
+			StorageUI.open_for(player, Smelting.key_of(obj), obj)
 			return
 		"oven":
 			CraftingUI.open_for(player, "forno", obj)
@@ -73,18 +75,21 @@ static func tap(player: Player, obj: PlacedObject) -> void:
 		Sfx.play("click", -6.0, 0.6)
 		return
 	var recipe: Array = PROCESS[obj.kind]
-	var held := player.inventory.selected_id()
-	if held == recipe[0]:
-		var amount: int = mini(player.inventory.slots[player.inventory.selected].amount, CAPACITY - obj.extra.get("in", 0))
-		if amount <= 0:
-			Sfx.play("click", -6.0, 0.6)
-			return
-		player.inventory.take(player.inventory.selected, amount)
-		manager.request("machine_put", [obj.net_id, amount])
-		Sfx.play_at("step_soft", obj.global_position + Vector3.UP, 0.0, 1.1)
-	elif obj.extra.get("out", 0) > 0:
+	# Tira o pronto primeiro (voa até a mochila); senão põe TODO o material que tiver na mochila.
+	if obj.extra.get("out", 0) > 0:
+		ItemFly.play(recipe[2], obj.global_position + Vector3.UP * 0.8, player)
 		manager.request("machine_take", [obj.net_id])
 		Sfx.play_at("pickup", obj.global_position + Vector3.UP, 0.0, 1.0)
+		return
+	var room: int = CAPACITY - obj.extra.get("in", 0)
+	var amount := mini(player.inventory.count(recipe[0]), room)
+	if amount > 0:
+		var left := amount
+		while left > 0:
+			var index := Cooking.find_any(player.inventory, {recipe[0]: true})
+			left -= player.inventory.take(index, left).get("amount", left)
+		manager.request("machine_put", [obj.net_id, amount])
+		Sfx.play_at("step_soft", obj.global_position + Vector3.UP, 0.0, 1.1)
 	else:
 		Sfx.play("click", -6.0, 0.6)
 
@@ -103,12 +108,13 @@ static func crank_local(player: Player, obj: PlacedObject, delta: float) -> bool
 			slot.dur = minf(slot.get("dur", 1.0) + 0.07 * delta, 1.0) # ~14 s de 0 a 100%
 			player.inventory.changed.emit()
 		"pump":
-			if player.inventory.selected_id() != &"garrafa":
+			var bottle := Cooking.find_any(player.inventory, {&"garrafa": true}) # de qualquer lugar da mochila
+			if bottle < 0:
 				return false
 			var progress: float = obj.get_meta("pump", 0.0) + delta
 			if progress >= 1.5:
 				progress = 0.0
-				player.inventory.take(player.inventory.selected, 1)
+				player.inventory.take(bottle, 1)
 				player.pick_up(&"agua_suja", ItemDB.display_name(&"agua_suja"), 1)
 				Sfx.play_at("slap", obj.global_position + Vector3.UP * 0.4, -2.0, 1.3)
 			obj.set_meta("pump", progress)
@@ -124,7 +130,11 @@ static func crank_local(player: Player, obj: PlacedObject, delta: float) -> bool
 ## Gira a manivela/roda do modelo (só visual, local).
 static func _spin(obj: PlacedObject, delta: float) -> void:
 	var crank := obj.get_node_or_null("Crank") as Node3D
-	if crank:
+	if crank and obj.kind == "sieve":
+		var t: float = obj.get_meta("shake", 0.0) + delta * 18.0
+		obj.set_meta("shake", t)
+		crank.position.x = sin(t) * 0.06 # peneira vai e volta
+	elif crank:
 		crank.rotate_object_local(Vector3.FORWARD if obj.kind != "quern" else Vector3.UP, delta * 6.0)
 	var t: float = obj.get_meta("creak", 0.0) - delta
 	if t <= 0.0:
@@ -147,7 +157,8 @@ static func host_crank(obj: PlacedObject, seconds: float, clock: float) -> Dicti
 	while prog >= recipe[3] and obj.extra.get("in", 0) >= recipe[1]:
 		prog -= recipe[3]
 		obj.extra.in = obj.extra.get("in", 0) - recipe[1]
-		obj.extra.out = obj.extra.get("out", 0) + 1
+		if recipe.size() < 5 or randf() < recipe[4]:
+			obj.extra.out = obj.extra.get("out", 0) + 1
 	if obj.extra.get("in", 0) < recipe[1]:
 		prog = 0.0
 	obj.extra.prog = prog
@@ -252,24 +263,42 @@ static func build(kind: String, obj: PlacedObject) -> void:
 			obj._shape(Vector3(0, 0.55, 0), Vector3(1.24, 1.1, 1.24))
 			StationModels._fire(obj, Vector3(0, 0.3, 0.45), 0.08, 0.6)
 		"filter":
+			# Funil de lata num tripé: areia e carvão dentro, pinga nas garrafas embaixo.
 			mb.color(WOOD)
-			mb.box(Vector3(0, 0.45, 0), Vector3(0.7, 0.9, 0.45))
-			mb.color(Color(0.85, 0.75, 0.5)) # areia
-			mb.box(Vector3(0, 0.6, 0.226), Vector3(0.6, 0.18, 0.01))
-			mb.color(Color(0.12, 0.12, 0.12)) # carvão
-			mb.box(Vector3(0, 0.4, 0.226), Vector3(0.6, 0.16, 0.01))
-			mb.color(Color(0.55, 0.5, 0.4)) # cascalho
-			mb.box(Vector3(0, 0.22, 0.226), Vector3(0.6, 0.14, 0.01))
-			mb.color(IRON)
-			mb.box(Vector3(0, 0.06, 0.3), Vector3(0.05, 0.05, 0.15)) # torneira
-			obj._shape(Vector3(0, 0.45, 0), Vector3(0.7, 0.9, 0.45))
+			for k in 3:
+				var a := TAU * k / 3.0
+				mb.tube(PackedVector3Array([Vector3(cos(a) * 0.42, 0, sin(a) * 0.42), Vector3(cos(a) * 0.22, 1.0, sin(a) * 0.22)]), 0.03, 5)
+			mb.color(Color(0.55, 0.55, 0.52))
+			mb.lathe(PackedVector2Array([Vector2(0.03, 0.55), Vector2(0.05, 0.62), Vector2(0.36, 1.0), Vector2(0.38, 1.12),
+				Vector2(0.35, 1.12), Vector2(0.33, 1.02), Vector2(0.04, 0.65)]), 12)
+			mb.color(Color(0.85, 0.75, 0.5)) # areia em cima
+			mb.lathe(PackedVector2Array([Vector2(0.002, 1.04), Vector2(0.33, 1.04)]), 12)
+			mb.color(Color(0.15, 0.15, 0.15)) # faixa de carvão aparecendo na boca
+			mb.lathe(PackedVector2Array([Vector2(0.32, 1.0), Vector2(0.34, 1.035)]), 12)
+			mb.color(Color(0.35, 0.5, 0.6)) # pingo
+			mb.box(Vector3(0, 0.45, 0), Vector3(0.02, 0.1, 0.02))
+			obj._shape(Vector3(0, 0.56, 0), Vector3(0.8, 1.12, 0.8))
 		"smoker":
+			# Fornalha de tijolo embaixo e armário de madeira aberto na frente: dá para
+			# ver o peixe pendurado dentro (até 6).
 			mb.color(BRICK.darkened(0.1))
-			mb.box(Vector3(0, 0.4, 0), Vector3(0.8, 0.8, 0.6))
+			mb.box(Vector3(0, 0.3, 0), Vector3(0.8, 0.6, 0.6))
+			mb.color(Color(0.08, 0.06, 0.05))
+			mb.box(Vector3(0, 0.25, 0.301), Vector3(0.3, 0.22, 0.01)) # boca do fogo
 			mb.color(WOOD.darkened(0.3))
-			mb.box(Vector3(0, 1.05, 0), Vector3(0.8, 0.5, 0.6))
-			mb.box(Vector3(0, 1.35, 0), Vector3(0.9, 0.06, 0.7))
+			for x in [-0.38, 0.38]:
+				for z in [-0.27, 0.27]:
+					mb.box(Vector3(x, 0.95, z), Vector3(0.05, 0.7, 0.05))
+			mb.box(Vector3(0, 0.95, -0.28), Vector3(0.8, 0.7, 0.03)) # fundo
+			for x in [-0.39, 0.39]:
+				for k in 4:
+					mb.box(Vector3(x, 0.68 + k * 0.17, 0), Vector3(0.03, 0.09, 0.55)) # laterais em ripas
+			mb.box(Vector3(0, 1.32, 0), Vector3(0.9, 0.06, 0.7)) # teto
+			mb.color(IRON)
+			for z in [-0.08, 0.08]:
+				mb.box(Vector3(0, 1.22, z), Vector3(0.72, 0.02, 0.02)) # varas dos ganchos
 			obj._shape(Vector3(0, 0.7, 0), Vector3(0.8, 1.4, 0.6))
+			StationModels._fire(obj, Vector3(0, 0.15, 0.2), 0.08, 0.5)
 			var smoke := CPUParticles3D.new()
 			smoke.amount = 10
 			smoke.lifetime = 2.5
@@ -287,14 +316,46 @@ static func build(kind: String, obj: PlacedObject) -> void:
 			puff.material = smoke_mat
 			smoke.mesh = puff
 			obj.add_child(smoke)
-		"compost":
-			mb.color(WOOD.darkened(0.1))
+		"sieve":
+			mb.color(WOOD)
+			for x in [-0.45, 0.45]:
+				for z in [-0.3, 0.3]:
+					mb.box(Vector3(x, 0.35, z), Vector3(0.05, 0.7, 0.05))
+			mb.color(Color(0.62, 0.45, 0.35)) # monte de argila embaixo
+			mb.box(Vector3(0, 0.05, 0), Vector3(0.5, 0.1, 0.4))
+			crank_at = Vector3(0, 0.72, 0)
+			crank.color(WOOD.lightened(0.1))
 			for side in [-1.0, 1.0]:
-				mb.box(Vector3(side * 0.5, 0.35, 0), Vector3(0.06, 0.7, 0.9))
-				mb.box(Vector3(0, 0.35, side * 0.45), Vector3(1.0, 0.7, 0.06))
-			mb.color(Color(0.25, 0.18, 0.1))
-			mb.box(Vector3(0, 0.45, 0), Vector3(0.9, 0.06, 0.8)) # terra escura
-			obj._shape(Vector3(0, 0.35, 0), Vector3(1.0, 0.7, 0.9))
+				crank.box(Vector3(0, 0, side * 0.3), Vector3(0.9, 0.08, 0.04))
+				crank.box(Vector3(side * 0.45, 0, 0), Vector3(0.04, 0.08, 0.6))
+			crank.color(Color(0.55, 0.55, 0.5)) # tela
+			for k in 9:
+				crank.box(Vector3(-0.4 + k * 0.1, -0.03, 0), Vector3(0.008, 0.008, 0.58))
+				crank.box(Vector3(0, -0.03, -0.28 + k * 0.07), Vector3(0.86, 0.008, 0.008))
+			obj._shape(Vector3(0, 0.38, 0), Vector3(0.95, 0.76, 0.65))
+		"compost":
+			# Caixa de ripas com frestas (ventila), postes nos cantos, tampa meio aberta e
+			# o monte de composto escuro com restinhos verdes.
+			mb.color(WOOD.darkened(0.25))
+			for x in [-0.5, 0.5]:
+				for z in [-0.45, 0.45]:
+					mb.box(Vector3(x, 0.38, z), Vector3(0.07, 0.76, 0.07))
+			mb.color(WOOD.darkened(0.05))
+			for k in 4:
+				var y := 0.1 + k * 0.17
+				for side in [-1.0, 1.0]:
+					mb.box(Vector3(0, y, side * 0.46), Vector3(1.0, 0.11, 0.035))
+					mb.box(Vector3(side * 0.51, y, 0), Vector3(0.035, 0.11, 0.86))
+			mb.color(Color(0.22, 0.15, 0.08))
+			mb.lathe(PackedVector2Array([Vector2(0.44, 0.38), Vector2(0.38, 0.46), Vector2(0.2, 0.52), Vector2(0.002, 0.54)]), 10)
+			mb.box(Vector3(0, 0.3, 0), Vector3(0.95, 0.16, 0.85))
+			for k in 7:
+				var a := k * 2.1
+				mb.color([Color(0.35, 0.5, 0.2), Color(0.55, 0.4, 0.2), Color(0.3, 0.42, 0.18)][k % 3])
+				mb.box(Vector3(cos(a) * 0.25, 0.5, sin(a) * 0.2), Vector3(0.06, 0.03, 0.05))
+			mb.color(WOOD.darkened(0.15)) # tampa levantada atrás
+			mb.box(Vector3(0, 0.95, -0.62), Vector3(1.05, 0.04, 0.5), Basis(Vector3.RIGHT, -1.1))
+			obj._shape(Vector3(0, 0.38, 0), Vector3(1.05, 0.76, 0.95))
 	var mesh := MeshInstance3D.new()
 	mesh.mesh = mb.finish(PlacedObject._mat(), false)
 	obj.add_child(mesh)

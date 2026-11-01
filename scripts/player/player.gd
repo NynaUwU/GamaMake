@@ -457,7 +457,10 @@ func _unhandled_input(event: InputEvent) -> void:
 		elif event.is_action_pressed("block") and _weapon_type == WeaponType.ROD:
 			_fishing().cancel()
 		elif event.is_action_pressed("block") and _weapon_type == WeaponType.SHOVEL:
+			if Time.get_ticks_msec() < _shovel_ready:
+				return # a pá tem 1 s entre uma cavada e outra
 			if Farming.use(self, ""):
+				_shovel_ready = Time.get_ticks_msec() + 1000
 				_start_swing_visual_only()
 				_wear_selected(0.75) # cavar: serviço certo da pá
 		elif event.is_action_pressed("block") and _weapon_type == WeaponType.HAMMER:
@@ -676,6 +679,7 @@ func _process(delta: float) -> void:
 	if is_puppet():
 		_puppet_process(delta)
 		return
+	_update_torch(delta)
 	if vehicle:
 		head.position.y = vehicle.eye_height
 		global_transform = vehicle.seat.global_transform
@@ -1468,7 +1472,14 @@ func _hitstop(duration: float) -> void:
 func _update_interact() -> void:
 	var origin := camera.global_position
 	var query := PhysicsRayQueryParameters3D.create(origin, origin - camera.global_basis.z * interact_range, MASK_INTERACT, [get_rid()])
+	query.collide_with_areas = true # área de mira maior dos itens pequenos (PickupItem "Grab")
 	var hit := get_world_3d().direct_space_state.intersect_ray(query)
+	if hit and hit.collider is Area3D:
+		if hit.collider.has_meta("pickup") and is_instance_valid(hit.collider.get_meta("pickup")):
+			hit.collider = hit.collider.get_meta("pickup")
+		else:
+			query.collide_with_areas = false # outra área qualquer: ignora
+			hit = get_world_3d().direct_space_state.intersect_ray(query)
 	var found: Node = null
 	if hit and hit.collider.is_in_group("interactable") and not hit.collider.is_queued_for_deletion():
 		found = hit.collider
@@ -1642,6 +1653,7 @@ func _fill_bottle() -> void:
 
 
 var _spoil_timer := 5.0
+var _shovel_ready := 0
 func _update_hunger(delta: float) -> void:
 	_update_thirst(delta)
 	_spoil_timer -= delta
@@ -1924,6 +1936,44 @@ func _tool_kind() -> String:
 		WeaponType.CHISEL:
 			return "chisel"
 	return ""
+
+
+# Tocha ---------------------------------------------------------------------------
+
+var _torch: Node3D
+var _torch_light: OmniLight3D
+var _torch_burn := 0.0
+
+
+## Tocha na mão: aparece acesa (luz que tremula) e queima por meio dia.
+func _update_torch(delta: float) -> void:
+	var holding := inventory.selected_id() == &"tocha"
+	if holding and _torch == null:
+		_torch = Node3D.new()
+		_torch.add_child(ItemModels.build(&"tocha"))
+		_torch.position = Vector3(0.28, -0.3, -0.45)
+		_torch.rotation = Vector3(0.2, 0, -0.15)
+		camera.add_child(_torch)
+		StationModels._fire(_torch, Vector3(0, 0.26, 0), 0.03, 0.45)
+		_torch_light = OmniLight3D.new()
+		_torch_light.light_color = Color(1.0, 0.62, 0.3)
+		_torch_light.omni_range = 9.0
+		_torch_light.position = Vector3(0, 0.3, 0)
+		_torch.add_child(_torch_light)
+	if _torch:
+		_torch.visible = holding
+	if not holding:
+		return
+	_torch_light.light_energy = 1.6 + 0.35 * sin(Time.get_ticks_msec() * 0.013) + randf_range(-0.1, 0.1)
+	_torch_burn += delta
+	if _torch_burn >= 1.0:
+		_torch_burn -= 1.0
+		var slot: Dictionary = inventory.slots[inventory.selected]
+		slot.dur = slot.get("dur", 1.0) - 1.0 / ItemDB.max_durability(&"tocha")
+		if slot.dur <= 0.0:
+			inventory.slots[inventory.selected] = {} # apagou: acabou a tocha
+			Sfx.play("creak", -10.0, 1.6)
+		inventory.changed.emit()
 
 
 # Máquinas de manivela (Tier 1) ------------------------------------------------
