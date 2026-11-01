@@ -27,7 +27,7 @@ reação física a golpes e ragdoll (estilo Dying Light), visual de PC dos anos 
 ## Fogo só em uso, itens na mão, revólver (rodada de feedback)
 - **A fogueira gasta lenha:** nasce apagada; [E] acende com lenha de qualquer lugar da mochila (tronco 15 min, carvão 10, tábua 4, graveto 1); com lenha na mão, [E] põe mais (até 4 h). Só assa acesa, e só afasta zumbis à noite se estiver acesa.
 - **Luz só em uso:** fornalhas acendem enquanto o combustível queima; o forno acende por 45 s depois de assar; o defumador, enquanto tem peixe defumando.
-- **Qualquer item aparece na mão** em primeira pessoa (comida, materiais, sementes, garrafas, roupas...), por dentro da mão (que voltou a ser um cubo), acompanhando o soco.
+- **Qualquer item aparece na mão** em primeira pessoa (comida, materiais, sementes, garrafas, roupas...), na mão (um cubo perfeito; braço um pouco mais fino): itens longos (garrafa, tábua, graveto, cenoura) ficam em pé atravessando o punho, os outros em cima dela; acompanham o soco.
 - **Garrafas:** potável azul-clara, suja marrom-esverdeada (com sujeira no fundo), vazia em vidro claro. Barra de ferro/cobre refeita com todas as faces certas; rolo de fita fechado.
 - **Revólver** no lugar da pistola: cano octogonal, tambor canelado, vareta de ejeção, cão com espora, coronha curva com argola.
 - **Carros:** saíram o Chevy 55 e o Mormon Meteor.

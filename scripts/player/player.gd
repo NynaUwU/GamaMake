@@ -781,7 +781,7 @@ func _setup_fp_arm() -> void:
 	_arm_materials.append(skin)
 	_fp_arm = MeshInstance3D.new()
 	var arm_mesh := BoxMesh.new()
-	arm_mesh.size = Vector3(0.085, 0.085, 1.0)
+	arm_mesh.size = Vector3(0.074, 0.074, 1.0) # um pouco mais fino
 	_fp_arm.mesh = arm_mesh
 	_fp_arm.material_override = sleeve
 	_fp_arm.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
@@ -794,13 +794,16 @@ func _setup_fp_arm() -> void:
 	camera.add_child(_fp_hand_left)
 
 
+const HAND_SIZE := 0.068 ## lado do cubo da mão em primeira pessoa
+
+
 ## Mão em primeira pessoa: um cubo de pele (o item segurado passa por dentro dele).
 func _cube_hand(material: Material) -> Node3D:
 	var root := Node3D.new()
 	root.name = "Hand"
 	var mesh := MeshInstance3D.new()
 	var box := BoxMesh.new()
-	box.size = Vector3(0.075, 0.07, 0.1)
+	box.size = Vector3.ONE * HAND_SIZE # cubo perfeito
 	mesh.mesh = box
 	mesh.material_override = material
 	mesh.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
@@ -823,7 +826,7 @@ func _update_fp_arm() -> void:
 		grip = Transform3D(Basis(), right + offset)
 		# O item segurado (e a tocha) acompanha a mão direita, inclusive no soco.
 		if _held and _held.visible:
-			_held.position = right + offset + Vector3(0.0, 0.012, -0.035) # dentro da mão (atravessa o cubo)
+			_held.position = right + offset # o modelo já vem posicionado (em pé no punho ou em cima dele)
 		if _torch and _torch.visible:
 			_torch.position = right + offset + Vector3(0.0, 0.02, -0.02)
 		_place_arm(_fp_arm, _fp_hand, FP_SHOULDER, grip)
@@ -1978,17 +1981,35 @@ func _update_held() -> void:
 			_held.queue_free()
 		_held = Node3D.new()
 		var model := ItemModels.build(id)
-		var size: Vector3 = ItemDB.def(id).size
-		var biggest: float = maxf(size.x, maxf(size.y, size.z))
-		model.scale = Vector3.ONE * clampf(0.19 / maxf(biggest, 0.01), 0.25, 1.0) # maior que a mão: aparece dos dois lados
-		model.rotation = Vector3(0.25, 0.6, 0.0)
 		var bounds := AABB()
 		var first := true
 		for part in model.find_children("*", "MeshInstance3D", true, false):
 			var box: AABB = part.mesh.get_aabb()
 			bounds = box if first else bounds.merge(box)
 			first = false
-		model.position = -(model.transform.basis * bounds.get_center()) # centro do item no centro da mão
+		var size := bounds.size
+		var axis := size.max_axis_index()
+		var dims := [size.x, size.y, size.z]
+		dims.sort()
+		var long: bool = dims[2] >= dims[1] * 2.0 # garrafa, tábua, graveto, cenoura...
+		var basis := Basis()
+		if long:
+			# Em pé na mão: o eixo mais comprido vira o vertical, atravessando o punho pelo meio.
+			if axis == Vector3.AXIS_X:
+				basis = Basis(Vector3.BACK, PI / 2)
+			elif axis == Vector3.AXIS_Z:
+				basis = Basis(Vector3.RIGHT, PI / 2)
+			basis = Basis(Vector3.UP, 0.5) * Basis(Vector3.RIGHT, -0.15) * basis
+			var scale_long := clampf(0.24 / maxf(dims[2], 0.01), 0.2, 1.2)
+			basis = basis.scaled(Vector3.ONE * scale_long)
+			model.transform = Transform3D(basis, -(basis * bounds.get_center()))
+		else:
+			# Pequeno/chato: em cima da mão.
+			basis = Basis(Vector3.UP, 0.6) * Basis(Vector3.RIGHT, 0.2)
+			var scale_small := clampf(0.095 / maxf(dims[2], 0.01), 0.25, 1.2)
+			basis = basis.scaled(Vector3.ONE * scale_small)
+			var lift := HAND_SIZE * 0.5 + size.y * scale_small * 0.5
+			model.transform = Transform3D(basis, -(basis * bounds.get_center()) + Vector3(0, lift, 0))
 		_held.add_child(model)
 		camera.add_child(_held)
 		_held_id = id
