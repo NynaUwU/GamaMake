@@ -54,13 +54,19 @@ const FIXED := {
 }
 
 
+## Menu "Criar mundo": mais ou menos coisa em cada baú (arredonda sorteando a fração).
+static func _scaled(amount: int) -> int:
+	var v := amount * WorldSettings.mult("loot")
+	return floori(v) + (1 if randf() < v - floorf(v) else 0)
+
+
 static func roll(table: String) -> Array:
 	if table == "inicio":
 		return START.duplicate(true)
 	if FIXED.has(table):
 		var fixed := []
 		for row in FIXED[table]:
-			var amount := randi_range(row[1], row[2])
+			var amount := _scaled(randi_range(row[1], row[2]))
 			if amount > 0:
 				fixed.append([row[0], amount])
 		return fixed
@@ -73,7 +79,7 @@ static func roll(table: String) -> Array:
 		if result.size() >= want:
 			break
 		if randf() < row[1]:
-			result.append([row[0], randi_range(row[2], row[3])])
+			result.append([row[0], maxi(_scaled(randi_range(row[2], row[3])), 1)])
 	if result.is_empty():
 		var row: Array = rows[0]
 		result.append([row[0], row[2]])

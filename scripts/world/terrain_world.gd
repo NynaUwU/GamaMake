@@ -44,7 +44,15 @@ var _noise_bumps := FastNoiseLite.new()
 var _noise_detail := FastNoiseLite.new()
 var _noise_coast := FastNoiseLite.new()
 const SEA_LEVEL := -1.0
-const COAST := 0.86 ## raio da ilha (fração da metade do mapa), antes do recorte da costa
+## Configurações do mundo (WorldSettings), lidas uma vez em _ready (as threads usam estas cópias).
+var coast_radius := 0.86 ## raio da ilha (fração da metade do mapa), antes do recorte da costa
+var coast_wobble := 0.07
+var temp_shift := 0.0
+var mountain_shift := 0.0
+var mountain_height := 1.0
+var hill_amount := 1.0
+var tree_amount := 1.0
+var rock_amount := 1.0
 const SEA_BAND := 110.0 ## até onde (metros terra adentro) a água do mar pode chegar
 var cities: Array = [] ## cidades geradas pela semente (CityGen): centro, raio, tamanho, altura, lotes, ruas
 var avenues: Array = [] ## avenidas entre as cidades maiores ({a, b, width, kind})
@@ -69,9 +77,10 @@ func _ready() -> void:
 		seed = randi()
 	if Net.i.world_seed != 0:
 		seed = Net.i.world_seed # multiplayer: todo mundo gera o mesmo mapa
+	apply_settings()
 	_setup_noise()
 	# A pista vem primeiro (precisa de um deserto plano e livre); as cidades desviam dela.
-	track = RaceTrack.plan(self)
+	track = RaceTrack.plan(self) if WorldSettings.get_value("track") > 0.5 else {}
 	if not track.is_empty():
 		race_track = track.segments
 	cities = CityGen.place_cities(self)
@@ -86,6 +95,19 @@ func _ready() -> void:
 	if _player:
 		# Gera o entorno de uma vez antes de começar (o resto vem aos poucos).
 		update_around(_player.global_position, -1, 140.0)
+
+
+## Copia as configurações do menu "Criar mundo" (WorldSettings).
+func apply_settings() -> void:
+	world_size = WorldSettings.get_value("size") * 1024.0
+	coast_radius = WorldSettings.get_value("island") / 100.0
+	coast_wobble = 0.07 * WorldSettings.mult("coast")
+	temp_shift = WorldSettings.get_value("temperature") / 100.0 * 0.25
+	mountain_shift = (1.0 - WorldSettings.mult("mountains")) * 0.3
+	mountain_height = WorldSettings.mult("mountain_height")
+	hill_amount = WorldSettings.mult("hills")
+	tree_amount = WorldSettings.mult("trees")
+	rock_amount = WorldSettings.mult("rocks")
 
 
 func _setup_noise() -> void:
@@ -112,17 +134,17 @@ func _setup_noise() -> void:
 ## Peso de cada bioma no ponto (somam 1): desert, plains, winter, mountain.
 func biome_at(x: float, z: float) -> Dictionary:
 	var half := world_size * 0.5
-	var temperature := clampf(0.5 + (z / half) * 0.55 + _noise_temp.get_noise_2d(x, z) * 0.22, 0.0, 1.0)
+	var temperature := clampf(0.5 + (z / half) * 0.55 + _noise_temp.get_noise_2d(x, z) * 0.22 + temp_shift, 0.0, 1.0)
 	var desert := smoothstep(0.62, 0.72, temperature)
 	var winter := 1.0 - smoothstep(0.28, 0.38, temperature)
 	var temperate := clampf(1.0 - desert - winter, 0.0, 1.0)
 	var rugged := _noise_rugged.get_noise_2d(x, z) * 0.5 + 0.5
 	# Limiar mais baixo e ruído mais largo = regiões de montanha maiores.
 	var hot_cut := 1.0 - smoothstep(0.55, 0.76, temperature) # montanhas somem devagar perto do deserto
-	var mountain := smoothstep(0.44, 0.66, rugged) * hot_cut
+	var mountain := smoothstep(0.44 + mountain_shift, 0.66 + mountain_shift, rugged) * hot_cut
 	# "Profundidade" dentro da cordilheira: o pé é baixo (morros) e os picos só
 	# sobem bem no meio dela, então a borda nunca vira um paredão.
-	var depth := smoothstep(0.5, 0.92, rugged) * hot_cut * hot_cut
+	var depth := smoothstep(0.5 + mountain_shift, 0.92 + mountain_shift, rugged) * hot_cut * hot_cut
 	var dist := Vector2(x, z).length()
 	depth *= smoothstep(town_radius * 2.4, town_radius * 9.0, dist) # sem picos perto da cidade
 	mountain *= 1.0 - _town_mask(x, z)
@@ -254,15 +276,15 @@ func raw_height(x: float, z: float, biome: Dictionary) -> float:
 	var hills := _noise_hills.get_noise_2d(x, z)
 	var bumps := _noise_bumps.get_noise_2d(x, z)
 	# Planície ondulada: morros largos + elevações menores.
-	var plains_h := 3.0 + hills * 11.0 + bumps * 3.0
+	var plains_h := 3.0 + (hills * 11.0 + bumps * 3.0) * hill_amount
 	# Dunas: cristas suaves e vales largos (forma "ao quadrado"), até ~16 m.
 	var dune := _noise_dunes.get_noise_2d(x, z) * 0.5 + 0.5
 	var desert_h := 1.0 + dune * dune * 16.0 + hills * 2.0
-	var winter_h := 6.0 + hills * 14.0 + bumps * 2.0
+	var winter_h := 6.0 + (hills * 14.0 + bumps * 2.0) * hill_amount
 	# Montanhas arredondadas (ruído suave, sem cristas afiadas): boas para andar e
 	# para estradas no futuro. smoothstep deixa topo e pé das encostas mais macios.
 	var round_peak := smoothstep(0.0, 1.0, _noise_ridge.get_noise_2d(x, z) * 0.5 + 0.5)
-	var mountain_h := 10.0 + round_peak * 115.0 * pow(biome.depth, 1.3) + hills * 8.0
+	var mountain_h := 10.0 + round_peak * 115.0 * mountain_height * pow(biome.depth, 1.3) + hills * 8.0
 	var base: float = plains_h * biome.plains + desert_h * biome.desert + winter_h * biome.winter
 	var total_flat: float = biome.plains + biome.desert + biome.winter
 	if total_flat > 0.001:
@@ -289,8 +311,8 @@ func coast_distance(x: float, z: float) -> float:
 	var ax := absf(x) / half
 	var az := absf(z) / half
 	var e := pow(pow(ax, 5.0) + pow(az, 5.0), 0.2)
-	var wobble := _noise_coast.get_noise_2d(x, z) * 0.07
-	return (COAST + wobble - e) * half
+	var wobble := _noise_coast.get_noise_2d(x, z) * coast_wobble
+	return (coast_radius + wobble - e) * half
 
 
 ## Ponto no mar (água salgada, perto da costa e abaixo do nível)?

@@ -17,7 +17,7 @@ static func place(world: TerrainWorld) -> Array:
 	rng.seed = world.seed * 31 + 7
 	var list := []
 	var half := world.world_size * 0.42
-	for want in [["lake", LAKES], ["pond", PONDS]]:
+	for want in [["lake", roundi(LAKES * WorldSettings.mult("lakes"))], ["pond", roundi(PONDS * WorldSettings.mult("lakes"))]]:
 		var placed := 0
 		var tries := 0
 		while placed < want[1] and tries < want[1] * 40:

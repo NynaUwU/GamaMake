@@ -34,10 +34,14 @@ func plan(world: TerrainWorld, coord: Vector2i, origin: Vector2) -> Dictionary:
 		if not world.track.is_empty() and RaceTrack.flatten_weight(world.track, Vector2(x, z)) > 0.0:
 			continue # nem na pista
 		var biome := world.biome_at(x, z)
+		tree_amount = world.tree_amount
+		rock_amount = world.rock_amount
 		var kind := _pick_kind(biome, rng)
 		if kind == "":
 			continue
 		var y := world._height_from(x, z, biome) # reaproveita o bioma já calculado
+		if y < TerrainWorld.SEA_LEVEL + 0.4 and world.coast_distance(x, z) < TerrainWorld.SEA_BAND:
+			continue # nada no mar nem na areia molhada
 		var scale := rng.randf_range(0.8, 1.35)
 		if kind.begins_with("cactus"):
 			scale = rng.randf_range(1.15, 1.8) # cactos grandes
@@ -143,6 +147,10 @@ static func _in_lake(world: TerrainWorld, x: float, z: float, margin: float) -> 
 	return false
 
 
+var tree_amount := 1.0
+var rock_amount := 1.0
+
+
 func _pick_kind(biome: Dictionary, rng: RandomNumberGenerator) -> String:
 	var roll := rng.randf()
 	# Chance por ponto testado (CANDIDATES por chunk). A neve é a mais densa.
@@ -157,6 +165,8 @@ func _pick_kind(biome: Dictionary, rng: RandomNumberGenerator) -> String:
 		["ore_coal", biome.mountain * 0.05 + biome.plains * 0.005],
 	]
 	for pair in weights:
+		# Menu "Criar mundo": árvores/plantas e rochas/minérios mais ou menos densos.
+		pair[1] *= rock_amount if pair[0] == "rock" or String(pair[0]).begins_with("ore") else tree_amount
 		if roll < pair[1]:
 			if pair[0] == "cactus":
 				return CACTUS_KINDS[rng.randi() % CACTUS_KINDS.size()]

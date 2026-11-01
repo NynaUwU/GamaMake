@@ -7,7 +7,7 @@ extends RefCounted
 ## rio; o terreno é cavado num leito (shape()) e a água é uma faixa (WaterManager).
 ## Água corrente: a roda d'água e o carneiro hidráulico só funcionam na beira.
 
-const COUNT := 5
+## Quantos rios: WorldSettings "rivers" (padrão 5).
 const STEP := 24.0
 const MAX_STEPS := 120
 const CELL := 64.0 ## grade de busca dos trechos
@@ -18,13 +18,16 @@ static func place(world: TerrainWorld) -> Array:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = world.seed * 53 + 11
 	var list := []
+	var want := roundi(WorldSettings.get_value("rivers"))
+	if want <= 0:
+		return list
 	var sources: Array = world.lakes.filter(func(l): return l.kind == "lake" and not l.frozen)
 	_shuffle(sources, rng)
 	# Nascentes nos morros (se os lagos não bastarem).
 	var springs := []
 	var half := world.world_size * 0.4
 	for attempt in 300:
-		if springs.size() >= COUNT * 3:
+		if springs.size() >= want * 3:
 			break
 		var c := Vector2(rng.randf_range(-half, half), rng.randf_range(-half, half))
 		var biome := world.biome_at(c.x, c.y)
@@ -36,7 +39,7 @@ static func place(world: TerrainWorld) -> Array:
 		springs.append({"center": c, "radius": 0.0, "level": h - 0.9})
 	sources.append_array(springs)
 	for source in sources:
-		if list.size() >= COUNT:
+		if list.size() >= want:
 			break
 		var river := _trace(world, source, rng, list)
 		if not river.is_empty():

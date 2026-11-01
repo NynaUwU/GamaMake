@@ -2,8 +2,9 @@ extends Control
 ## Menu inicial no estilo dos menus padrão das versões antigas da Unity
 ## (LegacyGUI), na frente de uma cena 3D: um carro, um zumbi parado e a
 ## câmera girando devagar.
-## Telas: principal (nome, jogar sozinho, multiplayer, sair) e multiplayer
-## (partidas achadas na rede, entrar pelo IP, criar servidor). Até 32 jogadores.
+## Telas: principal (nome, jogar sozinho, multiplayer, sair), multiplayer
+## (partidas achadas na rede, entrar pelo IP, criar servidor) e "Criar mundo"
+## (sliders de tudo do mapa, semente e prévia do mapa). Até 32 jogadores.
 
 const ZOMBIE_SCENE := preload("res://scenes/zombie.tscn")
 
@@ -15,6 +16,12 @@ var _servers_column: VBoxContainer
 var _camera: Camera3D
 var _ui: Control # fica numa camada acima do pós-processamento (texto nítido)
 var _angle := 0.0
+var _preview: TextureRect
+var _preview_info: Label
+var _preview_timer: Timer
+var _preview_busy := false
+var _pending_preview := false
+const PREVIEW_PIXELS := 128
 
 
 func _ready() -> void:
@@ -54,14 +61,14 @@ func _process(delta: float) -> void:
 
 # --- Telas --------------------------------------------------------------------
 
-func _new_page(title: String) -> VBoxContainer:
+func _new_page(title: String, width := 320.0) -> VBoxContainer:
 	if _page:
 		_page.queue_free()
 	var center := CenterContainer.new()
 	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_ui.add_child(center)
 	_page = center
-	var column := LegacyGUI.box(center, title, 320.0)
+	var column := LegacyGUI.box(center, title, width)
 	return column
 
 
@@ -74,7 +81,7 @@ func _show_main() -> void:
 	if not saves.is_empty():
 		LegacyGUI.button(column, "Continuar (%s)" % saves[0].name, func(): SaveGame.load_world(saves[0].name))
 		LegacyGUI.button(column, "Carregar mundo...", _show_saves)
-	LegacyGUI.button(column, "Novo mundo (sozinho)", _on_solo)
+	LegacyGUI.button(column, "Novo mundo (sozinho)...", func(): _show_create(false))
 	LegacyGUI.button(column, "Multiplayer (rede local)", _show_multiplayer)
 	LegacyGUI.button(column, "Sair", func(): get_tree().quit())
 	_add_status(column)
@@ -102,13 +109,140 @@ func _show_multiplayer() -> void:
 	row.add_child(ip)
 	LegacyGUI.button(row, "Conectar", func(): _join(ip.text.strip_edges()))
 	column.add_child(HSeparator.new())
-	var seed_edit := LegacyGUI.field(column, "Semente do mapa:", _seed, "vazio = padrão")
-	seed_edit.text_changed.connect(func(text: String): _seed = text)
-	LegacyGUI.button(column, "Criar servidor (até %d jogadores)" % Net.i.MAX_PLAYERS, _on_host)
+	LegacyGUI.button(column, "Criar servidor (até %d jogadores)..." % Net.i.MAX_PLAYERS, func(): _show_create(true))
 	LegacyGUI.button(column, "Voltar", _show_main)
 	_add_status(column)
 	Net.i.start_listening()
 	_refresh_servers()
+
+
+## Criar mundo: sliders de tudo (WorldSettings), semente e prévia do mapa.
+func _show_create(host: bool) -> void:
+	var column := _new_page("Criar mundo" + (" (servidor)" if host else ""), 760.0)
+	var body := HBoxContainer.new()
+	body.add_theme_constant_override("separation", 12)
+	column.add_child(body)
+	# Esquerda: sliders por grupo, com rolagem.
+	var scroll := ScrollContainer.new()
+	scroll.custom_minimum_size = Vector2(470, 400)
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	body.add_child(scroll)
+	var list := VBoxContainer.new()
+	list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	list.add_theme_constant_override("separation", 2)
+	scroll.add_child(list)
+	var group := ""
+	var sliders := {}
+	for row in WorldSettings.DEFS:
+		if row[7] != group:
+			group = row[7]
+			var header := Label.new()
+			header.text = group
+			header.modulate = Color(1.0, 0.85, 0.55)
+			list.add_child(header)
+		var line := HBoxContainer.new()
+		list.add_child(line)
+		var name_label := Label.new()
+		name_label.text = row[1]
+		name_label.custom_minimum_size = Vector2(170, 0)
+		line.add_child(name_label)
+		var slider := HSlider.new()
+		slider.min_value = row[2]
+		slider.max_value = row[3]
+		slider.step = row[4]
+		slider.value = WorldSettings.get_value(row[0])
+		slider.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		slider.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		slider.custom_minimum_size = Vector2(0, 18)
+		line.add_child(slider)
+		var value_label := Label.new()
+		value_label.custom_minimum_size = Vector2(110, 0)
+		value_label.text = WorldSettings.text(row[0], slider.value)
+		line.add_child(value_label)
+		var key: String = row[0]
+		sliders[key] = slider
+		slider.value_changed.connect(func(v: float):
+			WorldSettings.values[key] = v
+			value_label.text = WorldSettings.text(key, v)
+			_preview_timer.start())
+	# Direita: prévia, semente e botões.
+	var side := VBoxContainer.new()
+	side.custom_minimum_size = Vector2(240, 0)
+	side.add_theme_constant_override("separation", 4)
+	body.add_child(side)
+	_preview = TextureRect.new()
+	_preview.custom_minimum_size = Vector2(240, 240)
+	_preview.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	_preview.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	_preview.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	side.add_child(_preview)
+	_preview_info = Label.new()
+	_preview_info.autowrap_mode = TextServer.AUTOWRAP_WORD
+	_preview_info.custom_minimum_size = Vector2(240, 34)
+	_preview_info.modulate = Color(1, 1, 1, 0.75)
+	side.add_child(_preview_info)
+	var seed_edit := LegacyGUI.field(side, "Semente do mapa:", _seed, "vazio = padrão")
+	seed_edit.text_changed.connect(func(text: String):
+		_seed = text
+		_preview_timer.start())
+	LegacyGUI.button(side, "Semente aleatória", func():
+		seed_edit.text = str(randi_range(1, 999999))
+		seed_edit.text_changed.emit(seed_edit.text))
+	LegacyGUI.button(side, "Tudo no padrão", func():
+		WorldSettings.reset()
+		for key in sliders:
+			sliders[key].set_value_no_signal(WorldSettings.get_value(key))
+		_show_create(host))
+	LegacyGUI.button(side, "Criar servidor e jogar" if host else "Criar mundo e jogar", _on_host if host else _on_solo)
+	LegacyGUI.button(side, "Voltar", _show_multiplayer if host else _show_main)
+	_add_status(column)
+	_preview_timer = Timer.new()
+	_preview_timer.one_shot = true
+	_preview_timer.wait_time = 0.6 # espera parar de mexer no slider
+	_preview_timer.timeout.connect(_make_preview)
+	_preview.add_child(_preview_timer)
+	_make_preview()
+
+
+## Gera o mapa com as configurações atuais (terreno de verdade, sem chunks) e desenha.
+func _make_preview() -> void:
+	if not is_instance_valid(_preview):
+		return
+	if _preview_busy:
+		_pending_preview = true
+		return
+	_preview_busy = true
+	_preview_info.text = "Gerando o mapa..."
+	await get_tree().process_frame
+	await get_tree().process_frame
+	var saved_seed: int = Net.i.world_seed
+	Net.i.world_seed = _seed_value()
+	var terrain := TerrainWorld.new()
+	terrain.seed = 1337
+	add_child(terrain)
+	Net.i.world_seed = saved_seed
+	var image := Image.create(PREVIEW_PIXELS, PREVIEW_PIXELS, false, Image.FORMAT_RGB8)
+	for j in PREVIEW_PIXELS:
+		for i in PREVIEW_PIXELS:
+			var x := ((i + 0.5) / PREVIEW_PIXELS - 0.5) * terrain.world_size
+			var z := ((j + 0.5) / PREVIEW_PIXELS - 0.5) * terrain.world_size
+			image.set_pixel(i, j, terrain.map_sample(x, z)[0])
+	# Cidade inicial no meio.
+	for d in 2:
+		for k in [-1, 0, 1]:
+			image.set_pixel(PREVIEW_PIXELS / 2 + k, PREVIEW_PIXELS / 2 + d, Color(1, 0.9, 0.3))
+	var info := "%d cidades · %d lagos · %d rios · pista: %s · %.1f km" % [terrain.cities.size(),
+		terrain.lakes.filter(func(l): return l.kind == "lake").size(), terrain.rivers.size(),
+		"sim" if not terrain.track.is_empty() else "não", terrain.world_size / 1024.0]
+	terrain.free()
+	_preview_busy = false
+	if not is_instance_valid(_preview):
+		return
+	_preview.texture = ImageTexture.create_from_image(image)
+	_preview_info.text = info
+	if _pending_preview:
+		_pending_preview = false
+		_make_preview() # mexeram de novo enquanto gerava
 
 
 ## Mundos salvos: carregar ou apagar (apagar pede um segundo clique).

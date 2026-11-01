@@ -44,8 +44,9 @@ static func place_cities(world: TerrainWorld) -> Array:
 	for size in ["large", "medium", "small"]:
 		var cfg: Dictionary = SIZES[size]
 		var placed := 0
+		var count := roundi(cfg.count * WorldSettings.mult("cities"))
 		for attempt in 400:
-			if placed >= cfg.count:
+			if placed >= count:
 				break
 			var center := Vector2(rng.randf_range(-half, half), rng.randf_range(-half, half))
 			var radius: float = cfg.radius

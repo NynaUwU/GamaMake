@@ -90,6 +90,7 @@ static func collect(world: Node) -> Dictionary:
 	var data := {"version": VERSION, "time": Time.get_unix_time_from_system()}
 	var terrain := world.get_node_or_null("Terrain")
 	data.seed = terrain.seed if terrain else Net.i.world_seed
+	data.settings = WorldSettings.export()
 	data.taken = Net.i.taken.keys()
 	# Itens soltos (do jogador, de zumbi, que não couberam): os do cenário
 	# e as frutas nascem de novo sozinhos, então só os sem dono ("" ou "d…").
@@ -145,6 +146,7 @@ static func load_world(name: String) -> bool:
 		return false
 	Net.i.leave(false)
 	Net.i.world_seed = data.get("seed", 0)
+	WorldSettings.load_from(data.get("settings", {}))
 	current = name
 	pending = data
 	Net.i.player_saves = data.get("players", {}).duplicate(true)

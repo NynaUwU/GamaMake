@@ -71,7 +71,7 @@ func clock_text() -> String:
 
 
 func _process(delta: float) -> void:
-	hour += 24.0 * delta / DAY_LENGTH
+	hour += 24.0 * delta / (WorldSettings.get_value("day_length") * 60.0) # menu "Criar mundo" (padrão DAY_LENGTH)
 	if hour >= 24.0:
 		hour -= 24.0
 		day += 1

@@ -51,7 +51,7 @@ func _populate() -> void:
 		if near > DESPAWN:
 			a.queue_free()
 			animals.erase(id)
-	if animals.size() >= MAX_ANIMALS:
+	if animals.size() >= roundi(MAX_ANIMALS * WorldSettings.mult("animals")):
 		return
 	var terrain := get_parent().get_node_or_null("Terrain") as TerrainWorld
 	if terrain == null:

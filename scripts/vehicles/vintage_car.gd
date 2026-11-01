@@ -346,7 +346,9 @@ func _physics_process(delta: float) -> void:
 		# Marcha: a 1ª multiplica a força (sobe barranco), a última quase não; o
 		# torque segue o giro dentro da marcha; na troca o motor corta um instante.
 		var cut := 0.15 if _shift_timer > 0.0 else 1.0
-		engine_force = max_engine_force * throttle * GEAR_FORCE[gear] * _torque(gear_rpm(speed)) * cut * (1.0 if speed < top_speed else 0.0)
+		# Corte de giro: passou do fim da marcha (ladeira que não deixa subir a marcha), a força some.
+		var limiter := 1.0 - smoothstep(GEAR_TOP[gear], GEAR_TOP[gear] * 1.12, absf(speed) / top_speed)
+		engine_force = max_engine_force * throttle * GEAR_FORCE[gear] * _torque(gear_rpm(speed)) * cut * limiter
 		if speed < -1.0:
 			brake = max_brake # andando de ré e apertou W: freia primeiro
 	elif throttle < 0.0:
@@ -369,21 +371,46 @@ const GEAR_FORCE := [2.6, 1.7, 1.2, 0.92, 0.75]
 const GEAR_TOP := [0.2, 0.38, 0.58, 0.8, 1.0]
 var gear := 0 ## marcha atual (0 = primeira)
 var _shift_timer := 0.0
+var _shift_lock := 0.0
+var _last_speed := 0.0
+var _accel := 0.0
 
 
 ## Giro do motor dentro da marcha (0..1): sobe até a troca e cai depois dela.
 func gear_rpm(speed: float) -> float:
-	var low: float = 0.0 if gear == 0 else GEAR_TOP[gear - 1] * 0.75
-	var high: float = GEAR_TOP[gear]
+	return _rpm_in(gear, speed)
+
+
+func _rpm_in(g: int, speed: float) -> float:
+	var low: float = 0.0 if g == 0 else GEAR_TOP[g - 1] * 0.75
+	var high: float = GEAR_TOP[g]
 	return clampf((absf(speed) / top_speed - low) / maxf(high - low, 0.01), 0.0, 1.0)
+
+
+## Na marcha de cima o carro ainda ganharia velocidade? Estima pela aceleração
+## de agora: tira a gravidade da subida, troca a força pela da próxima marcha e
+## põe a gravidade de volta. Numa ladeira forte a resposta é não: fica na marcha.
+func _next_gear_pulls(speed: float) -> bool:
+	var slope := 9.8 * maxf(global_basis.z.y * signf(speed), 0.0)
+	var now: float = GEAR_FORCE[gear] * _torque(_rpm_in(gear, speed))
+	var next: float = GEAR_FORCE[gear + 1] * _torque(_rpm_in(gear + 1, speed))
+	var predicted: float = (_accel + slope) * next / maxf(now, 0.01) - slope
+	return predicted > 0.3
 
 
 func _update_gear(speed: float, throttle: float, delta: float) -> void:
 	_shift_timer = maxf(_shift_timer - delta, 0.0)
+	_shift_lock = maxf(_shift_lock - delta, 0.0)
+	# Aceleração suavizada: numa subida forte o carro para de ganhar velocidade,
+	# e aí não adianta subir a marcha (perderia força e voltaria logo).
+	var accel := (absf(speed) - _last_speed) / maxf(delta, 0.001)
+	_last_speed = absf(speed)
+	_accel = lerpf(_accel, accel, clampf(delta * 3.0, 0.0, 1.0))
 	var ratio := absf(speed) / top_speed
-	if gear < GEAR_TOP.size() - 1 and ratio > GEAR_TOP[gear] * 0.96 and throttle > 0.0 and _shift_timer <= 0.0:
+	if gear < GEAR_TOP.size() - 1 and ratio > GEAR_TOP[gear] * 0.96 and throttle > 0.0 and _shift_lock <= 0.0 and _accel > 0.4 \
+			and _next_gear_pulls(speed):
 		_shift(1)
-	elif gear > 0 and ratio < GEAR_TOP[gear - 1] * 0.7:
+	elif gear > 0 and (ratio < GEAR_TOP[gear - 1] * 0.45 or (ratio < GEAR_TOP[gear - 1] * 0.7 and _shift_lock <= 0.0)):
 		_shift(-1)
 
 
@@ -391,8 +418,9 @@ func _update_gear(speed: float, throttle: float, delta: float) -> void:
 func _shift(dir: int) -> void:
 	gear = clampi(gear + dir, 0, GEAR_FORCE.size() - 1)
 	_shift_timer = 0.28 if dir > 0 else 0.15
+	_shift_lock = 1.2 # sem trocar de novo logo em seguida (não fica "caçando" marcha)
 	if dir > 0:
-		apply_central_impulse(-global_basis.z * mass * 0.35) # cabeça vai para a frente
+		apply_central_impulse(-global_basis.z * mass * 0.35) # tranco para trás: a cabeça vai para a frente
 		_rev = maxf(_rev - 0.3, 0.0)
 	Sfx.play_at("knock", global_position, -10.0, 0.5 if dir > 0 else 0.7)
 

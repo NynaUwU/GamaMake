@@ -24,11 +24,22 @@ reação física a golpes e ragdoll (estilo Dying Light), visual de PC dos anos 
 - Os outros jogadores aparecem com o nome em cima, o item da mão, a lanterna acesa e uma bolinha
   azul no minimapa/mapa. Em cima, no meio da tela, aparece quem está online.
 
+## Criar mundo, desmontar e ladeiras (rodada de feedback)
+- **Menu "Criar mundo"** (menu inicial → Novo mundo, ou Multiplayer → Criar servidor): sliders de tudo do mapa, com **prévia do mapa** que se atualiza sozinha (cidades, lagos, rios, pista e tamanho embaixo).
+  - **Mapa:** tamanho (1,5–4,5 km), tamanho da ilha, recorte da costa.
+  - **Relevo:** altura e quantidade de montanhas, morros nas planícies, clima (mais frio ↔ mais quente: muda onde fica neve e deserto).
+  - **Lugares:** cidades, lagos, rios (0–12), pista de corrida (sim/não).
+  - **Recursos:** árvores e plantas, rochas e minérios, saque nos baús.
+  - **Perigo:** zumbis, hordas, animais. **Tempo:** duração do dia (5–60 min), chuva.
+  - Semente (ou aleatória) e "Tudo no padrão". As configurações vão no save e o host manda para quem entra (todo mundo gera o mesmo mapa). `scripts/world/world_settings.gd`.
+- **Desmontar:** segurando **Shift**, o que está mirado fica vermelho e o **clique direito desmonta**; o esquerdo só constrói (e com Shift alinha na grade).
+- **Ladeiras:** o câmbio só sobe a marcha se a próxima ainda tiver força para a subida, e não troca de novo logo em seguida (nada de ficar caçando marcha). A 1ª tem corte de giro: **sobe 45° saindo parado a ~20 km/h**, devagar e sem parar; 30° sobe em 2ª.
+
 ## Ilha, mar, construção e carros (rodada de feedback)
 - **O mapa é uma grande ilha:** perto das bordas o chão desce em praia de areia até o **mar** (costa recortada, fundo descendo até ~22 m). Dá para nadar; o mar vai até o horizonte e ninguém sai do mapa. Cidades, lagos e a pista ficam sempre em terra; zumbis e hordas não nascem na água. `TerrainWorld.coast_distance`, `WaterManager._build_sea`.
 - **Rios até o mar:** nascem em lagos (ou em nascentes nos morros) e descem até desaguar no mar, desviando de cidades, avenidas e da pista (rio sem saída é descartado). A ligação com o lago não tem mais barranco de terra (a várzea só rebaixa o chão).
 - **Erro ao agachar no rio** corrigido (o efeito debaixo d'água pedia a profundidade de um lago).
-- **Construção:** o fantasma do martelo agora é o **modelo de verdade** translúcido (verde = cabe, vermelho = não cabe). **Segure Shift** para alinhar com a grade do piso construído (0,4 m e 90°); **desmontar passou para Ctrl + clique**. Nova **escada** (Estrutura: 6 tábuas + 2 gravetos): sobe um andar (2,8 m) andando, com corrimão.
+- **Construção:** o fantasma do martelo agora é o **modelo de verdade** translúcido (verde = cabe, vermelho = não cabe). **Segure Shift** para alinhar com a grade do piso construído (0,4 m e 90°); **desmontar é segurar Shift + clique direito** (o que vai sair fica vermelho), o botão esquerdo só constrói. Nova **escada** (Estrutura: 6 tábuas + 2 gravetos): sobe um andar (2,8 m) andando, com corrimão.
 - **Carros com marchas:** 5 marchas automáticas que dão para sentir (tranco e corte do motor na troca, giro do motor cai); a 1ª tem força para subir rampa de 20° saindo parado. Em curva fechada rápida os pneus perdem aderência e o carro **derrapa** em vez de tombar (barra anti-rolagem).
 - **Airdrop some às 8h** da manhã seguinte, com ou sem coisas dentro.
 - **Armas dos zumbis** só caem raramente (4%).
@@ -259,7 +270,7 @@ reação física a golpes e ragdoll (estilo Dying Light), visual de PC dos anos 
 
 ### Construção custa material
 - Parede/piso/teto: 4 tábuas · pilar: 1 tábua + 1 pedra · janela: 2 gravetos + 1 vidro · porta: 3 tábuas + 1 sucata.
-- O menu do martelo mostra o custo (tem/precisa) e deixa o slot avermelhado quando falta. Ctrl + clique (desmontar) **devolve metade**.
+- O menu do martelo mostra o custo (tem/precisa) e deixa o slot avermelhado quando falta. Desmontar (Shift + botão direito) **devolve metade**.
 
 ### Fome
 - Barra laranja embaixo da stamina. Cai em ~22 min (mais rápido correndo).
@@ -306,7 +317,8 @@ Todos os sons são **sintetizados no código** ao abrir o jogo (sem arquivos de 
 - **Martelo:** mostra a peça "fantasma" (verde = cabe, vermelho = já tem peça ali); objetos aparecem com o modelo de verdade translúcido.
   - Clique constrói · **segure o botão direito** para abrir o menu de construção (abas +
     slots com foto de cada peça, como o inventário; solte em cima do slot) · **R** gira a parede ·
-    **Ctrl + clique** desmonta a peça (ou tira a janela/porta) mirada · **segure Shift** para
+    **segurando Shift**, o que está mirado fica vermelho e o **clique direito desmonta** (peça,
+    janela/porta ou objeto); o botão esquerdo só constrói · **segure Shift** para
     alinhar objetos com a grade do piso (passos de 0,4 m e giro de 90°). Ao soltar o botão direito
     o menu escolhe o slot que estiver embaixo do mouse.
   - Encaixes: parede mirando um piso vai para a borda dele; mirando o topo de uma parede empilha;

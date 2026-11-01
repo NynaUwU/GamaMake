@@ -50,7 +50,7 @@ func _process(delta: float) -> void:
 			z.queue_free()
 	for here in centers:
 		var biome := _terrain.biome_at(here.x, here.z)
-		var wanted := int(max_zombies * (0.7 + biome.winter * 0.6))
+		var wanted := int(max_zombies * (0.7 + biome.winter * 0.6) * WorldSettings.mult("zombies"))
 		var around := 0
 		for z in _zombies:
 			if z.global_position.distance_to(here) < spawn_max + 20.0:

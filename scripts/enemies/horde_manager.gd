@@ -66,7 +66,7 @@ func _process(delta: float) -> void:
 	if not Net.i.is_host() or _terrain() == null:
 		return
 	if hordes.is_empty() and _next_id == 1:
-		for k in HORDES:
+		for k in roundi(HORDES * WorldSettings.mult("hordes")):
 			_new_horde(true)
 	_process_spawn_queue()
 	_tick -= delta
@@ -81,7 +81,7 @@ func _process(delta: float) -> void:
 	if _respawn <= 0.0:
 		_respawn = 60.0
 		var night := DayNight.i != null and DayNight.i.is_night()
-		if hordes.size() < (HORDES_NIGHT if night else HORDES):
+		if hordes.size() < roundi((HORDES_NIGHT if night else HORDES) * WorldSettings.mult("hordes")):
 			_new_horde(false)
 	_broadcast -= delta
 	if _broadcast <= 0.0:

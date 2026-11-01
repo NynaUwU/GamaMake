@@ -473,7 +473,13 @@ func _unhandled_input(event: InputEvent) -> void:
 				_start_swing_visual_only()
 				_wear_selected(0.75) # cavar: serviço certo da pá
 		elif event.is_action_pressed("block") and _weapon_type == WeaponType.HAMMER:
-			builder.open_menu() # segurando: menu de construção; soltando: escolhe
+			if Input.is_key_pressed(KEY_SHIFT):
+				# Segurando Shift, o clique direito desmonta o que está mirado (fica vermelho).
+				if _equip >= 1.0 and builder.dismantle():
+					_tool_hit = 1.0
+					Net.i.send_player_action("tool", 0)
+			else:
+				builder.open_menu() # segurando: menu de construção; soltando: escolhe
 		elif event.is_action_pressed("reload") and _weapon_type == WeaponType.HAMMER:
 			builder.rotate()
 			_emit_weapon_text()

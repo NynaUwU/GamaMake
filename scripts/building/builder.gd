@@ -3,7 +3,7 @@ extends Node
 ## Ferramentas de construção na mão do player (só o jogador local tem).
 ##
 ## Martelo: mostra a peça "fantasma" na grade (verde = cabe, vermelho = já tem
-## peça ali). Clique constrói, R gira a parede, Ctrl + clique desmonta a peça
+## peça ali). Clique constrói, R gira a parede, Shift + botão direito desmonta a peça
 ## (ou tira a janela/porta) mirada. SEGURAR o botão direito abre o menu de
 ## construção (abas + lista com rolagem): solte em cima do item para escolher.
 ## Encaixes: parede mirando um piso/teto vai para a borda mais perto dele;
@@ -109,6 +109,7 @@ var _ghost_material: StandardMaterial3D
 var _model_ghost: Node3D ## silhueta do modelo de verdade (objetos colocáveis)
 var _model_material: StandardMaterial3D
 var _model_kind := ""
+var _remove_mesh: MeshInstance3D ## Shift: caixa vermelha no que o clique direito desmonta
 var _highlight: MeshInstance3D
 var _highlight_mesh := ImmediateMesh.new()
 var _mark: StandardMaterial3D
@@ -134,6 +135,17 @@ func _ready() -> void:
 	_model_material.roughness = 1.0
 	_model_ghost = Node3D.new()
 	_ghost.add_child(_model_ghost)
+	_remove_mesh = MeshInstance3D.new()
+	_remove_mesh.top_level = true
+	var remove_mat := StandardMaterial3D.new()
+	remove_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	remove_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	remove_mat.cull_mode = BaseMaterial3D.CULL_DISABLED
+	remove_mat.albedo_color = Color(1.0, 0.2, 0.15, 0.28)
+	_remove_mesh.material_override = remove_mat
+	_remove_mesh.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	_remove_mesh.visible = false
+	add_child(_remove_mesh)
 	_highlight = MeshInstance3D.new()
 	_highlight.top_level = true
 	_highlight.mesh = _highlight_mesh
@@ -338,18 +350,14 @@ func update(tool: String) -> void:
 	repair_target = null
 	_ghost.visible = false
 	_highlight.visible = false
+	_remove_mesh.visible = false
 	if tool != "chisel":
 		_drag = {}
 	if _manager() == null or player.vehicle != null or _menu.visible:
 		return
 	if tool == "hammer":
-		if Input.is_key_pressed(KEY_CTRL):
-			var hit := _ray()
-			if hit and (hit.collider is BuildPiece or hit.collider is BuildFill):
-				_show_removal(hit.collider)
-			elif hit and hit.collider is PlacedObject:
-				_draw_box(hit.collider)
-			return
+		if Input.is_key_pressed(KEY_SHIFT):
+			_mark_removal() # o que o Shift + clique direito desmontaria fica vermelho
 		# Mirando uma peça quebrada por zumbi: o clique conserta (mostra o dano).
 		var aimed := _ray()
 		if aimed and aimed.collider is BuildPiece and not aimed.collider.damaged.is_empty():
@@ -391,28 +399,13 @@ func update(tool: String) -> void:
 		_draw_triangles(piece, half, Color(1.0, 0.85, 0.2, 0.55))
 
 
-## Clique com o martelo (constrói, encaixa janela/porta ou, com Ctrl, desmonta)
+## Clique com o martelo (constrói ou encaixa janela/porta)
 ## ou com a talhadeira (começa a selecionar). Devolve true se fez algo.
 func use(tool: String) -> bool:
 	var manager := _manager()
 	if manager == null or _menu.visible:
 		return false
 	if tool == "hammer":
-		if Input.is_key_pressed(KEY_CTRL):
-			var hit := _ray()
-			if hit and hit.collider is BuildFill:
-				_refund(entry_for("fill", hit.collider.type).get("cost", {}))
-				manager.request_unfill(hit.collider.piece, hit.collider.fill_index)
-				return true
-			if hit and hit.collider is BuildPiece:
-				_refund(entry_for_kind(hit.collider.kind).get("cost", {}))
-				manager.request_remove(hit.collider)
-				return true
-			if hit and hit.collider is PlacedObject and not hit.collider.kind in ["ground", "tree"]:
-				_refund(entry_for("place", hit.collider.kind).get("cost", {}))
-				_placed().request("remove", [hit.collider.net_id])
-				return true
-			return false
 		if repair_target:
 			var cost := repair_cost(repair_target)
 			if _paid({"cost": cost}):
@@ -444,6 +437,66 @@ func use(tool: String) -> bool:
 		var square: int = cut_target.quarters[0] / 4
 		_drag = {"piece": piece, "quarters": cut_target.quarters, "square": Vector2i(square % BuildPiece.N, square / BuildPiece.N)}
 		cut_selection = cut_target.quarters
+		return true
+	return false
+
+
+## Shift + botão direito (ao soltar): desmonta a peça, janela/porta ou objeto
+## mirado e devolve metade do custo. Devolve true se desmontou algo.
+func _mark_removal() -> void:
+	var hit := _ray()
+	if hit.is_empty():
+		return
+	var node: Object = hit.collider
+	if node is BuildFill:
+		var fill: BuildFill = node
+		_draw_triangles(fill.piece, fill.piece.fills[fill.fill_index].tris, Color(1, 0.2, 0.15, 0.55))
+		return
+	var box := BoxMesh.new()
+	var center := Vector3.ZERO
+	if node is BuildPiece:
+		var size := BuildPiece.SIZE
+		var t := BuildPiece.THICK
+		match node.kind:
+			BuildPiece.Kind.WALL:
+				box.size = Vector3(size, size, t)
+				center = Vector3(size * 0.5, size * 0.5, 0)
+			BuildPiece.Kind.FLOOR:
+				box.size = Vector3(size, t, size)
+				center = Vector3(size * 0.5, -t * 0.5, size * 0.5)
+			BuildPiece.Kind.ROOF:
+				box.size = Vector3(size, t, size)
+				center = Vector3(size * 0.5, t * 0.5, size * 0.5)
+			_:
+				box.size = Vector3(BuildPiece.SEG, size, BuildPiece.SEG)
+				center = Vector3(0, size * 0.5, 0)
+	elif node is PlacedObject and not node.kind in ["ground", "tree", "airdrop"]:
+		box.size = PLACE_SIZE.get(node.kind, Vector3(0.8, 0.8, 0.8))
+		center = PLACE_CENTER.get(node.kind, Vector3(0, box.size.y * 0.5, 0))
+	else:
+		return
+	box.size *= 1.03
+	_remove_mesh.mesh = box
+	_remove_mesh.global_transform = node.global_transform * Transform3D(Basis(), center)
+	_remove_mesh.visible = true
+
+
+func dismantle() -> bool:
+	var manager := _manager()
+	if manager == null or _menu.visible or player.vehicle != null:
+		return false
+	var hit := _ray()
+	if hit and hit.collider is BuildFill:
+		_refund(entry_for("fill", hit.collider.type).get("cost", {}))
+		manager.request_unfill(hit.collider.piece, hit.collider.fill_index)
+		return true
+	if hit and hit.collider is BuildPiece:
+		_refund(entry_for_kind(hit.collider.kind).get("cost", {}))
+		manager.request_remove(hit.collider)
+		return true
+	if hit and hit.collider is PlacedObject and not hit.collider.kind in ["ground", "tree", "airdrop"]:
+		_refund(entry_for("place", hit.collider.kind).get("cost", {}))
+		_placed().request("remove", [hit.collider.net_id])
 		return true
 	return false
 
@@ -729,7 +782,7 @@ func _draw_triangles(piece: BuildPiece, tris: PackedInt32Array, color: Color) ->
 	_highlight.visible = true
 
 
-## Ctrl com o martelo: o que vai ser desmontado fica vermelho.
+## Desenho antigo da remoção (caixa no fantasma).
 func _show_removal(node: Node) -> void:
 	if node is BuildFill:
 		var fill: BuildFill = node

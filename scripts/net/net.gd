@@ -224,15 +224,16 @@ func _hello(name: String, game: String) -> void:
 		multiplayer.multiplayer_peer.disconnect_peer(id)
 		return
 	peers[id] = name
-	_welcome.rpc_id(id, world_seed, taken.keys())
+	_welcome.rpc_id(id, world_seed, taken.keys(), WorldSettings.export())
 	_peers.rpc(peers)
 	peers_changed.emit()
 	message.emit("%s entrou" % name)
 
 
 @rpc("authority", "reliable")
-func _welcome(seed: int, taken_keys: Array) -> void:
+func _welcome(seed: int, taken_keys: Array, settings: Dictionary) -> void:
 	world_seed = seed
+	WorldSettings.load_from(settings) # mesmo mapa e mesmas regras do host
 	taken.clear()
 	for key in taken_keys:
 		taken[key] = true
