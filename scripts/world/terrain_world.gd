@@ -46,6 +46,8 @@ var avenues: Array = [] ## avenidas entre as cidades maiores ({a, b, width, kind
 var race_track: Array = [] ## segmentos de asfalto da pista de corrida (RaceTrack)
 var track: Dictionary = {} ## lugar e traçado da pista (RaceTrack.plan)
 var lakes: Array = [] ## lagos e lagoas (Lakes.place): centro, raio, nível da água, fundo
+var rivers: Array = [] ## rios (Rivers.place): pontos, níveis, largura
+var _river_grid := {}
 var _avenue_grid := {} # Vector2i (células de AVENUE_CELL m) -> trechos de avenida que alcançam a célula
 const AVENUE_CELL := 64.0
 var _chunks := {} # Vector2i -> Node3D
@@ -70,6 +72,8 @@ func _ready() -> void:
 	if not track.is_empty():
 		race_track = track.segments
 	lakes = Lakes.place(self)
+	rivers = Rivers.place(self)
+	_river_grid = Rivers.index(rivers)
 	_material = _make_material()
 	_props = TerrainProps.new()
 	_player = get_node_or_null(player_path)
@@ -162,7 +166,19 @@ func _height_from(x: float, z: float, biome: Dictionary) -> float:
 			h = lerpf(h, city.base, 1.0 - smoothstep(r * 1.05, r * 1.8, d))
 	if not lakes.is_empty():
 		h = Lakes.shape(lakes, x, z, h)
+	if not rivers.is_empty():
+		h = Rivers.shape(rivers, _river_grid, x, z, h)
 	return h
+
+
+## Água de rio no ponto: {"level", "dir", ...} ou {}.
+func river_at(x: float, z: float) -> Dictionary:
+	return Rivers.water_at(rivers, _river_grid, x, z)
+
+
+## Trecho de rio mais perto (para pôr a roda d'água na beira): {"dist", "half", ...} ou {}.
+func river_near(x: float, z: float) -> Dictionary:
+	return Rivers.nearest(rivers, _river_grid, x, z)
 
 
 ## Distância "quadrada" (no eixo da grade da cidade) até o centro, com cantos arredondados.
@@ -470,6 +486,9 @@ func map_sample(x: float, z: float) -> Array:
 	if not lake.is_empty() and h < lake.level:
 		var deep := clampf((lake.level - h) / lake.depth, 0.0, 1.0)
 		return [Color(0.32, 0.5, 0.6).lerp(Color(0.12, 0.25, 0.4), deep), h] # água no mapa
+	var river := river_at(x, z)
+	if not river.is_empty() and h < river.level:
+		return [Color(0.28, 0.46, 0.6), h]
 	return [_color_for(x, z, h, biome), h]
 
 

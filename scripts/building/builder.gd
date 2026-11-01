@@ -56,6 +56,11 @@ const ENTRIES := {
 		{"id": "sieve", "name": "Peneira", "place": "sieve", "desc": "Ponha argila e segure E: cada argila peneirada tem 50% de chance de dar uma pedra", "cost": {&"tabua": 3, &"graveto": 4, &"pano": 1}},
 		{"id": "spinning", "name": "Roca", "place": "spinning", "desc": "Fibra de algodão vira fio (segure E)", "cost": {&"tabua": 4, &"graveto": 4, &"sucata": 1}},
 		{"id": "loom", "name": "Tear", "place": "loom", "desc": "Fio vira tecido (segure E)", "cost": {&"tabua": 6, &"graveto": 6}},
+		{"id": "water_wheel", "name": "Roda d'água", "place": "water_wheel", "desc": "Na beira de um rio, de frente para a água: gira sem parar (força 4). A porta de latão fica na margem", "cost": {&"tabua": 14, &"barra_ferro": 3}},
+		{"id": "windmill", "name": "Moinho vento", "place": "windmill", "desc": "Força conforme o vento (até 6, mais alto = mais forte). Porta de latão na base", "cost": {&"tabua": 12, &"tecido": 4, &"barra_ferro": 2}},
+		{"id": "shaft", "name": "Eixo", "place": "shaft", "desc": "Leva o giro adiante: encaixa sozinho na porta de latão mais perto. Use correias para ligar de longe", "cost": {&"tabua": 2, &"barra_ferro": 1}},
+		{"id": "sawmill", "name": "Serraria", "place": "sawmill", "desc": "Com energia: 1 tronco vira 12 tábuas (força 3)", "cost": {&"tabua": 8, &"barra_ferro": 4, &"sucata": 2}},
+		{"id": "ram_pump", "name": "Carneiro", "place": "ram_pump", "desc": "Na beira de um rio: bombeia água sem energia. Irriga as plantações em volta (10 m crescem 50% mais rápido) e enche garrafas", "cost": {&"barra_ferro": 4, &"sucata": 4, &"tabua": 2}},
 		{"id": "smoker", "name": "Defumador", "place": "smoker", "desc": "Peixe cru vira defumado: enche muito e nunca estraga", "cost": {&"tijolo": 4, &"tabua": 4, &"sucata": 1}},
 		{"id": "compost", "name": "Composteira", "place": "compost", "desc": "Comida estragada e restos viram adubo (colheitas em dobro)", "cost": {&"tabua": 5, &"graveto": 2}},
 	],
@@ -74,10 +79,13 @@ const PLACE_SIZE := {"pot_small": Vector3(0.46, 0.31, 0.46), "pot_wide": Vector3
 	"rain_collector": Vector3(0.8, 1.1, 0.8), "dryer": Vector3(1.5, 1.5, 0.5), "grindstone": Vector3(0.9, 1.1, 0.5),
 	"quern": Vector3(0.8, 0.9, 0.8), "oven": Vector3(1.24, 1.1, 1.24), "pump": Vector3(0.6, 1.2, 0.6), "filter": Vector3(0.7, 0.9, 0.45),
 	"stone_furnace": Vector3(1.6, 1.6, 1.1), "spinning": Vector3(1.0, 1.1, 0.4), "loom": Vector3(1.3, 1.2, 0.8),
-	"smoker": Vector3(0.8, 1.4, 0.6), "compost": Vector3(1.0, 0.7, 0.9), "sieve": Vector3(0.95, 0.8, 0.65)}
+	"smoker": Vector3(0.8, 1.4, 0.6), "compost": Vector3(1.0, 0.7, 0.9), "sieve": Vector3(0.95, 0.8, 0.65),
+	"water_wheel": Vector3(1.3, 1.6, 3.2), "windmill": Vector3(1.5, 4.5, 1.5), "shaft": Vector3(2.0, 0.7, 0.5),
+	"sawmill": Vector3(2.1, 0.9, 0.75), "ram_pump": Vector3(0.6, 1.8, 2.0)}
 const PLACE_RADIUS := {"pot_small": 0.35, "pot_wide": 0.7, "bench": 0.9, "campfire": 0.6, "furnace": 0.8, "workbench": 1.0,
 	"spikes": 0.7, "beartrap": 0.35, "barbed": 0.9, "mine": 0.3, "drawboard": 0.6, "chest": 0.6, "rain_collector": 0.5, "dryer": 0.8, "grindstone": 0.5,
-	"quern": 0.5, "oven": 0.7, "pump": 0.35, "filter": 0.45, "stone_furnace": 0.9, "spinning": 0.55, "loom": 0.7, "smoker": 0.5, "compost": 0.6, "sieve": 0.55}
+	"quern": 0.5, "oven": 0.7, "pump": 0.35, "filter": 0.45, "stone_furnace": 0.9, "spinning": 0.55, "loom": 0.7, "smoker": 0.5, "compost": 0.6, "sieve": 0.55,
+	"water_wheel": 0.6, "windmill": 0.9, "shaft": 0.3, "sawmill": 1.0, "ram_pump": 0.4}
 
 var player: Player
 var selection: Dictionary = ENTRIES["Estrutura"][0]
@@ -364,6 +372,9 @@ func use(tool: String) -> bool:
 				return true
 			return false
 		if selection.has("place"):
+			if selection.place in ["water_wheel", "ram_pump"] and not target.is_empty() and not _placed().river_bank(target.xform.origin):
+				Sfx.play("click", -6.0, 0.6) # só na beira de um rio
+				return false
 			if selection.place == "pump" and not target.is_empty() and not Farming._shore(target.xform.origin):
 				Sfx.play("click", -6.0, 0.6) # bomba só na beira do lago
 				return false
@@ -474,9 +485,33 @@ func _compute_place() -> Dictionary:
 	if hit.is_empty() or hit.normal.y < 0.7 or hit.collider is PlacedObject and hit.collider.kind != "bed":
 		return {}
 	var xform := Transform3D(Basis(Vector3.UP, player.rotation.y), hit.position)
+	if selection.place == "shaft":
+		var snapped := _snap_shaft(placed, hit.position)
+		if snapped != Transform3D():
+			return {"xform": snapped, "valid": true}
 	var valid := not placed.occupied(hit.position, PLACE_RADIUS[selection.place]) \
 			and player.global_position.distance_to(hit.position) > 0.6
 	return {"xform": xform, "valid": valid}
+
+
+## Eixo: encaixa a ponta na porta de latão livre mais perto (até 1,2 m), alinhado com ela.
+func _snap_shaft(placed: PlacedManager, near: Vector3) -> Transform3D:
+	var best := {}
+	for obj: PlacedObject in placed.objects.values():
+		if not Power.is_power(obj.kind) or obj.global_position.distance_to(near) > 4.0:
+			continue
+		for port in Power.world_ports(obj):
+			var d := Vector2(port[0].x - near.x, port[0].z - near.z).length()
+			if d < 1.2 and (best.is_empty() or d < best.d):
+				best = {"d": d, "pos": port[0], "dir": port[1]}
+	if best.is_empty():
+		return Transform3D()
+	var dir: Vector3 = best.dir
+	dir.y = 0.0
+	dir = dir.normalized()
+	var basis := Basis(dir, Vector3.UP, dir.cross(Vector3.UP)) # eixo X do eixo = direção da porta
+	var center: Vector3 = best.pos + dir * 1.0
+	return Transform3D(basis, center - Vector3.UP * 0.6)
 
 
 func _draw_box(obj: PlacedObject) -> void:

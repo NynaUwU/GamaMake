@@ -73,6 +73,10 @@ static func build(id: StringName) -> Node3D:
 			_mb(parts, Color(0.42, 0.3, 0.18)).tube(PackedVector3Array([Vector3(0, -0.2, 0), Vector3(0, 0.15, 0)]), 0.022, 6)
 			_mb(parts, Color(0.62, 0.58, 0.48)).box(Vector3(0, 0.17, 0), Vector3(0.07, 0.08, 0.07)) # pano enrolado
 			_mb(parts, Color(0.15, 0.12, 0.1)).box(Vector3(0, 0.22, 0), Vector3(0.05, 0.03, 0.05))
+		&"correia":
+			_mb(parts, Color(0.32, 0.2, 0.12)).torus(0.08, 0.012, 16, 4, Basis.IDENTITY, Vector3(0, 0.012, 0))
+			_mb(parts, Color(0.32, 0.2, 0.12)).torus(0.06, 0.012, 16, 4, Basis.IDENTITY, Vector3(0, 0.03, 0))
+			_mb(parts, Color(0.6, 0.48, 0.26)).box(Vector3(0.08, 0.02, 0), Vector3(0.03, 0.03, 0.04)) # fivela
 		&"areia":
 			_rock(_mb(parts, Color(0.82, 0.72, 0.5)))
 		&"graveto":

@@ -123,7 +123,9 @@ func _set_lowpass(on: bool) -> void:
 func depth_at(pos: Vector3) -> float:
 	var lake := Lakes.at(lakes(), pos.x, pos.z)
 	if lake.is_empty() or lake.frozen:
-		return -INF
+		var terrain := _terrain()
+		var river: Dictionary = terrain.river_at(pos.x, pos.z) if terrain else {}
+		return river.level - pos.y if not river.is_empty() else -INF
 	return lake.level - pos.y
 
 
@@ -150,7 +152,58 @@ func ray_water(from: Vector3, dir: Vector3, max_dist: float) -> Vector3:
 	return best
 
 
+var _rivers_built := false
+
+
+## Faixas de água dos rios (UV.x = 1 no meio, 0 na margem: o shader clareia a beira).
+func _build_rivers() -> void:
+	_rivers_built = true
+	var terrain := _terrain()
+	if terrain == null:
+		return
+	for river in terrain.rivers:
+		var pts: PackedVector2Array = river.points
+		var levels: PackedFloat32Array = river.levels
+		var half: float = river.width * 0.5 + 0.6
+		var verts := PackedVector3Array()
+		var uvs := PackedVector2Array()
+		var normals := PackedVector3Array()
+		for i in pts.size() - 1:
+			var dir_a := (pts[mini(i + 1, pts.size() - 1)] - pts[maxi(i - 1, 0)]).normalized()
+			var dir_b := (pts[mini(i + 2, pts.size() - 1)] - pts[i]).normalized()
+			var side_a := Vector2(-dir_a.y, dir_a.x) * half
+			var side_b := Vector2(-dir_b.y, dir_b.x) * half
+			var ca := Vector3(pts[i].x, levels[i], pts[i].y)
+			var cb := Vector3(pts[i + 1].x, levels[i + 1], pts[i + 1].y)
+			var la := ca + Vector3(side_a.x, 0, side_a.y)
+			var ra := ca - Vector3(side_a.x, 0, side_a.y)
+			var lb := cb + Vector3(side_b.x, 0, side_b.y)
+			var rb := cb - Vector3(side_b.x, 0, side_b.y)
+			for tri in [[la, 0.0, ca, 1.0, cb, 1.0], [la, 0.0, cb, 1.0, lb, 0.0], [ca, 1.0, ra, 0.0, rb, 0.0], [ca, 1.0, rb, 0.0, cb, 1.0]]:
+				for k in 3:
+					verts.append(tri[k * 2])
+					uvs.append(Vector2(tri[k * 2 + 1], 0))
+					normals.append(Vector3.UP)
+		var arrays := []
+		arrays.resize(Mesh.ARRAY_MAX)
+		arrays[Mesh.ARRAY_VERTEX] = verts
+		arrays[Mesh.ARRAY_TEX_UV] = uvs
+		arrays[Mesh.ARRAY_NORMAL] = normals
+		var mesh := ArrayMesh.new()
+		mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
+		var material := ShaderMaterial.new()
+		material.shader = _water_shader
+		material.set_shader_parameter("frozen", 0.0)
+		var instance := MeshInstance3D.new()
+		instance.mesh = mesh
+		instance.material_override = material
+		instance.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		add_child(instance)
+
+
 func _process(delta: float) -> void:
+	if not _rivers_built:
+		_build_rivers()
 	var world := get_parent()
 	var player: Node3D = world.get("player")
 	if player == null:

@@ -24,6 +24,16 @@ reação física a golpes e ragdoll (estilo Dying Light), visual de PC dos anos 
 - Os outros jogadores aparecem com o nome em cima, o item da mão, a lanterna acesa e uma bolinha
   azul no minimapa/mapa. Em cima, no meio da tela, aparece quem está online.
 
+## Máquinas — Tier 2 (energia natural: a automação começa)
+- **Rios** (`scripts/world/rivers.gd`): 5 rios sorteados pela semente, nascendo em lagos e descendo o relevo (~700 m). O terreno é cavado num leito, a água é uma faixa com o mesmo shader dos lagos, aparecem no mapa/minimapa, dá para nadar e encher garrafa (água suja).
+- **Rede de energia** (`scripts/machines/power.gd`): geradores → eixos/correias → máquinas. O host recalcula 1x por segundo: oferta (geradores) dividida pela demanda (máquinas com material); pouca energia = tudo mais devagar. As peças giram no ritmo da rede.
+  - **Portas de latão:** as peças se ligam quando as portas se encostam. O **eixo** (martelo → Máquinas) encaixa sozinho na porta mais perto ao colocar (até 1,2 m), alinhado com ela.
+  - **Correia** (mesa: 2 tecidos + 2 fios): com ela na mão, clique numa peça de energia e depois em outra (até 8 m): ficam ligadas, sem precisar alinhar.
+- **Roda d'água:** só na beira de um rio, de frente para a água; gira sempre (força 4). A porta fica na margem.
+- **Moinho de vento:** força = 6 × vento × altitude (mais alto, mais forte). Para quando o vento cai.
+- **Serraria:** com energia (força 3), 1 tronco → 12 tábuas a cada 4 s. O moinho manual, a roca e o tear também trabalham sozinhos se ligados à rede (e continuam na manivela).
+- **Carneiro hidráulico:** na beira de um rio, sem energia: o que for plantado a até 10 m cresce 50% mais rápido (irrigação), e [E] enche uma garrafa vazia de água suja.
+
 ## Fogo só em uso, itens na mão, revólver (rodada de feedback)
 - **A fogueira gasta lenha:** nasce apagada; [E] acende com lenha de qualquer lugar da mochila (tronco 15 min, carvão 10, tábua 4, graveto 1); com lenha na mão, [E] põe mais (até 4 h). Só assa acesa, e só afasta zumbis à noite se estiver acesa.
 - **Luz só em uso:** fornalhas acendem enquanto o combustível queima; o forno acende por 45 s depois de assar; o defumador, enquanto tem peixe defumando.

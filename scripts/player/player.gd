@@ -491,6 +491,8 @@ func _unhandled_input(event: InputEvent) -> void:
 			# Máquina de manivela: toque = abrir/pôr/tirar; segurando = girar (ver _update_crank).
 			_crank_target = _interact_target
 			_crank_hold = 0.0
+		elif event.is_action_pressed("attack") and inventory.selected_id() == &"correia":
+			_use_belt()
 		elif event.is_action_pressed("attack") and inventory.selected_id() == &"adubo":
 			_fertilize()
 		elif event.is_action_pressed("interact") and is_instance_valid(_interact_target):
@@ -2092,6 +2094,29 @@ func _flush_crank() -> void:
 	if _crank_send > 0.0 and is_instance_valid(_crank_target) and _crank_target.kind != "grindstone" and _crank_target.kind != "pump":
 		(get_parent().get_node("Placed") as PlacedManager).request("crank", [_crank_target.net_id, _crank_send])
 	_crank_send = 0.0
+
+
+## Correia na mão: clique numa peça de energia e depois na outra (até 8 m).
+var _belt_from: PlacedObject
+func _use_belt() -> void:
+	var origin := camera.global_position
+	var query := PhysicsRayQueryParameters3D.create(origin, origin - camera.global_basis.z * interact_range, MASK_INTERACT, [get_rid()])
+	var hit := get_world_3d().direct_space_state.intersect_ray(query)
+	if hit.is_empty() or not hit.collider is PlacedObject or not Power.is_power(hit.collider.kind):
+		Sfx.play("click", -6.0, 0.6)
+		return
+	var target: PlacedObject = hit.collider
+	if not is_instance_valid(_belt_from) or _belt_from == target:
+		_belt_from = target # primeira ponta escolhida
+		Sfx.play_at("knock", hit.position, -4.0, 1.4)
+		return
+	if _belt_from.global_position.distance_to(target.global_position) > Power.BELT_RANGE:
+		Sfx.play("click", -6.0, 0.6) # longe demais
+		return
+	inventory.take(inventory.selected, 1)
+	(get_parent().get_node("Placed") as PlacedManager).request("belt", [_belt_from.net_id, target.net_id])
+	Sfx.play_at("slap", hit.position, -2.0, 0.8)
+	_belt_from = null
 
 
 ## Adubo na mão: clique num plantador (as próximas 3 colheitas dele rendem o dobro).

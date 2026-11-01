@@ -110,6 +110,9 @@ func _generate() -> void:
 	for city in terrain.cities:
 		for street in city.streets:
 			_stroke(image, street.a, street.b, street.width, ROAD_COLORS.get(street.kind, ROAD_COLORS.street))
+	for river in terrain.rivers: # rios por cima, em azul
+		for i in river.points.size() - 1:
+			_stroke(image, river.points[i], river.points[i + 1], river.width, Color(0.28, 0.46, 0.62))
 	_image = image
 
 

@@ -205,9 +205,10 @@ func slot_world(i: int) -> Vector3:
 
 
 static func progress(entry: Dictionary, clock: float) -> float:
+	# (boost: irrigada pelo carneiro hidráulico cresce mais rápido)
 	if entry.is_empty():
 		return -1.0
-	var time: float = Farming.CROPS[entry.crop].time
+	var time: float = Farming.CROPS[entry.crop].time / entry.get("boost", 1.0)
 	return clampf((clock - entry.t) / time, 0.0, 1.0)
 
 
@@ -265,7 +266,7 @@ func get_interact_text() -> String:
 			return "[E] Fornalha (fundir minério, vidro, carvão)"
 		"campfire", "dryer", "filter", "smoker", "compost":
 			return Cooking.text(self, clock)
-		"grindstone", "quern", "pump", "spinning", "loom", "stone_furnace", "oven", "sieve":
+		"grindstone", "quern", "pump", "spinning", "loom", "stone_furnace", "oven", "sieve", "sawmill", "water_wheel", "windmill", "shaft", "ram_pump":
 			return Machines.text(self)
 		"rain_collector":
 			var water: float = extra.get("water", 0.0)
@@ -310,8 +311,17 @@ func interact(player: Node) -> void:
 	if kind in Cooking.KINDS:
 		Cooking.interact(player, self)
 		return
-	if Machines.is_crank(kind) or kind == "oven":
+	if Machines.is_crank(kind) or kind in ["oven", "sawmill"]:
 		Machines.tap(player, self)
+		return
+	if kind == "ram_pump":
+		var bottle := Cooking.find_any(player.inventory, {&"garrafa": true})
+		if bottle < 0:
+			Sfx.play("click", -6.0, 0.6)
+			return
+		player.inventory.take(bottle, 1)
+		player.pick_up(&"agua_suja", ItemDB.display_name(&"agua_suja"), 1)
+		Sfx.play_at("slap", global_position + Vector3.UP, -4.0, 1.3)
 		return
 	if board:
 		DrawUI.open_for(player, board)
@@ -347,7 +357,7 @@ func interact(player: Node) -> void:
 func _build() -> void:
 	if kind == "tree":
 		return # desenho e colisão vêm do crescimento (_refresh_tree)
-	if Machines.is_crank(kind) or kind in ["oven", "filter", "smoker", "compost"]:
+	if Machines.is_crank(kind) or kind in ["oven", "filter", "smoker", "compost", "shaft", "water_wheel", "windmill", "sawmill", "ram_pump"]:
 		Machines.build(kind, self)
 		if kind in LIT_KINDS:
 			StationModels.set_lit(self, false)

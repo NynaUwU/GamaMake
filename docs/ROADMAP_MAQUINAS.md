@@ -83,7 +83,7 @@ Cada fase só usa o que as anteriores já entregaram.
    - Secador de pele (couro).
    - Roca e tear (fio → tecido → roupa quente).
    - Frio por bioma e noite.
-4. **Tier 2**
+4. **Tier 2** *(feito; animais e frio ficam para depois)*
    - Rios, roda d'água, moinho de vento.
    - Eixos e correias (grafo de energia rotacional).
    - Serraria, carneiro hidráulico (irrigação).

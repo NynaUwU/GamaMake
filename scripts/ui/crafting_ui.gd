@@ -26,6 +26,7 @@ const RECIPES := [
 	{"id": &"bandagem", "station": "mesa", "cost": {&"pano": 2}},
 	{"id": &"garrafa", "amount": 2, "station": "fornalha", "fuel": true, "cost": {&"vidro": 1}},
 	{"id": &"areia", "station": "mesa", "cost": {&"pedra": 10}},
+	{"id": &"correia", "station": "mesa", "cost": {&"tecido": 2, &"fio": 2}},
 	{"id": &"tocha", "amount": 3, "station": "mesa", "cost": {&"graveto": 2, &"pano": 1, &"carvao": 1}},
 	{"id": &"bandeira", "station": "mesa", "cost": {&"graveto": 2, &"pano": 2}},
 	{"id": &"capuz", "station": "mesa", "cost": {&"pano": 3}},

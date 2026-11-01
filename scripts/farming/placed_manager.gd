@@ -18,12 +18,58 @@ func _ready() -> void:
 func _process(delta: float) -> void:
 	clock += delta
 	_refresh -= delta
+	if _belts_dirty:
+		_rebuild_belts()
 	if _refresh <= 0.0:
 		_refresh = 1.0
 		_collect_rain()
 		_smelt()
+		_power()
 		for obj: PlacedObject in objects.values():
 			obj.refresh(clock)
+
+
+## Host, 1x por segundo: a rede de energia (Power) divide a força e avança as máquinas.
+func _power() -> void:
+	if not Net.i.is_host():
+		return
+	var changed := Power.tick(objects, clock)
+	for id in changed:
+		request("extra", [id, changed[id]])
+
+
+# --- Correias, rio e irrigação -----------------------------------------------------
+
+const IRRIGATION_RADIUS := 10.0
+const IRRIGATION_BOOST := 1.5
+var _belts_dirty := true
+var _belt_node: MeshInstance3D
+
+
+func _rebuild_belts() -> void:
+	_belts_dirty = false
+	if _belt_node == null:
+		_belt_node = MeshInstance3D.new()
+		_belt_node.name = "Belts"
+		add_child(_belt_node)
+	_belt_node.mesh = Power.belt_mesh(objects)
+
+
+## Na margem de um rio (para a roda d'água e o carneiro).
+func river_bank(at: Vector3) -> bool:
+	var terrain := get_parent().get_node_or_null("Terrain") as TerrainWorld
+	if terrain == null:
+		return false
+	var near := terrain.river_near(at.x, at.z)
+	return not near.is_empty() and near.dist < near.half + 3.0
+
+
+## Perto de um carneiro hidráulico (irrigado: planta cresce mais rápido).
+func irrigated(at: Vector3) -> bool:
+	for obj: PlacedObject in objects.values():
+		if obj.kind == "ram_pump" and obj.global_position.distance_to(at) < IRRIGATION_RADIUS:
+			return true
+	return false
 
 
 ## Host, 1x por segundo: as fornalhas fundem sozinhas e avisam todos do que mudou.
@@ -87,8 +133,11 @@ func host_apply(action: String, args: Array) -> Array:
 			var xform: Transform3D = args[1]
 			if kind not in ["pot_small", "pot_wide", "bed", "ground", "bench", "workbench", "furnace", "campfire",
 					"spikes", "beartrap", "barbed", "mine", "drawboard", "chest", "flag", "rain_collector", "dryer",
-					"grindstone", "quern", "pump", "spinning", "loom", "stone_furnace", "oven", "filter", "smoker", "compost", "sieve"]:
+					"grindstone", "quern", "pump", "spinning", "loom", "stone_furnace", "oven", "filter", "smoker", "compost", "sieve",
+					"shaft", "water_wheel", "windmill", "sawmill", "ram_pump"]:
 				return []
+			if kind in ["water_wheel", "ram_pump"] and not river_bank(xform.origin):
+				return [] # só na beira de um rio
 			if kind == "pump" and not Farming._shore(xform.origin):
 				return [] # bomba só na beira do lago
 			if kind == "bed":
@@ -101,6 +150,20 @@ func host_apply(action: String, args: Array) -> Array:
 			_next_id += 1
 			_spawn(id, kind, xform)
 			return [id, kind, xform]
+		"belt":
+			# Correia entre duas peças de energia (a correia já saiu da mochila de quem ligou).
+			var a: PlacedObject = objects.get(args[0])
+			var b: PlacedObject = objects.get(args[1])
+			if a == null or b == null or a == b or not Power.is_power(a.kind) or not Power.is_power(b.kind) \
+					or a.global_position.distance_to(b.global_position) > Power.BELT_RANGE:
+				Net.i.give_to(Net.i.request_peer, &"correia", 1)
+				return []
+			var belts: Array = a.extra.get("belts", []).duplicate()
+			if b.net_id not in belts:
+				belts.append(b.net_id)
+			a.extra.belts = belts
+			_belts_dirty = true
+			return [args[0], belts]
 		"fuel":
 			# Lenha na fogueira / forno aceso: [id, segundos, chave]. O host soma ao que já queima.
 			var obj: PlacedObject = objects.get(args[0])
@@ -179,8 +242,10 @@ func host_apply(action: String, args: Array) -> Array:
 					or not Farming.CROPS.has(crop) or not obj.allows(crop):
 				return []
 			obj.crops[slot] = {"crop": crop, "t": clock}
+			if irrigated(obj.global_position):
+				obj.crops[slot].boost = IRRIGATION_BOOST
 			obj.refresh(clock)
-			return [args[0], slot, crop, clock]
+			return [args[0], slot, crop, clock, obj.crops[slot].get("boost", 1.0)]
 		"cook":
 			var obj: PlacedObject = objects.get(args[0])
 			var slot: int = args[1]
@@ -372,6 +437,11 @@ func apply_remote(action: String, args: Array) -> void:
 			var obj: PlacedObject = objects.get(args[0])
 			if obj and obj.board:
 				obj.board.clear()
+		"belt":
+			var obj: PlacedObject = objects.get(args[0])
+			if obj:
+				obj.extra.belts = args[1]
+				_belts_dirty = true
 		"fuel":
 			var obj: PlacedObject = objects.get(args[0])
 			if obj:
@@ -395,6 +465,8 @@ func apply_remote(action: String, args: Array) -> void:
 			var obj: PlacedObject = objects.get(args[0])
 			if obj:
 				obj.crops[args[1]] = {"crop": args[2], "t": args[3]}
+				if args.size() > 4 and args[4] > 1.0:
+					obj.crops[args[1]].boost = args[4]
 				obj.refresh(clock)
 		"harvest":
 			var obj: PlacedObject = objects.get(args[0])
@@ -419,6 +491,7 @@ func _spawn(id: int, kind: String, xform: Transform3D, quiet := false) -> void:
 
 
 func _remove(id: int) -> void:
+	_belts_dirty = true
 	var obj: PlacedObject = objects.get(id)
 	objects.erase(id)
 	if is_instance_valid(obj):
