@@ -62,6 +62,22 @@ Martelo → aba **Vapor**. Ordem natural: torno (ferro) → parafusos/engrenagen
   - **Antisséptico:** bandagem + álcool (mesa) = **bandagem com álcool** (+60 vida e cura a doença).
 - **Itens novos:** barra de aço, parafusos, engrenagem, eixo torneado, cano, suco, óleo, álcool, bandagem com álcool (modelos próprios).
 
+## Bichos, pássaros e fazenda de animais (rodada de feedback)
+- **15 espécies, todas caçáveis** (`scripts/animals/`, em blocos; `AnimalModels` monta cada uma com poucas malhas guardadas por espécie):
+  - **Selvagens:** cervo, coelho, raposa e cabra (fogem); javali (revida quando apanha); **lobo** (ataca quem chega a 12 m, de noite de ~19 m, e a matilha vem junto; uiva à noite); **urso** (220 de vida, ataca quem chega a 7 m ou bate).
+  - **Pássaros:** pombo, corvo, pato e gaivota andam bicando; chegou perto, **levantam voo** (batendo as asas), voam 30–55 m a ~9 m de altura e pousam. **Pato** pousa e **nada no lago**; **gaivota** plana em círculos sobre a costa. Hitbox maior: dá para acertar com tiro e lança. Soltam carne e **penas**.
+  - **De criação** (selvagens na planície, em bandos): **galinha, ovelha, vaca, porco**.
+  - Nascem por bioma, em grupos (rebanho de cabras na montanha, matilha na neve, patos no lago, gaivotas na costa). Cada bicho tem voz (cocoricó, béé, muu, ronco, cró, quá, uivo).
+- **Fazenda:**
+  - **Domesticar:** segure a comida dele na mão (galinha: qualquer semente; ovelha e vaca: trigo; porco: trigo ou legumes) e o bicho **vem atrás** (leve até o cercado). **[E]** com a comida = fica **manso**.
+  - Manso fica em volta de casa (ou segue quem segura a comida, para mudar de lugar), **come no cocho** e **bebe no bebedouro** sozinho.
+  - **Cria:** dois iguais **alimentados e com água**, perto um do outro, têm **filhote** (porco: 2) a cada ~15 min do relógio da fazenda. Filhote é menor e cresce em ~15 min. Sem água não cria. Até 24 mansos por fazenda.
+  - **Produtos:** galinha **bota ovo** no chão (mais rápido com água); vaca: **[E] com garrafa vazia = leite**; ovelha: **[E] tosquia** (2–3 de lã; a lã cresce de novo em ~10 min se ela comer).
+  - Mansos **vão no save**; os selvagens não.
+- **Aba "Fazenda" do martelo:** **Cocho** (4 tábuas, 2 gravetos; baú: [E] abre), **Bebedouro** (4 tábuas, 1 barra de ferro; enche com garrafa de água, com a chuva ou por cano — tem porta de latão), **Cerca** (2,4 m: com Shift encaixa ponta com ponta na grade) e **Porteira** ([E] abre/fecha). Zumbis tratam a cerca como construção (contornam, ou quebram com 6 golpes se você está dentro).
+- **Itens novos:** ovo (frite na fogueira → **ovo frito**), **leite**, **lã** (na roca: 1 lã = 1 fio), **pena**; na mesa: **gorro de lã** (3 lãs, isolamento 0,45), **casaco de lã** (6 lãs + couro, 0,8), **casaco de penas** (12 penas + 2 tecidos, 0,75).
+- Teste: `tests/test_farm.gd`. Fotos: `STUDIO=animais` no `tests/studio.gd`.
+
 ## Zumbis especiais, IA nova e plantio (rodada de feedback)
 - **Zumbis desviam da sua base:** se você **não está dentro** dela, o zumbi contorna paredes, portas, janelas e cercas (leque de raios, sempre pelo mesmo lado até ficar livre) em vez de quebrar. Se você **está dentro** (teto em cima, piso construído no alto, ou paredes em 6 de 8 direções), eles batem na parede como antes. Rodou 14 s sem chegar mais perto: desiste e quebra por um tempo. `Zombie.target_sheltered`, `Zombie._avoid_builds`.
 - **Zumbis nadam:** em água funda boiam com a cabeça para fora (sem afundar), braços abertos, na metade da velocidade, com som de água; saem andando na margem. Também nas cópias do multiplayer.
@@ -98,7 +114,7 @@ Martelo → aba **Vapor**. Ordem natural: torno (ferro) → parafusos/engrenagen
 - **Painel da plantação** do tamanho dos itens que tem (não cresce mais para fora da tela).
 
 ## Animais e frio
-- **Animais** (`scripts/animals/`, em blocos como todo ser vivo): **cervo** (foge de longe, rápido), **coelho** (foge em zigue-zague) e **javali** (apanhou, avança em quem bateu e morde por 15 s). Aparecem a 60–110 m dos jogadores conforme o bioma (planície: os três; neve: cervo e coelho; deserto: coelho raro; nunca nas cidades), até 10 por vez, e somem longe. Sobem degraus como o jogador. Host simula, os outros veem cópias; golpe/tiro/lança funcionam igual aos zumbis.
+- **Animais** (`scripts/animals/`, em blocos como todo ser vivo): **cervo** (foge de longe, rápido), **coelho** (foge em zigue-zague) e **javali** (apanhou, avança em quem bateu e morde por 15 s) — e mais 12 espécies depois (ver "Bichos, pássaros e fazenda"). Aparecem a 60–110 m dos jogadores conforme o bioma (nunca nas cidades), até 16 selvagens por vez, e somem longe. Sobem degraus como o jogador. Host simula, os outros veem cópias; golpe/tiro/lança funcionam igual aos zumbis.
 - **Caça:** carne crua (faz mal crua, estraga em 8 min), pele, gordura (javali). Carne na fogueira → **carne assada**; no secador ou defumador → **carne seca** (nunca estraga). **Pele no secador → couro.** Couro: 2 correias, botas; **casaco de pele** (3 peles + 2 couros): o mais quente. Gordura queima na fogueira (3 min).
 - **Frio:** temperatura do lugar = bioma (neve gela, deserto esquenta de dia e gela à noite), altitude, noite, chuva e estar molhado; **fogueira acesa** a até 7 m esquenta muito e **teto em cima** protege. Roupas isolam (casaco de pele 0,9, casaco 0,6, capuz 0,2, calça e botas 0,15). Abaixo de ~10° o calor do corpo cai; zerado, a vida vai embora (hipotermia) e a stamina enche menos.
 - **HUD:** **termômetro** no centro do quarto de círculo (azul no frio, verde agradável, vermelho no calor; o bulbo pisca quando o corpo está gelando) e **geada nas bordas da tela** quando esfria.

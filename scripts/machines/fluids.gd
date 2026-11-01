@@ -27,6 +27,7 @@ const PORTS := {
 	"steam_engine": [[Vector3(-0.15, 1.12, -0.7), "steam", "in"]],
 	"distillery": [[Vector3(0.55, 0.25, 0.45), "water", "in"]],
 	"sprinkler": [[Vector3(0.0, 0.1, 0.22), "water", "in"]],
+	"water_trough": [[Vector3(0.68, 0.3, 0.0), "water", "in"]],
 }
 ## Água que cada fonte consegue mandar por segundo.
 const SOURCE_RATE := {"ram_pump": 1.0, "rain_collector": 0.5, "water_tank": 2.0}
@@ -141,7 +142,7 @@ static func _fluid_state(obj: PlacedObject) -> Dictionary:
 			return {"steam": snappedf(obj.extra.get("steam", 0.0), 0.05)}
 		"sprinkler":
 			return {"wet": obj.extra.get("wet", false)}
-		"water_tank", "boiler", "distillery", "rain_collector":
+		"water_tank", "boiler", "distillery", "rain_collector", "water_trough":
 			return {"water": snappedf(obj.extra.get("water", 0.0), 0.5)}
 	return {}
 
@@ -178,6 +179,8 @@ static func _water(group: Array) -> float:
 				wants[obj] = clampf(STILL_WATER - obj.extra.get("water", 0.0), 0.0, 0.4)
 			"sprinkler":
 				wants[obj] = 0.1
+			"water_trough":
+				wants[obj] = clampf(Ranch.WATER_CAP - obj.extra.get("water", 0.0), 0.0, 0.5)
 	var demand := 0.0
 	for obj in wants:
 		demand += wants[obj]

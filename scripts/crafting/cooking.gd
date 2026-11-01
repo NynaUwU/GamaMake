@@ -8,7 +8,8 @@ extends RefCounted
 const COOK := {&"batata": &"batata_assada", &"cenoura": &"cenoura_assada", &"abobora": &"abobora_assada",
 	&"lata": &"lata_quente", &"pao": &"torrada", &"argila": &"tijolo", &"carne_crua": &"carne_assada",
 	&"camarao": &"camarao_assado", &"lagosta": &"lagosta_assada", &"caranguejo": &"caranguejo_assado",
-	&"caranguejo_aranha": &"caranguejo_aranha_assado", &"atum": &"atum_assado", &"baixo": &"baixo_assado"}
+	&"caranguejo_aranha": &"caranguejo_aranha_assado", &"atum": &"atum_assado", &"baixo": &"baixo_assado",
+	&"ovo": &"ovo_frito"}
 const COOK_TIME := 20.0
 const BURN_TIME := 60.0
 const NO_BURN := [&"argila"] ## tijolo não queima: pode esquecer no fogo

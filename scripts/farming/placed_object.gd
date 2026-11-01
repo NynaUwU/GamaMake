@@ -224,6 +224,9 @@ func refresh(clock: float) -> void:
 	if kind in SteamModels.KINDS:
 		SteamModels.refresh(self)
 		return
+	if Ranch.has(kind):
+		Ranch.refresh(self)
+		return
 	if kind == "rain_collector":
 		_refresh_collector()
 		return
@@ -275,6 +278,8 @@ func get_interact_text() -> String:
 			return Machines.text(self)
 	if kind in SteamModels.KINDS:
 		return SteamModels.text(self)
+	if Ranch.has(kind):
+		return Ranch.text(self)
 	match kind:
 		"rain_collector":
 			var water: float = extra.get("water", 0.0)
@@ -325,6 +330,9 @@ func interact(player: Node) -> void:
 	if kind in SteamModels.KINDS:
 		SteamModels.interact(player, self)
 		return
+	if Ranch.has(kind):
+		Ranch.interact(player, self)
+		return
 	if kind == "ram_pump":
 		var bottle := Cooking.find_any(player.inventory, {&"garrafa": true})
 		if bottle < 0:
@@ -372,6 +380,9 @@ func _build() -> void:
 		SteamModels.build(kind, self)
 		if kind in LIT_KINDS:
 			StationModels.set_lit(self, false)
+		return
+	if Ranch.has(kind):
+		Ranch.build(kind, self) # cocho, bebedouro, cerca, porteira
 		return
 	if ObjectModels.has(kind):
 		ObjectModels.build(kind, self) # plantadores, estações e máquinas (Tier 0-2)

@@ -1110,7 +1110,7 @@ func _arm_count() -> int:
 
 ## Peça construída pelo jogador (parede/piso/teto, porta/janela, cerca de espinhos).
 static func is_build(collider: Object) -> bool:
-	return collider is BuildPiece or collider is BuildFill or (collider is PlacedObject and collider.kind == "barbed")
+	return collider is BuildPiece or collider is BuildFill or (collider is PlacedObject and collider.kind in ["barbed", "fence", "gate"])
 
 
 ## O jogador está dentro de uma construção? Teto em cima, piso construído no alto
@@ -1289,6 +1289,12 @@ func _damage_wall() -> void:
 			continue
 		if hit.collider is PlacedObject and hit.collider.trap:
 			hit.collider.trap.hit_by(self) # cerca de espinhos: se machuca batendo
+			return
+		if hit.collider is PlacedObject and hit.collider.kind in ["fence", "gate"]:
+			Sfx.play_at("knock", hit.position, 3.0, 0.8)
+			var placed := hit.collider.get_parent() as PlacedManager
+			if placed:
+				placed.request("fence_hit", [hit.collider.net_id, wall_power])
 			return
 		if hit.collider is BuildFill:
 			var fill: BuildFill = hit.collider

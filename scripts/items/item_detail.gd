@@ -17,7 +17,8 @@ const IDS := [&"pistola", &"espada", &"taco", &"martelo", &"talhadeira", &"pa", 
 	&"fio", &"tecido", &"garrafa", &"agua", &"agua_suja", &"capuz", &"capacete", &"colete", &"peitoral",
 	&"calca", &"botas", &"casaco",
 	&"barra_aco", &"parafuso", &"engrenagem", &"eixo_aco", &"cano", &"suco", &"oleo", &"alcool", &"bandagem_esteril",
-	&"carne_crua", &"carne_assada", &"carne_seca", &"pele", &"couro", &"gordura", &"casaco_pele", &"correia", &"vara"]
+	&"carne_crua", &"carne_assada", &"carne_seca", &"pele", &"couro", &"gordura", &"casaco_pele", &"correia", &"vara",
+	&"ovo", &"ovo_frito", &"leite", &"la", &"pena", &"gorro_la", &"casaco_la", &"casaco_penas"]
 
 
 static func has(id: StringName) -> bool:
@@ -75,7 +76,14 @@ static func build(id: StringName, p: Dictionary) -> void:
 		&"fibra": _cotton(p)
 		&"fio": _spool(p)
 		&"tecido": _bolt(p)
-		&"garrafa", &"agua", &"agua_suja", &"suco", &"oleo", &"alcool": _bottle(p, id)
+		&"garrafa", &"agua", &"agua_suja", &"suco", &"oleo", &"alcool", &"leite": _bottle(p, id)
+		&"ovo": _egg(p)
+		&"ovo_frito": _fried_egg(p)
+		&"la": _wool(p)
+		&"pena": _feather(p)
+		&"gorro_la": _beanie(p)
+		&"casaco_la": _wool_coat(p)
+		&"casaco_penas": _down_coat(p)
 		&"barra_aco": _ingot(p, Color(0.46, 0.49, 0.54))
 		&"carne_crua", &"carne_assada": _steak(p, id == &"carne_assada")
 		&"carne_seca": _jerky(p)
@@ -765,7 +773,7 @@ static func _bottle(p: Dictionary, id: StringName) -> void:
 	# O vidro do corpo toma a cor do que tem dentro (vazia: vidro claro).
 	var glass := Color(0.62, 0.72, 0.68)
 	var body: Color = {&"agua": Color(0.55, 0.78, 0.95), &"agua_suja": Color(0.4, 0.42, 0.24), &"suco": Color(0.95, 0.55, 0.15),
-		&"oleo": Color(0.78, 0.62, 0.18), &"alcool": Color(0.82, 0.9, 0.95)}.get(id, glass)
+		&"oleo": Color(0.78, 0.62, 0.18), &"alcool": Color(0.82, 0.9, 0.95), &"leite": Color(0.96, 0.95, 0.9)}.get(id, glass)
 	_mb(p, body).lathe(PackedVector2Array([Vector2(0.002, 0.0), Vector2(0.04, 0.0), Vector2(0.046, 0.01), Vector2(0.046, 0.16),
 		Vector2(0.032, 0.2)]), 10)
 	_mb(p, glass).lathe(PackedVector2Array([Vector2(0.032, 0.2), Vector2(0.02, 0.215), Vector2(0.018, 0.26), Vector2(0.022, 0.265), Vector2(0.002, 0.268)]), 10)
@@ -1054,3 +1062,77 @@ static func _fishing_rod(p: Dictionary) -> void:
 	_mb(p, ItemModels.IRON).box(Vector3(0.025, -0.05, 0.02), Vector3(0.01, 0.006, 0.04)) # manivela
 	_mb(p, Color(0.2, 0.15, 0.1)).box(Vector3(0.03, -0.05, 0.04), Vector3(0.012, 0.012, 0.012))
 
+
+
+# --- fazenda ----------------------------------------------------------------------
+
+static func _egg(p: Dictionary) -> void:
+	_mb(p, Color(0.93, 0.86, 0.72)).lathe(PackedVector2Array([Vector2(0.002, 0.0), Vector2(0.016, 0.004), Vector2(0.024, 0.018),
+		Vector2(0.025, 0.032), Vector2(0.021, 0.048), Vector2(0.012, 0.06), Vector2(0.002, 0.065)]), 10)
+	_mb(p, Color(0.82, 0.72, 0.58)).box(Vector3(0.012, 0.035, 0.019), Vector3(0.004, 0.004, 0.002)) # pintinha
+
+
+static func _fried_egg(p: Dictionary) -> void:
+	var outline := PackedVector2Array([Vector2(-0.05, -0.02), Vector2(-0.02, -0.048), Vector2(0.03, -0.045), Vector2(0.052, -0.01),
+		Vector2(0.045, 0.03), Vector2(0.01, 0.05), Vector2(-0.035, 0.04), Vector2(-0.055, 0.01)])
+	_mb(p, Color(0.97, 0.96, 0.92)).extrude(outline, 0.008)
+	_mb(p, Color(0.8, 0.62, 0.38)).box(Vector3(0.03, 0.004, -0.03), Vector3(0.02, 0.009, 0.012)) # beirada tostada
+	ItemModels._ball(_mb(p, Color(0.98, 0.72, 0.12)), Vector3(-0.005, 0.01, 0.0), 0.018, 8)
+
+
+static func _wool(p: Dictionary) -> void:
+	# Chumaço de lã: bolotas fofas juntas.
+	for k in 7:
+		var a := TAU * k / 7.0
+		ItemModels._ball(_mb(p, Color(0.93, 0.91, 0.85).darkened(0.04 * (k % 3))), Vector3(cos(a) * 0.05, 0.035 + (k % 2) * 0.015, sin(a) * 0.045), 0.04, 7)
+	ItemModels._ball(_mb(p, Color(0.95, 0.93, 0.88)), Vector3(0, 0.07, 0), 0.045, 7)
+
+
+static func _feather(p: Dictionary) -> void:
+	_mb(p, Color(0.85, 0.82, 0.74)).tube(PackedVector3Array([Vector3(0, 0.003, -0.08), Vector3(0, 0.006, 0.0), Vector3(0, 0.004, 0.08)]), 0.0025, 4) # haste
+	var vane := PackedVector2Array([Vector2(0.0, -0.05), Vector2(0.018, -0.03), Vector2(0.02, 0.03), Vector2(0.008, 0.075),
+		Vector2(0.0, 0.08), Vector2(-0.008, 0.075), Vector2(-0.02, 0.03), Vector2(-0.016, -0.03)])
+	_mb(p, Color(0.55, 0.57, 0.62)).extrude(vane, 0.002)
+	_mb(p, Color(0.35, 0.36, 0.4)).box(Vector3(0, 0.003, 0.05), Vector3(0.03, 0.003, 0.004)) # faixa escura
+
+
+static func _beanie(p: Dictionary) -> void:
+	var wool := Color(0.62, 0.22, 0.18)
+	_mb(p, wool).lathe(PackedVector2Array([Vector2(0.12, 0.0), Vector2(0.125, 0.06), Vector2(0.11, 0.13), Vector2(0.07, 0.17), Vector2(0.002, 0.18)]), 10)
+	_mb(p, wool.darkened(0.15)).lathe(PackedVector2Array([Vector2(0.125, 0.0), Vector2(0.13, 0.0), Vector2(0.13, 0.05), Vector2(0.125, 0.05)]), 10) # barra dobrada
+	for k in 10:
+		var a := TAU * k / 10.0
+		_mb(p, wool.darkened(0.08)).box(Vector3(cos(a) * 0.12, 0.1, sin(a) * 0.12), Vector3(0.01, 0.08, 0.01)) # nervuras do tricô
+	ItemModels._ball(_mb(p, Color(0.92, 0.9, 0.84)), Vector3(0, 0.2, 0), 0.03, 7) # pompom
+
+
+static func _wool_coat(p: Dictionary) -> void:
+	var wool := Color(0.55, 0.5, 0.42)
+	var rings := []
+	for s in [[0.0, 0.2, 0.11], [0.2, 0.18, 0.1], [0.38, 0.2, 0.11], [0.5, 0.21, 0.11]]:
+		rings.append(MeshBuilder.ring(Vector3(0, s[0], 0), s[1], s[2], 2.5, 10))
+	_mb(p, wool).loft(rings, true, true)
+	for side in [-1.0, 1.0]:
+		var arm := Basis(Vector3.BACK, side * 0.25)
+		_mb(p, wool.darkened(0.05)).lathe(PackedVector2Array([Vector2(0.06, 0.0), Vector2(0.065, 0.2), Vector2(0.058, 0.38)]), 8, Basis(Vector3.BACK, PI) * arm, Vector3(side * 0.25, 0.5, 0))
+	for k in 6:
+		_mb(p, wool.darkened(0.1)).box(Vector3(0, 0.05 + k * 0.08, 0.112), Vector3(0.36, 0.012, 0.01)) # carreiras do tricô
+	_mb(p, Color(0.4, 0.26, 0.15)).box(Vector3(-0.1, 0.3, 0.115), Vector3(0.1, 0.1, 0.01)) # remendo de couro
+	_mb(p, wool.lightened(0.1)).torus(0.14, 0.035, 12, 4, Basis.IDENTITY, Vector3(0, 0.52, 0)) # gola rolê
+	for k in 4:
+		_mb(p, Color(0.35, 0.24, 0.14)).box(Vector3(0.04, 0.1 + k * 0.1, 0.118), Vector3(0.025, 0.025, 0.012)) # botões de madeira
+
+
+static func _down_coat(p: Dictionary) -> void:
+	var shell := Color(0.25, 0.4, 0.55)
+	var rings := []
+	for s in [[0.0, 0.21, 0.12], [0.12, 0.22, 0.13], [0.24, 0.21, 0.12], [0.36, 0.22, 0.13], [0.5, 0.21, 0.12]]:
+		rings.append(MeshBuilder.ring(Vector3(0, s[0], 0), s[1], s[2], 2.5, 10))
+	_mb(p, shell).loft(rings, true, true) # gomos acolchoados
+	for side in [-1.0, 1.0]:
+		var arm := Basis(Vector3.BACK, side * 0.25)
+		_mb(p, shell.darkened(0.06)).lathe(PackedVector2Array([Vector2(0.065, 0.0), Vector2(0.075, 0.1), Vector2(0.065, 0.2), Vector2(0.075, 0.3), Vector2(0.06, 0.38)]), 8, Basis(Vector3.BACK, PI) * arm, Vector3(side * 0.26, 0.5, 0))
+	for k in 4:
+		_mb(p, shell.darkened(0.2)).box(Vector3(0, 0.06 + k * 0.12, 0.125), Vector3(0.4, 0.01, 0.01)) # costuras
+	_mb(p, Color(0.75, 0.75, 0.78)).box(Vector3(0, 0.25, 0.13), Vector3(0.012, 0.48, 0.01)) # zíper
+	_mb(p, Color(0.55, 0.57, 0.62)).box(Vector3(0.12, 0.45, 0.12), Vector3(0.02, 0.06, 0.004)) # pena escapando

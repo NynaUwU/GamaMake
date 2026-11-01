@@ -23,6 +23,8 @@ const PROCESS := {
 	"sieve": [&"argila", 1, &"pedra", 2.0, 0.5], # peneira: 50% de chance de sair uma pedra
 	"sawmill": [&"tronco", 1, &"tabua", 4.0, 1.0, 12], # serraria (só com energia): 1 tronco -> 12 tábuas
 }
+## Outro material que a máquina aceita: [item, quantas unidades da entrada vale cada um].
+const ALT_INPUT := {"spinning": [&"la", 2]} # lã das ovelhas: 1 lã = 1 fio
 const NAMES := {"grindstone": "Pedra de amolar", "quern": "Moinho manual", "pump": "Bomba d'água",
 	"spinning": "Roca", "loom": "Tear", "stone_furnace": "Fornalha de pedra", "oven": "Forno de tijolo",
 	"sieve": "Peneira", "furnace": "Fornalha", "sawmill": "Serraria", "water_wheel": "Roda d'água",
@@ -95,6 +97,17 @@ static func tap(player: Player, obj: PlacedObject) -> void:
 		return
 	var room: int = CAPACITY - obj.extra.get("in", 0)
 	var amount := mini(player.inventory.count(recipe[0]), room)
+	if amount <= 0 and ALT_INPUT.has(obj.kind):
+		var alt: Array = ALT_INPUT[obj.kind]
+		var units := mini(player.inventory.count(alt[0]), room / alt[1])
+		if units > 0:
+			var rest := units
+			while rest > 0:
+				var index := Cooking.find_any(player.inventory, {alt[0]: true})
+				rest -= player.inventory.take(index, rest).get("amount", rest)
+			manager.request("machine_put", [obj.net_id, units * alt[1]])
+			Sfx.play_at("step_soft", obj.global_position + Vector3.UP, 0.0, 1.1)
+			return
 	if amount > 0:
 		var left := amount
 		while left > 0:

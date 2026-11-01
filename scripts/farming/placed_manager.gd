@@ -128,6 +128,14 @@ func _collect_rain() -> void:
 	if not Net.i.is_host() or Weather.i == null or Weather.i.rain < 0.05:
 		return
 	for obj: PlacedObject in objects.values():
+		if obj.kind == "water_trough":
+			# Bebedouro descoberto também junta chuva (devagar).
+			var w: float = minf(obj.extra.get("water", 0.0) + Weather.i.rain * 0.02, Ranch.WATER_CAP)
+			obj.extra.water = w
+			if int(w) != _rain_sent.get(obj.net_id, -1):
+				_rain_sent[obj.net_id] = int(w)
+				request("extra", [obj.net_id, {"water": w}])
+			continue
 		if obj.kind != "rain_collector":
 			continue
 		var water: float = minf(obj.extra.get("water", 0.0) + Weather.i.rain * 0.04, PlacedObject.COLLECTOR_CAP)
@@ -171,7 +179,8 @@ func host_apply(action: String, args: Array) -> Array:
 					"spikes", "beartrap", "barbed", "mine", "drawboard", "chest", "flag", "rain_collector", "dryer",
 					"grindstone", "quern", "pump", "spinning", "loom", "stone_furnace", "oven", "filter", "smoker", "compost", "sieve",
 					"shaft", "water_wheel", "windmill", "sawmill", "ram_pump", "stairs",
-					"blast_furnace", "blast_stack", "boiler", "steam_engine", "water_tank", "sprinkler", "lathe", "press", "distillery"]:
+					"blast_furnace", "blast_stack", "boiler", "steam_engine", "water_tank", "sprinkler", "lathe", "press", "distillery",
+					"trough", "water_trough", "fence", "gate"]:
 				return []
 			if kind in ["water_wheel", "ram_pump"] and not river_bank(xform.origin):
 				return [] # só na beira de um rio
@@ -184,6 +193,9 @@ func host_apply(action: String, args: Array) -> Array:
 			elif kind == "blast_stack":
 				if not stack_spot_free(xform.origin):
 					return [] # anel do alto-forno: empilhado em cima da base/de outro anel
+			elif kind in ["fence", "gate"]:
+				if occupied(xform.origin, 0.15):
+					return [] # cercas encostam umas nas outras (só não no mesmo lugar)
 			elif occupied(xform.origin, 0.3):
 				return []
 			var id := _next_id
@@ -302,7 +314,7 @@ func host_apply(action: String, args: Array) -> Array:
 			var obj: PlacedObject = objects[args[0]]
 			if obj.kind == "flag":
 				Net.i.give_to(Net.i.request_peer, &"bandeira", 1) # recolheu: volta para a mochila
-			if obj.kind in ["chest", "airdrop"] and ContainerManager.i:
+			if obj.kind in ["chest", "airdrop", "trough"] and ContainerManager.i:
 				ContainerManager.i.dump("placed_%d" % obj.net_id, obj.global_position) # o que tinha dentro cai
 			if obj.kind in Smelting.KINDS and ContainerManager.i:
 				ContainerManager.i.dump(Smelting.key_of(obj), obj.global_position)
@@ -349,6 +361,27 @@ func host_apply(action: String, args: Array) -> Array:
 			obj.crops[slot] = {}
 			obj.refresh(clock)
 			return args
+		"gate":
+			# Porteira: abre/fecha para todos.
+			var obj: PlacedObject = objects.get(args[0])
+			if obj == null or obj.kind != "gate":
+				return []
+			obj.extra.open = not obj.extra.get("open", false)
+			obj.refresh(clock)
+			return [args[0], {"open": obj.extra.open}]
+		"fence_hit":
+			# Zumbi batendo na cerca/porteira (só o host): cai depois de FENCE_HP golpes.
+			if Net.i.request_peer != Net.i.my_id():
+				return []
+			var obj: PlacedObject = objects.get(args[0])
+			if obj == null or not obj.kind in ["fence", "gate"]:
+				return []
+			obj.extra.hits = obj.extra.get("hits", 0) + int(args[1])
+			if obj.extra.hits >= Ranch.FENCE_HP:
+				Sfx.play_at("crunch", obj.global_position + Vector3.UP * 0.5, 5.0, 0.7)
+				_remove(args[0])
+				return [args[0], {"gone": true}]
+			return [args[0], {"hits": obj.extra.hits}]
 		"extra":
 			var obj: PlacedObject = objects.get(args[0])
 			if obj == null or not args[1] is Dictionary:
@@ -462,7 +495,7 @@ func _fell(obj: PlacedObject) -> void:
 
 
 ## Onde dá para despejar garrafas de água, e quanto cabe.
-const POUR_CAP := {"boiler": Fluids.BOILER_WATER, "distillery": Fluids.STILL_WATER, "water_tank": Fluids.TANK_CAP}
+const POUR_CAP := {"boiler": Fluids.BOILER_WATER, "distillery": Fluids.STILL_WATER, "water_tank": Fluids.TANK_CAP, "water_trough": Ranch.WATER_CAP}
 
 
 ## Lugar livre para um anel do alto-forno: em cima de uma base ou de outro anel, sem anel ali.
@@ -519,9 +552,11 @@ func apply_remote(action: String, args: Array) -> void:
 			if obj:
 				obj.crops[args[1]] = {}
 				obj.refresh(clock)
-		"extra":
+		"extra", "gate", "fence_hit":
 			var obj: PlacedObject = objects.get(args[0])
-			if obj:
+			if obj and args[1].get("gone", false):
+				_remove(args[0])
+			elif obj:
 				obj.extra.merge(args[1], true)
 				obj.refresh(clock)
 		"explode":

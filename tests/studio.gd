@@ -223,6 +223,60 @@ func _init() -> void:
 				_label(styles[k], box.position + Vector3(0, -0.15, 1.2))
 			_frame(kinds.size() + styles.size(), 2.6, 34.0)
 			await _save(out + "/moveis.png")
+		"animais":
+			# Todos os bichos (cópias, sem IA), filhotes, ovelha tosquiada, gaivota voando.
+			var kinds: Array = Animal.KINDS.keys()
+			var rows := [["cervo", "javali", "lobo", "urso", "raposa"], ["cabra", "coelho", "vaca", "ovelha", "porco"],
+				["galinha", "pombo", "corvo", "pato", "gaivota"]]
+			var pages := {"animais_selvagens": rows.slice(0, 2), "animais_aves": [rows[2], ["vaca", "ovelha", "porco", "galinha", "ovelha"]]}
+			for page in pages:
+				_clear()
+				var spacing := 2.3
+				var list: Array = pages[page]
+				for r in list.size():
+					for c in list[r].size():
+						var kind: String = list[r][c]
+						var a := Animal.new()
+						a.setup(kind, r * 10 + c, true)
+						var at := Vector3((c - 2) * spacing, 0.0, (r - (list.size() - 1) * 0.5) * spacing * 1.3)
+						var f := 0
+						if page == "animais_aves" and r == 1:
+							f = Animal.F_TAME | (Animal.F_BABY if c in [1, 2, 3] else 0) | (Animal.F_SHORN if c == 4 else 0)
+						if kind == "gaivota":
+							f |= Animal.F_FLY
+							at.y = 1.2
+						stage_root.add_child(a)
+						a.global_position = at
+						a.rotation.y = 0.7
+						a.apply_snapshot(at, 0.7, 0.0, f)
+						var label: String = Animal.NAMES[kind]
+						if page == "animais_aves" and r == 1:
+							label = ("Filhote " if c in [1, 2, 3] else "") + label + (" tosquiada" if c == 4 else "")
+						_label(label, Vector3(at.x, 0.02, at.z + 0.9))
+				for k in 30:
+					await physics_frame
+				cam.fov = 42.0
+				cam.position = Vector3(0, 6.2, 9.8)
+				cam.look_at(Vector3(0, 0.4, 0.3))
+				await _save(out + "/%s.png" % page)
+			# Objetos da fazenda: cocho com comida, bebedouro cheio, cerca e porteira aberta.
+			_clear()
+			var manager := PlacedManager.new()
+			manager.name = "Placed"
+			stage_root.add_child(manager)
+			var spots := [["trough", Vector3(-2.6, 0, 0)], ["water_trough", Vector3(-0.6, 0, 0)], ["fence", Vector3(1.8, 0, -0.6)], ["gate", Vector3(1.8, 0, 1.2)]]
+			for i in spots.size():
+				manager._spawn(i + 1, spots[i][0], Transform3D(Basis(Vector3.UP, 0.3), spots[i][1]), true)
+			var obj: PlacedObject = manager.objects[2]
+			obj.extra.water = 10.0
+			Ranch.refresh(obj)
+			manager.objects[1].get_node("Food").visible = true
+			manager.objects[4].extra.open = true
+			Ranch.refresh(manager.objects[4])
+			cam.fov = 40.0
+			cam.position = Vector3(0, 3.0, 5.6)
+			cam.look_at(Vector3(0, 0.4, 0.2))
+			await _save(out + "/fazenda_objetos.png")
 		"zumbis":
 			# Zumbi comum + os 5 especiais, de frente e de costas.
 			var kinds := [""] + ZombieSpecial.KINDS

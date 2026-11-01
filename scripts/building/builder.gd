@@ -76,6 +76,12 @@ const ENTRIES := {
 		{"id": "press", "name": "Prensa", "place": "press", "desc": "Com eixo girando: fruta = suco; sementes de algodão ou gordura = óleo", "cost": {&"tabua": 6, &"barra_ferro": 3, &"parafuso": 2}},
 		{"id": "distillery", "name": "Destilaria", "place": "distillery", "desc": "Fogo + água + trigo, fruta ou batata = álcool (combustível dos carros e antisséptico)", "cost": {&"barra_cobre": 6, &"tijolo": 6, &"cano": 2}},
 	],
+	"Fazenda": [
+		{"id": "trough", "name": "Cocho", "place": "trough", "desc": "Ponha a comida dos bichos mansos: sementes (galinha), trigo (ovelha, vaca, porco) ou legumes (porco). [E] abre", "cost": {&"tabua": 4, &"graveto": 2}},
+		{"id": "water_trough", "name": "Bebedouro", "place": "water_trough", "desc": "Água para os bichos (até 12). Encha com garrafa, chuva ou cano. Comida + água = filhotes", "cost": {&"tabua": 4, &"barra_ferro": 1}},
+		{"id": "fence", "name": "Cerca", "place": "fence", "desc": "Cerca de madeira de 2,4 m: segura os bichos. Shift alinha na grade (encaixa ponta com ponta)", "cost": {&"tabua": 2, &"graveto": 2}},
+		{"id": "gate", "name": "Porteira", "place": "gate", "desc": "Cerca que abre e fecha com [E]", "cost": {&"tabua": 3, &"graveto": 2, &"sucata": 1}},
+	],
 	"Armadilhas": [
 		{"id": "spikes", "name": "Estacas", "place": "spikes", "desc": "Machucam a perna de quem passa (30 usos)", "cost": {&"tabua": 4}},
 		{"id": "beartrap", "name": "Arm. de urso", "place": "beartrap", "desc": "Prende o zumbi: atordoa e quebra a perna. [E] arma de novo", "cost": {&"barra_ferro": 2}},
@@ -96,7 +102,8 @@ const PLACE_SIZE := {"pot_small": Vector3(0.46, 0.31, 0.46), "pot_wide": Vector3
 	"sawmill": Vector3(2.1, 0.9, 0.75), "ram_pump": Vector3(0.6, 1.8, 2.0), "stairs": Vector3(1.2, 2.8, 2.8),
 	"blast_furnace": Vector3(1.6, 1.3, 1.6), "blast_stack": Vector3(1.4, 1.05, 1.4), "boiler": Vector3(2.3, 2.9, 1.15),
 	"steam_engine": Vector3(1.6, 1.4, 1.4), "water_tank": Vector3(1.1, 1.45, 1.1), "sprinkler": Vector3(0.36, 0.8, 0.36),
-	"lathe": Vector3(2.0, 1.1, 0.6), "press": Vector3(1.3, 1.7, 0.8), "distillery": Vector3(1.7, 1.45, 0.9), "pipe": Vector3(0.18, 0.18, 1.0)}
+	"lathe": Vector3(2.0, 1.1, 0.6), "press": Vector3(1.3, 1.7, 0.8), "distillery": Vector3(1.7, 1.45, 0.9), "pipe": Vector3(0.18, 0.18, 1.0),
+	"trough": Vector3(1.5, 0.6, 0.5), "water_trough": Vector3(1.32, 0.5, 0.55), "fence": Vector3(2.4, 1.15, 0.14), "gate": Vector3(2.4, 1.15, 0.14)}
 ## Centro da caixa (vermelha, ao desmontar) quando não é logo acima da origem.
 const PLACE_CENTER := {"bed": Vector3(1.4, 0.1, 1.4), "stairs": Vector3(0, 1.4, -1.4), "steam_engine": Vector3(0.45, 0.7, -0.3),
 	"distillery": Vector3(0.15, 0.72, 0), "boiler": Vector3(0, 1.45, 0), "pipe": Vector3(0, 0, 0.5)}
@@ -107,7 +114,7 @@ const PLACE_RADIUS := {"pot_small": 0.35, "pot_wide": 0.7, "bench": 0.9, "campfi
 	"quern": 0.5, "oven": 0.7, "pump": 0.35, "filter": 0.45, "stone_furnace": 0.9, "spinning": 0.55, "loom": 0.7, "smoker": 0.5, "compost": 0.6, "sieve": 0.55,
 	"water_wheel": 0.6, "windmill": 0.9, "shaft": 0.3, "sawmill": 1.0, "ram_pump": 0.4, "stairs": 0.6,
 	"blast_furnace": 0.9, "blast_stack": 0.1, "boiler": 1.1, "steam_engine": 0.9, "water_tank": 0.6, "sprinkler": 0.25,
-	"lathe": 1.0, "press": 0.7, "distillery": 0.9}
+	"lathe": 1.0, "press": 0.7, "distillery": 0.9, "trough": 0.8, "water_trough": 0.7, "fence": 0.15, "gate": 0.15}
 
 var player: Player
 var selection: Dictionary = ENTRIES["Estrutura"][0]
