@@ -119,6 +119,25 @@ func _init() -> void:
 			cam.position = Vector3(0, 3.0, 15.5)
 			cam.look_at(Vector3(0, 1.4, 0))
 			await _save(out + "/janelas.png")
+		"casas":
+			# Casas da cidade: vila (térreo de madeira), sobrado de pedra, torre torta e ruína.
+			var lots := [
+				{"w": 9.0, "d": 9.0, "floors": 1, "ruin": false, "village": true, "seed": 11},
+				{"w": 10.0, "d": 9.0, "floors": 2, "ruin": false, "village": false, "seed": 23},
+				{"w": 8.0, "d": 8.0, "floors": 4, "ruin": false, "village": false, "seed": 57},
+				{"w": 9.0, "d": 10.0, "floors": 3, "ruin": false, "village": false, "seed": 91},
+				{"w": 9.0, "d": 9.0, "floors": 1, "ruin": true, "village": true, "seed": 5},
+				{"w": 10.0, "d": 10.0, "floors": 2, "ruin": false, "village": true, "seed": 404},
+			]
+			for i in lots.size():
+				var house := CityGen.build_house(lots[i])
+				stage_root.add_child(house)
+				house.position = _slot_pos3(i, lots.size(), 16.0)
+				house.rotation.y = PI + 0.5 # a frente (-Z) virada para a câmera
+			_frame3(6, 16.0, 40.0)
+			cam.position = cam.position * Vector3(1.0, 0.6, 1.0)
+			cam.look_at(Vector3(0, 4.0, 0))
+			await _save(out + "/casas.png")
 		"tier3":
 			# Máquinas do Tier 3, duas páginas; o alto-forno já montado (base + 2 anéis) e um cano.
 			var manager := PlacedManager.new()

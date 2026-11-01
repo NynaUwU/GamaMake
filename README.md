@@ -29,6 +29,11 @@ reação física a golpes e ragdoll (estilo Dying Light), visual de PC dos anos 
 - **Pilar** com base de pedra, cantos chanfrados, cintas de ferro e capitel. **R deita o pilar (viga)**: fica no sentido da parede à sua frente, apoiado na altura da grade; mirando o topo de uma parede, cobre o topo dela inteiro.
 - **Janela:** as travessas dividem o vidro em vidraças iguais (~0,8 m) medidas pelo formato da própria janela, não pela posição na parede; em janela torta (L, losango) só aparecem onde tem vidro dos dois lados.
 
+## Móveis e casas
+- **Móveis** refeitos (pernas torneadas, portas de almofada, puxadores e dobradiças, fogão com a boca de ferro das fornalhas, cama com colcha e tapete, privada de caixa alta...). A malha de cada tipo é montada uma vez e reaproveitada (todas as camas são iguais): mobiliar uma casa não trava mais o jogo.
+- **Casas da cidade:** térreo de pedra com juntas e cunhais, andares de tábua com revestimento ou de reboco com postes de canto, rodapé e rachaduras; janelas com moldura, peitoril, travessas e veneziana (as tapadas com tábuas em X); porta de tábuas com batente, degrau e alpendre; telhado com fiadas de telha, cumeeira, testeira e beiral; chaminé com chapéu; ruínas com juntas de pedra. Tudo só no desenho (a colisão é a mesma).
+- `tests/bench_baked.gd` compara gerar os modelos por código com carregar modelo salvo (.scn nativo ou .glb).
+
 ## Modelos refeitos no padrão do Tier 3
 Todos os objetos do martelo anteriores ao Tier 3 foram refeitos com o mesmo nível de detalhe das máquinas a vapor (`scripts/machines/object_models.gd`): tábuas com frestas e tons alternados, fiadas de tijolo, cintas de ferro rebitadas, polias de latão nas portas de energia, fumaça só com fogo aceso e objetos de cena (lenha, ferramentas, baldes, sacos).
 - Plantadores (pote com pratinho e pintura, floreira com cantoneiras, **canteiro com leiras de terra, torrões, sulcos e plaquinhas**, cova), bandeira com monte de pedras e cunho.

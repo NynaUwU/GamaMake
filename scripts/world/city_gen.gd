@@ -324,6 +324,8 @@ static func build_house(lot: Dictionary) -> Node3D:
 	inside_rng.seed = lot.seed + 4242
 	var hollow: bool = not lot.ruin and inside_rng.randf() < 0.3 and w >= 8.5 and d >= 8.5
 	var plan: int = inside_rng.randi() % HousePlans.PLANS.size() # qual das 8 plantas prontas
+	var detail := RandomNumberGenerator.new() # enfeites (sorteio separado: não muda o desenho)
+	detail.seed = lot.seed + 777
 	# Fundação de pedra (afunda no chão).
 	_box(mb, body, STONE.darkened(0.1), Vector3(0, -0.4, 0), Vector3(w + 0.4, 1.4, d + 0.4), Basis.IDENTITY)
 	if lot.ruin:
@@ -347,11 +349,13 @@ static func build_house(lot: Dictionary) -> Node3D:
 			var basis := Basis(Vector3.UP, yaw) * Basis(Vector3.BACK, tilt)
 			var center := offset + Vector3(0, y + FLOOR_HEIGHT * 0.5, 0)
 			var color: Color = STONE if i == 0 and not lot.village else (WOOD if (i + int(lot.seed)) % 3 == 0 else plaster)
+			var finish := "stone" if color == STONE else ("wood" if color == WOOD else "plaster")
 			color = color.darkened(rng.randf_range(0.0, 0.15))
 			if i == 0 and hollow:
 				_hollow_floor(mb, body, color, center, fw, fd, plan)
 			else:
 				_box(mb, body, color, center, Vector3(fw, FLOOR_HEIGHT, fd), basis)
+			_facade(mb, detail, finish, color, center, basis, fw, fd)
 			# Viga escura em cima do andar e janelas nas 4 paredes.
 			_box(mb, null, DARK_WOOD, center + basis * Vector3(0, FLOOR_HEIGHT * 0.5 - 0.1, 0), Vector3(fw + 0.12, 0.2, fd + 0.12), basis)
 			# Térreo oco: as janelas são vãos de verdade (o sorteio roda igual para não mudar o resto).
@@ -370,13 +374,17 @@ static func build_house(lot: Dictionary) -> Node3D:
 		# Chaminé e cano de cobre descendo pela parede (steampunk).
 		var chimney := offset + Vector3(fw * 0.25, y + 1.2, fd * 0.2)
 		_box(mb, body, STONE, chimney, Vector3(0.7, 2.6, 0.7), Basis(Vector3.UP, yaw))
+		for k in 5:
+			_box(mb, null, STONE.darkened(0.25), chimney + Vector3(0, -0.9 + k * 0.5, 0), Vector3(0.72, 0.04, 0.72), Basis(Vector3.UP, yaw)) # juntas
+		_box(mb, null, STONE.darkened(0.1), chimney + Vector3(0, 1.35, 0), Vector3(0.9, 0.12, 0.9), Basis(Vector3.UP, yaw)) # chapéu
+		_box(mb, null, SOOT_COLOR, chimney + Vector3(0, 1.42, 0), Vector3(0.4, 0.04, 0.4), Basis(Vector3.UP, yaw))
 		mb.color(COPPER)
 		var pipe_x := w * 0.5 + 0.25
 		mb.tube(PackedVector3Array([Vector3(pipe_x, 0.2, -d * 0.3), Vector3(pipe_x, minf(y, 9.0), -d * 0.3),
 			Vector3(pipe_x - 0.3, minf(y, 9.0) + 0.3, -d * 0.3)]), 0.12, 6)
 	# Porta e um barril/caldeira ao lado de algumas casas.
 	if not lot.ruin and not hollow:
-		_box(mb, null, DARK_WOOD, Vector3(0, 1.3, -d * 0.5 - 0.05), Vector3(1.1, 2.1, 0.1), Basis.IDENTITY)
+		_door(mb, Vector3(0, 0.3, -d * 0.5))
 	if rng.randf() < 0.35:
 		mb.color(IRON)
 		mb.lathe(PackedVector2Array([Vector2(0.02, 0.0), Vector2(0.55, 0.0), Vector2(0.6, 0.8), Vector2(0.55, 1.6), Vector2(0.02, 1.7)]),
@@ -629,9 +637,101 @@ static func _windows(mb: MeshBuilder, rng: RandomNumberGenerator, center: Vector
 			var local := Vector3(along, 0.2, -depth * 0.5 - 0.03) # um pouco para fora da parede
 			var face_basis := Basis(Vector3.UP, face * PI / 2.0)
 			var boarded := rng.randf() < 0.3
-			var color := WOOD if boarded else WINDOW
 			if draw:
-				_box(mb, null, color, center + basis * (face_basis * local), Vector3(0.85, 1.15, 0.08), basis * face_basis)
+				_window(mb, center + basis * (face_basis * local), basis * face_basis, boarded, k + face)
+
+
+const SOOT_COLOR := Color(0.1, 0.08, 0.07)
+
+
+## Acabamento de um andar (só desenho): pedra com juntas e cunhais, tábuas de
+## revestimento, ou reboco com postes de canto, rodapé e rachaduras.
+static func _facade(mb: MeshBuilder, rng: RandomNumberGenerator, finish: String, color: Color, center: Vector3, basis: Basis, fw: float, fd: float) -> void:
+	var h := FLOOR_HEIGHT
+	var bottom := -h * 0.5
+	match finish:
+		"stone":
+			for k in range(1, 7):
+				var y := bottom + k * h / 7.0
+				_box(mb, null, color.darkened(0.28), center + basis * Vector3(0, y, 0), Vector3(fw + 0.03, 0.035, fd + 0.03), basis) # juntas
+			for corner in 4:
+				var cx := (fw * 0.5) * (1.0 if corner % 2 == 0 else -1.0)
+				var cz := (fd * 0.5) * (1.0 if corner < 2 else -1.0)
+				for k in 4:
+					var y := bottom + (k * 2 + 0.5) * h / 7.0
+					var long := k % 2 == 0
+					_box(mb, null, color.lightened(0.08), center + basis * Vector3(cx, y, cz),
+						Vector3(0.62 if long else 0.34, h / 7.0 - 0.04, 0.34 if long else 0.62), basis) # cunhais (fiada sim, fiada não)
+		"wood":
+			for k in range(1, 12):
+				var y := bottom + k * h / 12.0
+				_box(mb, null, color.darkened(0.3), center + basis * Vector3(0, y, 0), Vector3(fw + 0.04, 0.03, fd + 0.04), basis) # tábuas
+			for corner in 4:
+				var cx := (fw * 0.5) * (1.0 if corner % 2 == 0 else -1.0)
+				var cz := (fd * 0.5) * (1.0 if corner < 2 else -1.0)
+				_box(mb, null, DARK_WOOD, center + basis * Vector3(cx, 0, cz), Vector3(0.16, h, 0.16), basis) # mata-junta do canto
+		"plaster":
+			for corner in 4:
+				var cx := (fw * 0.5) * (1.0 if corner % 2 == 0 else -1.0)
+				var cz := (fd * 0.5) * (1.0 if corner < 2 else -1.0)
+				_box(mb, null, DARK_WOOD, center + basis * Vector3(cx, 0, cz), Vector3(0.2, h, 0.2), basis) # postes de canto
+			_box(mb, null, color.darkened(0.25), center + basis * Vector3(0, bottom + 0.12, 0), Vector3(fw + 0.05, 0.24, fd + 0.05), basis) # rodapé
+			for k in 3:
+				var face := Basis(Vector3.UP, rng.randi_range(0, 3) * PI / 2.0)
+				var length := fw if face.get_euler().y == 0.0 else fd
+				var at := Vector3(rng.randf_range(-0.35, 0.35) * length, rng.randf_range(-0.6, 0.8), -(fd if face.get_euler().y == 0.0 else fw) * 0.5 - 0.01)
+				if rng.randf() < 0.5:
+					_box(mb, null, color.darkened(0.45), center + basis * (face * at), Vector3(0.04, rng.randf_range(0.5, 1.1), 0.02), basis * face * Basis(Vector3.BACK, rng.randf_range(-0.6, 0.6))) # rachadura
+				else:
+					var patch := center + basis * (face * at)
+					for b in 3:
+						_box(mb, null, BRICK_COLOR.darkened(0.06 * b), patch + basis * (face * Vector3((b - 1) * 0.22, (b % 2) * 0.1, 0)), Vector3(0.2, 0.08, 0.03), basis * face) # tijolo à mostra
+
+
+const BRICK_COLOR := Color(0.6, 0.3, 0.2)
+
+
+## Janela na fachada (só desenho): vidro escuro, moldura, peitoril, travessa em
+## cruz e veneziana aberta; tapada = tábuas pregadas em X por cima.
+static func _window(mb: MeshBuilder, at: Vector3, basis: Basis, boarded: bool, variant: int) -> void:
+	_box(mb, null, WINDOW, at, Vector3(0.8, 1.1, 0.06), basis)
+	_box(mb, null, DARK_WOOD, at + basis * Vector3(0, 0.6, -0.02), Vector3(1.0, 0.1, 0.1), basis)
+	_box(mb, null, DARK_WOOD, at + basis * Vector3(0, -0.6, -0.05), Vector3(1.05, 0.08, 0.2), basis) # peitoril
+	for side in [-1.0, 1.0]:
+		_box(mb, null, DARK_WOOD, at + basis * Vector3(side * 0.45, 0, -0.02), Vector3(0.1, 1.2, 0.1), basis)
+	if boarded:
+		for k in 3:
+			var y := -0.35 + k * 0.35
+			_box(mb, null, WOOD.darkened(0.05 * k), at + basis * Vector3(0, y, -0.06), Vector3(0.95, 0.18, 0.04), basis * Basis(Vector3.BACK, (k - 1) * 0.12))
+		_box(mb, null, WOOD.darkened(0.15), at + basis * Vector3(0, 0, -0.09), Vector3(1.2, 0.12, 0.03), basis * Basis(Vector3.BACK, 0.75))
+		return
+	_box(mb, null, DARK_WOOD, at + basis * Vector3(0, 0.05, -0.035), Vector3(0.05, 1.1, 0.03), basis) # travessa vertical
+	_box(mb, null, DARK_WOOD, at + basis * Vector3(0, 0.12, -0.035), Vector3(0.8, 0.05, 0.03), basis)
+	var side := 1.0 if variant % 2 == 0 else -1.0
+	var shutter := basis * Basis(Vector3.UP, side * 1.3)
+	var hinge := at + basis * Vector3(side * 0.5, 0, -0.04)
+	var color := Color(0.25, 0.32, 0.28) if variant % 3 == 0 else Color(0.38, 0.22, 0.16)
+	_box(mb, null, color, hinge + shutter * Vector3(side * 0.22, 0, 0), Vector3(0.42, 1.08, 0.03), shutter) # veneziana aberta
+	_box(mb, null, color.darkened(0.25), hinge + shutter * Vector3(side * 0.22, 0, -0.02), Vector3(0.3, 0.9, 0.01), shutter) # ripas (sombra)
+
+
+## Porta de entrada (só desenho): batente, folha de tábuas com travessas,
+## maçaneta, degrau de pedra e um alpendre com mãos-francesas.
+static func _door(mb: MeshBuilder, base: Vector3) -> void:
+	var front := base + Vector3(0, 0, -0.05)
+	_box(mb, null, DARK_WOOD.darkened(0.2), front + Vector3(0, 1.08, 0), Vector3(1.1, 2.16, 0.08), Basis.IDENTITY)
+	for k in 5:
+		_box(mb, null, WOOD.darkened(0.08 * (k % 2)), front + Vector3(-0.4 + k * 0.2, 1.05, -0.03), Vector3(0.19, 2.05, 0.05), Basis.IDENTITY) # tábuas
+	for y in [0.4, 1.7]:
+		_box(mb, null, DARK_WOOD, front + Vector3(0, y, -0.06), Vector3(0.95, 0.12, 0.03), Basis.IDENTITY) # travessas
+	_box(mb, null, Color(0.62, 0.5, 0.26), front + Vector3(0.36, 1.05, -0.09), Vector3(0.05, 0.1, 0.05), Basis.IDENTITY) # maçaneta
+	for side in [-1.0, 1.0]:
+		_box(mb, null, DARK_WOOD, front + Vector3(side * 0.62, 1.1, -0.02), Vector3(0.14, 2.3, 0.14), Basis.IDENTITY) # batente
+	_box(mb, null, DARK_WOOD, front + Vector3(0, 2.28, -0.02), Vector3(1.4, 0.16, 0.14), Basis.IDENTITY)
+	_box(mb, null, STONE.darkened(0.05), base + Vector3(0, -0.1, -0.35), Vector3(1.5, 0.2, 0.6), Basis.IDENTITY) # degrau
+	_box(mb, null, ROOF[0].darkened(0.1), front + Vector3(0, 2.75, -0.4), Vector3(1.8, 0.08, 0.95), Basis(Vector3.RIGHT, 0.3)) # alpendre
+	for side in [-1.0, 1.0]:
+		_box(mb, null, DARK_WOOD, front + Vector3(side * 0.75, 2.45, -0.25), Vector3(0.08, 0.08, 0.6), Basis(Vector3.RIGHT, -0.7)) # mão-francesa
 
 
 static func _roof(mb: MeshBuilder, body: StaticBody3D, rng: RandomNumberGenerator, base: Vector3, basis: Basis, fw: float, fd: float) -> void:
@@ -648,9 +748,28 @@ static func _roof(mb: MeshBuilder, body: StaticBody3D, rng: RandomNumberGenerato
 		for k in 4:
 			var z := lerpf(-fd * 0.45, fd * 0.45, k / 3.0)
 			mb.box(base + basis * Vector3(hw * 0.5, height * 0.5, z), Vector3(sqrt(hw * hw + height * height), 0.12, 0.12), basis * rafter)
-	mb.color(color.darkened(rng.randf_range(0.0, 0.15)))
+	var tiles := color.darkened(rng.randf_range(0.0, 0.15))
+	mb.color(tiles)
 	# Extrusão em Z local; gira para o telhado correr ao longo da profundidade.
 	mb.extrude(shape, fd + 0.6, basis, base)
+	# Fiadas de telha (degraus ao longo de cada água), cumeeira e testeira nas pontas.
+	var slope_len := sqrt(hw * hw + height * height)
+	var rows := int(slope_len / 0.45)
+	var sides := [-1.0] if broken else [-1.0, 1.0]
+	for side in sides:
+		var along := Basis(Vector3.BACK, atan2(height, -side * hw)) # eixo X na direção da água (do beiral à cumeeira)
+		var normal := along * Vector3.UP
+		for k in range(1, rows):
+			var t := float(k) / rows
+			var p := Vector3(side * hw * (1.0 - t), height * t, 0) + normal * 0.03
+			mb.color(tiles.darkened(0.35 if k % 2 == 0 else 0.22))
+			mb.box(base + basis * p, Vector3(0.12, 0.08, fd + 0.62), basis * along)
+		mb.color(DARK_WOOD)
+		for z in [-(fd + 0.6) * 0.5 - 0.03, (fd + 0.6) * 0.5 + 0.03]:
+			mb.box(base + basis * (Vector3(side * hw * 0.5, height * 0.5, z) + normal * 0.02), Vector3(slope_len + 0.1, 0.16, 0.06), basis * along) # testeira
+		mb.box(base + basis * Vector3(side * hw, -0.04, 0), Vector3(0.12, 0.12, fd + 0.64), basis) # beiral
+	mb.color(DARK_WOOD)
+	mb.box(base + basis * Vector3(0, height + 0.04, 0), Vector3(0.2, 0.14, fd + 0.7), basis) # cumeeira
 	var points := PackedVector3Array()
 	for p in shape:
 		for z in [-(fd + 0.6) * 0.5, (fd + 0.6) * 0.5]:
@@ -675,7 +794,14 @@ static func _ruin(mb: MeshBuilder, body: StaticBody3D, rng: RandomNumberGenerato
 			var size: Vector3 = wall[1]
 			var piece_size := Vector3(maxf(size.x / pieces, 0.4), rng.randf_range(0.8, FLOOR_HEIGHT * 1.8), maxf(size.z / pieces, 0.4))
 			var pos: Vector3 = wall[0] + Vector3(size.x * t, piece_size.y * 0.5 + 0.3, size.z * t)
-			_box(mb, body, STONE.darkened(rng.randf_range(0.0, 0.2)), pos, piece_size, Basis(Vector3.BACK, rng.randf_range(-0.04, 0.04)))
+			var tone := STONE.darkened(rng.randf_range(0.0, 0.2))
+			var lean := Basis(Vector3.BACK, rng.randf_range(-0.04, 0.04))
+			_box(mb, body, tone, pos, piece_size, lean)
+			var courses := int(piece_size.y / 0.45)
+			for c in range(1, courses):
+				var y := -piece_size.y * 0.5 + c * 0.45
+				_box(mb, null, tone.darkened(0.3), pos + lean * Vector3(0, y, 0), piece_size + Vector3(0.03, -piece_size.y + 0.035, 0.03), lean) # juntas
+			_box(mb, null, tone.lightened(0.06), pos + lean * Vector3(0, piece_size.y * 0.5, 0), piece_size * Vector3(0.9, 0.0, 0.9) + Vector3(0, 0.08, 0), lean * Basis(Vector3.UP, 0.05)) # topo quebrado
 	for k in 5:
 		var pos := Vector3(rng.randf_range(-w, w) * 0.5, 0.3, rng.randf_range(-d, d) * 0.5)
 		var size := Vector3(rng.randf_range(0.4, 1.1), rng.randf_range(0.3, 0.7), rng.randf_range(0.4, 1.1))

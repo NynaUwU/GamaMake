@@ -13,7 +13,7 @@ func _init() -> void:
 	var start := Time.get_ticks_msec()
 	var worst := 0
 	var last := Time.get_ticks_msec()
-	for k in 600:
+	for k in 4000:
 		await process_frame
 		var now := Time.get_ticks_msec()
 		worst = maxi(worst, now - last)
