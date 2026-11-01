@@ -51,6 +51,54 @@ func _init() -> void:
 				_frame3(chunk.size(), 2.8, 32.0)
 				await _save(out + "/objetos_%d.png" % (page + 1))
 				page += 1
+		"tier3":
+			# Máquinas do Tier 3, duas páginas; o alto-forno já montado (base + 2 anéis) e um cano.
+			var manager := PlacedManager.new()
+			manager.name = "Placed"
+			stage_root.add_child(manager)
+			var pages := [["boiler", "steam_engine", "blast_furnace", "water_tank", "distillery", "sprinkler"], ["lathe", "press", "pipe"]]
+			for page in pages.size():
+				_clear([manager])
+				for child in manager.get_children():
+					child.free()
+				manager.objects.clear()
+				var chunk: Array = pages[page]
+				for i in chunk.size():
+					var at := _slot_pos3(i, chunk.size(), 3.4)
+					var id := page * 100 + i * 5 + 1
+					var basis := Basis(Vector3.UP, 0.5)
+					if chunk[i] == "pipe":
+						manager._spawn(id, "pipe", Transform3D(Basis(Vector3.UP, -0.9), at + Vector3(-1.0, 0.4, 0.5)), true)
+						manager.objects[id].extra.len = 2.4
+						manager.objects[id].refresh(0.0)
+					else:
+						manager._spawn(id, chunk[i], Transform3D(basis, at), true)
+					var obj: PlacedObject = manager.objects[id]
+					if chunk[i] in ["boiler", "blast_furnace", "distillery"]:
+						obj.extra.burn = 10.0
+						StationModels.set_lit(obj, true)
+					if chunk[i] == "boiler":
+						obj.extra.merge({"pressure": 1.0, "water": 14.0}, true)
+					if chunk[i] == "water_tank":
+						obj.extra.water = 45.0
+					if chunk[i] == "sprinkler":
+						obj.extra.wet = true
+					if chunk[i] == "blast_furnace":
+						manager._spawn(id + 1, "blast_stack", Transform3D(basis, at + Vector3.UP * Fluids.BLAST_BASE_H), true)
+						manager._spawn(id + 2, "blast_stack", Transform3D(basis, at + Vector3.UP * (Fluids.BLAST_BASE_H + Fluids.BLAST_RING_H)), true)
+					obj.refresh(0.0)
+					_label(SteamModels.NAMES[chunk[i]], at + Vector3(0, -0.15, 1.5))
+				_frame3(6, 3.4, 34.0)
+				await _save(out + "/tier3_%d.png" % (page + 1))
+		"items3":
+			var ids := [&"barra_aco", &"parafuso", &"engrenagem", &"eixo_aco", &"cano", &"suco", &"oleo", &"alcool", &"bandagem_esteril"]
+			for i in ids.size():
+				var node := ItemModels.build(ids[i])
+				var size: Vector3 = ItemDB.def(ids[i]).size
+				node.scale = Vector3.ONE * 0.85 / maxf(size[size.max_axis_index()], 0.05)
+				_put(node, i, ids.size(), ItemDB.display_name(ids[i]), 1.25, 0.45)
+			_frame(ids.size(), 1.25, 30.0)
+			await _save(out + "/itens_tier3.png")
 		"build":
 			# Escada colocada + fantasmas (válido e inválido) do construtor.
 			var manager := PlacedManager.new()

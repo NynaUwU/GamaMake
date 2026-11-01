@@ -24,6 +24,24 @@ reação física a golpes e ragdoll (estilo Dying Light), visual de PC dos anos 
 - Os outros jogadores aparecem com o nome em cima, o item da mão, a lanterna acesa e uma bolinha
   azul no minimapa/mapa. Em cima, no meio da tela, aparece quem está online.
 
+## Tier 3: vapor, aço e canos
+Martelo → aba **Vapor**. Ordem natural: torno (ferro) → parafusos/engrenagens → alto-forno → aço → caldeira + motor a vapor.
+- **Canos** (`scripts/machines/fluids.gd`, `pipe_tool.gd`): cano de cobre na mão (mesa: 1 barra de cobre = 2 canos; torno: 4). **Segure o clique** numa saída de latão (ou na ponta de um cano), arraste e **solte** onde o cano termina; clicar na ponta de um cano continua a linha. **Shift** deixa reto (no nível e em 45°). Cada 2 m gasta 1 cano, até 6 m por trecho. Bolinha amarela = encaixou numa porta. Desmontar devolve os canos.
+  - **Rede de fluido** (1x por segundo no host): água e vapor são redes separadas. Fontes: carneiro hidráulico (1/s, sem fim), coletor de chuva (o que juntou), caixa d'água (o que guardou). A água que sobra vai para as caixas; faltando, elas soltam. Mirando um cano aparece o fluxo ("água 0,6/s", "vapor 1,0/s").
+  - **Caixa d'água** (8 tábuas + 2 barras de ferro): guarda 60, 4 portas, [E] enche garrafa (sai suja).
+  - **Aspersor** (2 cobre + 1 parafuso): com água no cano, molha as plantações a 8 m (crescem 50% mais rápido, como o carneiro).
+  - **Garrafa de água na mão + clique** na caldeira, destilaria ou caixa d'água: despeja (a garrafa volta vazia).
+- **Alto-forno multibloco**: a base (16 tijolos, 6 pedras, 2 barras de ferro) + **2 anéis de tijolo empilhados** (mire no topo da base para empilhar; no chão não vai). Só funciona montado inteiro e com o **fole girando** (eixo/correia com força na polia à esquerda). Só queima **carvão**. 2 barras de ferro → 1 **barra de aço** (ou 4 sucatas). Janela igual às fornalhas, com a barra do fole e o que falta montar.
+- **Caldeira** (4 aço, 6 tijolos, 2 cobre, 4 parafusos): combustível em baixo, água pelo cano (latão à esquerda) ou despejada. Esquenta (~20 s), ferve e faz **pressão** (manômetro e visor de nível no modelo); a saída de vapor fica no alto do domo. Pressão no máximo: a válvula **chia** soltando vapor. **Seca e quente por 12 s: apita e EXPLODE** (6 m, machuca quem estiver perto, some com o carvão). Janela com água, calor, pressão e aviso.
+- **Motor a vapor** (3 aço, 2 engrenagens, 6 parafusos, 1 eixo torneado, 1 óleo): vapor da caldeira (cano no alto do cilindro) vira **força 10** nos eixos (porta à direita). Volante girando, baforadas e "tchuc" no ritmo. Uma caldeira quente toca um motor a 100% gastando 0,15 de água por segundo.
+- **Torno** (6 tábuas, 4 ferro, 2 sucatas) e **prensa** (6 tábuas, 3 ferro, 2 parafusos): bancadas que só fabricam com o **eixo girando** (puxam força só nos segundos depois de fabricar).
+  - Torno: 1 ferro → 4 parafusos; 2 ferro → engrenagem; 1 aço → eixo torneado; 1 cobre → 4 canos.
+  - Prensa: 3 frutas + garrafa → **suco** (+45 sede, +12 fome); 4 sementes de algodão (ou 2 gorduras) + garrafa → **óleo**.
+- **Destilaria** (6 cobre, 6 tijolos, 2 canos): fogo + 1 de água por lote + 4 trigo (ou 3 frutas, ou 4 batatas) → **álcool**. 
+  - **Combustível dos carros:** os carros agora têm **tanque** (começam com 25–70%, ~18 min de pé no fundo). Álcool na mão + clique no carro = +35%; óleo = +20%. Marcador V/C no painel, ao lado do velocímetro; sem combustível o motor engasga. O tanque vai no save e na rede.
+  - **Antisséptico:** bandagem + álcool (mesa) = **bandagem com álcool** (+60 vida e cura a doença).
+- **Itens novos:** barra de aço, parafusos, engrenagem, eixo torneado, cano, suco, óleo, álcool, bandagem com álcool (modelos próprios).
+
 ## Criar mundo, desmontar e ladeiras (rodada de feedback)
 - **Menu "Criar mundo"** (menu inicial → Novo mundo, ou Multiplayer → Criar servidor): sliders de tudo do mapa, com **prévia do mapa** que se atualiza sozinha (cidades, lagos, rios, pista e tamanho embaixo).
   - **Mapa:** tamanho (1,5–4,5 km), tamanho da ilha, recorte da costa.

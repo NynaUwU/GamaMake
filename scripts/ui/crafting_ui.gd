@@ -63,6 +63,25 @@ const RECIPES := [
 	# Mesa: roupas de tecido (Tier 1).
 	{"id": &"casaco", "station": "mesa", "cost": {&"tecido": 4, &"pano": 1}},
 	{"id": &"pano", "amount": 3, "station": "mesa", "cost": {&"tecido": 1}},
+	# Tier 3: canos na mesa (no torno rende o dobro), antisséptico.
+	{"id": &"cano", "amount": 2, "station": "mesa", "cost": {&"barra_cobre": 1}},
+	{"id": &"bandagem_esteril", "station": "mesa", "cost": {&"bandagem": 1, &"alcool": 1}},
+	# Alto-forno (multibloco, precisa do fole girando pela energia): aço. Só queima carvão.
+	{"id": &"barra_aco", "station": "alto_forno", "fuel": true, "power": true, "cost": {&"barra_ferro": 2}},
+	{"id": &"barra_aco", "station": "alto_forno", "fuel": true, "power": true, "cost": {&"sucata": 4}, "note": "sucata"},
+	# Torno (precisa de energia: eixo girando).
+	{"id": &"parafuso", "amount": 4, "station": "torno", "power": true, "cost": {&"barra_ferro": 1}},
+	{"id": &"engrenagem", "station": "torno", "power": true, "cost": {&"barra_ferro": 2}},
+	{"id": &"eixo_aco", "station": "torno", "power": true, "cost": {&"barra_aco": 1}},
+	{"id": &"cano", "amount": 4, "station": "torno", "power": true, "cost": {&"barra_cobre": 1}},
+	# Prensa (precisa de energia).
+	{"id": &"suco", "station": "prensa", "power": true, "cost": {&"fruta": 3, &"garrafa": 1}},
+	{"id": &"oleo", "station": "prensa", "power": true, "cost": {&"semente_algodao": 4, &"garrafa": 1}},
+	{"id": &"oleo", "station": "prensa", "power": true, "cost": {&"gordura": 2, &"garrafa": 1}, "note": "gordura"},
+	# Destilaria (fogo + 1 de água por lote, da caixa d'água/cano ou despejada com garrafa).
+	{"id": &"alcool", "station": "destilaria", "fuel": true, "water": 1, "cost": {&"trigo": 4}},
+	{"id": &"alcool", "station": "destilaria", "fuel": true, "water": 1, "cost": {&"fruta": 3}, "note": "fruta"},
+	{"id": &"alcool", "station": "destilaria", "fuel": true, "water": 1, "cost": {&"batata": 4}, "note": "batata"},
 	# Mão (mochila): o básico, e versões que rendem menos que na mesa.
 	{"id": &"graveto", "amount": 2, "station": "mao", "cost": {&"tabua": 1}},
 	{"id": &"tabua", "amount": 3, "station": "mao", "cost": {&"tronco": 1}},
@@ -75,7 +94,7 @@ const RECIPES := [
 	{"id": &"tocha", "station": "mao", "cost": {&"graveto": 1, &"pano": 1}},
 ]
 const TITLES := {"mesa": "Mesa de trabalho", "fornalha": "Fornalha", "mao": "Fabricar", "forno": "Forno de tijolo",
-	"fornalha_pedra": "Fornalha de pedra"}
+	"fornalha_pedra": "Fornalha de pedra", "torno": "Torno", "prensa": "Prensa"}
 ## Fornalha de pedra aberta agora (o calor do fole libera as receitas "heat").
 static var heat_source: PlacedObject
 ## Combustível da fornalha, na ordem de preferência: [item, quanto gasta].
@@ -99,6 +118,11 @@ static func recipes_for(station_: String) -> Array:
 	return RECIPES.filter(func(r): return r.station == station_)
 
 
+## Torno/prensa com energia chegando (a rede do eixo tem força).
+static func powered(source: PlacedObject) -> bool:
+	return is_instance_valid(source) and source.extra.get("speed", 0.0) >= 0.2
+
+
 ## Primeiro combustível disponível [item, quantidade] ou [].
 static func fuel_for(inventory: Inventory) -> Array:
 	for fuel in FUELS:
@@ -112,6 +136,8 @@ static func can_craft(inventory: Inventory, recipe: Dictionary) -> bool:
 		return false
 	if recipe.get("heat", false) and (not is_instance_valid(heat_source) or Machines.heat(heat_source) < Machines.HEAT_NEEDED):
 		return false # fornalha fria: segure E no fole
+	if recipe.get("power", false) and not powered(heat_source):
+		return false # torno/prensa parados: falta o eixo girando
 	if recipe.get("fuel", false):
 		var fuel := fuel_for(inventory)
 		if fuel.is_empty():
@@ -145,6 +171,11 @@ static func craft(player: Player, recipe: Dictionary, times := 1) -> int:
 		Sfx.play("knock", -4.0, 0.9 if recipe.get("fuel", false) else 1.0)
 		if recipe.station == "forno" and is_instance_valid(heat_source):
 			(heat_source.get_parent() as PlacedManager).request("fuel", [heat_source.net_id, 45.0, "lit_until"]) # o forno acende um pouco
+		if recipe.get("power", false) and is_instance_valid(heat_source):
+			# Torno/prensa trabalhando: puxam força da rede por uns segundos (e fazem barulho).
+			var manager := heat_source.get_parent() as PlacedManager
+			manager.request("extra", [heat_source.net_id, {"used": manager.clock + 6.0}])
+			Sfx.play_at("creak", heat_source.global_position + Vector3.UP * 0.8, 0.0, 1.4 if recipe.station == "torno" else 0.7)
 	else:
 		Sfx.play("click", -6.0, 0.6) # faltou material
 	return done

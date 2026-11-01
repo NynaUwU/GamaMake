@@ -104,6 +104,8 @@ func _describe(recipe: Dictionary) -> String:
 	if recipe.get("heat", false):
 		var hot := Machines.heat(CraftingUI.heat_source) if is_instance_valid(CraftingUI.heat_source) else 0.0
 		text += " + fornalha quente (%d%% de %d%%: segure E no fole)" % [int(hot * 100.0), int(Machines.HEAT_NEEDED * 100.0)]
+	if recipe.get("power", false):
+		text += " + energia (%s)" % ("eixo girando" if CraftingUI.powered(CraftingUI.heat_source) else "parado: ligue um eixo com força")
 	if recipe.get("fuel", false):
 		var fuel := CraftingUI.fuel_for(player.inventory)
 		text += " + combustível (%s)" % (ItemDB.display_name(fuel[0]) if not fuel.is_empty() else "falta")

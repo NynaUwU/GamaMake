@@ -11,9 +11,12 @@ extends RefCounted
 const BELT_RANGE := 8.0
 const PORT_SNAP := 0.35
 ## Geradores: potência máxima.
-const OUTPUT := {"water_wheel": 4.0, "windmill": 6.0}
+const OUTPUT := {"water_wheel": 4.0, "windmill": 6.0, "steam_engine": 10.0}
 ## Consumidores: o quanto puxam com trabalho.
-const DEMAND := {"sawmill": 3.0, "quern": 1.0, "spinning": 1.0, "loom": 1.5}
+const DEMAND := {"sawmill": 3.0, "quern": 1.0, "spinning": 1.0, "loom": 1.5, "blast_furnace": 2.0, "lathe": 2.0, "press": 1.5}
+## Bancadas com energia (torno, prensa): giram sempre que a rede tem força, mas só
+## puxam força nos segundos depois de fabricar algo (extra.used).
+const STATIONS := ["lathe", "press"]
 ## Portas em espaço local: [posição, eixo].
 const PORTS := {
 	"shaft": [[Vector3(1.0, 0.6, 0), Vector3.RIGHT], [Vector3(-1.0, 0.6, 0), Vector3.LEFT]],
@@ -23,6 +26,10 @@ const PORTS := {
 	"quern": [[Vector3(-0.55, 0.6, 0), Vector3.LEFT]],
 	"spinning": [[Vector3(-0.65, 0.6, 0), Vector3.LEFT]],
 	"loom": [[Vector3(-0.8, 0.6, 0), Vector3.LEFT]],
+	"steam_engine": [[Vector3(1.15, 0.6, 0), Vector3.RIGHT]],
+	"blast_furnace": [[Vector3(-1.0, 0.6, 0), Vector3.LEFT]],
+	"lathe": [[Vector3(-1.1, 0.6, 0), Vector3.LEFT]],
+	"press": [[Vector3(-0.75, 0.6, 0), Vector3.LEFT]],
 }
 
 
@@ -47,6 +54,8 @@ static func output(obj: PlacedObject) -> float:
 			var wind: float = Weather.i.wind if Weather.i else 0.3
 			var altitude := clampf(0.6 + obj.global_position.y / 80.0, 0.5, 1.4)
 			return OUTPUT.windmill * wind * altitude
+		"steam_engine":
+			return OUTPUT.steam_engine * clampf(obj.extra.get("steam", 0.0), 0.0, 1.0) # vapor da caldeira
 	return 0.0
 
 
@@ -54,6 +63,12 @@ static func output(obj: PlacedObject) -> float:
 static func busy(obj: PlacedObject) -> bool:
 	if Machines.PROCESS.has(obj.kind):
 		return obj.extra.get("in", 0) >= Machines.PROCESS[obj.kind][1]
+	if obj.kind in STATIONS:
+		var manager := obj.get_parent() as PlacedManager
+		return manager != null and obj.extra.get("used", 0.0) > manager.clock
+	if obj.kind == "blast_furnace" and ContainerManager.i:
+		var slots: Array = ContainerManager.i.contents.get(Smelting.key_of(obj), [])
+		return slots.size() > 0 and not slots[Smelting.INPUT].is_empty() # tem ferro para virar aço
 	return false
 
 
@@ -98,13 +113,13 @@ static func tick(objects: Dictionary, clock: float) -> Dictionary:
 		var speed := 0.0 if supply <= 0.0 else (1.0 if demand <= 0.0 else minf(1.0, supply / demand))
 		for obj in group:
 			var spin := speed if not OUTPUT.has(obj.kind) else clampf(output(obj) / OUTPUT[obj.kind], 0.0, 1.0)
-			if OUTPUT.has(obj.kind) == false and not busy(obj) and DEMAND.has(obj.kind):
+			if OUTPUT.has(obj.kind) == false and not busy(obj) and DEMAND.has(obj.kind) and not obj.kind in STATIONS:
 				spin = 0.0 # máquina parada (sem material) não gira
 			if absf(obj.extra.get("speed", 0.0) - spin) > 0.04:
 				obj.extra.speed = spin
 				changed[obj.net_id] = {"speed": spin}
 			# A máquina com energia trabalha sozinha (igual a girar a manivela).
-			if DEMAND.has(obj.kind) and busy(obj) and speed > 0.0:
+			if Machines.PROCESS.has(obj.kind) and busy(obj) and speed > 0.0:
 				var before := [obj.extra.get("in", 0), obj.extra.get("out", 0)]
 				Machines.host_crank(obj, speed, clock)
 				if before != [obj.extra.get("in", 0), obj.extra.get("out", 0)]:

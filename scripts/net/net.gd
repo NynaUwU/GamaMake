@@ -304,7 +304,7 @@ func _send_world_state(id: int) -> void:
 			node.net_sync_to(id)
 	for car in _cars():
 		_car_owner.rpc_id(id, String(car.name), car.net_owner, car.driver_peer)
-		_csnap.rpc_id(id, String(car.name), car.global_transform, car.linear_velocity, car.steering, car.headlights_on)
+		_csnap.rpc_id(id, String(car.name), car.global_transform, car.linear_velocity, car.steering, car.headlights_on, car.fuel)
 
 
 @rpc("authority", "reliable")
@@ -379,7 +379,7 @@ func _process(delta: float) -> void:
 			if car.freeze and car.parked:
 				continue # estacionado longe de todos: nada muda
 			if car.net_owner == my_id() and (car.driver_peer != 0 or idle or car.linear_velocity.length() > 0.3):
-				_csnap.rpc(String(car.name), car.global_transform, car.linear_velocity, car.steering, car.headlights_on)
+				_csnap.rpc(String(car.name), car.global_transform, car.linear_velocity, car.steering, car.headlights_on, car.fuel)
 
 
 # --- Descoberta na LAN ---------------------------------------------------------
@@ -760,6 +760,20 @@ func _try_car(peer: int, name: String) -> void:
 	_apply_car_owner(name, peer, peer)
 
 
+## Álcool/óleo no carro: soma em todo mundo (o dono manda o valor certo nos snapshots).
+func refuel_car(car: VintageCar, amount: float) -> void:
+	car.fuel = minf(car.fuel + amount, 1.0)
+	if online():
+		_car_fuel.rpc(String(car.name), amount)
+
+
+@rpc("any_peer", "reliable")
+func _car_fuel(name: String, amount: float) -> void:
+	var car := _car(name)
+	if car:
+		car.fuel = minf(car.fuel + clampf(amount, 0.0, 1.0), 1.0)
+
+
 ## Saiu do carro: continua dono (o carro parado segue simulado por ele).
 func leave_car(car: VintageCar) -> void:
 	if not online():
@@ -789,7 +803,7 @@ func _apply_car_owner(name: String, owner: int, driver: int) -> void:
 
 
 @rpc("any_peer", "unreliable_ordered")
-func _csnap(name: String, xform: Transform3D, velocity: Vector3, steering: float, lights: bool) -> void:
+func _csnap(name: String, xform: Transform3D, velocity: Vector3, steering: float, lights: bool, fuel: float) -> void:
 	var car := _car(name)
 	if car == null:
 		return
@@ -797,7 +811,7 @@ func _csnap(name: String, xform: Transform3D, velocity: Vector3, steering: float
 	if sender != car.net_owner and sender != 1:
 		return
 	if car.net_owner != my_id():
-		car.apply_snapshot(xform, velocity, steering, lights)
+		car.apply_snapshot(xform, velocity, steering, lights, fuel)
 
 
 # --- Construção -----------------------------------------------------------------

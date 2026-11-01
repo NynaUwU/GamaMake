@@ -77,12 +77,21 @@ var seat: Node3D ## onde o player fica (olhando para a frente do carro)
 var steering_wheel: Node3D ## gira com a direção; o player põe as mãos no aro
 var eye_height := 0.8 ## altura da câmera acima do banco (olha por cima dos para-brisas)
 var _needle: Node3D
+var _fuel_needle: Node3D
 var _bumper: Area3D
 var _hit_cooldown := {}
 var _materials := {}
 var _headlight_points: Array[Vector3] = []
 var _headlights: Array[SpotLight3D] = []
 var headlights_on := false
+
+## Combustível (0..1). Álcool da destilaria e óleo da prensa abastecem.
+## Cada carro começa com 25–70% (igual para todos: sorteado pelo nome).
+const FUEL_ITEMS := {&"alcool": 0.35, &"oleo": 0.2}
+const FUEL_IDLE := 0.0002 ## por segundo, ligado e parado
+const FUEL_THROTTLE := 0.0009 ## por segundo a mais com o pé no fundo (~18 min de tanque)
+var fuel := -1.0
+var _sputter := 0.0
 
 
 var _rear_wheels: Array[VehicleWheel3D] = []
@@ -111,6 +120,8 @@ func _ready() -> void:
 	seat.rotation = Vector3(0, PI, 0) # o player olha para -Z; o carro anda para +Z
 	add_child(seat)
 	set_headlights(false) # começa apagado (lentes escuras)
+	if fuel < 0.0:
+		fuel = 0.25 + 0.45 * float(absi(hash(String(name))) % 1000) / 1000.0
 	freeze_mode = RigidBody3D.FREEZE_MODE_KINEMATIC
 	if not Net.i.is_host():
 		freeze = true # online: no começo quem simula os carros é o host
@@ -152,11 +163,15 @@ func _update_parking(delta: float) -> bool:
 func get_interact_text() -> String:
 	if driver != null or driver_peer != 0:
 		return ""
+	var tank := "  · tanque %d%%" % int(fuel * 100.0)
+	var me: Player = Net.i.world.player if Net.i.world else null
+	if me and FUEL_ITEMS.has(me.inventory.selected_id()):
+		return "Clique: abastecer (+%d%%)%s" % [int(FUEL_ITEMS[me.inventory.selected_id()] * 100.0), tank]
 	if is_tipped():
 		return "[E] Desvirar"
-	if _at_trunk(Net.i.world.player if Net.i.world else null):
+	if _at_trunk(me):
 		return "[E] Porta-malas"
-	return "[E] Dirigir"
+	return "[E] Dirigir" + tank + ("  (vazio: abasteça com álcool ou óleo)" if fuel <= 0.0 else "")
 
 
 func interact(player: Node) -> void:
@@ -239,7 +254,9 @@ func set_net_owner(owner: int, driving: int) -> void:
 		_has_snap = false
 
 
-func apply_snapshot(xform: Transform3D, velocity: Vector3, steer: float, lights: bool) -> void:
+func apply_snapshot(xform: Transform3D, velocity: Vector3, steer: float, lights: bool, fuel_now := -1.0) -> void:
+	if fuel_now >= 0.0:
+		fuel = fuel_now # o dono do carro é quem gasta
 	_snap_xform = xform
 	_snap_velocity = velocity
 	steering = steer
@@ -302,6 +319,15 @@ func _physics_process(delta: float) -> void:
 		return
 	var throttle := Input.get_axis("move_back", "move_forward")
 	var steer_input := Input.get_axis("move_right", "move_left")
+	# Gasolina: gasta ligado (mais com o pé no fundo); seco, o motor não puxa.
+	fuel = maxf(fuel - (FUEL_IDLE + FUEL_THROTTLE * absf(throttle)) * delta, 0.0)
+	if fuel <= 0.0:
+		if absf(throttle) > 0.0:
+			_sputter -= delta
+			if _sputter <= 0.0:
+				_sputter = 0.7
+				Sfx.play_at("chug", global_position, -2.0, 0.5) # engasgando
+		throttle = 0.0
 	# Menos esterço em alta velocidade (não capota na curva).
 	# Quanto mais rápido, menos a roda vira (a partir de ~10 km/h; no máximo sobra 15%).
 	var ratio := absf(speed) / top_speed
@@ -525,6 +551,8 @@ func _process(delta: float) -> void:
 	var velocity := _snap_velocity if _is_copy() else linear_velocity
 	var kmh := absf(velocity.dot(global_basis.z)) * 3.6
 	_needle.rotation.z = lerpf(2.3, -2.3, clampf(kmh / speedo_max, 0.0, 1.0))
+	if _fuel_needle:
+		_fuel_needle.rotation.z = lerpf(0.9, -0.9, clampf(fuel, 0.0, 1.0))
 	_engine_sound(kmh, delta)
 
 
@@ -940,6 +968,22 @@ func _build_cockpit(model: Node3D) -> void:	# Velocímetro na frente do motorist
 	needle.tri(Vector3(-0.003, 0, 0), Vector3(0, 0.058, 0), Vector3(0.003, 0, 0))
 	needle.tri(Vector3(0.003, 0, 0), Vector3(0, -0.012, 0), Vector3(-0.003, 0, 0))
 	_add(_needle, needle.finish(_material("needle", Color(0.8, 0.1, 0.05), 0.5, 0.0, true), false))
+	# Marcador de combustível pequeno embaixo do mostrador: V (vazio) à esquerda, C (cheio) à direita.
+	for side in [-1, 1]:
+		var mark := Label3D.new()
+		mark.text = "V" if side < 0 else "C"
+		mark.font_size = 20
+		mark.pixel_size = 0.0006
+		mark.modulate = Color(0.75, 0.1, 0.05) if side < 0 else DARK
+		mark.outline_size = 0
+		mark.position = Vector3(side * 0.02, -0.036, 0.006)
+		gauge.add_child(mark)
+	_fuel_needle = Node3D.new()
+	_fuel_needle.position = Vector3(0, -0.05, 0.008)
+	gauge.add_child(_fuel_needle)
+	var fuel_needle := MeshBuilder.new()
+	fuel_needle.tri(Vector3(-0.002, 0, 0), Vector3(0, 0.022, 0), Vector3(0.002, 0, 0))
+	_add(_fuel_needle, fuel_needle.finish(_material("ink", DARK, 0.8, 0.0), false))
 	# Volante de aro fino com 3 raios, inclinado para o motorista.
 	steering_wheel = Node3D.new()
 	steering_wheel.name = "SteeringWheel"

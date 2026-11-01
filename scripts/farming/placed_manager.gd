@@ -24,6 +24,7 @@ func _process(delta: float) -> void:
 		_refresh = 1.0
 		_collect_rain()
 		_smelt()
+		_fluids()
 		_power()
 		_expire_airdrops()
 		for obj: PlacedObject in objects.values():
@@ -50,6 +51,15 @@ func _expire_airdrops() -> void:
 				ContainerManager.i.contents.erase("placed_%d" % obj.net_id)
 			_remove(obj.net_id)
 			request("vanish", [obj.net_id]) # some para todos
+
+
+## Host, 1x por segundo: canos levam água e vapor (Fluids), depois da caldeira ferver.
+func _fluids() -> void:
+	if not Net.i.is_host():
+		return
+	var changed := Fluids.tick(objects, clock)
+	for id in changed:
+		request("extra", [id, changed[id]])
 
 
 ## Host, 1x por segundo: a rede de energia (Power) divide a força e avança as máquinas.
@@ -87,10 +97,12 @@ func river_bank(at: Vector3) -> bool:
 	return not near.is_empty() and near.dist < near.half + 3.0
 
 
-## Perto de um carneiro hidráulico (irrigado: planta cresce mais rápido).
+## Perto de um carneiro hidráulico ou de um aspersor com água (irrigado: planta cresce mais rápido).
 func irrigated(at: Vector3) -> bool:
 	for obj: PlacedObject in objects.values():
 		if obj.kind == "ram_pump" and obj.global_position.distance_to(at) < IRRIGATION_RADIUS:
+			return true
+		if obj.kind == "sprinkler" and obj.extra.get("wet", false) and obj.global_position.distance_to(at) < Fluids.SPRINKLER_RADIUS:
 			return true
 	return false
 
@@ -104,8 +116,9 @@ func _smelt() -> void:
 			var key := Smelting.key_of(obj)
 			ContainerManager.i.changed.emit(key)
 			Net.i.system_request("Containers", "sync", [key])
-			request("extra", [obj.net_id, {"burn": obj.extra.get("burn", 0.0), "prog": obj.extra.get("prog", 0.0),
-				"burn_max": obj.extra.get("burn_max", 1.0)}])
+			request("extra", [obj.net_id, Smelting.sync_extra(obj)])
+			if obj.extra.get("boom", false):
+				request("boom", [obj.net_id]) # caldeira seca e quente: explode
 
 
 ## Host, 1x por segundo: chovendo, os coletores enchem (chuva forte: ~1 garrafa a cada 25 s).
@@ -157,7 +170,8 @@ func host_apply(action: String, args: Array) -> Array:
 			if kind not in ["pot_small", "pot_wide", "bed", "ground", "bench", "workbench", "furnace", "campfire",
 					"spikes", "beartrap", "barbed", "mine", "drawboard", "chest", "flag", "rain_collector", "dryer",
 					"grindstone", "quern", "pump", "spinning", "loom", "stone_furnace", "oven", "filter", "smoker", "compost", "sieve",
-					"shaft", "water_wheel", "windmill", "sawmill", "ram_pump", "stairs"]:
+					"shaft", "water_wheel", "windmill", "sawmill", "ram_pump", "stairs",
+					"blast_furnace", "blast_stack", "boiler", "steam_engine", "water_tank", "sprinkler", "lathe", "press", "distillery"]:
 				return []
 			if kind in ["water_wheel", "ram_pump"] and not river_bank(xform.origin):
 				return [] # só na beira de um rio
@@ -167,6 +181,9 @@ func host_apply(action: String, args: Array) -> Array:
 				var cell := Vector3i((xform.origin / BuildPiece.SEG).round())
 				if bed_at(cell):
 					return []
+			elif kind == "blast_stack":
+				if not stack_spot_free(xform.origin):
+					return [] # anel do alto-forno: empilhado em cima da base/de outro anel
 			elif occupied(xform.origin, 0.3):
 				return []
 			var id := _next_id
@@ -187,6 +204,37 @@ func host_apply(action: String, args: Array) -> Array:
 			a.extra.belts = belts
 			_belts_dirty = true
 			return [args[0], belts]
+		"pipe":
+			# Trecho de cano [xform, comprimento] (os canos já saíram da mochila de quem pôs).
+			var xform: Transform3D = args[0]
+			var length := float(args[1])
+			if length < 0.25 or length > Fluids.MAX_PIPE + 0.01:
+				Net.i.give_to(Net.i.request_peer, &"cano", Fluids.pipe_cost(clampf(length, 0.25, Fluids.MAX_PIPE)))
+				return []
+			var id := _next_id
+			_next_id += 1
+			_spawn(id, "pipe", xform, true)
+			objects[id].extra.len = length
+			objects[id].refresh(clock)
+			Sfx.play_at("knock", xform.origin, -2.0, 1.4)
+			return [id, xform, length]
+		"pour":
+			# Garrafa de água despejada na caldeira/destilaria/caixa d'água (a garrafa vazia já voltou).
+			var obj: PlacedObject = objects.get(args[0])
+			if obj == null or not obj.kind in POUR_CAP:
+				return []
+			obj.extra.water = minf(obj.extra.get("water", 0.0) + 1.0, POUR_CAP[obj.kind])
+			return [args[0], {"water": obj.extra.water}]
+		"boom":
+			if Net.i.request_peer != Net.i.my_id():
+				return [] # só o host explode a caldeira
+			var obj: PlacedObject = objects.get(args[0])
+			if obj == null:
+				return []
+			if ContainerManager.i:
+				ContainerManager.i.contents.erase(Smelting.key_of(obj)) # o carvão vai junto
+			_boom(obj, false)
+			return args
 		"fuel":
 			# Lenha na fogueira / forno aceso: [id, segundos, chave]. O host soma ao que já queima.
 			var obj: PlacedObject = objects.get(args[0])
@@ -225,13 +273,13 @@ func host_apply(action: String, args: Array) -> Array:
 		"vanish":
 			return args if Net.i.request_peer == Net.i.my_id() else [] # só o host manda (o objeto já saiu nele)
 		"draw_water":
-			# Encheu uma garrafa no coletor (a garrafa vazia já saiu da mochila de quem pediu).
+			# Encheu uma garrafa no coletor ou na caixa d'água (a garrafa vazia já saiu da mochila de quem pediu).
 			var obj: PlacedObject = objects.get(args[0])
-			if obj == null or obj.kind != "rain_collector" or obj.extra.get("water", 0.0) < 1.0:
+			if obj == null or not obj.kind in ["rain_collector", "water_tank"] or obj.extra.get("water", 0.0) < 1.0:
 				Net.i.give_to(Net.i.request_peer, &"garrafa", 1) # sem água: devolve a garrafa
 				return []
 			obj.extra.water = obj.extra.water - 1.0
-			Net.i.give_to(Net.i.request_peer, &"agua", 1)
+			Net.i.give_to(Net.i.request_peer, &"agua" if obj.kind == "rain_collector" else &"agua_suja", 1)
 			obj.refresh(clock)
 			return [args[0], obj.extra.water]
 		"airdrop":
@@ -415,6 +463,40 @@ func _fell(obj: PlacedObject) -> void:
 	_remove(obj.net_id)
 
 
+## Onde dá para despejar garrafas de água, e quanto cabe.
+const POUR_CAP := {"boiler": Fluids.BOILER_WATER, "distillery": Fluids.STILL_WATER, "water_tank": Fluids.TANK_CAP}
+
+
+## Lugar livre para um anel do alto-forno: em cima de uma base ou de outro anel, sem anel ali.
+func stack_spot_free(at: Vector3) -> bool:
+	var support := false
+	for obj: PlacedObject in objects.values():
+		if obj.kind == "blast_stack" and obj.global_position.distance_to(at) < 0.35:
+			return false
+		if obj.kind == "blast_furnace" and obj.global_position.distance_to(at - Vector3.UP * Fluids.BLAST_BASE_H) < 0.35:
+			support = true
+		if obj.kind == "blast_stack" and obj.global_position.distance_to(at - Vector3.UP * Fluids.BLAST_RING_H) < 0.35:
+			support = true
+	return support
+
+
+## Caldeira estourando: estilhaços (dano em quem estiver perto, até o dono) e some.
+func _boom(obj: PlacedObject, cosmetic: bool) -> void:
+	var explosion := Explosion.new()
+	explosion.cosmetic = cosmetic
+	get_parent().add_child(explosion)
+	explosion.global_position = obj.global_position + Vector3.UP * 1.0
+	explosion.detonate(6.0, 140.0, 16.0, 2.2)
+	Sfx.play_at("thud", obj.global_position + Vector3.UP, 8.0, 0.4)
+	# Estilhaços também pegam o jogador daqui (cada um cuida do seu).
+	var me := get_tree().get_first_node_in_group("player") as Player
+	if me and not me.is_puppet():
+		var d := me.global_position.distance_to(explosion.global_position)
+		if d < 6.0:
+			me.take_damage(90.0 * (1.0 - d / 6.0) + 10.0, (me.global_position - explosion.global_position).normalized())
+	_remove(obj.net_id)
+
+
 ## Mina: explosão de verdade no host (dano nos zumbis), só o efeito nos clientes.
 func _explode(obj: PlacedObject, cosmetic: bool) -> void:
 	var explosion := Explosion.new()
@@ -448,6 +530,19 @@ func apply_remote(action: String, args: Array) -> void:
 			var obj: PlacedObject = objects.get(args[0])
 			if obj:
 				_explode(obj, true)
+		"boom":
+			var obj: PlacedObject = objects.get(args[0])
+			if obj:
+				_boom(obj, true)
+		"pipe":
+			if not objects.has(args[0]):
+				_spawn(args[0], "pipe", args[1], true)
+				objects[args[0]].extra.len = args[2]
+				objects[args[0]].refresh(clock)
+		"pour":
+			var obj: PlacedObject = objects.get(args[0])
+			if obj:
+				obj.extra.merge(args[1], true)
 		"plant_tree":
 			if not objects.has(args[0]):
 				_plant_tree(args[0], args[1], args[2], args[3])

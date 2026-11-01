@@ -22,6 +22,12 @@ var _furnace_slots: Array[Control] = [] # onde cada um dos 3 lugares entra
 var _arrow: ProgressBar
 var _flame: ProgressBar
 var _bellows: ProgressBar
+## Tier 3: caldeira (água, calor, pressão), destilaria (água), alto-forno (energia + montagem).
+var _water_bar: ProgressBar
+var _heat_bar: ProgressBar
+var _pressure_bar: ProgressBar
+var _power_bar: ProgressBar
+var _status: Label
 
 
 static func open_for(p: Node, key_: String, source_: PlacedObject = null) -> void:
@@ -41,6 +47,13 @@ func _is_furnace() -> bool:
 ## Material e combustível à esquerda, seta (progresso) no meio, resultado à direita;
 ## a chama embaixo do material mostra quanto falta do combustível aceso.
 func _build_furnace(column: VBoxContainer) -> void:
+	for k in 3:
+		var holder := CenterContainer.new()
+		holder.custom_minimum_size = SLOT
+		_furnace_slots.append(holder)
+	if source and source.kind == "boiler":
+		_build_boiler(column)
+		return
 	var row := HBoxContainer.new()
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
 	row.add_theme_constant_override("separation", 10)
@@ -48,10 +61,6 @@ func _build_furnace(column: VBoxContainer) -> void:
 	var left := VBoxContainer.new()
 	left.add_theme_constant_override("separation", 4)
 	row.add_child(left)
-	for k in 3:
-		var holder := CenterContainer.new()
-		holder.custom_minimum_size = SLOT
-		_furnace_slots.append(holder)
 	left.add_child(_furnace_slots[Smelting.INPUT])
 	_flame = _bar(left, Color(1.0, 0.55, 0.15))
 	left.add_child(_furnace_slots[Smelting.FUEL])
@@ -67,9 +76,53 @@ func _build_furnace(column: VBoxContainer) -> void:
 	if source and source.kind == "stone_furnace":
 		_bellows = _bar(middle, Color(0.9, 0.3, 0.15)) # calor do fole
 		_bellows.custom_minimum_size = Vector2(60, 4)
+	if source and source.kind == "distillery":
+		_water_bar = _labeled_bar(middle, "água", Color(0.3, 0.55, 0.95))
+	if source and source.kind == "blast_furnace":
+		_power_bar = _labeled_bar(middle, "fole", Color(0.9, 0.3, 0.15))
 	var right := CenterContainer.new()
 	row.add_child(right)
 	right.add_child(_furnace_slots[Smelting.OUTPUT])
+	if source and source.kind in ["blast_furnace", "distillery"]:
+		_status = Label.new()
+		_status.add_theme_font_size_override("font_size", 11)
+		_status.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		_status.modulate = Color(1.0, 0.75, 0.45)
+		column.add_child(_status)
+
+
+## Caldeira: só o combustível (com a chama) e as três barras: água, calor e pressão.
+func _build_boiler(column: VBoxContainer) -> void:
+	var row := HBoxContainer.new()
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	row.add_theme_constant_override("separation", 14)
+	column.add_child(row)
+	var left := VBoxContainer.new()
+	left.alignment = BoxContainer.ALIGNMENT_CENTER
+	row.add_child(left)
+	_flame = _bar(left, Color(1.0, 0.55, 0.15))
+	left.add_child(_furnace_slots[Smelting.FUEL])
+	var bars := VBoxContainer.new()
+	bars.add_theme_constant_override("separation", 2)
+	row.add_child(bars)
+	_water_bar = _labeled_bar(bars, "água", Color(0.3, 0.55, 0.95))
+	_heat_bar = _labeled_bar(bars, "calor", Color(1.0, 0.55, 0.15))
+	_pressure_bar = _labeled_bar(bars, "pressão", Color(0.9, 0.25, 0.2))
+	_status = Label.new()
+	_status.add_theme_font_size_override("font_size", 11)
+	_status.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	column.add_child(_status)
+
+
+func _labeled_bar(parent: Control, text: String, color: Color) -> ProgressBar:
+	var label := Label.new()
+	label.text = text
+	label.add_theme_font_size_override("font_size", 10)
+	label.modulate = Color(1, 1, 1, 0.7)
+	parent.add_child(label)
+	var bar := _bar(parent, color)
+	bar.custom_minimum_size = Vector2(90, 6)
+	return bar
 
 
 func _bar(parent: Control, color: Color) -> ProgressBar:
@@ -92,9 +145,42 @@ func _process(_delta: float) -> void:
 		return
 	var burn_max: float = maxf(source.extra.get("burn_max", 1.0), 0.01)
 	_flame.value = clampf(source.extra.get("burn", 0.0) / burn_max, 0.0, 1.0)
-	_arrow.value = clampf(source.extra.get("prog", 0.0) / Smelting.SMELT_TIME.get(source.kind, 8.0), 0.0, 1.0)
+	if _arrow:
+		_arrow.value = clampf(source.extra.get("prog", 0.0) / Smelting.SMELT_TIME.get(source.kind, 8.0), 0.0, 1.0)
 	if _bellows:
 		_bellows.value = Machines.heat(source)
+	var kind := source.kind
+	if _water_bar:
+		var cap := Fluids.BOILER_WATER if kind == "boiler" else Fluids.STILL_WATER
+		_water_bar.value = clampf(source.extra.get("water", 0.0) / cap, 0.0, 1.0)
+	if _heat_bar:
+		_heat_bar.value = source.extra.get("heat", 0.0)
+	if _pressure_bar:
+		_pressure_bar.value = source.extra.get("pressure", 0.0) / Fluids.PRESSURE_MAX
+	if _power_bar:
+		_power_bar.value = source.extra.get("speed", 0.0)
+	if _status:
+		_status.text = _status_text(kind)
+
+
+func _status_text(kind: String) -> String:
+	match kind:
+		"boiler":
+			if source.extra.get("dry", 0.0) > 0.0:
+				_status.modulate = Color(1.0, 0.3, 0.2)
+				return "SECA E QUENTE! Ponha água ou apague o fogo"
+			_status.modulate = Color(1, 1, 1, 0.7)
+			if source.extra.get("water", 0.0) < 1.0:
+				return "Sem água: ligue um cano ou despeje garrafas"
+			return "Fervendo: vapor para o motor" if source.extra.get("heat", 0.0) > 0.5 else "Esquentando..."
+		"blast_furnace":
+			var rings := Fluids.blast_rings(source)
+			if rings < Fluids.BLAST_RINGS:
+				return "Incompleto: empilhe %d anel%s de tijolo em cima" % [Fluids.BLAST_RINGS - rings, "" if Fluids.BLAST_RINGS - rings == 1 else "s"]
+			return "Fole parado: ligue um eixo com força" if source.extra.get("speed", 0.0) < 0.3 else "Pronto: ferro + carvão = aço"
+		"distillery":
+			return "Sem água: ligue um cano ou despeje garrafas" if source.extra.get("water", 0.0) < 1.0 else ""
+	return ""
 
 
 func _ready() -> void:
@@ -249,7 +335,7 @@ func _can_drop(_at: Vector2, data: Variant, to := "", index := -1) -> bool:
 		return false
 	if _is_furnace() and to == "chest" and data.from == "bag":
 		var slot: Dictionary = player.inventory.slots[data.index]
-		return not slot.is_empty() and Smelting.accepts(index, slot.id)
+		return not slot.is_empty() and Smelting.accepts(index, slot.id, source.kind if source else "")
 	return true
 
 
@@ -313,9 +399,9 @@ func _furnace_target(id: StringName, slots: Array) -> int:
 	var kind: String = source.kind if source else "furnace"
 	var fits := func(k: int) -> bool:
 		return slots.size() > k and (slots[k].is_empty() or (slots[k].id == id and slots[k].amount < ItemDB.max_stack(id)))
-	if not Smelting.recipe(kind, id).is_empty() and fits.call(Smelting.INPUT):
+	if kind != "boiler" and not Smelting.recipe(kind, id).is_empty() and fits.call(Smelting.INPUT):
 		return Smelting.INPUT
-	if Smelting.is_fuel(id) and fits.call(Smelting.FUEL):
+	if Smelting.accepts(Smelting.FUEL, id, kind) and fits.call(Smelting.FUEL):
 		return Smelting.FUEL
 	return -1
 

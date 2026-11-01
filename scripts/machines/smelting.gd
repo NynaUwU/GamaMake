@@ -5,13 +5,18 @@ extends RefCounted
 ## olhando: gasta combustível e vai soltando o resultado no 3º lugar.
 ## As receitas são as da fornalha na CraftingUI (um ingrediente só).
 ## Fornalha de pedra: ferro só funde com o fole quente (Machines.heat).
+## Tier 3 (mesmo esquema de 3 lugares):
+##   alto-forno  multibloco (base + 2 anéis): aço, só com carvão e com o fole girando (energia);
+##   destilaria  trigo/fruta/batata -> álcool, gasta 1 de água por lote (cano ou garrafa);
+##   caldeira    só o lugar do combustível: o fogo ferve a água em vapor (Fluids.boiler_step).
 
 const INPUT := 0
 const FUEL := 1
 const OUTPUT := 2
 const FUEL_TIME := {&"carvao": 40.0, &"tronco": 30.0, &"tabua": 12.0, &"graveto": 4.0}
-const SMELT_TIME := {"furnace": 8.0, "stone_furnace": 5.0}
-const KINDS := ["furnace", "stone_furnace"]
+const SMELT_TIME := {"furnace": 8.0, "stone_furnace": 5.0, "blast_furnace": 10.0, "distillery": 12.0}
+const KINDS := ["furnace", "stone_furnace", "blast_furnace", "distillery", "boiler"]
+const STATIONS := {"stone_furnace": "fornalha_pedra", "blast_furnace": "alto_forno", "distillery": "destilaria"}
 
 
 static func key_of(obj: PlacedObject) -> String:
@@ -19,7 +24,18 @@ static func key_of(obj: PlacedObject) -> String:
 
 
 static func station(kind: String) -> String:
-	return "fornalha_pedra" if kind == "stone_furnace" else "fornalha"
+	return STATIONS.get(kind, "fornalha")
+
+
+## Tipo da fornalha dona da chave "furnace_<id>" ("" se não achar).
+static func kind_of_key(key: String) -> String:
+	var tree := Engine.get_main_loop() as SceneTree
+	var world := tree.current_scene if tree else null
+	var placed := world.get_node_or_null("Placed") as PlacedManager if world else null
+	if placed == null:
+		return ""
+	var obj: PlacedObject = placed.objects.get(int(key.trim_prefix("furnace_")))
+	return obj.kind if obj else ""
 
 
 ## Receita desta fornalha para o material "id" ({} se não funde).
@@ -35,13 +51,28 @@ static func is_fuel(id: StringName) -> bool:
 
 
 ## Pode ir neste lugar? (o resultado não aceita nada de fora)
-static func accepts(slot_index: int, id: StringName) -> bool:
+static func accepts(slot_index: int, id: StringName, kind := "") -> bool:
 	match slot_index:
 		FUEL:
+			if kind == "blast_furnace":
+				return id == &"carvao" # alto-forno: só carvão esquenta o bastante
 			return is_fuel(id)
 		OUTPUT:
 			return false
+	if kind == "boiler":
+		return false # caldeira: só combustível (a água vem pelo cano ou despejada)
 	return true
+
+
+## O que o host manda para os outros depois do tick (barras da janela, fogo, avisos).
+static func sync_extra(obj: PlacedObject) -> Dictionary:
+	var out := {"burn": obj.extra.get("burn", 0.0), "prog": obj.extra.get("prog", 0.0), "burn_max": obj.extra.get("burn_max", 1.0)}
+	for key in ["heat", "water", "pressure", "dry"]:
+		if obj.extra.has(key):
+			out[key] = snappedf(obj.extra[key], 0.01)
+	if obj.kind == "boiler":
+		out.vent = obj.extra.get("vent", false)
+	return out
 
 
 ## Host, 1x por segundo. true = mudou (o host manda para todos).
@@ -52,6 +83,8 @@ static func host_tick(obj: PlacedObject, clock: float) -> bool:
 	var burn: float = obj.extra.get("burn", 0.0)
 	var prog: float = obj.extra.get("prog", 0.0)
 	var before := [burn, prog, str(slots)]
+	if obj.kind == "boiler":
+		return _boiler_tick(obj, slots, burn, before)
 	var input: Dictionary = slots[INPUT]
 	var r := {} if input.is_empty() else recipe(obj.kind, input.id)
 	var need: int = r.cost.values()[0] if not r.is_empty() else 0
@@ -61,6 +94,10 @@ static func host_tick(obj: PlacedObject, clock: float) -> bool:
 		or (slots[OUTPUT].id == out_id and slots[OUTPUT].amount + out_amount <= ItemDB.max_stack(out_id)))
 	if room and r.get("heat", false) and Machines.heat(obj) < Machines.HEAT_NEEDED:
 		room = false # ferro: precisa do fole
+	if room and r.get("power", false) and (obj.extra.get("speed", 0.0) < 0.3 or not Fluids.blast_complete(obj)):
+		room = false # alto-forno: montado inteiro e com o fole girando
+	if room and obj.extra.get("water", 0.0) < r.get("water", 0):
+		room = false # destilaria sem água
 	var uses_fuel: bool = r.get("fuel", false) or obj.kind == "furnace"
 	if room and burn <= 0.0 and uses_fuel and not slots[FUEL].is_empty():
 		burn = FUEL_TIME.get(slots[FUEL].id, 0.0) # acende mais um combustível
@@ -72,6 +109,7 @@ static func host_tick(obj: PlacedObject, clock: float) -> bool:
 		prog += 1.0
 		if prog >= SMELT_TIME.get(obj.kind, 8.0):
 			prog = 0.0
+			obj.extra.water = obj.extra.get("water", 0.0) - r.get("water", 0)
 			input.amount -= need
 			if input.amount <= 0:
 				slots[INPUT] = {}
@@ -85,3 +123,20 @@ static func host_tick(obj: PlacedObject, clock: float) -> bool:
 	obj.extra.burn = burn
 	obj.extra.prog = prog
 	return before != [burn, prog, str(slots)]
+
+
+## Caldeira: acende combustível sozinha (o fogo queima sempre que tiver lenha/carvão)
+## e ferve a água. "boom" fica em obj.extra.boom para o PlacedManager explodir.
+static func _boiler_tick(obj: PlacedObject, slots: Array, burn: float, before: Array) -> bool:
+	if burn <= 0.0 and not slots[FUEL].is_empty():
+		burn = FUEL_TIME.get(slots[FUEL].id, 0.0)
+		obj.extra.burn_max = burn
+		slots[FUEL].amount -= 1
+		if slots[FUEL].amount <= 0:
+			slots[FUEL] = {}
+	var result := Fluids.boiler_step(obj, burn > 0.0)
+	obj.extra.boom = result == "boom"
+	obj.extra.vent = result == "vent"
+	burn = maxf(burn - 1.0, 0.0)
+	obj.extra.burn = burn
+	return true # as barras (calor, água, pressão) mudam quase sempre

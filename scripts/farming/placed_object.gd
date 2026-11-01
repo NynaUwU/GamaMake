@@ -44,6 +44,8 @@ func setup(kind_: String) -> void:
 		add_child(plant)
 		_plants.append(plant)
 	_build()
+	if Fluids.PORTS.has(kind) and not kind in SteamModels.KINDS:
+		SteamModels.add_ports(self) # flange de latão onde o cano encaixa (carneiro, coletor)
 
 
 func is_farm() -> bool:
@@ -93,7 +95,7 @@ func allows(crop: String) -> bool:
 
 # --- Fogo (acende só em uso) -----------------------------------------------------
 
-const LIT_KINDS := ["campfire", "furnace", "stone_furnace", "oven", "smoker"]
+const LIT_KINDS := ["campfire", "furnace", "stone_furnace", "oven", "smoker", "blast_furnace", "boiler", "distillery"]
 
 
 ## Está acesa agora? Fogueira: tem lenha queimando. Fornalhas: combustível
@@ -105,7 +107,7 @@ func is_lit(clock := -1.0) -> bool:
 	match kind:
 		"campfire":
 			return extra.get("fuel_until", 0.0) > clock
-		"furnace", "stone_furnace":
+		"furnace", "stone_furnace", "blast_furnace", "boiler", "distillery":
 			return extra.get("burn", 0.0) > 0.0
 		"oven":
 			return extra.get("lit_until", 0.0) > clock
@@ -219,6 +221,9 @@ func refresh(clock: float) -> void:
 		return
 	if kind in LIT_KINDS:
 		StationModels.set_lit(self, is_lit(clock))
+	if kind in SteamModels.KINDS:
+		SteamModels.refresh(self)
+		return
 	if kind == "rain_collector":
 		_refresh_collector()
 		return
@@ -268,6 +273,9 @@ func get_interact_text() -> String:
 			return Cooking.text(self, clock)
 		"grindstone", "quern", "pump", "spinning", "loom", "stone_furnace", "oven", "sieve", "sawmill", "water_wheel", "windmill", "shaft", "ram_pump":
 			return Machines.text(self)
+	if kind in SteamModels.KINDS:
+		return SteamModels.text(self)
+	match kind:
 		"rain_collector":
 			var water: float = extra.get("water", 0.0)
 			return "Coletor de chuva: %d de %d garrafas%s" % [int(water), COLLECTOR_CAP, "  [E] encher garrafa" if water >= 1.0 else ""]
@@ -314,6 +322,9 @@ func interact(player: Node) -> void:
 	if Machines.is_crank(kind) or kind in ["oven", "sawmill"]:
 		Machines.tap(player, self)
 		return
+	if kind in SteamModels.KINDS:
+		SteamModels.interact(player, self)
+		return
 	if kind == "ram_pump":
 		var bottle := Cooking.find_any(player.inventory, {&"garrafa": true})
 		if bottle < 0:
@@ -357,6 +368,11 @@ func interact(player: Node) -> void:
 func _build() -> void:
 	if kind == "tree":
 		return # desenho e colisão vêm do crescimento (_refresh_tree)
+	if kind in SteamModels.KINDS:
+		SteamModels.build(kind, self)
+		if kind in LIT_KINDS:
+			StationModels.set_lit(self, false)
+		return
 	if Machines.is_crank(kind) or kind in ["oven", "filter", "smoker", "compost", "shaft", "water_wheel", "windmill", "sawmill", "ram_pump"]:
 		Machines.build(kind, self)
 		if kind in LIT_KINDS:

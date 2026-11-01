@@ -45,7 +45,7 @@ Cada fase só usa o que as anteriores já entregaram.
   - sobrando pouca energia, a máquina anda mais devagar (`velocidade = min(1, oferta / demanda)`).
 - Recalcula só quando a rede muda e, depois disso, a cada 1 s (o vento varia).
 
-### Canos (água e vapor)
+### Canos (água e vapor) *(feito no Tier 3: `scripts/machines/fluids.gd`)*
 - **Rígidos.**
 - Como colocar:
   1. clique numa entrada ou saída;
@@ -53,6 +53,9 @@ Cada fase só usa o que as anteriores já entregaram.
   3. clique no fim do segmento para continuar a seção.
 - Cada segmento é um nó da rede de fluido.
 - Volume e pressão são simulados por componente: a água sai de um tanque ou bomba e vai para os consumidores.
+- Como ficou: água e vapor são redes separadas (a caldeira está nas duas). Por rede, o host divide o que as fontes
+  mandam entre quem precisa; a sobra vai para as caixas d'água e, faltando, elas soltam. Vapor sai da pressão
+  guardada na caldeira e vira força no motor a vapor.
 
 ### Cabos elétricos (Tier 4)
 - **Conectores** colocáveis em parede, pilar ou máquina.
@@ -87,7 +90,7 @@ Cada fase só usa o que as anteriores já entregaram.
    - Rios, roda d'água, moinho de vento.
    - Eixos e correias (grafo de energia rotacional).
    - Serraria, carneiro hidráulico (irrigação).
-5. **Tier 3**
+5. **Tier 3** *(feito)*
    - Canos rígidos e rede de fluido.
    - Alto-forno multibloco (aço).
    - Caldeira (explode sem água), motor a vapor.

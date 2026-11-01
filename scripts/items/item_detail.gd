@@ -15,7 +15,8 @@ const IDS := [&"pistola", &"espada", &"taco", &"martelo", &"talhadeira", &"pa", 
 	&"adubo", &"tabua", &"tronco", &"graveto", &"pedra", &"minerio_ferro", &"minerio_cobre", &"carvao",
 	&"barra_ferro", &"barra_cobre", &"vidro", &"sucata", &"pano", &"argila", &"areia", &"tijolo", &"fibra",
 	&"fio", &"tecido", &"garrafa", &"agua", &"agua_suja", &"capuz", &"capacete", &"colete", &"peitoral",
-	&"calca", &"botas", &"casaco"]
+	&"calca", &"botas", &"casaco",
+	&"barra_aco", &"parafuso", &"engrenagem", &"eixo_aco", &"cano", &"suco", &"oleo", &"alcool", &"bandagem_esteril"]
 
 
 static func has(id: StringName) -> bool:
@@ -73,7 +74,15 @@ static func build(id: StringName, p: Dictionary) -> void:
 		&"fibra": _cotton(p)
 		&"fio": _spool(p)
 		&"tecido": _bolt(p)
-		&"garrafa", &"agua", &"agua_suja": _bottle(p, id)
+		&"garrafa", &"agua", &"agua_suja", &"suco", &"oleo", &"alcool": _bottle(p, id)
+		&"barra_aco": _ingot(p, Color(0.46, 0.49, 0.54))
+		&"parafuso": _bolts(p)
+		&"engrenagem": _gear(p)
+		&"eixo_aco": _steel_shaft(p)
+		&"cano": _pipe_piece(p)
+		&"bandagem_esteril":
+			_bandage(p)
+			_mb(p, Color(0.85, 0.65, 0.25)).box(Vector3(-0.031, 0.0, 0.0), Vector3(0.002, 0.05, 0.05)) # mancha de álcool (iodo)
 		&"capuz": _hood(p)
 		&"capacete": _helmet(p)
 		&"colete", &"peitoral": _vest(p, id == &"peitoral")
@@ -746,7 +755,8 @@ static func _bolt(p: Dictionary) -> void:
 static func _bottle(p: Dictionary, id: StringName) -> void:
 	# O vidro do corpo toma a cor do que tem dentro (vazia: vidro claro).
 	var glass := Color(0.62, 0.72, 0.68)
-	var body: Color = {&"agua": Color(0.55, 0.78, 0.95), &"agua_suja": Color(0.4, 0.42, 0.24)}.get(id, glass)
+	var body: Color = {&"agua": Color(0.55, 0.78, 0.95), &"agua_suja": Color(0.4, 0.42, 0.24), &"suco": Color(0.95, 0.55, 0.15),
+		&"oleo": Color(0.78, 0.62, 0.18), &"alcool": Color(0.82, 0.9, 0.95)}.get(id, glass)
 	_mb(p, body).lathe(PackedVector2Array([Vector2(0.002, 0.0), Vector2(0.04, 0.0), Vector2(0.046, 0.01), Vector2(0.046, 0.16),
 		Vector2(0.032, 0.2)]), 10)
 	_mb(p, glass).lathe(PackedVector2Array([Vector2(0.032, 0.2), Vector2(0.02, 0.215), Vector2(0.018, 0.26), Vector2(0.022, 0.265), Vector2(0.002, 0.268)]), 10)
@@ -859,3 +869,49 @@ static func _coat(p: Dictionary) -> void:
 	for k in 4:
 		_mb(p, ItemModels.DARK_WOOD).box(Vector3(0.02, 0.1 + k * 0.1, 0.112), Vector3(0.02, 0.02, 0.008)) # botões de madeira
 	_mb(p, coat.darkened(0.25)).box(Vector3(0, 0.25, 0.111), Vector3(0.006, 0.48, 0.004)) # abertura
+
+
+# --- Tier 3: peças de metal --------------------------------------------------------
+
+static func _bolts(p: Dictionary) -> void:
+	# Punhado de parafusos: cabeça sextavada, rosca em anéis.
+	var steel := Color(0.44, 0.45, 0.48)
+	for k in 4:
+		var at := Vector3(cos(k * 1.7) * 0.025, 0.0, sin(k * 1.7) * 0.025)
+		var lay := Basis(Vector3.UP, k * 1.1) * Basis(Vector3.BACK, PI / 2)
+		_mb(p, steel.darkened(0.1)).lathe(PackedVector2Array([Vector2(0.002, -0.01), Vector2(0.014, -0.01), Vector2(0.014, 0.0), Vector2(0.002, 0.0)]), 6, lay, at) # cabeça
+		_mb(p, steel).lathe(PackedVector2Array([Vector2(0.006, 0.0), Vector2(0.006, 0.05), Vector2(0.002, 0.055)]), 6, lay, at)
+		for r in 3:
+			_mb(p, steel.lightened(0.15)).lathe(PackedVector2Array([Vector2(0.0062, 0.015 + r * 0.012), Vector2(0.0072, 0.02 + r * 0.012), Vector2(0.0062, 0.025 + r * 0.012)]), 6, lay, at)
+
+
+static func _gear(p: Dictionary) -> void:
+	# Engrenagem de ferro: disco com furos de alívio, cubo e 14 dentes.
+	var iron := ItemModels.IRON.lightened(0.25)
+	_mb(p, iron).lathe(PackedVector2Array([Vector2(0.02, -0.012), Vector2(0.075, -0.012), Vector2(0.075, 0.012), Vector2(0.02, 0.012)]), 14)
+	_mb(p, iron.darkened(0.15)).lathe(PackedVector2Array([Vector2(0.008, -0.02), Vector2(0.024, -0.02), Vector2(0.024, 0.02), Vector2(0.008, 0.02)]), 8) # cubo
+	for k in 14:
+		var a := TAU * k / 14.0
+		_mb(p, iron).box(Vector3(cos(a) * 0.083, 0.0, sin(a) * 0.083), Vector3(0.018, 0.022, 0.014), Basis(Vector3.UP, -a))
+	for k in 4:
+		var a := TAU * k / 4.0 + PI / 4.0
+		_mb(p, ItemModels.DARK).box(Vector3(cos(a) * 0.048, 0.0, sin(a) * 0.048), Vector3(0.018, 0.026, 0.018), Basis(Vector3.UP, -a)) # furos
+
+
+static func _steel_shaft(p: Dictionary) -> void:
+	# Eixo de aço torneado com colares, chaveta e pontas chanfradas (deitado em Z).
+	var steel := Color(0.48, 0.5, 0.54)
+	_mb(p, steel).lathe(PackedVector2Array([Vector2(0.002, -0.22), Vector2(0.016, -0.22), Vector2(0.02, -0.21), Vector2(0.02, 0.21), Vector2(0.016, 0.22), Vector2(0.002, 0.22)]), 8, AXIS_Z)
+	for z in [-0.12, 0.08]:
+		_mb(p, steel.darkened(0.15)).lathe(PackedVector2Array([Vector2(0.02, z), Vector2(0.028, z), Vector2(0.028, z + 0.025), Vector2(0.02, z + 0.025)]), 8, AXIS_Z)
+	_mb(p, ItemModels.DARK).box(Vector3(0, 0.02, 0.17), Vector3(0.006, 0.004, 0.05)) # rasgo da chaveta
+
+
+static func _pipe_piece(p: Dictionary) -> void:
+	# Pedaço de cano de cobre com flange numa ponta e luva na outra (deitado em Z).
+	var copper := ItemModels.COPPER.lightened(0.1)
+	_mb(p, copper).lathe(PackedVector2Array([Vector2(0.024, -0.19), Vector2(0.024, 0.19)]), 8, AXIS_Z)
+	_mb(p, copper.darkened(0.25)).lathe(PackedVector2Array([Vector2(0.016, -0.19), Vector2(0.016, 0.19)]), 8, AXIS_Z) # boca escura por dentro
+	_mb(p, ItemModels.BRASS).lathe(PackedVector2Array([Vector2(0.016, -0.2), Vector2(0.04, -0.2), Vector2(0.04, -0.18), Vector2(0.024, -0.18)]), 8, AXIS_Z) # flange
+	_mb(p, copper.darkened(0.1)).lathe(PackedVector2Array([Vector2(0.024, 0.15), Vector2(0.03, 0.15), Vector2(0.03, 0.2), Vector2(0.016, 0.2)]), 8, AXIS_Z) # luva
+

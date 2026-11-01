@@ -300,6 +300,7 @@ var _throw_cooldown := 0.0
 var hammer: Node3D ## martelo de construção na mão
 var chisel: Node3D ## talhadeira na mão
 var builder: Builder ## fantasma da peça / triângulo mirado (só o jogador local)
+var pipe_tool: PipeTool ## cano na mão: arrasta e solta para pôr um trecho
 var _tool_hit := 0.0 # 1 = acabou de bater com o martelo/talhadeira
 var charger: Node3D # carregador a dínamo na mão (modelo com Lever/Rotor/Needle)
 var _crank_rate := 0.0
@@ -408,6 +409,10 @@ func _ready() -> void:
 		builder.name = "Builder"
 		builder.player = self
 		add_child(builder)
+		pipe_tool = PipeTool.new()
+		pipe_tool.name = "PipeTool"
+		pipe_tool.player = self
+		add_child(pipe_tool)
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -431,7 +436,13 @@ func _unhandled_input(event: InputEvent) -> void:
 		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 		get_viewport().set_input_as_handled()
 	elif health > 0.0 and not ui_blocked:
-		if event.is_action_pressed("attack") and ItemDB.def(inventory.selected_id()).kind == "food":
+		if event.is_action_pressed("attack") and inventory.selected_id() in [&"agua", &"agua_suja"] and _aimed_placed(PlacedManager.POUR_CAP.keys()) != null:
+			SteamModels.pour(self, _aimed_placed(PlacedManager.POUR_CAP.keys())) # despeja na caldeira/destilaria/caixa
+		elif event.is_action_pressed("attack") and inventory.selected_id() == &"cano":
+			pipe_tool.press()
+		elif event.is_action_pressed("attack") and inventory.selected_id() in [&"alcool", &"oleo"] and _aimed_car() != null:
+			_refuel(_aimed_car())
+		elif event.is_action_pressed("attack") and ItemDB.def(inventory.selected_id()).kind == "food":
 			_eat_selected()
 		elif event.is_action_pressed("attack") and ItemDB.def(inventory.selected_id()).kind == "seed":
 			Farming.use(self, String(ItemDB.def(inventory.selected_id()).crop))
@@ -1596,14 +1607,18 @@ func _eat_selected() -> void:
 	var food: float = ItemDB.def(id).get("hunger", 0)
 	var water: float = ItemDB.def(id).get("thirst", 0)
 	var fresh: float = inventory.slots[inventory.selected].get("dur", 1.0)
+	var cures: bool = ItemDB.def(id).get("cure", false)
 	var useful := (heal_amount > 0.0 and health < max_health) or (food > 0.0 and hunger < MAX_HUNGER - 2.0) \
-		or (water > 0.0 and thirst < MAX_THIRST - 2.0)
+		or (water > 0.0 and thirst < MAX_THIRST - 2.0) or (cures and sick_time > 0.0)
 	if not useful:
 		Sfx.play("click", -6.0, 0.6)
 		return
 	inventory.take(inventory.selected, 1)
 	heal(heal_amount)
 	eat(food)
+	if cures and sick_time > 0.0:
+		sick_time = 0.0 # álcool limpou a infecção
+		sick_changed.emit(false)
 	if water > 0.0:
 		drink(water)
 	# Quase estragada (menos de 25% de frescor) também pode fazer mal.
@@ -2192,6 +2207,40 @@ func _use_belt() -> void:
 	(get_parent().get_node("Placed") as PlacedManager).request("belt", [_belt_from.net_id, target.net_id])
 	Sfx.play_at("slap", hit.position, -2.0, 0.8)
 	_belt_from = null
+
+
+## Objeto colocado mirado (de um destes tipos) ou null.
+func _aimed_placed(kinds: Array) -> PlacedObject:
+	var origin := camera.global_position
+	var query := PhysicsRayQueryParameters3D.create(origin, origin - camera.global_basis.z * interact_range * 1.4, MASK_INTERACT, [get_rid()])
+	var hit := get_world_3d().direct_space_state.intersect_ray(query)
+	if hit.is_empty() or not hit.collider is PlacedObject or not hit.collider.kind in kinds:
+		return null
+	return hit.collider
+
+
+## Carro mirado (de fora) ou null.
+func _aimed_car() -> VintageCar:
+	var origin := camera.global_position
+	var query := PhysicsRayQueryParameters3D.create(origin, origin - camera.global_basis.z * interact_range * 1.6, 0xFFFFFFFF, [get_rid()])
+	var hit := get_world_3d().direct_space_state.intersect_ray(query)
+	if hit.is_empty():
+		return null
+	var node: Node = hit.collider
+	while node and not node is VintageCar:
+		node = node.get_parent()
+	return node as VintageCar
+
+
+## Álcool/óleo na mão + clique no carro: abastece.
+func _refuel(car: VintageCar) -> void:
+	if car.fuel >= 0.99:
+		Sfx.play("click", -6.0, 0.6) # tanque cheio
+		return
+	var id := inventory.selected_id()
+	inventory.take(inventory.selected, 1)
+	Net.i.refuel_car(car, VintageCar.FUEL_ITEMS[id])
+	Sfx.play_at("slap", car.global_position + Vector3.UP * 0.8, -2.0, 0.6)
 
 
 ## Adubo na mão: clique num plantador (as próximas 3 colheitas dele rendem o dobro).

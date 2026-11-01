@@ -110,8 +110,9 @@ func _host(action: String, args: Array) -> Array:
 			var b: int = args[2]
 			if not is_storage(key) or a == b or a < 0 or b < 0 or a >= slots.size() or b >= slots.size():
 				return []
-			if key.begins_with("furnace_") and (not slots[a].is_empty() and not Smelting.accepts(b, slots[a].id) \
-					or not slots[b].is_empty() and not Smelting.accepts(a, slots[b].id)):
+			var fkind := Smelting.kind_of_key(key) if key.begins_with("furnace_") else ""
+			if key.begins_with("furnace_") and (not slots[a].is_empty() and not Smelting.accepts(b, slots[a].id, fkind) \
+					or not slots[b].is_empty() and not Smelting.accepts(a, slots[b].id, fkind)):
 				return [] # combustível só no lugar do combustível; resultado não recebe nada
 			_swap(slots, a, b)
 			return [key, slots]
@@ -127,7 +128,7 @@ func _host(action: String, args: Array) -> Array:
 			var id := StringName(args[2])
 			var amount: int = args[3]
 			if not is_storage(key) or index < 0 or index >= slots.size() or not ItemDB.has(id) or amount <= 0 \
-					or (key.begins_with("furnace_") and not Smelting.accepts(index, id)):
+					or (key.begins_with("furnace_") and not Smelting.accepts(index, id, Smelting.kind_of_key(key))):
 				if ItemDB.has(id) and amount > 0:
 					Net.i.give_to(Net.i.request_peer, id, amount) # recusado: devolve
 				return []

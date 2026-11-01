@@ -65,6 +65,17 @@ const ENTRIES := {
 		{"id": "smoker", "name": "Defumador", "place": "smoker", "desc": "Peixe cru vira defumado: enche muito e nunca estraga", "cost": {&"tijolo": 4, &"tabua": 4, &"sucata": 1}},
 		{"id": "compost", "name": "Composteira", "place": "compost", "desc": "Comida estragada e restos viram adubo (colheitas em dobro)", "cost": {&"tabua": 5, &"graveto": 2}},
 	],
+	"Vapor": [
+		{"id": "blast_furnace", "name": "Alto-forno", "place": "blast_furnace", "desc": "Base do alto-forno: empilhe 2 anéis em cima e ligue um eixo com força no fole. Ferro + carvão = aço", "cost": {&"tijolo": 16, &"pedra": 6, &"barra_ferro": 2}},
+		{"id": "blast_stack", "name": "Anel alto-forno", "place": "blast_stack", "desc": "Mire no topo da base do alto-forno (ou de outro anel) para empilhar. Precisa de 2", "cost": {&"tijolo": 10}},
+		{"id": "boiler", "name": "Caldeira", "place": "boiler", "desc": "Fogo + água = vapor para o motor. Água pelo cano (latão à esquerda) ou despejada com garrafa. SECA E QUENTE, EXPLODE", "cost": {&"barra_aco": 4, &"tijolo": 6, &"barra_cobre": 2, &"parafuso": 4}},
+		{"id": "steam_engine", "name": "Motor a vapor", "place": "steam_engine", "desc": "Vapor da caldeira (cano no alto do cilindro) vira força 10 nos eixos (porta à direita)", "cost": {&"barra_aco": 3, &"engrenagem": 2, &"parafuso": 6, &"eixo_aco": 1, &"oleo": 1}},
+		{"id": "water_tank", "name": "Caixa d'água", "place": "water_tank", "desc": "Guarda 60 de água (4 portas). Guarda o que sobra e solta quando falta. [E] enche garrafa", "cost": {&"tabua": 8, &"barra_ferro": 2}},
+		{"id": "sprinkler", "name": "Aspersor", "place": "sprinkler", "desc": "Com água no cano, molha as plantações a 8 m: crescem 50% mais rápido", "cost": {&"barra_cobre": 2, &"parafuso": 1}},
+		{"id": "lathe", "name": "Torno", "place": "lathe", "desc": "Com eixo girando: parafusos, engrenagens, eixo de aço e canos", "cost": {&"tabua": 6, &"barra_ferro": 4, &"sucata": 2}},
+		{"id": "press", "name": "Prensa", "place": "press", "desc": "Com eixo girando: fruta = suco; sementes de algodão ou gordura = óleo", "cost": {&"tabua": 6, &"barra_ferro": 3, &"parafuso": 2}},
+		{"id": "distillery", "name": "Destilaria", "place": "distillery", "desc": "Fogo + água + trigo, fruta ou batata = álcool (combustível dos carros e antisséptico)", "cost": {&"barra_cobre": 6, &"tijolo": 6, &"cano": 2}},
+	],
 	"Armadilhas": [
 		{"id": "spikes", "name": "Estacas", "place": "spikes", "desc": "Machucam a perna de quem passa (30 usos)", "cost": {&"tabua": 4}},
 		{"id": "beartrap", "name": "Arm. de urso", "place": "beartrap", "desc": "Prende o zumbi: atordoa e quebra a perna. [E] arma de novo", "cost": {&"barra_ferro": 2}},
@@ -82,15 +93,21 @@ const PLACE_SIZE := {"pot_small": Vector3(0.46, 0.31, 0.46), "pot_wide": Vector3
 	"stone_furnace": Vector3(1.6, 1.6, 1.1), "spinning": Vector3(1.0, 1.1, 0.4), "loom": Vector3(1.3, 1.2, 0.8),
 	"smoker": Vector3(0.8, 1.4, 0.6), "compost": Vector3(1.0, 0.7, 0.9), "sieve": Vector3(0.95, 0.8, 0.65),
 	"water_wheel": Vector3(1.3, 1.6, 3.2), "windmill": Vector3(1.5, 4.5, 1.5), "shaft": Vector3(2.0, 0.7, 0.5),
-	"sawmill": Vector3(2.1, 0.9, 0.75), "ram_pump": Vector3(0.6, 1.8, 2.0), "stairs": Vector3(1.2, 2.8, 2.8)}
+	"sawmill": Vector3(2.1, 0.9, 0.75), "ram_pump": Vector3(0.6, 1.8, 2.0), "stairs": Vector3(1.2, 2.8, 2.8),
+	"blast_furnace": Vector3(1.6, 1.3, 1.6), "blast_stack": Vector3(1.4, 1.05, 1.4), "boiler": Vector3(2.3, 2.9, 1.15),
+	"steam_engine": Vector3(1.6, 1.4, 1.4), "water_tank": Vector3(1.1, 1.45, 1.1), "sprinkler": Vector3(0.36, 0.8, 0.36),
+	"lathe": Vector3(2.0, 1.1, 0.6), "press": Vector3(1.3, 1.7, 0.8), "distillery": Vector3(1.7, 1.45, 0.9), "pipe": Vector3(0.18, 0.18, 1.0)}
 ## Centro da caixa (vermelha, ao desmontar) quando não é logo acima da origem.
-const PLACE_CENTER := {"bed": Vector3(1.4, 0.1, 1.4), "stairs": Vector3(0, 1.4, -1.4)}
+const PLACE_CENTER := {"bed": Vector3(1.4, 0.1, 1.4), "stairs": Vector3(0, 1.4, -1.4), "steam_engine": Vector3(0.45, 0.7, -0.3),
+	"distillery": Vector3(0.15, 0.72, 0), "boiler": Vector3(0, 1.45, 0), "pipe": Vector3(0, 0, 0.5)}
 ## Shift: deslocamento da origem na grade (a escada tem 3 quadrados de largura: borda na linha da grade).
 const GRID_OFFSET := {"stairs": Vector3(0.2, 0, 0)}
 const PLACE_RADIUS := {"pot_small": 0.35, "pot_wide": 0.7, "bench": 0.9, "campfire": 0.6, "furnace": 0.8, "workbench": 1.0,
 	"spikes": 0.7, "beartrap": 0.35, "barbed": 0.9, "mine": 0.3, "drawboard": 0.6, "chest": 0.6, "rain_collector": 0.5, "dryer": 0.8, "grindstone": 0.5,
 	"quern": 0.5, "oven": 0.7, "pump": 0.35, "filter": 0.45, "stone_furnace": 0.9, "spinning": 0.55, "loom": 0.7, "smoker": 0.5, "compost": 0.6, "sieve": 0.55,
-	"water_wheel": 0.6, "windmill": 0.9, "shaft": 0.3, "sawmill": 1.0, "ram_pump": 0.4, "stairs": 0.6}
+	"water_wheel": 0.6, "windmill": 0.9, "shaft": 0.3, "sawmill": 1.0, "ram_pump": 0.4, "stairs": 0.6,
+	"blast_furnace": 0.9, "blast_stack": 0.1, "boiler": 1.1, "steam_engine": 0.9, "water_tank": 0.6, "sprinkler": 0.25,
+	"lathe": 1.0, "press": 0.7, "distillery": 0.9}
 
 var player: Player
 var selection: Dictionary = ENTRIES["Estrutura"][0]
@@ -297,6 +314,7 @@ func _build_model_ghost(place: String) -> void:
 		return
 	_model_kind = place
 	for child in _model_ghost.get_children():
+		_model_ghost.remove_child(child)
 		child.queue_free()
 	var obj := PlacedObject.new()
 	obj.setup(place)
@@ -495,7 +513,10 @@ func dismantle() -> bool:
 		manager.request_remove(hit.collider)
 		return true
 	if hit and hit.collider is PlacedObject and not hit.collider.kind in ["ground", "tree", "airdrop"]:
-		_refund(entry_for("place", hit.collider.kind).get("cost", {}))
+		if hit.collider.kind == "pipe":
+			player.inventory.add(&"cano", Fluids.pipe_cost(hit.collider.extra.get("len", 1.0))) # cano volta inteiro
+		else:
+			_refund(entry_for("place", hit.collider.kind).get("cost", {}))
 		_placed().request("remove", [hit.collider.net_id])
 		return true
 	return false
@@ -584,6 +605,8 @@ func _compute_place() -> Dictionary:
 		var valid: bool = grid.valid and not placed.bed_at(grid.cell)
 		return {"xform": BuildPiece.piece_transform(BuildPiece.Kind.FLOOR, grid.cell, 0), "valid": valid}
 	var hit := _ray()
+	if selection.place == "blast_stack":
+		return _compute_stack(placed, hit)
 	if hit.is_empty() or hit.normal.y < 0.7 or hit.collider is PlacedObject and hit.collider.kind != "bed":
 		return {}
 	var xform := Transform3D(Basis(Vector3.UP, player.rotation.y), hit.position)
@@ -596,6 +619,16 @@ func _compute_place() -> Dictionary:
 	var valid := not placed.occupied(xform.origin, PLACE_RADIUS[selection.place]) \
 			and player.global_position.distance_to(xform.origin) > 0.6
 	return {"xform": xform, "valid": valid}
+
+
+## Anel do alto-forno: vai em cima da base ou do anel mirado, alinhado com ele.
+func _compute_stack(placed: PlacedManager, hit: Dictionary) -> Dictionary:
+	if hit.is_empty() or not hit.collider is PlacedObject or not hit.collider.kind in ["blast_furnace", "blast_stack"]:
+		return {}
+	var below: PlacedObject = hit.collider
+	var height := Fluids.BLAST_BASE_H if below.kind == "blast_furnace" else Fluids.BLAST_RING_H
+	var xform := Transform3D(below.global_basis, below.global_position + Vector3.UP * height)
+	return {"xform": xform, "valid": placed.stack_spot_free(xform.origin)}
 
 
 ## Shift: gira em passos de 90° e prende na grade das peças (0,4 m), igual ao
