@@ -13,7 +13,12 @@ var dur := 1.0 ## durabilidade (0..1) de arma/ferramenta/roupa gasta
 
 
 func _ready() -> void:
+	# Item no chão não esbarra em gente nem bicho (jogador, zumbis, animais, ragdoll,
+	# carros): só cai e para no mundo. Fica na camada "interagível" para a mira do [E].
+	collision_layer = 1 << 5
+	collision_mask = 1
 	add_to_group("interactable")
+	WorldFloor.track(self) # se mexendo: a barreira do fundo do mundo confere
 	if net_key == "" and owner != null:
 		net_key = "s:" + str(owner.get_path_to(self))
 	Net.i.register_pickup(self)

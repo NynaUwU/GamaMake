@@ -25,6 +25,7 @@ func _init() -> void:
 	await _items()
 	await _animal_drop()
 	_zombie_loot()
+	await _perf()
 	quit()
 
 
@@ -131,3 +132,44 @@ func _zombie_loot() -> void:
 				counts[i.item_id] = counts.get(i.item_id, 0) + 1
 				tally += 1
 	print("1000 zumbis mortos soltaram: %s (roupas=%d)" % [counts, counts.get(&"capuz", 0) + counts.get(&"calca", 0) + counts.get(&"botas", 0) + counts.get(&"colete", 0)])
+
+
+## Custo da barreira com muitos itens: só os que se mexem são conferidos; parados
+## 15 s viram estáticos. Item não esbarra no jogador.
+func _perf() -> void:
+	var floor_node: WorldFloor = main.get_node("WorldFloor")
+	var base := player.global_position + Vector3(0, 0, 8)
+	for k in 1500:
+		var p := base + Vector3(randf_range(-12, 12), 0, randf_range(-12, 12))
+		p.y = _ground(p) + randf_range(0.3, 2.0)
+		Net.i.drop_item([&"pedra", &"graveto", &"sucata"][k % 3], 1, Transform3D(Basis(), p), Vector3.ZERO)
+	await _wait(5)
+	var t0 := Time.get_ticks_usec()
+	floor_node._timer = 0.0
+	floor_node._physics_process(0.016)
+	floor_node._physics_process(0.016)
+	var first := (Time.get_ticks_usec() - t0) / 2000.0
+	var all_items := get_nodes_in_group("interactable").filter(func(i): return i is PickupItem)
+	print("itens no mapa=%d, na lista da barreira=%d, custo por quadro com tudo caindo: %.2f ms" % [all_items.size(), floor_node.tracked_count(), first])
+	await _wait(60 * 4)
+	var worst := 0.0
+	for k in 30:
+		t0 = Time.get_ticks_usec()
+		floor_node._physics_process(0.016)
+		worst = maxf(worst, (Time.get_ticks_usec() - t0) / 1000.0)
+	print("4 s depois (itens assentados): pior quadro da barreira %.2f ms, na lista=%d" % [worst, floor_node.tracked_count()])
+	await _wait(60 * 13)
+	worst = 0.0
+	for k in 30:
+		t0 = Time.get_ticks_usec()
+		floor_node._physics_process(0.016)
+		worst = maxf(worst, (Time.get_ticks_usec() - t0) / 1000.0)
+	var frozen := all_items.filter(func(i): return is_instance_valid(i) and i.freeze).size()
+	print("17 s depois: pior quadro da barreira %.3f ms, na lista=%d, estáticos=%d de %d" % [worst, floor_node.tracked_count(), frozen, all_items.size()])
+	# Jogador anda por cima/através dos itens sem esbarrar.
+	var start := base + Vector3(0, 0, 0)
+	start.y = _ground(start) + 0.1
+	player.global_position = start
+	await _wait(10)
+	var hit := player.test_move(player.global_transform, Vector3(0, 0, 6))
+	print("jogador andando 6 m no meio de 1500 itens esbarra em algum? %s (camada do item=%d, máscara=%d)" % [hit, all_items[0].collision_layer, all_items[0].collision_mask])

@@ -14,8 +14,8 @@ emission_enabled = true
 emission = Color(0.25, 0.2, 0.05, 1)
 
 [node name="PickupItem" type="RigidBody3D"]
-collision_layer = 33
-collision_mask = 15
+collision_layer = 32
+collision_mask = 1
 mass = 1.0
 script = ExtResource("1_pickup")
 

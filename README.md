@@ -64,7 +64,9 @@ Martelo → aba **Vapor**. Ordem natural: torno (ferro) → parafusos/engrenagen
 
 ## Não cair pelo mundo e saque mais raro (rodada de feedback)
 - **Descer do carro tombado ou capotado:** o jogador desce num ponto livre em volta do carro (porta, outro lado, atrás, frente, mais longe, por cima), sempre em cima do chão e só onde o corpo cabe. Antes descia dentro do terreno e caía pelo mundo. `Player._safe_exit`.
-- **Barreira no fundo do mundo** (`scripts/world/world_floor.gd`): 4x por segundo, quem passou de y = -60 ou ficou mais de 4 m abaixo do terreno volta **para cima da terra** (ou boiando na água), parado. Vale para o jogador, zumbis de pé, bichos, itens no chão e carros. Item que cai onde o chão ainda não tem colisão (longe de todo mundo) fica congelado até o chão aparecer.
+- **Barreira no fundo do mundo** (`scripts/world/world_floor.gd`): quem passou de y = -60 ou ficou mais de 4 m abaixo do terreno volta **para cima da terra** (ou boiando na água), parado. Vale para o jogador, zumbis de pé, bichos, itens no chão e carros. Item que cai onde o chão ainda não tem colisão (longe de todo mundo) fica congelado até o chão aparecer.
+  - **Leve:** só calcula a altura do terreno de quem está **caindo**; itens só entram na lista enquanto **se mexem**, conferidos em pedaços (1/15 da lista por quadro, sem picos), e **parados por 15 s viram estáticos** (saem da física e da lista). 1500 itens caindo juntos: pior quadro ~0,6 ms; depois de assentarem, ~0,1 ms.
+- **Itens no chão não esbarram em gente nem bicho:** jogador, zumbis, animais e ragdolls passam por eles; o item só colide com o mundo (chão, construções, objetos). Continua dando para mirar e pegar com [E].
 - **Drop de bicho não atravessa mais o chão:** o item nascia dentro da caixa do bicho morto e era empurrado para baixo. Agora o bicho sai da física antes de soltar, o item nasce acima do corpo, nunca abaixo do terreno, e com detecção contínua (não atravessa rápido).
 - **Zumbis não soltam mais roupa**, e soltam bem menos: 10% uma sucata ou 8% um pano (antes 30% + 30% + 12% de roupa). Arma de zumbi: 2% (antes 4%).
 

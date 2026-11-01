@@ -5,31 +5,66 @@ extends Node
 ## atravessou o chão (mais de UNDER metros abaixo do terreno naquele ponto) e põe
 ## de volta EM CIMA da terra (ou da água), parado:
 ##   - o jogador daqui (cada um cuida do seu)
-##   - host: zumbis de pé, bichos e itens no chão; carros simulados aqui
-## Item que cai onde o terreno ainda não tem colisão (longe de todo mundo) fica
-## congelado no lugar até o pedaço de chão aparecer.
+##   - host: zumbis de pé, bichos e carros simulados aqui
+##   - itens no chão (cada jogador os seus)
+## Barato: só olha a altura do terreno de quem está CAINDO (velocidade para baixo);
+## parado/andando no chão é só uma leitura de velocidade.
+## Itens: só os que se mexem ficam na lista (PickupItem se registra ao nascer).
+## Parado por STILL_TIME segundos, o item vira estático (congelado, fora da física)
+## e sai da lista. Item que cai onde o terreno ainda não tem colisão (longe de todo
+## mundo) fica congelado até o pedaço de chão aparecer.
 
 const FLOOR_Y := -60.0 ## abaixo do fundo do mar mais fundo
 const UNDER := 4.0 ## metros abaixo do terreno = atravessou o chão
 const LIFT := 1.2
+const STILL_TIME := 15.0 ## parado esse tempo: o item vira estático
+const STILL_SPEED := 0.08
+const FALL_SPEED := -2.5 ## caindo mais rápido que isso: vale conferir a altura do terreno
+
+static var i: WorldFloor
 
 var rescued := 0 ## quantos já salvou (testes)
 var _timer := 0.0
+var _items := {} ## PickupItem se mexendo -> segundos parado
+var _waiting := {} ## PickupItem congelado esperando o chão (colisão) aparecer
+var _keys: Array = [] # volta atual pela lista de itens (um pedaço por quadro: sem picos)
+var _cursor := 0
+var _terrain: TerrainWorld
+const SLICES := 15 ## cada item é visto a cada 15 quadros (~0,25 s)
+
+
+func _enter_tree() -> void:
+	i = self
+
+
+func _exit_tree() -> void:
+	if i == self:
+		i = null
+
+
+## Item novo (nasceu, caiu de um bicho, foi largado): entra na lista dos que se mexem.
+static func track(item: PickupItem) -> void:
+	if i:
+		i._items[item] = 0.0
+
+
+func tracked_count() -> int:
+	return _items.size()
 
 
 func _physics_process(delta: float) -> void:
+	var world := get_parent()
+	if _terrain == null:
+		_terrain = world.get_node_or_null("Terrain") as TerrainWorld
+	_item_slice(_terrain)
 	_timer -= delta
 	if _timer > 0.0:
 		return
 	_timer = 0.25
-	var world := get_parent()
-	var terrain := world.get_node_or_null("Terrain") as TerrainWorld
+	var terrain := _terrain
 	var player = world.get("player")
 	if player is Node3D and player.get("vehicle") == null:
 		_check_body(player, terrain)
-	for item in get_tree().get_nodes_in_group("interactable"):
-		if item is PickupItem:
-			_check_item(item, terrain)
 	if not Net.i.is_host():
 		return
 	for z in get_tree().get_nodes_in_group("enemy"):
@@ -62,7 +97,11 @@ static func fell(terrain: TerrainWorld, at: Vector3) -> bool:
 
 
 func _check_body(body: Node3D, terrain: TerrainWorld) -> void:
-	if not fell(terrain, body.global_position):
+	var p0 := body.global_position
+	var falling: bool = body is CharacterBody3D and body.velocity.y < FALL_SPEED
+	if p0.y >= FLOOR_Y and not falling:
+		return # em pé/andando no chão: nem calcula a altura do terreno
+	if not fell(terrain, p0):
 		return
 	var p := body.global_position
 	body.global_position = Vector3(p.x, surface_at(terrain, p.x, p.z) + LIFT, p.z)
@@ -71,25 +110,77 @@ func _check_body(body: Node3D, terrain: TerrainWorld) -> void:
 	rescued += 1
 
 
-func _check_item(item: PickupItem, terrain: TerrainWorld) -> void:
-	var p := item.global_position
-	if item.has_meta("floor_frozen"):
-		if _has_ground(terrain, p):
-			item.remove_meta("floor_frozen")
+## Um pedaço da lista de itens por quadro (1/SLICES): mil itens caindo juntos não
+## travam o quadro. Ao fim de cada volta confere os que esperam o chão aparecer.
+func _item_slice(terrain: TerrainWorld) -> void:
+	if _cursor >= _keys.size():
+		_keys = _items.keys()
+		_cursor = 0
+		_check_waiting(terrain)
+		if _keys.is_empty():
+			return
+	var count := ceili(_keys.size() / float(SLICES))
+	for k in count:
+		if _cursor >= _keys.size():
+			break
+		_check_item(_keys[_cursor], terrain)
+		_cursor += 1
+
+
+## Confere a lista toda de uma vez (testes).
+func _check_items(terrain: TerrainWorld) -> void:
+	for item in _items.keys():
+		_check_item(item, terrain)
+	_check_waiting(terrain)
+
+
+func _check_item(item, terrain: TerrainWorld) -> void:
+	if not _items.has(item):
+		return
+	if not is_instance_valid(item) or item.is_queued_for_deletion() or not item.is_inside_tree() or item.freeze:
+		_items.erase(item)
+		return
+	var velocity: Vector3 = item.linear_velocity
+	var p: Vector3 = item.global_position
+	if p.y < FLOOR_Y or (velocity.y < FALL_SPEED and fell(terrain, p)):
+		_rescue_item(item, terrain)
+		return
+	if velocity.length() < STILL_SPEED:
+		_items[item] += 0.25
+		if _items[item] >= STILL_TIME:
+			item.freeze_mode = RigidBody3D.FREEZE_MODE_STATIC
+			item.freeze = true # parado: vira estático e sai da lista
+			_items.erase(item)
+	else:
+		_items[item] = 0.0
+
+
+func _check_waiting(terrain: TerrainWorld) -> void:
+	for item in _waiting.keys():
+		if not is_instance_valid(item) or item.is_queued_for_deletion():
+			_waiting.erase(item)
+		elif _has_ground(terrain, item.global_position):
+			_waiting.erase(item)
 			item.freeze = false
-		return
-	if not fell(terrain, p):
-		return
+			_items[item] = 0.0
+
+
+func _rescue_item(item: PickupItem, terrain: TerrainWorld) -> void:
+	var p := item.global_position
 	item.global_position = Vector3(p.x, surface_at(terrain, p.x, p.z) + 0.4, p.z)
 	item.linear_velocity = Vector3.ZERO
 	item.angular_velocity = Vector3.ZERO
 	if not _has_ground(terrain, p):
+		item.freeze_mode = RigidBody3D.FREEZE_MODE_STATIC
 		item.freeze = true # chão ainda sem colisão aqui: espera parado
-		item.set_meta("floor_frozen", true)
+		_items.erase(item)
+		_waiting[item] = true
 	rescued += 1
 
 
 func _check_car(car: VintageCar, terrain: TerrainWorld) -> void:
+	if car.global_position.y >= FLOOR_Y and car.linear_velocity.y > FALL_SPEED:
+		return
 	if not fell(terrain, car.global_position):
 		return
 	var p := car.global_position
