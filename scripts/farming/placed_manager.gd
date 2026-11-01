@@ -25,8 +25,31 @@ func _process(delta: float) -> void:
 		_collect_rain()
 		_smelt()
 		_power()
+		_expire_airdrops()
 		for obj: PlacedObject in objects.values():
 			obj.refresh(clock)
+
+
+## Hora absoluta do jogo (dia*24 + hora) em que o próximo 8h da manhã chega.
+static func airdrop_expiry() -> float:
+	if DayNight.i == null:
+		return INF
+	var now: float = DayNight.i.day * 24.0 + DayNight.i.hour
+	var eight: float = floorf((now - 8.0) / 24.0 + 1.0) * 24.0 + 8.0
+	return eight
+
+
+## Host: às 8h o airdrop some, com o que tiver dentro.
+func _expire_airdrops() -> void:
+	if not Net.i.is_host() or DayNight.i == null:
+		return
+	var now: float = DayNight.i.day * 24.0 + DayNight.i.hour
+	for obj: PlacedObject in objects.values():
+		if obj.kind == "airdrop" and now >= obj.extra.get("expire", INF):
+			if ContainerManager.i:
+				ContainerManager.i.contents.erase("placed_%d" % obj.net_id)
+			_remove(obj.net_id)
+			request("vanish", [obj.net_id]) # some para todos
 
 
 ## Host, 1x por segundo: a rede de energia (Power) divide a força e avança as máquinas.
@@ -134,7 +157,7 @@ func host_apply(action: String, args: Array) -> Array:
 			if kind not in ["pot_small", "pot_wide", "bed", "ground", "bench", "workbench", "furnace", "campfire",
 					"spikes", "beartrap", "barbed", "mine", "drawboard", "chest", "flag", "rain_collector", "dryer",
 					"grindstone", "quern", "pump", "spinning", "loom", "stone_furnace", "oven", "filter", "smoker", "compost", "sieve",
-					"shaft", "water_wheel", "windmill", "sawmill", "ram_pump"]:
+					"shaft", "water_wheel", "windmill", "sawmill", "ram_pump", "stairs"]:
 				return []
 			if kind in ["water_wheel", "ram_pump"] and not river_bank(xform.origin):
 				return [] # só na beira de um rio
@@ -199,6 +222,8 @@ func host_apply(action: String, args: Array) -> Array:
 				return []
 			var extra := Machines.host_crank(obj, float(args[1]), clock)
 			return [] if extra.is_empty() else [args[0], extra]
+		"vanish":
+			return args if Net.i.request_peer == Net.i.my_id() else [] # só o host manda (o objeto já saiu nele)
 		"draw_water":
 			# Encheu uma garrafa no coletor (a garrafa vazia já saiu da mochila de quem pediu).
 			var obj: PlacedObject = objects.get(args[0])
@@ -215,6 +240,7 @@ func host_apply(action: String, args: Array) -> Array:
 			var id := _next_id
 			_next_id += 1
 			_spawn(id, "airdrop", args[0])
+			objects[id].extra.expire = airdrop_expiry()
 			if ContainerManager.i:
 				var slots := ContainerManager.empty_slots(ContainerManager.STORAGE_SLOTS)
 				for k in 2:
@@ -451,6 +477,9 @@ func apply_remote(action: String, args: Array) -> void:
 			var obj: PlacedObject = objects.get(args[0])
 			if obj:
 				obj.extra = args[1].duplicate()
+		"vanish":
+			if objects.has(args[0]):
+				_remove(args[0])
 		"draw_water":
 			var obj: PlacedObject = objects.get(args[0])
 			if obj:

@@ -9,8 +9,9 @@ extends Node3D
 ##   norte (-Z)  -> inverno (morros com neve, pinheiros)
 ##   meio        -> planícies (grama, árvores) com cadeias de montanhas
 ##   sul (+Z)    -> deserto grande e quase plano (dunas baixas, cactos)
-## O centro (0, 0) é achatado para a cidade inicial. As bordas sobem em
-## montanhas para fechar o mapa.
+## O centro (0, 0) é achatado para a cidade inicial. O mapa é uma grande ilha:
+## perto das bordas o chão desce em praia até o mar (SEA_LEVEL), e os rios
+## correm até ele.
 ##
 ## Desempenho: alturas, cores e triângulos de cada chunk são calculados em
 ## threads (WorkerThreadPool); a thread principal só cria os nós prontos.
@@ -41,6 +42,10 @@ var _noise_ridge := FastNoiseLite.new()
 var _noise_dunes := FastNoiseLite.new()
 var _noise_bumps := FastNoiseLite.new()
 var _noise_detail := FastNoiseLite.new()
+var _noise_coast := FastNoiseLite.new()
+const SEA_LEVEL := -1.0
+const COAST := 0.86 ## raio da ilha (fração da metade do mapa), antes do recorte da costa
+const SEA_BAND := 110.0 ## até onde (metros terra adentro) a água do mar pode chegar
 var cities: Array = [] ## cidades geradas pela semente (CityGen): centro, raio, tamanho, altura, lotes, ruas
 var avenues: Array = [] ## avenidas entre as cidades maiores ({a, b, width, kind})
 var race_track: Array = [] ## segmentos de asfalto da pista de corrida (RaceTrack)
@@ -65,12 +70,13 @@ func _ready() -> void:
 	if Net.i.world_seed != 0:
 		seed = Net.i.world_seed # multiplayer: todo mundo gera o mesmo mapa
 	_setup_noise()
-	cities = CityGen.place_cities(self)
-	avenues = CityGen.connect_cities(cities)
-	_avenue_grid = _index_roads(avenues)
+	# A pista vem primeiro (precisa de um deserto plano e livre); as cidades desviam dela.
 	track = RaceTrack.plan(self)
 	if not track.is_empty():
 		race_track = track.segments
+	cities = CityGen.place_cities(self)
+	avenues = CityGen.connect_cities(cities)
+	_avenue_grid = _index_roads(avenues)
 	lakes = Lakes.place(self)
 	rivers = Rivers.place(self)
 	_river_grid = Rivers.index(rivers)
@@ -91,6 +97,7 @@ func _setup_noise() -> void:
 		[_noise_dunes, 1.0 / 75.0, FastNoiseLite.TYPE_SIMPLEX_SMOOTH, 2],
 		[_noise_bumps, 1.0 / 55.0, FastNoiseLite.TYPE_SIMPLEX_SMOOTH, 2],
 		[_noise_detail, 1.0 / 25.0, FastNoiseLite.TYPE_SIMPLEX, 2],
+		[_noise_coast, 1.0 / 260.0, FastNoiseLite.TYPE_SIMPLEX_SMOOTH, 3],
 	]
 	for i in setups.size():
 		var noise: FastNoiseLite = setups[i][0]
@@ -118,8 +125,6 @@ func biome_at(x: float, z: float) -> Dictionary:
 	var depth := smoothstep(0.5, 0.92, rugged) * hot_cut * hot_cut
 	var dist := Vector2(x, z).length()
 	depth *= smoothstep(town_radius * 2.4, town_radius * 9.0, dist) # sem picos perto da cidade
-	mountain = maxf(mountain, _border(x, z))
-	depth = maxf(depth, _border(x, z))
 	mountain *= 1.0 - _town_mask(x, z)
 	return {
 		"desert": desert * (1.0 - mountain), "plains": temperate * (1.0 - mountain),
@@ -264,16 +269,41 @@ func raw_height(x: float, z: float, biome: Dictionary) -> float:
 		base /= total_flat
 	var h: float = lerpf(base, mountain_h + base * 0.3, biome.mountain)
 	h += _noise_detail.get_noise_2d(x, z) * 0.4
-	return lerpf(-0.08, h, 1.0 - _town_mask(x, z))
+	h = lerpf(-0.08, h, 1.0 - _town_mask(x, z))
+	return _coast_shape(x, z, h)
+
+
+## Ilha: perto da costa o chão desce em rampa até o fundo do mar.
+func _coast_shape(x: float, z: float, h: float) -> float:
+	var d := coast_distance(x, z)
+	if d > 180.0:
+		return h
+	var seabed := maxf(SEA_LEVEL + d * 0.06, SEA_LEVEL - 22.0) # praia suave, depois fundo
+	return lerpf(seabed, h, smoothstep(-30.0, 180.0, d))
+
+
+## Metros até a costa (positivo = terra adentro, negativo = mar). Forma de
+## quadrado arredondado (cabe o mapa todo) com a costa recortada pelo ruído.
+func coast_distance(x: float, z: float) -> float:
+	var half := world_size * 0.5
+	var ax := absf(x) / half
+	var az := absf(z) / half
+	var e := pow(pow(ax, 5.0) + pow(az, 5.0), 0.2)
+	var wobble := _noise_coast.get_noise_2d(x, z) * 0.07
+	return (COAST + wobble - e) * half
+
+
+## Ponto no mar (água salgada, perto da costa e abaixo do nível)?
+func sea_at(x: float, z: float, h := NAN) -> bool:
+	if coast_distance(x, z) > SEA_BAND:
+		return false
+	if is_nan(h):
+		h = height_at(x, z)
+	return h < SEA_LEVEL
 
 
 func _town_mask(x: float, z: float) -> float:
 	return 1.0 - smoothstep(town_radius, town_radius * 2.4, Vector2(x, z).length())
-
-
-func _border(x: float, z: float) -> float:
-	var edge := maxf(absf(x), absf(z)) / (world_size * 0.5)
-	return smoothstep(0.9, 1.0, edge)
 
 
 # --- Chunks ------------------------------------------------------------------
@@ -489,6 +519,9 @@ func map_sample(x: float, z: float) -> Array:
 	var river := river_at(x, z)
 	if not river.is_empty() and h < river.level:
 		return [Color(0.28, 0.46, 0.6), h]
+	if sea_at(x, z, h):
+		var deep := clampf((SEA_LEVEL - h) / 18.0, 0.0, 1.0)
+		return [Color(0.3, 0.5, 0.62).lerp(Color(0.1, 0.22, 0.38), deep), h]
 	return [_color_for(x, z, h, biome), h]
 
 
@@ -518,6 +551,13 @@ func _color_for(x: float, z: float, h: float, biome: Dictionary) -> Color:
 		# Margem de areia molhada; fundo verde de alga (mais forte no fundo).
 		var deep := clampf((lake.level - h) / lake.depth, 0.0, 1.0)
 		color = color.lerp(Color(0.46, 0.44, 0.3), under * 0.7).lerp(Color(0.24, 0.46, 0.16), clampf(under * 1.4, 0.0, 1.0) * (0.6 + deep * 0.4))
+	# Praia: areia na beira do mar (e areia molhada/escura debaixo d'água).
+	var coast := coast_distance(x, z)
+	if coast < SEA_BAND and h < SEA_LEVEL + 2.5:
+		var beach := 1.0 - smoothstep(SEA_LEVEL + 1.2, SEA_LEVEL + 2.5, h)
+		color = color.lerp(COLOR_SAND, beach)
+		if h < SEA_LEVEL:
+			color = color.lerp(Color(0.5, 0.46, 0.34), clampf((SEA_LEVEL - h) / 4.0, 0.0, 1.0))
 	var jitter := _noise_detail.get_noise_2d(x * 3.0, z * 3.0) * 0.06
 	return Color(color.r + jitter, color.g + jitter, color.b + jitter)
 

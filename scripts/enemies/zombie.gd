@@ -906,12 +906,15 @@ func _equip_weapon(id: StringName) -> void:
 
 
 ## Solta a arma no chão (morreu, ou o braço direito quebrou/saiu).
+const WEAPON_DROP_CHANCE := 0.04 ## a arma do zumbi quase sempre quebra/some ao cair
+
+
 func _drop_weapon() -> void:
 	if _held_weapon == null:
 		return
 	_rep("unequip", [])
-	if not puppet:
-		Net.i.drop_item(weapon_id, 1, _held_weapon.global_transform, Vector3.ZERO)
+	if not puppet and Net.i.is_host() and randf() < WEAPON_DROP_CHANCE:
+		Net.i.drop_item(weapon_id, 1, _held_weapon.global_transform, Vector3.ZERO) # raramente a arma sobra inteira
 	_held_weapon.queue_free()
 	_held_weapon = null
 	weapon_id = &""

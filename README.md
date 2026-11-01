@@ -24,6 +24,17 @@ reação física a golpes e ragdoll (estilo Dying Light), visual de PC dos anos 
 - Os outros jogadores aparecem com o nome em cima, o item da mão, a lanterna acesa e uma bolinha
   azul no minimapa/mapa. Em cima, no meio da tela, aparece quem está online.
 
+## Ilha, mar, construção e carros (rodada de feedback)
+- **O mapa é uma grande ilha:** perto das bordas o chão desce em praia de areia até o **mar** (costa recortada, fundo descendo até ~22 m). Dá para nadar; o mar vai até o horizonte e ninguém sai do mapa. Cidades, lagos e a pista ficam sempre em terra; zumbis e hordas não nascem na água. `TerrainWorld.coast_distance`, `WaterManager._build_sea`.
+- **Rios até o mar:** nascem em lagos (ou em nascentes nos morros) e descem até desaguar no mar, desviando de cidades, avenidas e da pista (rio sem saída é descartado). A ligação com o lago não tem mais barranco de terra (a várzea só rebaixa o chão).
+- **Erro ao agachar no rio** corrigido (o efeito debaixo d'água pedia a profundidade de um lago).
+- **Construção:** o fantasma do martelo agora é o **modelo de verdade** translúcido (verde = cabe, vermelho = não cabe). **Segure Shift** para alinhar com a grade do piso construído (0,4 m e 90°); **desmontar passou para Ctrl + clique**. Nova **escada** (Estrutura: 6 tábuas + 2 gravetos): sobe um andar (2,8 m) andando, com corrimão.
+- **Carros com marchas:** 5 marchas automáticas que dão para sentir (tranco e corte do motor na troca, giro do motor cai); a 1ª tem força para subir rampa de 20° saindo parado. Em curva fechada rápida os pneus perdem aderência e o carro **derrapa** em vez de tombar (barra anti-rolagem).
+- **Airdrop some às 8h** da manhã seguinte, com ou sem coisas dentro.
+- **Armas dos zumbis** só caem raramente (4%).
+- **Receitas:** martelo na mão (1 tronco + 2 tábuas); talhadeira na mesa (2 tábuas + 2 sucatas).
+- **Painel da plantação** do tamanho dos itens que tem (não cresce mais para fora da tela).
+
 ## Animais e frio
 - **Animais** (`scripts/animals/`, em blocos como todo ser vivo): **cervo** (foge de longe, rápido), **coelho** (foge em zigue-zague) e **javali** (apanhou, avança em quem bateu e morde por 15 s). Aparecem a 60–110 m dos jogadores conforme o bioma (planície: os três; neve: cervo e coelho; deserto: coelho raro; nunca nas cidades), até 10 por vez, e somem longe. Sobem degraus como o jogador. Host simula, os outros veem cópias; golpe/tiro/lança funcionam igual aos zumbis.
 - **Caça:** carne crua (faz mal crua, estraga em 8 min), pele, gordura (javali). Carne na fogueira → **carne assada**; no secador ou defumador → **carne seca** (nunca estraga). **Pele no secador → couro.** Couro: 2 correias, botas; **casaco de pele** (3 peles + 2 couros): o mais quente. Gordura queima na fogueira (3 min).
@@ -32,7 +43,7 @@ reação física a golpes e ragdoll (estilo Dying Light), visual de PC dos anos 
 - **Rios:** a margem ficou mais plana (~8 m quase no nível da água, depois sobe suave).
 
 ## Máquinas — Tier 2 (energia natural: a automação começa)
-- **Rios** (`scripts/world/rivers.gd`): 5 rios sorteados pela semente, nascendo em lagos e descendo o relevo (~700 m). O terreno é cavado num leito, a água é uma faixa com o mesmo shader dos lagos, aparecem no mapa/minimapa, dá para nadar e encher garrafa (água suja).
+- **Rios** (`scripts/world/rivers.gd`): 5 rios sorteados pela semente, nascendo em lagos e descendo o relevo até o mar. O terreno é cavado num leito, a água é uma faixa com o mesmo shader dos lagos, aparecem no mapa/minimapa, dá para nadar e encher garrafa (água suja).
 - **Rede de energia** (`scripts/machines/power.gd`): geradores → eixos/correias → máquinas. O host recalcula 1x por segundo: oferta (geradores) dividida pela demanda (máquinas com material); pouca energia = tudo mais devagar. As peças giram no ritmo da rede.
   - **Portas de latão:** as peças se ligam quando as portas se encostam. O **eixo** (martelo → Máquinas) encaixa sozinho na porta mais perto ao colocar (até 1,2 m), alinhado com ela.
   - **Correia** (mesa: 2 tecidos + 2 fios): com ela na mão, clique numa peça de energia e depois em outra (até 8 m): ficam ligadas, sem precisar alinhar.
@@ -248,7 +259,7 @@ reação física a golpes e ragdoll (estilo Dying Light), visual de PC dos anos 
 
 ### Construção custa material
 - Parede/piso/teto: 4 tábuas · pilar: 1 tábua + 1 pedra · janela: 2 gravetos + 1 vidro · porta: 3 tábuas + 1 sucata.
-- O menu do martelo mostra o custo (tem/precisa) e deixa o slot avermelhado quando falta. Shift + clique (desmontar) **devolve metade**.
+- O menu do martelo mostra o custo (tem/precisa) e deixa o slot avermelhado quando falta. Ctrl + clique (desmontar) **devolve metade**.
 
 ### Fome
 - Barra laranja embaixo da stamina. Cai em ~22 min (mais rápido correndo).
@@ -292,10 +303,11 @@ Todos os sons são **sintetizados no código** ao abrir o jogo (sem arquivos de 
   No inventário (Tab), **segure Shift** com o mouse em cima de um item para ver os controles dele.
 - **Grade invisível** de **0,4 m** no mundo inteiro. Paredes, pisos e tetos têm **2,8 m**
   (7 x 7 quadrados de 0,4 m); o pilar ocupa 1 quadrado e tem 2,8 m de altura.
-- **Martelo:** mostra a peça "fantasma" (verde = cabe, vermelho = já tem peça ali).
+- **Martelo:** mostra a peça "fantasma" (verde = cabe, vermelho = já tem peça ali); objetos aparecem com o modelo de verdade translúcido.
   - Clique constrói · **segure o botão direito** para abrir o menu de construção (abas +
     slots com foto de cada peça, como o inventário; solte em cima do slot) · **R** gira a parede ·
-    **Shift + clique** desmonta a peça (ou tira a janela/porta) mirada. Ao soltar o botão direito
+    **Ctrl + clique** desmonta a peça (ou tira a janela/porta) mirada · **segure Shift** para
+    alinhar objetos com a grade do piso (passos de 0,4 m e giro de 90°). Ao soltar o botão direito
     o menu escolhe o slot que estiver embaixo do mouse.
   - Encaixes: parede mirando um piso vai para a borda dele; mirando o topo de uma parede empilha;
     piso mirando a borda de outro piso vai para o lado; teto mirando o topo de uma parede cobre o

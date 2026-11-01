@@ -74,7 +74,7 @@ static func plan(world: TerrainWorld) -> Dictionary:
 			var local := Vector2(lerpf(-HALF.x, HALF.x, (i % 3) / 2.0), lerpf(-HALF.y, HALF.y, floorf(i / 3.0) / 2.0))
 			var p := center + local.rotated(yaw)
 			var biome := world.biome_at(p.x, p.y)
-			if biome.desert < 0.5 or biome.mountain > 0.2:
+			if biome.desert < 0.5 or biome.mountain > 0.2 or world.coast_distance(p.x, p.y) < 80.0:
 				ok = false
 				break
 			heights.append(world.raw_height(p.x, p.y, biome))

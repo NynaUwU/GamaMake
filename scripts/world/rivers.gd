@@ -1,14 +1,15 @@
 class_name Rivers
 extends RefCounted
 ## Rios do mapa (sorteados pela semente: iguais para todos). Cada um nasce num
-## lago e desce o relevo em passos de 24 m até ~700 m, parando antes de cidades,
-## da pista e das avenidas. O nível da água só desce ao longo do rio; o terreno
-## é cavado num leito (shape()) e a água é uma faixa (WaterManager).
+## lago (ou numa nascente nos morros) e desce o relevo em passos de 24 m até
+## chegar ao mar, desviando de cidades, da pista e das avenidas. Rio que não
+## acha caminho até o mar é descartado. O nível da água só desce ao longo do
+## rio; o terreno é cavado num leito (shape()) e a água é uma faixa (WaterManager).
 ## Água corrente: a roda d'água e o carneiro hidráulico só funcionam na beira.
 
 const COUNT := 5
 const STEP := 24.0
-const MAX_STEPS := 30
+const MAX_STEPS := 120
 const CELL := 64.0 ## grade de busca dos trechos
 
 
@@ -18,20 +19,41 @@ static func place(world: TerrainWorld) -> Array:
 	rng.seed = world.seed * 53 + 11
 	var list := []
 	var sources: Array = world.lakes.filter(func(l): return l.kind == "lake" and not l.frozen)
-	var order := range(sources.size())
-	for i in order.size():
-		var j := rng.randi_range(i, order.size() - 1)
-		var tmp = order[i]
-		order[i] = order[j]
-		order[j] = tmp
-	for index in order:
+	_shuffle(sources, rng)
+	# Nascentes nos morros (se os lagos não bastarem).
+	var springs := []
+	var half := world.world_size * 0.4
+	for attempt in 300:
+		if springs.size() >= COUNT * 3:
+			break
+		var c := Vector2(rng.randf_range(-half, half), rng.randf_range(-half, half))
+		var biome := world.biome_at(c.x, c.y)
+		var h := world.raw_height(c.x, c.y, biome)
+		if h < 12.0 or biome.depth > 0.4 or biome.winter > 0.6 or world.coast_distance(c.x, c.y) < 350.0:
+			continue
+		if world.city_mask(c.x, c.y) > 0.0:
+			continue
+		springs.append({"center": c, "radius": 0.0, "level": h - 0.9})
+	sources.append_array(springs)
+	for source in sources:
 		if list.size() >= COUNT:
 			break
-		var lake: Dictionary = sources[index]
-		var river := _trace(world, lake, rng, list)
+		var river := _trace(world, source, rng, list)
 		if not river.is_empty():
 			list.append(river)
 	return list
+
+
+static func _shuffle(array: Array, rng: RandomNumberGenerator) -> void:
+	for i in array.size():
+		var j := rng.randi_range(i, array.size() - 1)
+		var tmp = array[i]
+		array[i] = array[j]
+		array[j] = tmp
+
+
+static func _height(world: TerrainWorld, q: Vector2) -> float:
+	return world.raw_height(q.x, q.y, world.biome_at(q.x, q.y))
 
 
 static func _trace(world: TerrainWorld, lake: Dictionary, rng: RandomNumberGenerator, others: Array) -> Dictionary:
@@ -40,34 +62,41 @@ static func _trace(world: TerrainWorld, lake: Dictionary, rng: RandomNumberGener
 	var start: Vector2 = lake.center + dir * (lake.radius * 0.8)
 	var points := PackedVector2Array([start])
 	var levels := PackedFloat32Array([lake.level])
-	var half := world.world_size * 0.47
 	var p := start
 	for step in MAX_STEPS:
-		# Escolhe, entre algumas direções perto da atual, a que desce mais (com um pouco de curva).
+		# Entre algumas direções perto da atual, a que desce mais (com um pouco de
+		# curva e puxando de leve para fora, rumo ao mar). Direção bloqueada é pulada.
 		var best := Vector2.ZERO
-		var best_h := INF
-		for k in 5:
-			var turn := (k - 2) * 0.35 + rng.randf_range(-0.15, 0.15)
+		var best_score := INF
+		var outward := p.normalized() if p.length() > 1.0 else dir
+		for k in 7:
+			var turn := (k - 3) * 0.3 + rng.randf_range(-0.12, 0.12)
 			var d := dir.rotated(turn)
 			var q := p + d * STEP
-			var h := world.raw_height(q.x, q.y, world.biome_at(q.x, q.y)) + absf(turn) * 1.5
-			if h < best_h:
-				best_h = h
+			var in_sea := world.coast_distance(q.x, q.y) < 0.0
+			if not in_sea and not _clear(world, q, lake, others, points):
+				continue
+			var score := _height(world, q) + absf(turn) * 1.5 - d.dot(outward) * 3.0
+			if score < best_score:
+				best_score = score
 				best = d
+		if best == Vector2.ZERO:
+			return {} # sem saída: descarta
 		var next := p + best * STEP
-		if absf(next.x) > half or absf(next.y) > half or not _clear(world, next, lake, others):
-			break
-		var level := minf(levels[levels.size() - 1] - 0.05, world.raw_height(next.x, next.y, world.biome_at(next.x, next.y)) - 0.9)
+		var level := minf(levels[levels.size() - 1] - 0.05, _height(world, next) - 0.9)
+		level = maxf(level, TerrainWorld.SEA_LEVEL) # desemboca no nível do mar
 		points.append(next)
 		levels.append(level)
 		p = next
 		dir = best
-	if points.size() < 8:
-		return {}
-	return {"points": points, "levels": levels, "width": rng.randf_range(6.0, 9.0), "depth": rng.randf_range(1.6, 2.4)}
+		if world.coast_distance(next.x, next.y) < -25.0:
+			if points.size() < 8:
+				return {}
+			return {"points": points, "levels": levels, "width": rng.randf_range(6.0, 9.0), "depth": rng.randf_range(1.6, 2.4)}
+	return {} # não chegou ao mar
 
 
-static func _clear(world: TerrainWorld, p: Vector2, source: Dictionary, others: Array) -> bool:
+static func _clear(world: TerrainWorld, p: Vector2, source: Dictionary, others: Array, own := PackedVector2Array()) -> bool:
 	if p.length() < world.town_radius * 3.0:
 		return false
 	for city in world.cities:
@@ -86,6 +115,9 @@ static func _clear(world: TerrainWorld, p: Vector2, source: Dictionary, others: 
 		for q in river.points:
 			if p.distance_to(q) < 30.0:
 				return false
+	for i in own.size() - 2: # não volta sobre si mesmo
+		if p.distance_to(own[i]) < STEP * 0.9:
+			return false
 	return true
 
 
@@ -145,7 +177,8 @@ static func shape(rivers: Array, grid: Dictionary, x: float, z: float, h: float)
 	# Várzea: perto da água o chão fica quase plano, só um pouco acima do nível,
 	# e vai voltando ao relevo normal até FLOODPLAIN metros da margem.
 	var bank: float = near.level + 0.35 + (d - half) * 0.02
-	return lerpf(bank, h, smoothstep(half + 8.0, half + FLOODPLAIN, d)) # ~8 m quase planos, depois sobe suave
+	# Só rebaixa: perto de lagos (ou de baixadas) o chão não sobe e não tampa a ligação com a água.
+	return minf(h, lerpf(bank, h, smoothstep(half + 8.0, half + FLOODPLAIN, d))) # ~8 m quase planos, depois sobe suave
 
 
 ## Ponto dentro da água de algum rio: {"level", "dir"} ou {}.

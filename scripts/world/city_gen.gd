@@ -51,6 +51,10 @@ static func place_cities(world: TerrainWorld) -> Array:
 			var radius: float = cfg.radius
 			if center.length() < 420.0 + radius:
 				continue # longe da cidade inicial
+			if world.coast_distance(center.x, center.y) < radius * 2.0 + 90.0:
+				continue # inteira em terra, longe da praia
+			if not world.track.is_empty() and center.distance_to(world.track.center) < radius + RaceTrack.HALF.x + 60.0:
+				continue # longe da pista
 			var ok := true
 			for other in cities:
 				if center.distance_to(other.center) < radius + other.radius + 140.0:

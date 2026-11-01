@@ -124,8 +124,14 @@ func depth_at(pos: Vector3) -> float:
 	var lake := Lakes.at(lakes(), pos.x, pos.z)
 	if lake.is_empty() or lake.frozen:
 		var terrain := _terrain()
-		var river: Dictionary = terrain.river_at(pos.x, pos.z) if terrain else {}
-		return river.level - pos.y if not river.is_empty() else -INF
+		if terrain == null:
+			return -INF
+		var river: Dictionary = terrain.river_at(pos.x, pos.z)
+		if not river.is_empty():
+			return river.level - pos.y
+		if pos.y < TerrainWorld.SEA_LEVEL + 3.0 and terrain.sea_at(pos.x, pos.z):
+			return TerrainWorld.SEA_LEVEL - pos.y
+		return -INF
 	return lake.level - pos.y
 
 
@@ -201,13 +207,92 @@ func _build_rivers() -> void:
 		add_child(instance)
 
 
+## Mar em volta da ilha: uma malha só, em células de 64 m, cobrindo de perto
+## da costa até bem além do fim do mapa (o horizonte vira mar). Por baixo, um
+## fundo escuro para não ver o vazio depois do último chunk de terreno.
+func _build_sea() -> void:
+	var terrain := _terrain()
+	if terrain == null:
+		return
+	var cell := 64.0
+	var reach := terrain.world_size * 0.5 + 2500.0
+	var n := int(reach * 2.0 / cell)
+	var verts := PackedVector3Array()
+	var uvs := PackedVector2Array()
+	var normals := PackedVector3Array()
+	var y := TerrainWorld.SEA_LEVEL
+	for j in n:
+		for i in n:
+			var x0 := -reach + i * cell
+			var z0 := -reach + j * cell
+			var nearest := INF
+			for c in [Vector2(x0, z0), Vector2(x0 + cell, z0), Vector2(x0, z0 + cell), Vector2(x0 + cell, z0 + cell)]:
+				nearest = minf(nearest, terrain.coast_distance(c.x, c.y))
+			if nearest > TerrainWorld.SEA_BAND:
+				continue
+			var a := Vector3(x0, y, z0)
+			var b := Vector3(x0 + cell, y, z0)
+			var c := Vector3(x0 + cell, y, z0 + cell)
+			var d := Vector3(x0, y, z0 + cell)
+			for v in [a, b, c, a, c, d]:
+				verts.append(v)
+				uvs.append(Vector2(1.0, 0.0))
+				normals.append(Vector3.UP)
+	if verts.is_empty():
+		return
+	var arrays := []
+	arrays.resize(Mesh.ARRAY_MAX)
+	arrays[Mesh.ARRAY_VERTEX] = verts
+	arrays[Mesh.ARRAY_TEX_UV] = uvs
+	arrays[Mesh.ARRAY_NORMAL] = normals
+	var mesh := ArrayMesh.new()
+	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
+	var material := ShaderMaterial.new()
+	material.shader = _water_shader
+	material.set_shader_parameter("frozen", 0.0)
+	material.set_shader_parameter("deep", Color(0.16, 0.36, 0.48, 0.72))
+	material.set_shader_parameter("wave_height", 0.08)
+	var sea := MeshInstance3D.new()
+	sea.name = "Sea"
+	sea.mesh = mesh
+	sea.material_override = material
+	sea.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	add_child(sea)
+	# Fundo além do mapa (o terreno cobre ele dentro da ilha).
+	var floor_mesh := PlaneMesh.new()
+	floor_mesh.size = Vector2.ONE * reach * 2.0
+	var floor_mat := StandardMaterial3D.new()
+	floor_mat.albedo_color = Color(0.2, 0.24, 0.22)
+	floor_mat.roughness = 1.0
+	var bed := MeshInstance3D.new()
+	bed.name = "SeaBed"
+	bed.mesh = floor_mesh
+	bed.material_override = floor_mat
+	bed.position.y = TerrainWorld.SEA_LEVEL - 22.5
+	bed.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	add_child(bed)
+
+
+## Ninguém nada para fora do mapa: empurra de volta antes da borda.
+func _keep_inside(body: Node3D) -> void:
+	var terrain := _terrain()
+	if terrain == null:
+		return
+	var limit := terrain.world_size * 0.5 - 40.0
+	var p := body.global_position
+	if absf(p.x) > limit or absf(p.z) > limit:
+		body.global_position = Vector3(clampf(p.x, -limit, limit), p.y, clampf(p.z, -limit, limit))
+
+
 func _process(delta: float) -> void:
 	if not _rivers_built:
 		_build_rivers()
+		_build_sea()
 	var world := get_parent()
 	var player: Node3D = world.get("player")
 	if player == null:
 		return
+	_keep_inside(player)
 	_timer -= delta
 	if _timer <= 0.0:
 		_timer = 0.5
@@ -303,7 +388,7 @@ func _update_underwater(delta: float) -> void:
 		_bubbles.reparent(cam, false)
 	if now:
 		var lake := lake_at(cam.global_position)
-		under_depth = clampf(depth / maxf(lake.depth, 1.0), 0.0, 1.0)
+		under_depth = clampf(depth / maxf(lake.get("depth", 2.5), 1.0), 0.0, 1.0) # rio/mar não têm "depth" de lago
 		(_overlay.material as ShaderMaterial).set_shader_parameter("depth", under_depth)
 
 

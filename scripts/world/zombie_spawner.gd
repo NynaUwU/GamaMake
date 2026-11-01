@@ -70,8 +70,8 @@ func _spawn_near(center: Vector3) -> void:
 	if Vector2(x, z).length() < _terrain.town_radius * 1.5:
 		return # a cidade tem os zumbis dela
 	var half := _terrain.world_size * 0.5 - 60.0
-	if absf(x) > half or absf(z) > half:
-		return
+	if absf(x) > half or absf(z) > half or _terrain.coast_distance(x, z) < 15.0:
+		return # nada de zumbi no mar
 	var zombie: Zombie = ZOMBIE_SCENE.instantiate()
 	zombie.position = Vector3(x, _terrain.height_at(x, z) + 0.3, z)
 	zombie.rotation.y = _rng.randf() * TAU

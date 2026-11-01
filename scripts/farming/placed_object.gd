@@ -486,6 +486,43 @@ func _build() -> void:
 				var a := k * 1.7
 				mb.box(Vector3(cos(a) * 0.3, 0.06, sin(a) * 0.28), Vector3(0.04, 0.03, 0.035), Basis(Vector3.UP, a))
 			_shape(Vector3(0, 0.0, 0), Vector3(0.8, 0.12, 0.8))
+		"stairs":
+			# Escada de madeira: sobe um andar (2,8 m) em 7 degraus de 0,4 m, para
+			# a frente (-Z). Duas longarinas inclinadas, degraus com espelho e corrimão.
+			var wood := Color(0.44, 0.3, 0.17)
+			var rise := BuildPiece.SIZE / 7.0
+			var slope := Vector3(0, BuildPiece.SIZE, -BuildPiece.SIZE)
+			var along := slope.length()
+			var tilt := Basis(Vector3.RIGHT, PI / 4)
+			for side in [-0.56, 0.56]:
+				mb.color(wood.darkened(0.15))
+				mb.box(Vector3(side, BuildPiece.SIZE * 0.5 - 0.12, -BuildPiece.SIZE * 0.5), Vector3(0.08, 0.26, along), tilt) # longarina
+			for k in 7:
+				var top: float = (k + 1) * rise
+				var z := -(k + 0.5) * rise
+				mb.color(wood.darkened(0.04 * (k % 2)))
+				mb.box(Vector3(0, top - 0.025, z - 0.01), Vector3(1.04, 0.05, rise + 0.04)) # piso do degrau
+				mb.color(wood.darkened(0.25))
+				mb.box(Vector3(0, top - rise * 0.5, z + rise * 0.5 - 0.02), Vector3(1.04, rise - 0.05, 0.03)) # espelho
+				mb.color(ItemModels.IRON)
+				for x in [-0.45, 0.45]:
+					mb.box(Vector3(x, top + 0.002, z), Vector3(0.012, 0.004, 0.012)) # pregos
+			# Corrimão num lado, com balaústres.
+			mb.color(wood.darkened(0.1))
+			for k in [0, 3, 6]:
+				var top: float = (k + 1) * rise
+				mb.box(Vector3(0.56, top + 0.45, -(k + 0.5) * rise), Vector3(0.05, 0.9, 0.05))
+			mb.box(Vector3(0.56, BuildPiece.SIZE * 0.5 + 0.88, -BuildPiece.SIZE * 0.5), Vector3(0.06, 0.06, along), tilt)
+			# Colisão: rampa lisa um pouco menos íngreme que os degraus (~42°), começando
+			# na frente do primeiro degrau. Andar sobe sozinho; degraus de verdade
+			# (0,4 m um atrás do outro) travariam o "subir degrau".
+			var ramp := CollisionShape3D.new()
+			var wedge := ConvexPolygonShape3D.new()
+			var s2 := BuildPiece.SIZE
+			wedge.points = PackedVector3Array([Vector3(-0.6, 0, 0.3), Vector3(0.6, 0, 0.3), Vector3(-0.6, 0, -s2), Vector3(0.6, 0, -s2),
+				Vector3(-0.6, s2, -s2), Vector3(0.6, s2, -s2)])
+			ramp.shape = wedge
+			add_child(ramp)
 		"bench":
 			var wood := Color(0.42, 0.28, 0.16)
 			mb.color(wood)

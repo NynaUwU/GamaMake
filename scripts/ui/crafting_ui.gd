@@ -16,8 +16,7 @@ const RECIPES := [
 	{"id": &"machado", "station": "mesa", "cost": {&"graveto": 2, &"sucata": 3}},
 	{"id": &"picareta", "station": "mesa", "cost": {&"graveto": 2, &"sucata": 4}},
 	{"id": &"pa", "station": "mesa", "cost": {&"graveto": 2, &"sucata": 2}},
-	{"id": &"martelo", "station": "mesa", "cost": {&"graveto": 1, &"sucata": 2}},
-	{"id": &"talhadeira", "station": "mesa", "cost": {&"graveto": 1, &"sucata": 2}},
+	{"id": &"talhadeira", "station": "mesa", "cost": {&"tabua": 2, &"sucata": 2}},
 	{"id": &"lanca", "station": "mesa", "cost": {&"graveto": 3, &"sucata": 1, &"pano": 1}},
 	{"id": &"vara", "station": "mesa", "cost": {&"graveto": 3, &"pano": 1, &"sucata": 1}},
 	{"id": &"taco", "station": "mesa", "cost": {&"tabua": 2, &"sucata": 1}},
@@ -72,6 +71,7 @@ const RECIPES := [
 	{"id": &"bandagem", "station": "mao", "cost": {&"pano": 3}},
 	{"id": &"capuz", "station": "mao", "cost": {&"pano": 4}},
 	{"id": &"areia", "station": "mao", "cost": {&"pedra": 10}},
+	{"id": &"martelo", "station": "mao", "cost": {&"tronco": 1, &"tabua": 2}},
 	{"id": &"tocha", "station": "mao", "cost": {&"graveto": 1, &"pano": 1}},
 ]
 const TITLES := {"mesa": "Mesa de trabalho", "fornalha": "Fornalha", "mao": "Fabricar", "forno": "Forno de tijolo",

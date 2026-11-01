@@ -51,6 +51,23 @@ func _init() -> void:
 				_frame3(chunk.size(), 2.8, 32.0)
 				await _save(out + "/objetos_%d.png" % (page + 1))
 				page += 1
+		"build":
+			# Escada colocada + fantasmas (válido e inválido) do construtor.
+			var manager := PlacedManager.new()
+			manager.name = "Placed"
+			stage_root.add_child(manager)
+			manager._spawn(1, "stairs", Transform3D(Basis(Vector3.UP, 0.6), _slot_pos3(0, 3, 2.8) + Vector3(0, 0, 1.0)), true)
+			_label("escada", _slot_pos3(0, 3, 2.8) + Vector3(0, -0.15, 1.6))
+			for k in 2:
+				var b := Builder.new()
+				stage_root.add_child(b)
+				b._apply_ghost(Builder.entry_for("place", ["chest", "stone_furnace"][k]))
+				b._tint(k == 0)
+				b._ghost.visible = true
+				b._ghost.global_transform = Transform3D(Basis(Vector3.UP, 0.5), _slot_pos3(k + 1, 3, 2.8))
+				_label(["fantasma ok", "fantasma bloqueado"][k], _slot_pos3(k + 1, 3, 2.8) + Vector3(0, -0.15, 1.2))
+			_frame3(3, 2.8, 32.0)
+			await _save(out + "/construcao.png")
 		"furniture":
 			var kinds: Array = Furniture.HP.keys()
 			for i in kinds.size():

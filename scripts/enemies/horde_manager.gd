@@ -110,7 +110,7 @@ func _new_horde(start: bool) -> void:
 	var half: float = _terrain().world_size * 0.45
 	for attempt in 20:
 		var pos := Vector2(randf_range(-half, half), randf_range(-half, half))
-		var far := true
+		var far := _terrain().coast_distance(pos.x, pos.y) > 60.0
 		for p in _players():
 			if Vector2(p.x, p.z).distance_to(pos) < (250.0 if start else 320.0):
 				far = false

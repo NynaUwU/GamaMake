@@ -47,6 +47,8 @@ static func place(world: TerrainWorld) -> Array:
 
 
 static func _free(world: TerrainWorld, list: Array, c: Vector2, r: float) -> bool:
+	if world.coast_distance(c.x, c.y) < r * SHORE + TerrainWorld.SEA_BAND + 40.0:
+		return false
 	if c.length() < world.town_radius * 3.0 + r:
 		return false
 	for city in world.cities:

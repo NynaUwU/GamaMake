@@ -3,7 +3,7 @@ extends Node
 ## Ferramentas de construção na mão do player (só o jogador local tem).
 ##
 ## Martelo: mostra a peça "fantasma" na grade (verde = cabe, vermelho = já tem
-## peça ali). Clique constrói, R gira a parede, Shift + clique desmonta a peça
+## peça ali). Clique constrói, R gira a parede, Ctrl + clique desmonta a peça
 ## (ou tira a janela/porta) mirada. SEGURAR o botão direito abre o menu de
 ## construção (abas + lista com rolagem): solte em cima do item para escolher.
 ## Encaixes: parede mirando um piso/teto vai para a borda mais perto dele;
@@ -29,6 +29,7 @@ const ENTRIES := {
 		{"id": "floor", "name": "Piso", "kind": BuildPiece.Kind.FLOOR, "desc": "Topo na altura da grade", "cost": {&"tabua": 4}},
 		{"id": "roof", "name": "Teto", "kind": BuildPiece.Kind.ROOF, "desc": "Apoia no topo das paredes", "cost": {&"tabua": 4}},
 		{"id": "pillar", "name": "Pilar", "kind": BuildPiece.Kind.PILLAR, "desc": "0,4 m de lado, 2,8 m de altura", "cost": {&"tabua": 1, &"pedra": 1}},
+		{"id": "stairs", "name": "Escada", "place": "stairs", "desc": "Sobe um andar (2,8 m) para a frente. Segure Shift para alinhar com a grade", "cost": {&"tabua": 6, &"graveto": 2}},
 	],
 	"Aberturas": [
 		{"id": "window", "name": "Janela", "fill": "window", "desc": "Preenche um buraco feito pela talhadeira", "cost": {&"graveto": 2, &"vidro": 1}},
@@ -81,11 +82,15 @@ const PLACE_SIZE := {"pot_small": Vector3(0.46, 0.31, 0.46), "pot_wide": Vector3
 	"stone_furnace": Vector3(1.6, 1.6, 1.1), "spinning": Vector3(1.0, 1.1, 0.4), "loom": Vector3(1.3, 1.2, 0.8),
 	"smoker": Vector3(0.8, 1.4, 0.6), "compost": Vector3(1.0, 0.7, 0.9), "sieve": Vector3(0.95, 0.8, 0.65),
 	"water_wheel": Vector3(1.3, 1.6, 3.2), "windmill": Vector3(1.5, 4.5, 1.5), "shaft": Vector3(2.0, 0.7, 0.5),
-	"sawmill": Vector3(2.1, 0.9, 0.75), "ram_pump": Vector3(0.6, 1.8, 2.0)}
+	"sawmill": Vector3(2.1, 0.9, 0.75), "ram_pump": Vector3(0.6, 1.8, 2.0), "stairs": Vector3(1.2, 2.8, 2.8)}
+## Centro da caixa (vermelha, ao desmontar) quando não é logo acima da origem.
+const PLACE_CENTER := {"bed": Vector3(1.4, 0.1, 1.4), "stairs": Vector3(0, 1.4, -1.4)}
+## Shift: deslocamento da origem na grade (a escada tem 3 quadrados de largura: borda na linha da grade).
+const GRID_OFFSET := {"stairs": Vector3(0.2, 0, 0)}
 const PLACE_RADIUS := {"pot_small": 0.35, "pot_wide": 0.7, "bench": 0.9, "campfire": 0.6, "furnace": 0.8, "workbench": 1.0,
 	"spikes": 0.7, "beartrap": 0.35, "barbed": 0.9, "mine": 0.3, "drawboard": 0.6, "chest": 0.6, "rain_collector": 0.5, "dryer": 0.8, "grindstone": 0.5,
 	"quern": 0.5, "oven": 0.7, "pump": 0.35, "filter": 0.45, "stone_furnace": 0.9, "spinning": 0.55, "loom": 0.7, "smoker": 0.5, "compost": 0.6, "sieve": 0.55,
-	"water_wheel": 0.6, "windmill": 0.9, "shaft": 0.3, "sawmill": 1.0, "ram_pump": 0.4}
+	"water_wheel": 0.6, "windmill": 0.9, "shaft": 0.3, "sawmill": 1.0, "ram_pump": 0.4, "stairs": 0.6}
 
 var player: Player
 var selection: Dictionary = ENTRIES["Estrutura"][0]
@@ -101,6 +106,9 @@ var diag := "/" ## diagonal do corte da talhadeira (R troca)
 var _ghost: Node3D
 var _ghost_mesh: MeshInstance3D
 var _ghost_material: StandardMaterial3D
+var _model_ghost: Node3D ## silhueta do modelo de verdade (objetos colocáveis)
+var _model_material: StandardMaterial3D
+var _model_kind := ""
 var _highlight: MeshInstance3D
 var _highlight_mesh := ImmediateMesh.new()
 var _mark: StandardMaterial3D
@@ -120,6 +128,12 @@ func _ready() -> void:
 	_ghost_mesh.material_override = _ghost_material
 	_ghost_mesh.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	_ghost.add_child(_ghost_mesh)
+	_model_material = StandardMaterial3D.new()
+	_model_material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	_model_material.cull_mode = BaseMaterial3D.CULL_BACK
+	_model_material.roughness = 1.0
+	_model_ghost = Node3D.new()
+	_ghost.add_child(_model_ghost)
 	_highlight = MeshInstance3D.new()
 	_highlight.top_level = true
 	_highlight.mesh = _highlight_mesh
@@ -231,7 +245,7 @@ func _paid(entry: Dictionary) -> bool:
 
 static func entry_for_kind(kind_: int) -> Dictionary:
 	for entry in ENTRIES["Estrutura"]:
-		if entry.kind == kind_:
+		if entry.get("kind", -1) == kind_:
 			return entry
 	return {}
 
@@ -251,18 +265,53 @@ func select(entry: Dictionary) -> void:
 
 
 func _apply_ghost(entry: Dictionary) -> void:
+	_ghost_mesh.visible = true
+	_model_ghost.visible = false
 	if entry.has("kind"):
 		kind = entry.kind
 		_set_ghost_shape()
-	elif entry.get("place", "") == "bed":
-		kind = BuildPiece.Kind.FLOOR
-		_set_ghost_shape()
 	elif entry.has("place"):
-		var box := BoxMesh.new()
-		box.size = PLACE_SIZE[entry.place]
-		_ghost_mesh.mesh = box
-		_ghost_mesh.scale = Vector3.ONE
-		_ghost_mesh.position = Vector3(0, box.size.y * 0.5, 0)
+		if entry.place == "bed":
+			kind = BuildPiece.Kind.FLOOR
+		_build_model_ghost(entry.place)
+		_ghost_mesh.visible = false
+		_model_ghost.visible = true
+
+
+## Copia só as malhas do modelo de verdade (sem colisão, sem grupos, sem fogo
+## registrado) para a silhueta translúcida.
+func _build_model_ghost(place: String) -> void:
+	if place == _model_kind:
+		return
+	_model_kind = place
+	for child in _model_ghost.get_children():
+		child.queue_free()
+	var obj := PlacedObject.new()
+	obj.setup(place)
+	Cooking.fires.erase(obj)
+	var stack := [[obj, Transform3D()]]
+	while not stack.is_empty():
+		var item: Array = stack.pop_back()
+		for child in item[0].get_children():
+			if not child is Node3D:
+				continue
+			var xform: Transform3D = item[1] * child.transform
+			if child is MeshInstance3D and child.mesh and child.visible:
+				var copy := MeshInstance3D.new()
+				copy.mesh = child.mesh
+				copy.transform = xform
+				copy.material_override = _model_material
+				copy.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+				_model_ghost.add_child(copy)
+			stack.append([child, xform])
+	obj.free()
+
+
+func _tint(valid: bool) -> void:
+	_ghost_material.albedo_color = Color(0.3, 1.0, 0.4, 0.35) if valid else Color(1.0, 0.25, 0.2, 0.35)
+	_model_material.albedo_color = Color(0.55, 1.0, 0.6, 0.5) if valid else Color(1.0, 0.35, 0.3, 0.5)
+	_model_material.emission_enabled = true
+	_model_material.emission = Color(0.1, 0.4, 0.15) if valid else Color(0.45, 0.08, 0.05)
 
 
 func open_menu() -> void:
@@ -294,7 +343,7 @@ func update(tool: String) -> void:
 	if _manager() == null or player.vehicle != null or _menu.visible:
 		return
 	if tool == "hammer":
-		if Input.is_key_pressed(KEY_SHIFT):
+		if Input.is_key_pressed(KEY_CTRL):
 			var hit := _ray()
 			if hit and (hit.collider is BuildPiece or hit.collider is BuildFill):
 				_show_removal(hit.collider)
@@ -313,7 +362,7 @@ func update(tool: String) -> void:
 				return
 			_ghost.visible = true
 			_ghost.global_transform = target.xform
-			_ghost_material.albedo_color = Color(0.3, 1.0, 0.4, 0.35) if target.valid else Color(1.0, 0.25, 0.2, 0.35)
+			_tint(target.valid)
 			return
 		if selection.has("fill"):
 			fill_target = _compute_hole()
@@ -326,7 +375,7 @@ func update(tool: String) -> void:
 			return
 		_ghost.visible = true
 		_ghost.global_transform = BuildPiece.piece_transform(target.kind, target.cell, target.rot)
-		_ghost_material.albedo_color = Color(0.3, 1.0, 0.4, 0.35) if target.valid else Color(1.0, 0.25, 0.2, 0.35)
+		_tint(target.valid)
 	elif tool == "chisel":
 		if not _drag.is_empty():
 			_update_drag()
@@ -342,14 +391,14 @@ func update(tool: String) -> void:
 		_draw_triangles(piece, half, Color(1.0, 0.85, 0.2, 0.55))
 
 
-## Clique com o martelo (constrói, encaixa janela/porta ou, com Shift, desmonta)
+## Clique com o martelo (constrói, encaixa janela/porta ou, com Ctrl, desmonta)
 ## ou com a talhadeira (começa a selecionar). Devolve true se fez algo.
 func use(tool: String) -> bool:
 	var manager := _manager()
 	if manager == null or _menu.visible:
 		return false
 	if tool == "hammer":
-		if Input.is_key_pressed(KEY_SHIFT):
+		if Input.is_key_pressed(KEY_CTRL):
 			var hit := _ray()
 			if hit and hit.collider is BuildFill:
 				_refund(entry_for("fill", hit.collider.type).get("cost", {}))
@@ -485,13 +534,27 @@ func _compute_place() -> Dictionary:
 	if hit.is_empty() or hit.normal.y < 0.7 or hit.collider is PlacedObject and hit.collider.kind != "bed":
 		return {}
 	var xform := Transform3D(Basis(Vector3.UP, player.rotation.y), hit.position)
+	if Input.is_key_pressed(KEY_SHIFT):
+		xform = grid_snap(selection.place, xform)
 	if selection.place == "shaft":
 		var snapped := _snap_shaft(placed, hit.position)
 		if snapped != Transform3D():
 			return {"xform": snapped, "valid": true}
-	var valid := not placed.occupied(hit.position, PLACE_RADIUS[selection.place]) \
-			and player.global_position.distance_to(hit.position) > 0.6
+	var valid := not placed.occupied(xform.origin, PLACE_RADIUS[selection.place]) \
+			and player.global_position.distance_to(xform.origin) > 0.6
 	return {"xform": xform, "valid": valid}
+
+
+## Shift: gira em passos de 90° e prende na grade das peças (0,4 m), igual ao
+## piso construído (a grade começa em 0,0 do mundo).
+static func grid_snap(place: String, xform: Transform3D) -> Transform3D:
+	var yaw := snappedf(xform.basis.get_euler().y, PI / 2.0)
+	var basis := Basis(Vector3.UP, yaw)
+	var offset: Vector3 = basis * GRID_OFFSET.get(place, Vector3.ZERO)
+	var p := xform.origin - offset
+	p.x = snappedf(p.x, BuildPiece.SEG)
+	p.z = snappedf(p.z, BuildPiece.SEG)
+	return Transform3D(basis, p + offset)
 
 
 ## Eixo: encaixa a ponta na porta de latão livre mais perto (até 1,2 m), alinhado com ela.
@@ -519,7 +582,9 @@ func _draw_box(obj: PlacedObject) -> void:
 	var box := BoxMesh.new()
 	box.size = PLACE_SIZE.get(obj.kind, Vector3(BuildPiece.SIZE, 0.3, BuildPiece.SIZE)) * 1.03
 	_ghost_mesh.mesh = box
-	_ghost_mesh.position = Vector3(0, box.size.y * 0.5, 0) if obj.kind != "bed" else Vector3(BuildPiece.SIZE * 0.5, 0.1, BuildPiece.SIZE * 0.5)
+	_ghost_mesh.position = PLACE_CENTER.get(obj.kind, Vector3(0, box.size.y * 0.5, 0))
+	_ghost_mesh.visible = true
+	_model_ghost.visible = false
 	_ghost.global_transform = obj.global_transform
 	_ghost_material.albedo_color = Color(1.0, 0.2, 0.15, 0.4)
 	call_deferred("_apply_ghost", selection)
@@ -664,7 +729,7 @@ func _draw_triangles(piece: BuildPiece, tris: PackedInt32Array, color: Color) ->
 	_highlight.visible = true
 
 
-## Shift com o martelo: o que vai ser desmontado fica vermelho.
+## Ctrl com o martelo: o que vai ser desmontado fica vermelho.
 func _show_removal(node: Node) -> void:
 	if node is BuildFill:
 		var fill: BuildFill = node
@@ -676,6 +741,8 @@ func _show_removal(node: Node) -> void:
 	_set_ghost_shape()
 	kind = previous
 	_ghost.visible = true
+	_ghost_mesh.visible = true
+	_model_ghost.visible = false
 	_ghost.global_transform = piece.global_transform
 	_ghost_mesh.scale = Vector3.ONE * 1.01
 	_ghost_material.albedo_color = Color(1.0, 0.2, 0.15, 0.4)

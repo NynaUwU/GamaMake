@@ -319,8 +319,7 @@ func _physics_process(delta: float) -> void:
 	var flat := linear_velocity - global_basis.y * linear_velocity.dot(global_basis.y)
 	var slip := absf(forward.signed_angle_to(flat, global_basis.y)) if flat.length() > 3.0 and speed > 0.0 else 0.0
 	spin *= 1.0 - smoothstep(deg_to_rad(drift_hold), deg_to_rad(drift_hold + 25.0), slip)
-	for wheel in _rear_wheels:
-		wheel.wheel_friction_slip = rear_grip * (1.0 - spin)
+	# (aderência das rodas: _curve_grip, logo abaixo)
 	# Limite da derrapagem: passou de drift_max graus de lado, segura o giro e
 	# puxa a velocidade de volta para a frente (escorrega, mas não roda).
 	var excess := slip - deg_to_rad(drift_max)
@@ -341,8 +340,13 @@ func _physics_process(delta: float) -> void:
 	# Torque sobrando empurra a traseira para fora quando vira acelerando.
 	if wheelspin > 0.0 and throttle > 0.0 and speed > 4.0:
 		apply_torque(global_basis.y * steer_input * throttle * wheelspin * drift_kick * mass)
+	_update_gear(speed, throttle, delta)
+	_curve_grip(speed, spin, delta)
 	if throttle > 0.0:
-		engine_force = max_engine_force * throttle * _torque(ratio) * (1.0 if speed < top_speed else 0.0)
+		# Marcha: a 1ª multiplica a força (sobe barranco), a última quase não; o
+		# torque segue o giro dentro da marcha; na troca o motor corta um instante.
+		var cut := 0.15 if _shift_timer > 0.0 else 1.0
+		engine_force = max_engine_force * throttle * GEAR_FORCE[gear] * _torque(gear_rpm(speed)) * cut * (1.0 if speed < top_speed else 0.0)
 		if speed < -1.0:
 			brake = max_brake # andando de ré e apertou W: freia primeiro
 	elif throttle < 0.0:
@@ -356,6 +360,67 @@ func _physics_process(delta: float) -> void:
 		brake = 2.0 # freio-motor
 	if Input.is_action_pressed("jump"):
 		brake = max_brake * 1.5 # freio de mão
+
+
+# --- Câmbio automático -------------------------------------------------------------
+
+## Força de cada marcha (multiplica a do motor) e até que fração da velocidade máxima ela vai.
+const GEAR_FORCE := [2.6, 1.7, 1.2, 0.92, 0.75]
+const GEAR_TOP := [0.2, 0.38, 0.58, 0.8, 1.0]
+var gear := 0 ## marcha atual (0 = primeira)
+var _shift_timer := 0.0
+
+
+## Giro do motor dentro da marcha (0..1): sobe até a troca e cai depois dela.
+func gear_rpm(speed: float) -> float:
+	var low: float = 0.0 if gear == 0 else GEAR_TOP[gear - 1] * 0.75
+	var high: float = GEAR_TOP[gear]
+	return clampf((absf(speed) / top_speed - low) / maxf(high - low, 0.01), 0.0, 1.0)
+
+
+func _update_gear(speed: float, throttle: float, delta: float) -> void:
+	_shift_timer = maxf(_shift_timer - delta, 0.0)
+	var ratio := absf(speed) / top_speed
+	if gear < GEAR_TOP.size() - 1 and ratio > GEAR_TOP[gear] * 0.96 and throttle > 0.0 and _shift_timer <= 0.0:
+		_shift(1)
+	elif gear > 0 and ratio < GEAR_TOP[gear - 1] * 0.7:
+		_shift(-1)
+
+
+## Troca de marcha que dá para sentir: corta o motor, tranco no carro e o ronco cai.
+func _shift(dir: int) -> void:
+	gear = clampi(gear + dir, 0, GEAR_FORCE.size() - 1)
+	_shift_timer = 0.28 if dir > 0 else 0.15
+	if dir > 0:
+		apply_central_impulse(-global_basis.z * mass * 0.35) # cabeça vai para a frente
+		_rev = maxf(_rev - 0.3, 0.0)
+	Sfx.play_at("knock", global_position, -10.0, 0.5 if dir > 0 else 0.7)
+
+
+# --- Curva: escorrega antes de tombar --------------------------------------------
+
+## Quanto mais força lateral (velocidade x giro), menos aderência nas 4 rodas: o
+## carro escorrega de lado (drift) em vez de levantar as rodas. Uma barra
+## estabilizadora segura a inclinação de lado enquanto as rodas estão no chão.
+func _curve_grip(speed: float, spin: float, delta: float) -> void:
+	var up := global_basis.y
+	var yaw := angular_velocity.dot(up)
+	var lateral_g := absf(yaw * speed) / 9.8
+	var grip := lerpf(1.0, 0.45, smoothstep(0.35, 0.95, lateral_g))
+	for wheel in _wheels:
+		if wheel in _rear_wheels:
+			wheel.wheel_friction_slip = rear_grip * (1.0 - spin) * grip * 0.92
+		else:
+			wheel.wheel_friction_slip = front_grip * grip
+	var touching := 0
+	for wheel in _wheels:
+		if wheel.is_in_contact():
+			touching += 1
+	if touching >= 3:
+		var roll := global_basis.x.dot(Vector3.UP) # >0 = inclinado para um lado
+		apply_torque(global_basis.z * roll * mass * 18.0) # barra estabilizadora
+		var roll_rate := angular_velocity.dot(global_basis.z)
+		apply_torque(-global_basis.z * roll_rate * mass * 1.5)
 
 
 ## No ar (salto/rampa): segura o giro de frente e de lado para cair de rodas
@@ -455,7 +520,9 @@ func _engine_sound(kmh: float, delta: float) -> void:
 		_engine.stop()
 	if _engine.playing:
 		var effort := absf(engine_force) / max_engine_force if running else 0.0
-		_rev = lerpf(_rev, clampf(kmh / speedo_max, 0.0, 1.0) + effort * 0.25, minf(delta * 3.0, 1.0))
+		# Ronco segue o giro da marcha (cai a cada troca, sobe de novo).
+		var target_rev := 0.15 + gear_rpm(linear_velocity.dot(global_basis.z)) * 0.65 + gear * 0.06 + effort * 0.1
+		_rev = lerpf(_rev, target_rev, minf(delta * 4.0, 1.0))
 		_engine.pitch_scale = 0.75 + _rev * 1.1
 		_engine.volume_db = Sfx.BASE_DB - 8.0 + _rev * 5.0 + linear_to_db(maxf(_engine_level, 0.001))
 

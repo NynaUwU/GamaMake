@@ -57,9 +57,10 @@ func _rebuild(target: PlacedObject) -> void:
 	title.add_theme_font_size_override("font_size", 11)
 	title.modulate = Color(1, 0.9, 0.7)
 	_list.add_child(title)
-	# Itens iguais viram uma linha só ("Argila x6"), com o progresso do mais atrasado.
+	# Uma linha por item.
 	var groups := {}
 	var order := []
+	var index := 0
 	for entry in target.crops:
 		if entry.is_empty():
 			continue
@@ -75,12 +76,10 @@ func _rebuild(target: PlacedObject) -> void:
 			id = Farming.CROPS[entry.crop].food
 			progress = PlacedObject.progress(entry, clock)
 			note = "  pronta!" if progress >= 1.0 else ""
-		var key := "%s|%s" % [id, note]
-		if not groups.has(key):
-			groups[key] = {"id": id, "note": note, "count": 0, "progress": 1.0}
-			order.append(key)
-		groups[key].count += 1
-		groups[key].progress = minf(groups[key].progress, progress)
+		var key := str(index)
+		index += 1
+		groups[key] = {"id": id, "note": note, "count": 1, "progress": progress}
+		order.append(key)
 	for key in order:
 		var g: Dictionary = groups[key]
 		var row := HBoxContainer.new()
@@ -117,5 +116,12 @@ func _rebuild(target: PlacedObject) -> void:
 		empty.text = "Vazio"
 		empty.add_theme_font_size_override("font_size", 10)
 		_list.add_child(empty)
-	size = Vector2.ZERO # encolhe para o conteúdo atual
+	offset_left = 40.0 # volta para o lugar de sempre (ao lado da mira) antes de medir
+	offset_top = -60.0
+	size = Vector2.ZERO # encolhe para o conteúdo atual (sem sobrar metade vazia)
 	reset_size()
+	# Não passa da borda de baixo da tela: sobe o necessário.
+	var screen := get_viewport_rect().size
+	var bottom := global_position.y + get_combined_minimum_size().y
+	if bottom > screen.y - 70.0:
+		global_position.y = maxf(8.0, screen.y - 70.0 - get_combined_minimum_size().y)
