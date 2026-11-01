@@ -671,10 +671,47 @@ func _detail_kit(model: Node3D) -> void:
 	dark.lathe(PackedVector2Array([Vector2(0.035, 0.0), Vector2(0.045, 0.05), Vector2(0.045, 0.08)]), 8, Basis(Vector3.RIGHT, -PI / 2), Vector3(ex, low - 0.03, rear - 0.08))
 	dark.box(Vector3(ex, low - 0.06, center.z - size.z * 0.05), Vector3(0.13, 0.11, 0.35)) # abafador
 	_car_extras(dark, plate, lamp, rubber)
+	_common_extras(model, size, center, half, low)
 	_add(model, plate.finish(_material("plate", Color(0.62, 0.55, 0.38), 0.9, 0.1), false))
 	_add(model, dark.finish(_material("kit_dark", Color(0.12, 0.11, 0.1), 0.8, 0.3), false))
 	_add(model, lamp.finish(_material("taillight", Color(0.55, 0.08, 0.05), 0.5, 0.0), false))
 	_add(model, rubber.finish(_material("rubber", Color(0.08, 0.08, 0.08), 0.95, 0.0), false))
+
+
+## Detalhes de todos os carros: buzina de latão com pera de borracha, bocal do
+## tanque (combustível) com correntinha e galão de reserva preso na lateral.
+func _common_extras(model: Node3D, size: Vector3, center: Vector3, half: float, low: float) -> void:
+	var brass := MeshBuilder.new()
+	var dark := MeshBuilder.new()
+	var can := MeshBuilder.new()
+	var top := center.y + size.y * 0.5
+	var rear := center.z - size.z * 0.5
+	# Buzina do lado de fora, perto do motorista: tubo curvo e boca virada para a frente.
+	var hx := -signf(seat_offset.x if seat_offset.x != 0.0 else 1.0) * (half + 0.04)
+	var hz := center.z + size.z * 0.12
+	brass.tube(PackedVector3Array([Vector3(hx, top - 0.12, hz - 0.15), Vector3(hx + signf(hx) * 0.03, top - 0.05, hz), Vector3(hx + signf(hx) * 0.02, top - 0.06, hz + 0.25)]), 0.012, 6)
+	brass.lathe(PackedVector2Array([Vector2(0.012, 0.0), Vector2(0.03, 0.06), Vector2(0.06, 0.1), Vector2(0.065, 0.11)]), 10, Basis(Vector3.RIGHT, PI / 2), Vector3(hx + signf(hx) * 0.02, top - 0.06, hz + 0.25))
+	dark.lathe(PackedVector2Array([Vector2(0.002, -0.05), Vector2(0.04, -0.03), Vector2(0.045, 0.0), Vector2(0.03, 0.03), Vector2(0.012, 0.04)]), 8, Basis(Vector3.RIGHT, PI / 2), Vector3(hx, top - 0.12, hz - 0.2)) # pera
+	# Bocal do tanque em cima, atrás, com tampa e correntinha.
+	var cap := Vector3(half * 0.45, top + 0.005, rear + minf(size.z * 0.12, 0.4))
+	brass.lathe(PackedVector2Array([Vector2(0.002, 0.0), Vector2(0.05, 0.0), Vector2(0.05, 0.02), Vector2(0.04, 0.035), Vector2(0.045, 0.045), Vector2(0.002, 0.05)]), 10, Basis.IDENTITY, cap)
+	for k in 4:
+		brass.box(cap + Vector3(cos(k * PI / 2.0) * 0.048, 0.03, sin(k * PI / 2.0) * 0.048), Vector3(0.015, 0.012, 0.015)) # orelhas
+	dark.tube(PackedVector3Array([cap + Vector3(0.05, 0.02, 0), cap + Vector3(0.09, -0.01, 0.02), cap + Vector3(0.12, 0.0, 0.0)]), 0.003, 3)
+	# Galão de combustível preso no lado oposto ao da buzina, com cintas.
+	var gx := -signf(hx) * (half + 0.09)
+	var gz := center.z - size.z * 0.12
+	var gy := low + 0.2
+	can.box(Vector3(gx, gy, gz), Vector3(0.13, 0.32, 0.24))
+	can.box(Vector3(gx, gy + 0.17, gz + 0.05), Vector3(0.05, 0.04, 0.05)) # bico
+	dark.box(Vector3(gx, gy + 0.2, gz - 0.04), Vector3(0.03, 0.03, 0.12)) # alça
+	for k in 3:
+		dark.box(Vector3(gx + signf(gx) * 0.066, gy - 0.08 + k * 0.08, gz), Vector3(0.006, 0.012, 0.2)) # vincos
+	for y in [gy - 0.09, gy + 0.09]:
+		dark.box(Vector3(gx, y, gz), Vector3(0.15, 0.025, 0.26)) # cintas
+	_add(model, brass.finish(_material("brass_kit", Color(0.62, 0.5, 0.26), 0.4, 0.6), false))
+	_add(model, dark.finish(_material("kit_dark", Color(0.12, 0.11, 0.1), 0.8, 0.3), false))
+	_add(model, can.finish(_material("jerry_can", Color(0.6, 0.12, 0.08), 0.8, 0.2), false))
 
 
 ## Detalhes próprios de cada carro (cada modelo sobrescreve). dark = ferro escuro,
