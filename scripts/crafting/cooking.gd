@@ -6,7 +6,7 @@ extends RefCounted
 ## A comida assada enche bem mais a fome.
 
 const COOK := {&"batata": &"batata_assada", &"cenoura": &"cenoura_assada", &"abobora": &"abobora_assada",
-	&"lata": &"lata_quente", &"pao": &"torrada", &"argila": &"tijolo",
+	&"lata": &"lata_quente", &"pao": &"torrada", &"argila": &"tijolo", &"carne_crua": &"carne_assada",
 	&"camarao": &"camarao_assado", &"lagosta": &"lagosta_assada", &"caranguejo": &"caranguejo_assado",
 	&"caranguejo_aranha": &"caranguejo_aranha_assado", &"atum": &"atum_assado", &"baixo": &"baixo_assado"}
 const COOK_TIME := 20.0
@@ -14,13 +14,15 @@ const BURN_TIME := 60.0
 const NO_BURN := [&"argila"] ## tijolo não queima: pode esquecer no fogo
 ## Secador: peixe e frutos do lago viram peixe seco (enche bem e dura mais).
 const DRY := {&"camarao": &"peixe_seco", &"lagosta": &"peixe_seco", &"caranguejo": &"peixe_seco",
-	&"caranguejo_aranha": &"peixe_seco", &"atum": &"peixe_seco", &"baixo": &"peixe_seco"}
+	&"caranguejo_aranha": &"peixe_seco", &"atum": &"peixe_seco", &"baixo": &"peixe_seco",
+	&"carne_crua": &"carne_seca", &"pele": &"couro"}
 const DRY_TIME := 90.0
 ## Filtro de areia e carvão: água suja vira potável.
 const FILTER := {&"agua_suja": &"agua"}
 ## Defumador: peixe cru vira defumado (nunca estraga).
 const SMOKE := {&"camarao": &"peixe_defumado", &"lagosta": &"peixe_defumado", &"caranguejo": &"peixe_defumado",
-	&"caranguejo_aranha": &"peixe_defumado", &"atum": &"peixe_defumado", &"baixo": &"peixe_defumado"}
+	&"caranguejo_aranha": &"peixe_defumado", &"atum": &"peixe_defumado", &"baixo": &"peixe_defumado",
+	&"carne_crua": &"carne_seca"}
 ## Composteira: restos e comida estragada viram adubo.
 const COMPOST := {&"comida_estragada": &"adubo", &"cenoura": &"adubo", &"batata": &"adubo", &"abobora": &"adubo",
 	&"fruta": &"adubo", &"trigo": &"adubo"}
@@ -35,7 +37,7 @@ const LABELS := {"campfire": ["Assando", "da grelha", "Fogueira"], "dryer": ["Se
 ## Fogueiras (os zumbis não chegam perto das acesas à noite).
 static var fires: Array = []
 ## Lenha da fogueira: segundos de fogo por item (1 tronco = 15 min).
-const FIREWOOD := {&"tronco": 900.0, &"carvao": 600.0, &"tabua": 240.0, &"graveto": 60.0}
+const FIREWOOD := {&"tronco": 900.0, &"carvao": 600.0, &"tabua": 240.0, &"gordura": 180.0, &"graveto": 60.0}
 
 
 static func table(kind: String) -> Dictionary:

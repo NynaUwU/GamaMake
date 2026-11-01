@@ -77,6 +77,37 @@ static func build(id: StringName) -> Node3D:
 			_mb(parts, Color(0.32, 0.2, 0.12)).torus(0.08, 0.012, 16, 4, Basis.IDENTITY, Vector3(0, 0.012, 0))
 			_mb(parts, Color(0.32, 0.2, 0.12)).torus(0.06, 0.012, 16, 4, Basis.IDENTITY, Vector3(0, 0.03, 0))
 			_mb(parts, Color(0.6, 0.48, 0.26)).box(Vector3(0.08, 0.02, 0), Vector3(0.03, 0.03, 0.04)) # fivela
+		&"carne_crua", &"carne_assada", &"carne_seca":
+			var meat: Color = {&"carne_crua": Color(0.72, 0.22, 0.2), &"carne_assada": Color(0.5, 0.26, 0.12)}.get(id, Color(0.42, 0.18, 0.12))
+			var thick := 0.025 if id == &"carne_seca" else 0.05
+			_mb(parts, meat).extrude(PackedVector2Array([Vector2(-0.1, -0.04), Vector2(0.06, -0.06), Vector2(0.1, 0.0), Vector2(0.07, 0.06), Vector2(-0.05, 0.065), Vector2(-0.1, 0.02)]),
+				thick, Basis(Vector3.RIGHT, PI / 2), Vector3(0, thick * 0.5, 0))
+			_mb(parts, Color(0.92, 0.86, 0.75)).box(Vector3(-0.02, thick + 0.001, 0.0), Vector3(0.11, 0.003, 0.012), Basis(Vector3.UP, 0.4)) # gordura
+			if id == &"carne_crua":
+				_mb(parts, Color(0.9, 0.88, 0.82)).box(Vector3(0.11, 0.025, 0.0), Vector3(0.05, 0.022, 0.022)) # osso
+		&"pele", &"couro":
+			var hide: Color = Color(0.55, 0.4, 0.28) if id == &"pele" else Color(0.42, 0.26, 0.15)
+			var grid := []
+			for r in 4:
+				var row := PackedVector3Array()
+				for c in 5:
+					var x := lerpf(-0.15, 0.15, c / 4.0) * (1.0 - 0.15 * absf(r - 1.5))
+					row.append(Vector3(x, 0.01 + sin(c * 1.4 + r) * 0.006, lerpf(-0.12, 0.12, r / 3.0)))
+				grid.append(row)
+			_mb(parts, hide).sheet(grid)
+			if id == &"pele":
+				for k in 5:
+					_mb(parts, hide.darkened(0.25)).box(Vector3(-0.1 + k * 0.05, 0.016, sin(k) * 0.05), Vector3(0.02, 0.004, 0.03)) # pelos
+			else:
+				_mb(parts, hide.darkened(0.3)).tube(PackedVector3Array([Vector3(-0.14, 0.012, -0.11), Vector3(0.14, 0.012, -0.11), Vector3(0.14, 0.012, 0.11)]), 0.003, 3) # costura
+		&"gordura":
+			_rock(_mb(parts, Color(0.92, 0.88, 0.74)))
+		&"casaco_pele":
+			_mb(parts, Color(0.48, 0.34, 0.22)).box(Vector3(0, 0.27, 0), Vector3(0.44, 0.54, 0.2))
+			for side in [-0.28, 0.28]:
+				_mb(parts, Color(0.44, 0.3, 0.2)).box(Vector3(side, 0.3, 0), Vector3(0.13, 0.46, 0.17))
+			_mb(parts, Color(0.88, 0.82, 0.7)).box(Vector3(0, 0.52, 0), Vector3(0.4, 0.09, 0.24)) # gola de pelo
+			_mb(parts, Color(0.88, 0.82, 0.7)).box(Vector3(0, 0.27, 0.105), Vector3(0.06, 0.5, 0.01)) # frente de pelo
 		&"areia":
 			_rock(_mb(parts, Color(0.82, 0.72, 0.5)))
 		&"graveto":

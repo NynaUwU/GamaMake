@@ -51,6 +51,27 @@ func _ready() -> void:
 	_arcs.set_value(3, player.thirst, player.MAX_THIRST)
 	player.thirst_changed.connect(func(current: float, maximum: float): _arcs.set_value(3, current, maximum))
 	player.sick_changed.connect(func(sick: bool): _arcs.sick = sick)
+	var frost := ColorRect.new()
+	frost.name = "Frost"
+	frost.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	frost.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var frost_mat := ShaderMaterial.new()
+	frost_mat.shader = Shader.new()
+	frost_mat.shader.code = """shader_type canvas_item;
+uniform float amount = 0.0;
+void fragment() {
+	vec2 d = abs(UV - 0.5) * 2.0;
+	float edge = smoothstep(0.55, 1.0, max(d.x, d.y));
+	float flakes = fract(sin(dot(floor(UV * 90.0), vec2(12.9898, 78.233))) * 43758.5453);
+	COLOR = vec4(0.82, 0.92, 1.0, edge * amount * (0.55 + 0.45 * flakes));
+}"""
+	frost.material = frost_mat
+	$Root.add_child(frost)
+	$Root.move_child(frost, 0)
+	player.cold_changed.connect(func(body_heat: float, temp: float):
+		_arcs.temperature = temp
+		_arcs.heat = body_heat / player.MAX_HEAT
+		frost_mat.set_shader_parameter("amount", clampf(1.0 - body_heat / 60.0, 0.0, 1.0))) # geada nas bordas quando gela
 	var plants := PlantPanel.new()
 	plants.name = "PlantPanel"
 	$Root.add_child(plants)

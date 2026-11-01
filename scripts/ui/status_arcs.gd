@@ -16,6 +16,8 @@ const MARGIN := 8.0
 var values := [1.0, 1.0, 1.0, 1.0] ## 0..1 (stamina, vida, fome, sede)
 var _shown := [1.0, 1.0, 1.0, 1.0]
 var sick := false
+var temperature := 18.0 ## sentida (termômetro)
+var heat := 1.0 ## calor do corpo 0..1 (bulbo pisca azul quando acaba)
 var _time := 0.0
 
 
@@ -28,6 +30,26 @@ func _ready() -> void:
 	offset_right = RADII[0] + MARGIN + WIDTHS[0]
 	offset_top = -(RADII[0] + MARGIN + WIDTHS[0])
 	offset_bottom = 0.0
+
+
+## Termômetro no centro do quarto de círculo: a coluna sobe com a temperatura
+## (azul no frio, verde agradável, vermelho no calor); o bulbo pisca azul quando o
+## corpo está gelando.
+func _draw_thermometer(base: Vector2) -> void:
+	var height := 30.0
+	var t := clampf((temperature + 15.0) / 50.0, 0.0, 1.0)
+	var color := Color(0.35, 0.6, 1.0).lerp(Color(0.45, 0.85, 0.4), clampf(t * 2.0, 0.0, 1.0)) if t < 0.5 \
+		else Color(0.45, 0.85, 0.4).lerp(Color(0.95, 0.35, 0.2), (t - 0.5) * 2.0)
+	var bulb := base + Vector2(0, -4)
+	draw_rect(Rect2(bulb + Vector2(-4, -height), Vector2(8, height)), Color(0, 0, 0, 0.6))
+	draw_rect(Rect2(bulb + Vector2(-2.5, -height * t), Vector2(5, height * t)), color)
+	var bulb_color := color
+	if heat < 0.35:
+		bulb_color = color.lerp(Color(0.6, 0.85, 1.0), 0.5 + 0.5 * sin(_time * 6.0))
+	draw_circle(bulb, 7.0, Color(0, 0, 0, 0.6))
+	draw_circle(bulb, 5.2, bulb_color)
+	for k in 4: # marcas
+		draw_rect(Rect2(bulb + Vector2(4, -8 - k * 7), Vector2(3, 1)), Color(1, 1, 1, 0.5))
 
 
 func set_value(index: int, current: float, maximum: float) -> void:
@@ -57,6 +79,7 @@ func _draw() -> void:
 			if i == 1 and fill < 0.3:
 				color = color.lightened(0.35 * (0.5 + 0.5 * sin(_time * 8.0))) # vida baixa: pisca
 			draw_arc(corner, r, -fill * PI / 2, 0.0, maxi(4, int(40 * fill)), color, w, true)
+	_draw_thermometer(corner + Vector2(17, -10))
 	# Letrinha na ponta de cima de cada arco (S, V, F).
 	var font := get_theme_default_font()
 	var labels := ["S", "V", "F", "A"]

@@ -24,6 +24,13 @@ reação física a golpes e ragdoll (estilo Dying Light), visual de PC dos anos 
 - Os outros jogadores aparecem com o nome em cima, o item da mão, a lanterna acesa e uma bolinha
   azul no minimapa/mapa. Em cima, no meio da tela, aparece quem está online.
 
+## Animais e frio
+- **Animais** (`scripts/animals/`, em blocos como todo ser vivo): **cervo** (foge de longe, rápido), **coelho** (foge em zigue-zague) e **javali** (apanhou, avança em quem bateu e morde por 15 s). Aparecem a 60–110 m dos jogadores conforme o bioma (planície: os três; neve: cervo e coelho; deserto: coelho raro; nunca nas cidades), até 10 por vez, e somem longe. Sobem degraus como o jogador. Host simula, os outros veem cópias; golpe/tiro/lança funcionam igual aos zumbis.
+- **Caça:** carne crua (faz mal crua, estraga em 8 min), pele, gordura (javali). Carne na fogueira → **carne assada**; no secador ou defumador → **carne seca** (nunca estraga). **Pele no secador → couro.** Couro: 2 correias, botas; **casaco de pele** (3 peles + 2 couros): o mais quente. Gordura queima na fogueira (3 min).
+- **Frio:** temperatura do lugar = bioma (neve gela, deserto esquenta de dia e gela à noite), altitude, noite, chuva e estar molhado; **fogueira acesa** a até 7 m esquenta muito e **teto em cima** protege. Roupas isolam (casaco de pele 0,9, casaco 0,6, capuz 0,2, calça e botas 0,15). Abaixo de ~10° o calor do corpo cai; zerado, a vida vai embora (hipotermia) e a stamina enche menos.
+- **HUD:** **termômetro** no centro do quarto de círculo (azul no frio, verde agradável, vermelho no calor; o bulbo pisca quando o corpo está gelando) e **geada nas bordas da tela** quando esfria.
+- **Rios:** a margem ficou mais plana (~8 m quase no nível da água, depois sobe suave).
+
 ## Máquinas — Tier 2 (energia natural: a automação começa)
 - **Rios** (`scripts/world/rivers.gd`): 5 rios sorteados pela semente, nascendo em lagos e descendo o relevo (~700 m). O terreno é cavado num leito, a água é uma faixa com o mesmo shader dos lagos, aparecem no mapa/minimapa, dá para nadar e encher garrafa (água suja).
 - **Rede de energia** (`scripts/machines/power.gd`): geradores → eixos/correias → máquinas. O host recalcula 1x por segundo: oferta (geradores) dividida pela demanda (máquinas com material); pouca energia = tudo mais devagar. As peças giram no ritmo da rede.

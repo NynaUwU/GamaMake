@@ -11,6 +11,7 @@ signal health_changed(current: float, maximum: float)
 signal hunger_changed(current: float, maximum: float)
 signal thirst_changed(current: float, maximum: float)
 signal sick_changed(sick: bool)
+signal cold_changed(heat: float, temperature: float)
 signal stamina_changed(current: float, maximum: float)
 signal interact_prompt_changed(text: String) ## "" = nada para interagir
 signal notify(text: String) ## mensagens curtas no HUD
@@ -268,6 +269,14 @@ const THIRST_RATE := 100.0 / (15.0 * 60.0)
 const SICK_TIME := 180.0
 var thirst := MAX_THIRST
 var sick_time := 0.0
+## Frio: "heat" é o calor do corpo (100 = quentinho, 0 = hipotermia). A
+## temperatura sentida vem do bioma/altitude/noite/chuva/água, mais fogueira
+## acesa perto, teto em cima e o isolamento das roupas ("warm" no ItemDB).
+const MAX_HEAT := 100.0
+var heat := MAX_HEAT
+var temperature := 18.0 ## sentida, em graus (já com roupa e fogo)
+var _cold_timer := 0.0
+var _sheltered := false
 var _thirst_warned := false
 var hunger := MAX_HUNGER
 var _hunger_warned := false
@@ -1677,10 +1686,69 @@ func _fill_bottle() -> void:
 	Sfx.play_at("slap", end, -4.0, 1.2)
 
 
+## Temperatura do lugar (sem a roupa).
+func ambient_temperature() -> float:
+	var terrain := get_parent().get_node_or_null("Terrain") as TerrainWorld
+	var t := 16.0
+	var desert := 0.0
+	if terrain:
+		var biome := terrain.biome_at(global_position.x, global_position.z)
+		desert = biome.desert
+		t = 16.0 * biome.plains + 30.0 * biome.desert - 8.0 * biome.winter + 12.0 * biome.mountain
+		t -= maxf(global_position.y - 30.0, 0.0) * 0.15 # altitude esfria
+	var night := DayNight.i.night if DayNight.i else 0.0
+	t -= night * (8.0 + 14.0 * desert) # deserto gela à noite
+	if Weather.i:
+		t -= Weather.i.rain * 5.0
+	if WaterManager.i and WaterManager.i.depth_at(global_position + Vector3.UP * 0.5) > 0.0:
+		t -= 7.0 # molhado
+	for fire in Cooking.fires:
+		if is_instance_valid(fire) and fire.is_lit():
+			var d: float = fire.global_position.distance_to(global_position)
+			if d < 7.0:
+				t += 18.0 * (1.0 - d / 7.0) # calor da fogueira acesa
+	if _sheltered:
+		t += 5.0
+	return t
+
+
+## Isolamento das roupas vestidas (0 a ~1,4).
+func insulation() -> float:
+	var total := 0.0
+	for slot in inventory.equipment:
+		if not inventory.equipment[slot].is_empty():
+			total += ItemDB.def(inventory.equipment[slot].id).get("warm", 0.0)
+	return minf(total, 1.4)
+
+
+func _update_cold(delta: float) -> void:
+	_cold_timer -= delta
+	if _cold_timer > 0.0:
+		return
+	var step := 0.5 - _cold_timer
+	_cold_timer = 0.5
+	# Teto em cima (casa, construção): protege do vento e da chuva.
+	var up := PhysicsRayQueryParameters3D.create(global_position + Vector3.UP * 1.9, global_position + Vector3.UP * 7.0, 1, [get_rid()])
+	_sheltered = not get_world_3d().direct_space_state.intersect_ray(up).is_empty()
+	temperature = ambient_temperature() + insulation() * 14.0
+	if temperature < 10.0:
+		heat = maxf(heat - (10.0 - temperature) * 0.06 * step, 0.0)
+	elif temperature > 14.0:
+		heat = minf(heat + 1.2 * step, MAX_HEAT)
+	if heat <= 0.0 and health > 0.0:
+		health = maxf(health - 0.6 * step, 0.0) # hipotermia
+		health_changed.emit(health, max_health)
+		if health <= 0.0:
+			notify.emit("Você morreu de frio - aperte Backspace para %s" % ("renascer" if Net.i.online() else "recomeçar"))
+			died.emit()
+	cold_changed.emit(heat, temperature)
+
+
 var _spoil_timer := 5.0
 var _shovel_ready := 0
 func _update_hunger(delta: float) -> void:
 	_update_thirst(delta)
+	_update_cold(delta)
 	_spoil_timer -= delta
 	if _spoil_timer <= 0.0:
 		_spoil_timer = 5.0
@@ -1711,12 +1779,13 @@ func _start_swing_visual_only() -> void:
 
 ## Salvo junto com o jogador (SaveGame).
 func save_extra() -> Dictionary:
-	return {"hunger": hunger, "thirst": thirst, "sick": sick_time, "equipment": inventory.equipment.duplicate(true)}
+	return {"hunger": hunger, "thirst": thirst, "sick": sick_time, "heat": heat, "equipment": inventory.equipment.duplicate(true)}
 
 
 func load_extra(data: Dictionary) -> void:
 	hunger = data.get("hunger", MAX_HUNGER)
 	thirst = data.get("thirst", MAX_THIRST)
+	heat = data.get("heat", MAX_HEAT)
 	sick_time = data.get("sick", 0.0)
 	thirst_changed.emit(thirst, MAX_THIRST)
 	sick_changed.emit(sick_time > 0.0)
@@ -2295,7 +2364,7 @@ func _use_stamina(amount: float, delay := 0.8) -> void:
 func _update_stamina(delta: float) -> void:
 	_regen_delay -= delta
 	if _regen_delay <= 0.0 and stamina < max_stamina:
-		stamina = minf(stamina + stamina_regen * delta * (0.5 if sick_time > 0.0 else 1.0), max_stamina)
+		stamina = minf(stamina + stamina_regen * delta * (0.5 if sick_time > 0.0 else 1.0) * (0.6 if heat < 30.0 else 1.0), max_stamina)
 		stamina_changed.emit(stamina, max_stamina)
 
 
@@ -2361,6 +2430,7 @@ func respawn() -> void:
 	thirst_changed.emit(thirst, MAX_THIRST)
 	sick_time = 0.0
 	sick_changed.emit(false)
+	heat = MAX_HEAT
 	velocity = Vector3.ZERO
 	if spawn_point != Vector3.INF:
 		global_position = spawn_point

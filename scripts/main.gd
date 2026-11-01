@@ -38,6 +38,9 @@ func _ready() -> void:
 	var weather := Weather.new()
 	weather.name = "Weather"
 	add_child(weather)
+	var animals := AnimalManager.new()
+	animals.name = "Animals"
+	add_child(animals)
 	var hordes := HordeManager.new()
 	hordes.name = "Hordes"
 	add_child(hordes)

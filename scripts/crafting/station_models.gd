@@ -354,7 +354,7 @@ static func _register_fire(obj: Node3D, node: Node3D) -> void:
 
 ## Acende ou apaga o fogo de um objeto (fogueira, fornalhas, forno, defumador).
 static func set_lit(obj: Node3D, lit: bool) -> void:
-	if obj.get_meta("lit", null) == lit:
+	if obj.has_meta("lit") and obj.get_meta("lit") == lit:
 		return
 	obj.set_meta("lit", lit)
 	for node in obj.get_meta("fire_nodes", []):

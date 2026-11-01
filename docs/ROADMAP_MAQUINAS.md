@@ -78,12 +78,12 @@ Cada fase só usa o que as anteriores já entregaram.
    - Bomba manual (água suja), filtro de areia/carvão.
    - Fole + fornalha de pedra (de tijolo).
    - Defumador, composteira.
-3. **Animais e frio**
+3. **Animais e frio** *(feito)*
    - Carne, pele e fibra.
    - Secador de pele (couro).
    - Roca e tear (fio → tecido → roupa quente).
    - Frio por bioma e noite.
-4. **Tier 2** *(feito; animais e frio ficam para depois)*
+4. **Tier 2** *(feito)*
    - Rios, roda d'água, moinho de vento.
    - Eixos e correias (grafo de energia rotacional).
    - Serraria, carneiro hidráulico (irrigação).

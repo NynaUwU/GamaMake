@@ -94,7 +94,7 @@ static func index(rivers: Array) -> Dictionary:
 	var grid := {}
 	for r in rivers.size():
 		var river: Dictionary = rivers[r]
-		var reach: float = river.width * 0.5 + 8.0
+		var reach: float = river.width * 0.5 + FLOODPLAIN + 2.0
 		for i in river.points.size() - 1:
 			var a: Vector2 = river.points[i]
 			var b: Vector2 = river.points[i + 1]
@@ -128,21 +128,24 @@ static func nearest(rivers: Array, grid: Dictionary, x: float, z: float) -> Dict
 
 
 ## Altura do terreno com o leito cavado (chamado depois dos lagos).
+const FLOODPLAIN := 32.0 ## até onde a margem é suavizada de cada lado
+
+
 static func shape(rivers: Array, grid: Dictionary, x: float, z: float, h: float) -> float:
 	var near := nearest(rivers, grid, x, z)
 	if near.is_empty():
 		return h
 	var half: float = near.half
 	var d: float = near.dist
-	if d > half + 8.0:
+	if d > half + FLOODPLAIN:
 		return h
-	var u := d / half
-	var bed: float = near.level - near.depth * maxf(1.0 - u * u, 0.0) - 0.2
-	var bank: float = near.level + 0.35 # a margem fica só um pouco acima da água
-	var target := bed if d < half else lerpf(bank, h, smoothstep(half, half + 8.0, d))
 	if d < half:
-		return minf(h, bed)
-	return minf(h, target) if h > bank else h
+		var u := d / half
+		return minf(h, near.level - near.depth * maxf(1.0 - u * u, 0.0) - 0.2) # leito
+	# Várzea: perto da água o chão fica quase plano, só um pouco acima do nível,
+	# e vai voltando ao relevo normal até FLOODPLAIN metros da margem.
+	var bank: float = near.level + 0.35 + (d - half) * 0.02
+	return lerpf(bank, h, smoothstep(half + 8.0, half + FLOODPLAIN, d)) # ~8 m quase planos, depois sobe suave
 
 
 ## Ponto dentro da água de algum rio: {"level", "dir"} ou {}.
