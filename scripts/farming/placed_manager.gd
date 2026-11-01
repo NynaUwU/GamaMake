@@ -101,6 +101,16 @@ func host_apply(action: String, args: Array) -> Array:
 			_next_id += 1
 			_spawn(id, kind, xform)
 			return [id, kind, xform]
+		"fuel":
+			# Lenha na fogueira / forno aceso: [id, segundos, chave]. O host soma ao que já queima.
+			var obj: PlacedObject = objects.get(args[0])
+			var key: String = args[2] if args.size() > 2 else "fuel_until"
+			if obj == null or key not in ["fuel_until", "lit_until"]:
+				return []
+			var until := minf(maxf(clock, obj.extra.get(key, 0.0)) + clampf(float(args[1]), 0.0, 3600.0), clock + 4.0 * 3600.0)
+			obj.extra[key] = until
+			obj.refresh(clock)
+			return [args[0], until, key]
 		"machine_put":
 			# Material entrando numa máquina de manivela (já saiu da mochila de quem pôs).
 			var obj: PlacedObject = objects.get(args[0])
@@ -362,6 +372,11 @@ func apply_remote(action: String, args: Array) -> void:
 			var obj: PlacedObject = objects.get(args[0])
 			if obj and obj.board:
 				obj.board.clear()
+		"fuel":
+			var obj: PlacedObject = objects.get(args[0])
+			if obj:
+				obj.extra[args[2]] = args[1]
+				obj.refresh(clock)
 		"machine_put", "machine_take", "crank":
 			var obj: PlacedObject = objects.get(args[0])
 			if obj:

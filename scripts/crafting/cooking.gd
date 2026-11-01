@@ -32,8 +32,10 @@ const LABELS := {"campfire": ["Assando", "da grelha", "Fogueira"], "dryer": ["Se
 	"filter": ["Filtrando", "do filtro", "Filtro de água"], "smoker": ["Defumando", "do defumador", "Defumador"],
 	"compost": ["Compostando", "da composteira", "Composteira"]}
 
-## Fogueiras acesas (os zumbis não chegam perto delas à noite).
+## Fogueiras (os zumbis não chegam perto das acesas à noite).
 static var fires: Array = []
+## Lenha da fogueira: segundos de fogo por item (1 tronco = 15 min).
+const FIREWOOD := {&"tronco": 900.0, &"carvao": 600.0, &"tabua": 240.0, &"graveto": 60.0}
 
 
 static func table(kind: String) -> Dictionary:
@@ -52,7 +54,7 @@ static func make_entry(kind: String, food: StringName, clock: float) -> Dictiona
 static func nearest_fire(at: Vector3, radius: float) -> Vector3:
 	var best := Vector3.INF
 	for fire in fires:
-		if is_instance_valid(fire) and fire.global_position.distance_to(at) < radius \
+		if is_instance_valid(fire) and fire.is_lit() and fire.global_position.distance_to(at) < radius \
 				and (best == Vector3.INF or fire.global_position.distance_to(at) < best.distance_to(at)):
 			best = fire.global_position
 	return best
@@ -103,6 +105,11 @@ static func text(obj: PlacedObject, clock: float) -> String:
 			ready += 1
 		elif st == 0:
 			cooking.append("%s %d%%" % [ItemDB.display_name(entry.food), (clock - entry.t) / entry.get("cook", COOK_TIME) * 100.0])
+	if obj.kind == "campfire":
+		var left: float = obj.extra.get("fuel_until", 0.0) - clock
+		if left <= 0.0:
+			return "Fogueira apagada  [E] acender (lenha)"
+		label = ["Assando", "da grelha", "Fogueira acesa (%d min)" % ceili(left / 60.0)]
 	if ready > 0:
 		return "[E] Tirar %s (%d pronto%s)" % [label[1], ready, "s" if ready > 1 else ""]
 	if not cooking.is_empty():
@@ -120,6 +127,24 @@ static func interact(player: Player, obj: PlacedObject) -> void:
 			took = true
 	if took:
 		return
+	# Fogueira: lenha na mão (ou, apagada, de qualquer lugar da mochila) alimenta o fogo.
+	if obj.kind == "campfire":
+		var held := player.inventory.selected_id()
+		var wood_index := player.inventory.selected if FIREWOOD.has(held) else -1
+		if wood_index < 0 and not obj.is_lit():
+			for wood in [&"tronco", &"carvao", &"tabua", &"graveto"]:
+				wood_index = find_any(player.inventory, {wood: true})
+				if wood_index >= 0:
+					break
+		if wood_index >= 0:
+			var wood_id: StringName = player.inventory.slots[wood_index].id
+			player.inventory.take(wood_index, 1)
+			manager.request("fuel", [obj.net_id, FIREWOOD[wood_id], "fuel_until"])
+			Sfx.play_at("knock", obj.global_position + Vector3.UP * 0.3, 0.0, 0.7)
+			return
+		if not obj.is_lit():
+			Sfx.play("click", -6.0, 0.6) # apagada e sem lenha
+			return
 	# Grelha: o que está na mão. As outras (filtro, secador, defumador, composteira)
 	# puxam o que servir de qualquer lugar da mochila e enchem todos os lugares livres.
 	var accepted := table(obj.kind)

@@ -615,11 +615,31 @@ static func _coal(p: Dictionary) -> void:
 
 
 static func _ingot(p: Dictionary, color: Color) -> void:
-	# Lingote trapezoidal: base larga, topo estreito.
-	var shape := PackedVector2Array([Vector2(-0.05, 0.0), Vector2(0.05, 0.0), Vector2(0.038, 0.045), Vector2(-0.038, 0.045)])
-	_mb(p, color).extrude(shape, 0.28, Basis.IDENTITY, Vector3(0, -0.022, 0))
-	_mb(p, color.darkened(0.25)).box(Vector3(0, 0.024, 0), Vector3(0.03, 0.002, 0.06)) # marca de fundição
-	_mb(p, color.lightened(0.12)).box(Vector3(0, 0.0235, 0.09), Vector3(0.06, 0.001, 0.05))
+	# Lingote trapezoidal (base larga, topo estreito) feito de quads com a ordem
+	# certa dos vértices: todas as faces viradas para fora.
+	var mb := _mb(p, color)
+	var bw := 0.05
+	var tw := 0.038
+	var bl := 0.14
+	var tl := 0.125
+	var h := 0.045
+	var y0 := -0.022
+	var b0 := Vector3(-bw, y0, -bl)
+	var b1 := Vector3(bw, y0, -bl)
+	var b2 := Vector3(bw, y0, bl)
+	var b3 := Vector3(-bw, y0, bl)
+	var t0 := Vector3(-tw, y0 + h, -tl)
+	var t1 := Vector3(tw, y0 + h, -tl)
+	var t2 := Vector3(tw, y0 + h, tl)
+	var t3 := Vector3(-tw, y0 + h, tl)
+	mb.quad(t0, t1, t2, t3) # topo
+	mb.quad(b0, b3, b2, b1) # fundo
+	mb.quad(b0, b1, t1, t0) # frente (-Z)
+	mb.quad(b2, b3, t3, t2) # trás (+Z)
+	mb.quad(b1, b2, t2, t1) # lado +X
+	mb.quad(b3, b0, t0, t3) # lado -X
+	_mb(p, color.darkened(0.25)).box(Vector3(0, y0 + h + 0.001, 0), Vector3(0.03, 0.002, 0.06)) # marca de fundição
+	_mb(p, color.lightened(0.12)).box(Vector3(0, y0 + h + 0.0015, 0.08), Vector3(0.05, 0.001, 0.04))
 
 
 static func _glass(p: Dictionary) -> void:
@@ -710,12 +730,16 @@ static func _bolt(p: Dictionary) -> void:
 
 
 static func _bottle(p: Dictionary, id: StringName) -> void:
-	var glass := Color(0.55, 0.68, 0.62)
+	# O vidro do corpo toma a cor do que tem dentro (vazia: vidro claro).
+	var glass := Color(0.62, 0.72, 0.68)
+	var body: Color = {&"agua": Color(0.55, 0.78, 0.95), &"agua_suja": Color(0.4, 0.42, 0.24)}.get(id, glass)
+	_mb(p, body).lathe(PackedVector2Array([Vector2(0.002, 0.0), Vector2(0.04, 0.0), Vector2(0.046, 0.01), Vector2(0.046, 0.16),
+		Vector2(0.032, 0.2)]), 10)
+	_mb(p, glass).lathe(PackedVector2Array([Vector2(0.032, 0.2), Vector2(0.02, 0.215), Vector2(0.018, 0.26), Vector2(0.022, 0.265), Vector2(0.002, 0.268)]), 10)
+	if id == &"agua_suja":
+		_mb(p, Color(0.3, 0.28, 0.16)).lathe(PackedVector2Array([Vector2(0.002, 0.003), Vector2(0.044, 0.003), Vector2(0.046, 0.03)]), 10) # sujeira no fundo
 	if id != &"garrafa":
-		var water := Color(0.35, 0.55, 0.75) if id == &"agua" else Color(0.42, 0.4, 0.26)
-		_mb(p, water).lathe(PackedVector2Array([Vector2(0.002, 0.008), Vector2(0.04, 0.008), Vector2(0.04, 0.15), Vector2(0.002, 0.15)]), 10)
-	_mb(p, glass).lathe(PackedVector2Array([Vector2(0.002, 0.0), Vector2(0.04, 0.0), Vector2(0.046, 0.01), Vector2(0.046, 0.16),
-		Vector2(0.032, 0.2), Vector2(0.02, 0.215), Vector2(0.018, 0.26), Vector2(0.022, 0.265), Vector2(0.002, 0.268)]), 10)
+		_mb(p, body.lightened(0.2)).lathe(PackedVector2Array([Vector2(0.0462, 0.13), Vector2(0.0462, 0.14)]), 10) # nível da água
 	_mb(p, Color(0.5, 0.36, 0.2)).lathe(PackedVector2Array([Vector2(0.017, 0.255), Vector2(0.019, 0.29), Vector2(0.002, 0.292)]), 8) # rolha
 	_mb(p, ItemModels.CREAM.darkened(0.1)).lathe(PackedVector2Array([Vector2(0.0465, 0.06), Vector2(0.0465, 0.11)]), 10) # rótulo
 	_mb(p, ItemModels.LEATHER).torus(0.021, 0.003, 8, 3, Basis.IDENTITY, Vector3(0, 0.22, 0)) # barbante no gargalo

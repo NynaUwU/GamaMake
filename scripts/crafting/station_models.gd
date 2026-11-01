@@ -188,6 +188,7 @@ static func _furnace(mb: MeshBuilder, obj: PlacedObject) -> void:
 	glow.position = Vector3(0, 0.3, 0.58)
 	glow.scale = Vector3(1.0, 1.0, 1.0)
 	obj.add_child(glow)
+	_register_fire(obj, glow)
 	# Pilha de lenha do lado e uma pá de cinzas encostada.
 	for k in 5:
 		mb.color(WOOD.darkened(0.1 + 0.05 * (k % 2)))
@@ -331,6 +332,7 @@ static func _fire(obj: Node3D, at: Vector3, radius: float, strength: float) -> v
 	gradient.set_color(1, Color(0.8, 0.2, 0.05))
 	flames.color_ramp = gradient
 	obj.add_child(flames)
+	_register_fire(obj, flames)
 	var light := Flicker.new()
 	light.position = at + Vector3.UP * 0.4
 	light.light_color = Color(1.0, 0.6, 0.3)
@@ -340,6 +342,26 @@ static func _fire(obj: Node3D, at: Vector3, radius: float, strength: float) -> v
 	light.distance_fade_enabled = true
 	light.distance_fade_begin = 50.0
 	obj.add_child(light)
+	_register_fire(obj, light)
+
+
+## Guarda as peças do fogo (chamas, luz, brasa) para acender/apagar depois.
+static func _register_fire(obj: Node3D, node: Node3D) -> void:
+	var list: Array = obj.get_meta("fire_nodes", [])
+	list.append(node)
+	obj.set_meta("fire_nodes", list)
+
+
+## Acende ou apaga o fogo de um objeto (fogueira, fornalhas, forno, defumador).
+static func set_lit(obj: Node3D, lit: bool) -> void:
+	if obj.get_meta("lit", null) == lit:
+		return
+	obj.set_meta("lit", lit)
+	for node in obj.get_meta("fire_nodes", []):
+		if is_instance_valid(node):
+			node.visible = lit
+			if node is CPUParticles3D:
+				node.emitting = lit
 
 
 static func _glow_mat() -> StandardMaterial3D:

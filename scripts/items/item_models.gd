@@ -616,10 +616,11 @@ static func _cloth(p: Dictionary) -> void:
 
 
 static func _tape(p: Dictionary) -> void:
-	var outer := PackedVector2Array([Vector2(0.065, -0.025), Vector2(0.068, 0.0), Vector2(0.065, 0.025)])
-	_mb(p, TAPE).lathe(outer, 14)
-	_mb(p, TAPE).torus(0.066, 0.003, 14, 3, Basis.IDENTITY, Vector3(0, 0.025, 0))
-	_mb(p, BRASS).lathe(PackedVector2Array([Vector2(0.035, 0.026), Vector2(0.035, -0.026)]), 12)
+	# Rolo fechado: anel com faces em cima e embaixo (não fica oco) e o miolo de papelão.
+	_mb(p, TAPE).lathe(PackedVector2Array([Vector2(0.036, -0.025), Vector2(0.065, -0.025), Vector2(0.068, 0.0), Vector2(0.065, 0.025), Vector2(0.036, 0.025)]), 16)
+	_mb(p, TAPE.darkened(0.15)).torus(0.051, 0.0015, 16, 3, Basis.IDENTITY, Vector3(0, 0.0255, 0)) # voltas da fita
+	_mb(p, BRASS.lightened(0.15)).lathe(PackedVector2Array([Vector2(0.03, -0.026), Vector2(0.036, -0.026), Vector2(0.036, 0.026), Vector2(0.03, 0.026), Vector2(0.03, -0.026)]), 16) # miolo
+	_mb(p, TAPE).box(Vector3(0.066, -0.035, 0.0), Vector3(0.004, 0.025, 0.04)) # ponta solta
 
 
 # --- Peças --------------------------------------------------------------------

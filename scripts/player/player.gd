@@ -680,6 +680,7 @@ func _process(delta: float) -> void:
 		_puppet_process(delta)
 		return
 	_update_torch(delta)
+	_update_held()
 	if vehicle:
 		head.position.y = vehicle.eye_height
 		global_transform = vehicle.seat.global_transform
@@ -785,12 +786,26 @@ func _setup_fp_arm() -> void:
 	_fp_arm.material_override = sleeve
 	_fp_arm.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	camera.add_child(_fp_arm)
-	_fp_hand = BlockyHand.fist(skin) # mão em blocos com dedos (segura o cabo ao longo de Z)
+	_fp_hand = _cube_hand(skin) # mão = um cubo simples (como no começo)
 	camera.add_child(_fp_hand)
 	_fp_arm_left = _fp_arm.duplicate()
 	camera.add_child(_fp_arm_left)
-	_fp_hand_left = BlockyHand.fist(_fp_hand.get_child(0).material_override, false, true)
+	_fp_hand_left = _cube_hand(skin)
 	camera.add_child(_fp_hand_left)
+
+
+## Mão em primeira pessoa: um cubo de pele (o item segurado passa por dentro dele).
+func _cube_hand(material: Material) -> Node3D:
+	var root := Node3D.new()
+	root.name = "Hand"
+	var mesh := MeshInstance3D.new()
+	var box := BoxMesh.new()
+	box.size = Vector3(0.075, 0.07, 0.1)
+	mesh.mesh = box
+	mesh.material_override = material
+	mesh.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	root.add_child(mesh)
+	return root
 
 
 ## A mão fica na empunhadura da arma atual; o antebraço liga o ombro até ela.
@@ -806,6 +821,11 @@ func _update_fp_arm() -> void:
 		var left := Vector3(-0.2, -0.26, -0.38).lerp(Vector3(-0.06, -0.12, -0.62), ease(_punch_anim[1], 0.5))
 		_place_arm(_fp_arm_left, _fp_hand_left, FP_SHOULDER_LEFT, Transform3D(Basis(), left + offset))
 		grip = Transform3D(Basis(), right + offset)
+		# O item segurado (e a tocha) acompanha a mão direita, inclusive no soco.
+		if _held and _held.visible:
+			_held.position = right + offset + Vector3(0.0, 0.012, -0.035) # dentro da mão (atravessa o cubo)
+		if _torch and _torch.visible:
+			_torch.position = right + offset + Vector3(0.0, 0.02, -0.02)
 		_place_arm(_fp_arm, _fp_hand, FP_SHOULDER, grip)
 		return
 	match _weapon_type:
@@ -1936,6 +1956,43 @@ func _tool_kind() -> String:
 		WeaponType.CHISEL:
 			return "chisel"
 	return ""
+
+
+# Item na mão ---------------------------------------------------------------------
+
+var _held: Node3D
+var _held_id := &""
+
+
+## Qualquer item sem modelo de arma próprio (comida, material, semente, garrafa,
+## roupa, bandeira...) aparece segurado na mão direita.
+func _update_held() -> void:
+	var id := inventory.selected_id()
+	var show := id != &"" and _weapon_type == WeaponType.FISTS and id != &"tocha" and vehicle == null
+	if not show:
+		if _held:
+			_held.visible = false
+		return
+	if _held == null or id != _held_id:
+		if _held:
+			_held.queue_free()
+		_held = Node3D.new()
+		var model := ItemModels.build(id)
+		var size: Vector3 = ItemDB.def(id).size
+		var biggest: float = maxf(size.x, maxf(size.y, size.z))
+		model.scale = Vector3.ONE * clampf(0.19 / maxf(biggest, 0.01), 0.25, 1.0) # maior que a mão: aparece dos dois lados
+		model.rotation = Vector3(0.25, 0.6, 0.0)
+		var bounds := AABB()
+		var first := true
+		for part in model.find_children("*", "MeshInstance3D", true, false):
+			var box: AABB = part.mesh.get_aabb()
+			bounds = box if first else bounds.merge(box)
+			first = false
+		model.position = -(model.transform.basis * bounds.get_center()) # centro do item no centro da mão
+		_held.add_child(model)
+		camera.add_child(_held)
+		_held_id = id
+	_held.visible = true
 
 
 # Tocha ---------------------------------------------------------------------------

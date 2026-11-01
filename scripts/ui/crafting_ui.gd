@@ -139,6 +139,8 @@ static func craft(player: Player, recipe: Dictionary, times := 1) -> int:
 		if left > 0:
 			Net.i.drop_item(recipe.id, left, player.global_transform.translated(Vector3.UP), Vector3.ZERO)
 		Sfx.play("knock", -4.0, 0.9 if recipe.get("fuel", false) else 1.0)
+		if recipe.station == "forno" and is_instance_valid(heat_source):
+			(heat_source.get_parent() as PlacedManager).request("fuel", [heat_source.net_id, 45.0, "lit_until"]) # o forno acende um pouco
 	else:
 		Sfx.play("click", -6.0, 0.6) # faltou material
 	return done

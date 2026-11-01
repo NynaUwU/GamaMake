@@ -24,6 +24,14 @@ reação física a golpes e ragdoll (estilo Dying Light), visual de PC dos anos 
 - Os outros jogadores aparecem com o nome em cima, o item da mão, a lanterna acesa e uma bolinha
   azul no minimapa/mapa. Em cima, no meio da tela, aparece quem está online.
 
+## Fogo só em uso, itens na mão, revólver (rodada de feedback)
+- **A fogueira gasta lenha:** nasce apagada; [E] acende com lenha de qualquer lugar da mochila (tronco 15 min, carvão 10, tábua 4, graveto 1); com lenha na mão, [E] põe mais (até 4 h). Só assa acesa, e só afasta zumbis à noite se estiver acesa.
+- **Luz só em uso:** fornalhas acendem enquanto o combustível queima; o forno acende por 45 s depois de assar; o defumador, enquanto tem peixe defumando.
+- **Qualquer item aparece na mão** em primeira pessoa (comida, materiais, sementes, garrafas, roupas...), por dentro da mão (que voltou a ser um cubo), acompanhando o soco.
+- **Garrafas:** potável azul-clara, suja marrom-esverdeada (com sujeira no fundo), vazia em vidro claro. Barra de ferro/cobre refeita com todas as faces certas; rolo de fita fechado.
+- **Revólver** no lugar da pistola: cano octogonal, tambor canelado, vareta de ejeção, cão com espora, coronha curva com argola.
+- **Carros:** saíram o Chevy 55 e o Mormon Meteor.
+
 ## Modelos mais elaborados (rodada de feedback)
 - **Itens** (`scripts/items/item_detail.gd`, usado pelo `ItemModels` na mão, no chão, nos ícones e nos zumbis): espada com sulco, guarda curva e pomo; maça com flanges e rebites; martelo, talhadeira, pá com punho em D e lâmina com degrau; machado barbado; picareta com pontas afinando; lança em folha; ferramentas de pedra lascada amarradas; lanterna com alça e botão; bumerangue torneado; tocha enrolada; comidas com forma de verdade (maçã, lata com frisos, pão com cortes, cenoura com rama, batata com olhos, abóbora em gomos, peixe seco); materiais (tábua com veios e nó, tronco com casca e anéis, pedras e minérios irregulares com veios, lingotes, vidro com borda, sucata com parafuso, pilha de pano, carretel, rolo de tecido, garrafa com rótulo); roupas (capuz, capacete com crista e rebites, coletes de chapas, calça com remendos, botas com cadarço, casaco com gola de lã).
 - **Objetos e máquinas:** fogueira (pedras variadas, lenha em pirâmide, brasas, panelinha), mesa de trabalho (tampo de tábuas, travessas em X, painel de ferramentas), baú com ripas e cantoneiras, fornalha de barro com lenha, secador com cordas e balde de sal, vasos e floreiras, cova, bandeira, armadilhas (estacas queimadas, arame farpado em espiral, mina com nervuras) e mais peças nas máquinas do Tier 1.

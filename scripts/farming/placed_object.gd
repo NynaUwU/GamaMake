@@ -91,6 +91,29 @@ func allows(crop: String) -> bool:
 	return is_farm() and not extra.has("tree") and not (kind == "pot_small" and crop == "abobora")
 
 
+# --- Fogo (acende só em uso) -----------------------------------------------------
+
+const LIT_KINDS := ["campfire", "furnace", "stone_furnace", "oven", "smoker"]
+
+
+## Está acesa agora? Fogueira: tem lenha queimando. Fornalhas: combustível
+## queimando. Forno: assou algo há pouco. Defumador: tem peixe defumando.
+func is_lit(clock := -1.0) -> bool:
+	if clock < 0.0:
+		var manager := get_parent() as PlacedManager
+		clock = manager.clock if manager else 0.0
+	match kind:
+		"campfire":
+			return extra.get("fuel_until", 0.0) > clock
+		"furnace", "stone_furnace":
+			return extra.get("burn", 0.0) > 0.0
+		"oven":
+			return extra.get("lit_until", 0.0) > clock
+		"smoker":
+			return crops.any(func(c): return Cooking.stage(c, clock) == 0)
+	return false
+
+
 # --- Coletor de água da chuva ----------------------------------------------------
 
 const COLLECTOR_CAP := 10 ## garrafas
@@ -193,6 +216,8 @@ func refresh(clock: float) -> void:
 	if kind == "tree":
 		_refresh_tree(clock)
 		return
+	if kind in LIT_KINDS:
+		StationModels.set_lit(self, is_lit(clock))
 	if kind == "rain_collector":
 		_refresh_collector()
 		return
@@ -324,11 +349,15 @@ func _build() -> void:
 		return # desenho e colisão vêm do crescimento (_refresh_tree)
 	if Machines.is_crank(kind) or kind in ["oven", "filter", "smoker", "compost"]:
 		Machines.build(kind, self)
+		if kind in LIT_KINDS:
+			StationModels.set_lit(self, false)
 		return
 	if kind in ["campfire", "furnace", "workbench", "chest", "dryer", "rain_collector"]:
 		StationModels.build(kind, self)
 		if kind == "campfire":
 			Cooking.fires.append(self)
+		if kind in LIT_KINDS:
+			StationModels.set_lit(self, false)
 		return
 	if kind == "airdrop":
 		var fx := AirdropFX.new()
