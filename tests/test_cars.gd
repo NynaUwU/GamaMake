@@ -2,9 +2,8 @@ extends SceneTree
 ## Teste dos carros: cada um num chão plano, acelera 14 s, depois vira com tudo
 ## e mostra o quanto a traseira escorrega (ângulo entre a frente e a velocidade).
 var CARS := ["res://scripts/vehicles/vintage_car.gd", "res://scripts/vehicles/cars/aero_v12.gd",
-	"res://scripts/vehicles/cars/brutus.gd", "res://scripts/vehicles/cars/chevy_55.gd",
-	"res://scripts/vehicles/cars/darracq_v8.gd", "res://scripts/vehicles/cars/hall_scott.gd",
-	"res://scripts/vehicles/cars/mormon_meteor.gd"]
+	"res://scripts/vehicles/cars/brutus.gd", "res://scripts/vehicles/cars/darracq_v8.gd",
+	"res://scripts/vehicles/cars/hall_scott.gd"]
 var index := -1
 var frame := 0
 var car: VintageCar

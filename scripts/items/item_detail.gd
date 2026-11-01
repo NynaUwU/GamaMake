@@ -7,7 +7,7 @@ class_name ItemDetail
 const AXIS_Z := Basis(Vector3(1, 0, 0), -PI / 2)
 const AXIS_X := Basis(Vector3(0, 1, 0), PI / 2)
 
-const IDS := [&"espada", &"taco", &"martelo", &"talhadeira", &"pa", &"machado", &"picareta", &"lanca",
+const IDS := [&"pistola", &"espada", &"taco", &"martelo", &"talhadeira", &"pa", &"machado", &"picareta", &"lanca",
 	&"machado_simples", &"picareta_simples", &"lanterna", &"bumerangue", &"tocha", &"bandeira", &"muda",
 	&"fruta", &"lata", &"lata_quente", &"pao", &"pao_fresco", &"torrada", &"cenoura", &"cenoura_assada", &"batata", &"batata_assada",
 	&"abobora", &"abobora_assada", &"bandagem", &"semente_cenoura", &"semente_batata", &"semente_abobora",
@@ -24,6 +24,7 @@ static func has(id: StringName) -> bool:
 
 static func build(id: StringName, p: Dictionary) -> void:
 	match id:
+		&"pistola": _revolver(p)
 		&"espada": _sword(p)
 		&"taco": _mace(p)
 		&"martelo": _hammer(p)
@@ -118,6 +119,66 @@ static func _rivet(p: Dictionary, at: Vector3, color := Color(0.5, 0.45, 0.35), 
 
 
 # --- armas e ferramentas -----------------------------------------------------------
+
+## Revólver de 6 tiros: cano octogonal com massa de mira, tambor canelado com as
+## câmaras à mostra, armação fechada em volta do tambor, vareta de ejeção embaixo
+## do cano, cão com espora, gatilho curvo, guarda-mato e coronha curva de madeira
+## com placas quadriculadas, parafuso e argola. Boca do cano em (0, 0.035, -0.17).
+static func _revolver(p: Dictionary) -> void:
+	var blued := Color(0.2, 0.2, 0.22)
+	var steel := ItemModels.STEEL.darkened(0.15)
+	var axis := Vector3(0, 0.035, 0)
+	# Cano octogonal com nervura em cima e a alma escura na boca.
+	_mb(p, blued).lathe(PackedVector2Array([Vector2(0.002, -0.032), Vector2(0.0125, -0.032), Vector2(0.0115, 0.168), Vector2(0.002, 0.168)]), 8, AXIS_Z, axis)
+	_mb(p, blued.lightened(0.08)).box(Vector3(0, 0.048, -0.1), Vector3(0.006, 0.004, 0.13)) # nervura
+	_mb(p, ItemModels.DARK).lathe(PackedVector2Array([Vector2(0.006, 0.1685), Vector2(0.001, 0.169)]), 8, AXIS_Z, axis)
+	_mb(p, steel).box(Vector3(0, 0.051, -0.16), Vector3(0.003, 0.008, 0.012)) # massa de mira
+	# Vareta de ejeção embaixo do cano.
+	_mb(p, steel).lathe(PackedVector2Array([Vector2(0.0045, -0.03), Vector2(0.0045, 0.12)]), 6, AXIS_Z, Vector3(0, 0.017, 0))
+	_mb(p, steel).lathe(PackedVector2Array([Vector2(0.002, 0.12), Vector2(0.007, 0.121), Vector2(0.007, 0.13), Vector2(0.002, 0.131)]), 6, AXIS_Z, Vector3(0, 0.017, 0))
+	# Tambor canelado (6 câmaras) com o pino na frente.
+	var drum := Vector3(0, 0.03, 0.0)
+	_mb(p, steel).lathe(PackedVector2Array([Vector2(0.002, -0.026), Vector2(0.02, -0.026), Vector2(0.024, -0.022), Vector2(0.024, 0.026), Vector2(0.021, 0.03), Vector2(0.002, 0.03)]), 12, AXIS_Z, drum)
+	for i in 6:
+		var a := TAU * i / 6.0 + PI / 6.0
+		_mb(p, steel.darkened(0.35)).box(drum + Vector3(cos(a) * 0.0235, sin(a) * 0.0235, -0.002), Vector3(0.006, 0.006, 0.034), Basis(Vector3.BACK, a)) # canelura
+		var b := TAU * i / 6.0
+		_mb(p, ItemModels.DARK).box(drum + Vector3(cos(b) * 0.014, sin(b) * 0.014, -0.0305), Vector3(0.008, 0.008, 0.002)) # câmara
+		_mb(p, ItemModels.BRASS).box(drum + Vector3(cos(b) * 0.014, sin(b) * 0.014, 0.0265), Vector3(0.007, 0.007, 0.002)) # culote da bala atrás
+	_mb(p, steel).lathe(PackedVector2Array([Vector2(0.004, 0.03), Vector2(0.004, 0.04)]), 6, AXIS_Z, drum) # pino
+	# Armação: ponte em cima, parte de baixo e o escudo atrás do tambor.
+	_mb(p, blued).box(Vector3(0, 0.057, 0.0), Vector3(0.012, 0.008, 0.075)) # ponte
+	_mb(p, blued).box(Vector3(0, 0.004, 0.005), Vector3(0.016, 0.014, 0.075)) # baixo
+	_mb(p, blued).box(Vector3(0, 0.03, -0.034), Vector3(0.016, 0.044, 0.01)) # frente do quadro
+	_mb(p, blued).box(Vector3(0, 0.03, 0.034), Vector3(0.026, 0.06, 0.014)) # escudo
+	_mb(p, blued.lightened(0.1)).box(Vector3(0, 0.062, 0.035), Vector3(0.004, 0.004, 0.012)) # mira traseira (entalhe)
+	# Cão com espora.
+	_mb(p, steel).box(Vector3(0, 0.052, 0.046), Vector3(0.008, 0.024, 0.012), Basis(Vector3.RIGHT, 0.5))
+	_mb(p, steel).box(Vector3(0, 0.066, 0.058), Vector3(0.01, 0.007, 0.02), Basis(Vector3.RIGHT, 0.2)) # espora
+	for k in 3:
+		_mb(p, steel.darkened(0.3)).box(Vector3(0, 0.07, 0.052 + k * 0.006), Vector3(0.011, 0.002, 0.002)) # ranhuras
+	# Gatilho curvo e guarda-mato de latão.
+	_mb(p, steel).tube(PackedVector3Array([Vector3(0, -0.002, 0.012), Vector3(0, -0.014, 0.008), Vector3(0, -0.024, 0.014)]), 0.0028, 4)
+	var guard := PackedVector3Array()
+	for i in 7:
+		var a := lerpf(0.0, PI, i / 6.0)
+		guard.append(Vector3(0, -0.003 - sin(a) * 0.03, 0.012 + cos(a) * 0.026))
+	_mb(p, ItemModels.BRASS).tube(guard, 0.0032, 4)
+	# Coronha curva ("cabeça de pássaro"): miolo de ferro, placas de madeira, parafuso e argola.
+	# Silhueta lateral: x negativo = para trás (+Z), y negativo = para baixo.
+	var grip := PackedVector2Array([Vector2(-0.008, 0.0), Vector2(-0.032, 0.002), Vector2(-0.05, -0.03), Vector2(-0.07, -0.075),
+		Vector2(-0.075, -0.105), Vector2(-0.055, -0.112), Vector2(-0.038, -0.09), Vector2(-0.022, -0.05), Vector2(-0.008, -0.02)])
+	_mb(p, blued).extrude(grip, 0.014, Basis(Vector3(0, 1, 0), PI / 2), Vector3(-0.007, 0.0, 0.02))
+	var panel := PackedVector2Array([Vector2(-0.03, -0.01), Vector2(-0.045, -0.035), Vector2(-0.062, -0.075), Vector2(-0.066, -0.098),
+		Vector2(-0.055, -0.102), Vector2(-0.042, -0.085), Vector2(-0.03, -0.05), Vector2(-0.022, -0.025)])
+	for side in [-1.0, 1.0]:
+		_mb(p, ItemModels.DARK_WOOD.lightened(0.08)).extrude(panel, 0.005, Basis(Vector3(0, 1, 0), PI / 2), Vector3(side * 0.0095 - 0.0025, 0.0, 0.02))
+		for k in 4: # quadriculado
+			_mb(p, ItemModels.DARK_WOOD.darkened(0.25)).box(Vector3(side * 0.0121, -0.04 - k * 0.014, 0.062 + k * 0.006), Vector3(0.0008, 0.004, 0.012), Basis(Vector3.RIGHT, -0.4))
+		_mb(p, ItemModels.BRASS).box(Vector3(side * 0.0124, -0.06, 0.07), Vector3(0.002, 0.006, 0.006)) # parafuso
+	_mb(p, ItemModels.BRASS).box(Vector3(0, -0.108, 0.086), Vector3(0.016, 0.008, 0.022), Basis(Vector3.RIGHT, 0.3)) # chapa da base
+	_mb(p, steel).torus(0.008, 0.0018, 8, 3, Basis(Vector3.BACK, PI / 2), Vector3(0, -0.12, 0.092)) # argola
+
 
 static func _sword(p: Dictionary) -> void:
 	# Lâmina com sulco (fuller) e ponta afiada.

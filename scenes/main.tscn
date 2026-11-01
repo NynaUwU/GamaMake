@@ -20,10 +20,8 @@
 [ext_resource type="Material" path="res://materials/metal.tres" id="m_metal"]
 [ext_resource type="Script" path="res://scripts/vehicles/cars/aero_v12.gd" id="20_aero_v12"]
 [ext_resource type="Script" path="res://scripts/vehicles/cars/brutus.gd" id="21_brutus"]
-[ext_resource type="Script" path="res://scripts/vehicles/cars/chevy_55.gd" id="22_chevy_55"]
 [ext_resource type="Script" path="res://scripts/vehicles/cars/darracq_v8.gd" id="23_darracq_v8"]
 [ext_resource type="Script" path="res://scripts/vehicles/cars/hall_scott.gd" id="24_hall_scott"]
-[ext_resource type="Script" path="res://scripts/vehicles/cars/mormon_meteor.gd" id="25_mormon_meteor"]
 [ext_resource type="Script" path="res://scripts/building/building_manager.gd" id="30_building"]
 
 [sub_resource type="ProceduralSkyMaterial" id="SkyMaterial_dusk"]
@@ -336,10 +334,6 @@ script = ExtResource("20_aero_v12")
 position = Vector3(19.0, 0.9, 13.5)
 script = ExtResource("21_brutus")
 
-[node name="Carro_Chevy55" type="VehicleBody3D" parent="."]
-position = Vector3(25.0, 0.9, 13.5)
-script = ExtResource("22_chevy_55")
-
 [node name="Carro_DarracqV8" type="VehicleBody3D" parent="."]
 position = Vector3(15.0, 0.9, 3.5)
 script = ExtResource("23_darracq_v8")
@@ -347,10 +341,6 @@ script = ExtResource("23_darracq_v8")
 [node name="Carro_HallScott" type="VehicleBody3D" parent="."]
 position = Vector3(21.0, 0.9, 3.5)
 script = ExtResource("24_hall_scott")
-
-[node name="Carro_MormonMeteor" type="VehicleBody3D" parent="."]
-position = Vector3(27.0, 0.9, 3.5)
-script = ExtResource("25_mormon_meteor")
 
 [node name="Building" type="Node3D" parent="."]
 script = ExtResource("30_building")

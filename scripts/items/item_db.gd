@@ -48,7 +48,7 @@ const ITEMS := {
 		"damage_type": "Explosão", "damage": 70, "knockback": 450,
 		"desc": "Dispara mísseis mágicos. Ler o manual antes era opcional.",
 		"controls": ["Segurar clique: dispara mísseis"]},
-	&"pistola": {"name": "Pistola", "kind": "weapon", "weapon": "pistol", "stack": 1, "size": Vector3(0.05, 0.15, 0.22),
+	&"pistola": {"name": "Revólver", "short": "Revólver", "kind": "weapon", "weapon": "pistol", "stack": 1, "size": Vector3(0.05, 0.15, 0.22),
 		"damage_type": "Perfuração", "damage": 40, "knockback": 20,
 		"desc": "Latão, madeira e pólvora de procedência duvidosa. 12 tiros e munição infinita.",
 		"controls": ["Clique: atira", "R: recarrega"]},

@@ -71,7 +71,7 @@ func _init() -> void:
 			_frame(kinds.size() + styles.size(), 2.6, 34.0)
 			await _save(out + "/moveis.png")
 		"cars":
-			var models := [load("res://scenes/vehicles/vintage_car.tscn"), AeroV12Car, BrutusCar, Chevy55Car, DarracqV8Car, HallScottCar, MormonMeteorCar]
+			var models := [load("res://scenes/vehicles/vintage_car.tscn"), AeroV12Car, BrutusCar, DarracqV8Car, HallScottCar]
 			for i in models.size():
 				_clear()
 				var car: VintageCar = models[i].instantiate() if models[i] is PackedScene else models[i].new()

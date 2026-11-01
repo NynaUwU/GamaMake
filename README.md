@@ -28,7 +28,7 @@ reação física a golpes e ragdoll (estilo Dying Light), visual de PC dos anos 
 - **Itens** (`scripts/items/item_detail.gd`, usado pelo `ItemModels` na mão, no chão, nos ícones e nos zumbis): espada com sulco, guarda curva e pomo; maça com flanges e rebites; martelo, talhadeira, pá com punho em D e lâmina com degrau; machado barbado; picareta com pontas afinando; lança em folha; ferramentas de pedra lascada amarradas; lanterna com alça e botão; bumerangue torneado; tocha enrolada; comidas com forma de verdade (maçã, lata com frisos, pão com cortes, cenoura com rama, batata com olhos, abóbora em gomos, peixe seco); materiais (tábua com veios e nó, tronco com casca e anéis, pedras e minérios irregulares com veios, lingotes, vidro com borda, sucata com parafuso, pilha de pano, carretel, rolo de tecido, garrafa com rótulo); roupas (capuz, capacete com crista e rebites, coletes de chapas, calça com remendos, botas com cadarço, casaco com gola de lã).
 - **Objetos e máquinas:** fogueira (pedras variadas, lenha em pirâmide, brasas, panelinha), mesa de trabalho (tampo de tábuas, travessas em X, painel de ferramentas), baú com ripas e cantoneiras, fornalha de barro com lenha, secador com cordas e balde de sal, vasos e floreiras, cova, bandeira, armadilhas (estacas queimadas, arame farpado em espiral, mina com nervuras) e mais peças nas máquinas do Tier 1.
 - **Móveis** das casas e baús de saque refeitos (pernas torneadas, almofadas, livros variados, louça, banheira com pés de garra...).
-- **Carros:** kit comum (placas com parafusos, lanternas, escapamento com abafador, para-barros, ganchos de reboque) e detalhes próprios (números de corrida, cintas no capô, tanque extra, galões, bagageiro com estepe e antena no Chevy).
+- **Carros:** kit comum (placas com parafusos, lanternas, escapamento com abafador, para-barros, ganchos de reboque) e detalhes próprios (números de corrida, cintas no capô, tanque extra, galões).
 - **Estúdio de fotos:** `tests/studio.gd` (STUDIO=items|placed|furniture|cars) gera folhas de contato de todos os modelos.
 
 ## Ajustes do Tier 1 (feedback)
@@ -365,7 +365,7 @@ Todos os sons são **sintetizados no código** ao abrir o jogo (sem arquivos de 
   e o mouse gira só a cabeça (o corpo fica sentado). **Faróis** acendem ao entrar; **L** liga/desliga.
 - Atropelar derruba o zumbi (dano ~7 por m/s; rápido mata e pode arrancar membros).
 
-### Garagem: mais 6 carros (`scripts/vehicles/cars/`)
+### Garagem: mais 4 carros (`scripts/vehicles/cars/`)
 Estacionados em duas fileiras ao lado do Monza. Cada um herda de `VintageCar` e só muda a
 **ficha** em `_configure()` (medidas, peso, curva de torque, aderência, banco/volante) e a
 carroceria em `_build_body()`.
@@ -374,10 +374,8 @@ carroceria em `_build_body()`.
 |---|---|---|---|---|
 | Aero V12 | especial feito à mão com V12 de avião | ~6 s | ~180 km/h | pesado, puxa forte em alta, vira devagar (entre-eixos enorme) |
 | Brutus | BMW Brutus (V12 de avião num chassi de 1907) | ~3,5 s | ~170 km/h | **torque demais**: acelerando na curva a traseira sai de lado (~30°); volante reto ou contra-esterço trazem de volta |
-| Final Objective | Chevrolet Sports Coupe 1955 | ~6,5 s | ~160 km/h | cupê fechado, o mais equilibrado e previsível |
 | Darracq V8 | Darracq V8 de recorde (1905) | ~5 s | ~180 km/h | levíssimo, fraco embaixo e bravo no giro, direção nervosa, freio fraco |
 | Hall-Scott Four | especial de 1917 com motor Hall-Scott | ~9 s | ~125 km/h | muita força no arranque que acaba cedo |
-| Mormon Meteor | Duesenberg Special (1935) | ~8,5 s | ~225 km/h | sai devagar mas não para de puxar; estável, vira pouco em alta |
 
 - Curva de torque: `torque_low` / `torque_peak` / `torque_high` (fração da força no arranque,
   onde fica o pico e quanto sobra na máxima). `wheelspin` tira aderência da traseira com o pé

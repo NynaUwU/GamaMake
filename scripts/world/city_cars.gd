@@ -9,7 +9,7 @@ const COUNT := {"small": 1, "medium": 2, "large": 4}
 
 
 static func spawn(world: Node3D, terrain: TerrainWorld) -> void:
-	var models := [AeroV12Car, BrutusCar, Chevy55Car, DarracqV8Car, HallScottCar, MormonMeteorCar]
+	var models := [AeroV12Car, BrutusCar, DarracqV8Car, HallScottCar]
 	for i in terrain.cities.size():
 		var city: Dictionary = terrain.cities[i]
 		var streets: Array = city.streets.filter(func(s): return s.a.distance_to(s.b) > 14.0)
