@@ -506,9 +506,71 @@ func _build_model() -> void:
 	model.name = "Model"
 	add_child(model)
 	_build_body(model)
+	_detail_kit(model)
 	_build_dash(model)
 	_build_cockpit(model)
 	_build_headlights(model)
+
+
+## Detalhes comuns a todos os carros, posicionados pelas medidas de cada um:
+## placas com parafusos, lanternas, escapamento, para-barros, ganchos de reboque.
+func _detail_kit(model: Node3D) -> void:
+	var box: Array = collision_boxes[0]
+	var size: Vector3 = box[0]
+	var center: Vector3 = box[1]
+	var rear := center.z - size.z * 0.5
+	var front := center.z + size.z * 0.5
+	var half := size.x * 0.5
+	var low := maxf(center.y - size.y * 0.5, 0.18)
+	var plate := MeshBuilder.new()
+	var dark := MeshBuilder.new()
+	var lamp := MeshBuilder.new()
+	var rubber := MeshBuilder.new()
+	for z in [rear - 0.012, front + 0.012]:
+		var y := low + (0.14 if z < 0.0 else 0.08)
+		plate.box(Vector3(0, y, z), Vector3(0.34, 0.12, 0.012))
+		for x in [-0.15, 0.15]:
+			dark.box(Vector3(x, y + 0.045, z + signf(z) * 0.008), Vector3(0.012, 0.012, 0.006)) # parafusos
+		for k in 5: # números gastos
+			dark.box(Vector3(-0.11 + k * 0.055, y - 0.005, z + signf(z) * 0.007), Vector3(0.03, 0.05, 0.002))
+	for side in [-1.0, 1.0]:
+		var x: float = side * maxf(half - 0.1, 0.25)
+		lamp.lathe(PackedVector2Array([Vector2(0.002, 0.0), Vector2(0.045, 0.0), Vector2(0.04, 0.03), Vector2(0.002, 0.035)]), 8,
+			Basis(Vector3.RIGHT, -PI / 2), Vector3(x, low + 0.22, rear - 0.005)) # lanterna
+		dark.lathe(PackedVector2Array([Vector2(0.05, 0.0), Vector2(0.05, 0.02)]), 8, Basis(Vector3.RIGHT, -PI / 2), Vector3(x, low + 0.22, rear + 0.01)) # aro
+		# Para-barro atrás de cada roda traseira.
+		rubber.box(Vector3(side * track_width * 0.5, wheel_radius * 0.55, -wheelbase * 0.5 - wheel_radius - 0.06), Vector3(0.2, 0.32, 0.015))
+		# Gancho de reboque na frente.
+		dark.torus(0.035, 0.009, 8, 3, Basis(Vector3.BACK, PI / 2), Vector3(side * 0.28, low + 0.02, front + 0.03))
+	# Escapamento por baixo, saindo atrás (com ponta escurecida).
+	var ex := track_width * 0.28
+	dark.tube(PackedVector3Array([Vector3(ex, low - 0.06, center.z + size.z * 0.15), Vector3(ex, low - 0.07, center.z - size.z * 0.2), Vector3(ex, low - 0.03, rear - 0.08)]), 0.035, 6)
+	dark.lathe(PackedVector2Array([Vector2(0.035, 0.0), Vector2(0.045, 0.05), Vector2(0.045, 0.08)]), 8, Basis(Vector3.RIGHT, -PI / 2), Vector3(ex, low - 0.03, rear - 0.08))
+	dark.box(Vector3(ex, low - 0.06, center.z - size.z * 0.05), Vector3(0.13, 0.11, 0.35)) # abafador
+	_car_extras(dark, plate, lamp, rubber)
+	_add(model, plate.finish(_material("plate", Color(0.62, 0.55, 0.38), 0.9, 0.1), false))
+	_add(model, dark.finish(_material("kit_dark", Color(0.12, 0.11, 0.1), 0.8, 0.3), false))
+	_add(model, lamp.finish(_material("taillight", Color(0.55, 0.08, 0.05), 0.5, 0.0), false))
+	_add(model, rubber.finish(_material("rubber", Color(0.08, 0.08, 0.08), 0.95, 0.0), false))
+
+
+## Detalhes próprios de cada carro (cada modelo sobrescreve). dark = ferro escuro,
+## light = chapa clara (placas, números), red = lanternas/tinta, rubber = borracha.
+func _car_extras(dark: MeshBuilder, light: MeshBuilder, red: MeshBuilder, rubber: MeshBuilder) -> void:
+	# Monza: número de corrida nas laterais e cintas de couro segurando o capô.
+	_roundel(light, dark, Vector3(0.47, 0.55, -1.0), 1.0)
+	_roundel(light, dark, Vector3(-0.47, 0.55, -1.0), -1.0)
+	for z in [0.9, 1.35]:
+		rubber.box(Vector3(0, 0.79, z), Vector3(0.85, 0.012, 0.05))
+		dark.box(Vector3(0.2, 0.8, z), Vector3(0.04, 0.02, 0.06))
+
+
+## Disco branco de número de corrida na lateral (side = +1 direita, -1 esquerda).
+func _roundel(light: MeshBuilder, dark: MeshBuilder, at: Vector3, side: float) -> void:
+	var face := Basis(Vector3.BACK, PI / 2 * side)
+	light.lathe(PackedVector2Array([Vector2(0.002, 0.0), Vector2(0.15, 0.0)]), 12, face, at)
+	dark.box(at + Vector3(side * 0.003, 0.0, 0.03), Vector3(0.004, 0.14, 0.03))
+	dark.box(at + Vector3(side * 0.003, 0.0, -0.04), Vector3(0.004, 0.14, 0.03))
 
 
 ## Carroceria do Monza. Cada modelo de carro sobrescreve esta função.

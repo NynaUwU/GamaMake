@@ -125,19 +125,28 @@ func _build() -> void:
 	var iron := Color(0.3, 0.27, 0.25)
 	match kind:
 		"spikes":
+			# Moldura de troncos amarrados, estacas tortas com ponta queimada e um trapo.
 			mb.color(wood.darkened(0.15))
 			for z in [-0.5, 0.5]:
-				mb.box(Vector3(0, 0.05, z), Vector3(1.2, 0.1, 0.1))
+				mb.tube(PackedVector3Array([Vector3(-0.62, 0.06, z), Vector3(0.62, 0.06, z)]), 0.06, 6)
 			for x in [-0.5, 0.5]:
-				mb.box(Vector3(x, 0.05, 0), Vector3(0.1, 0.1, 1.0))
+				mb.tube(PackedVector3Array([Vector3(x, 0.07, -0.6), Vector3(x, 0.07, 0.6)]), 0.055, 6)
+			mb.color(Color(0.55, 0.48, 0.35))
+			for x in [-0.5, 0.5]:
+				for z in [-0.5, 0.5]:
+					mb.box(Vector3(x, 0.09, z), Vector3(0.14, 0.04, 0.14), Basis(Vector3.UP, 0.7)) # amarração
 			for i in 4:
 				for j in 4:
 					var p := Vector3(-0.42 + i * 0.28, 0.05, -0.42 + j * 0.28)
-					var lean := Vector3(0.12 * ((i + j) % 3 - 1), 0.32, 0.12 * ((i * 2 + j) % 3 - 1))
-					mb.color(wood)
-					mb.tube(PackedVector3Array([p, p + lean * 0.75]), 0.03, 4)
-					mb.color(Color(0.75, 0.62, 0.45)) # ponta afiada (madeira clara)
-					mb.tube(PackedVector3Array([p + lean * 0.75, p + lean]), 0.015, 4)
+					var lean := Vector3(0.12 * ((i + j) % 3 - 1), 0.34 + 0.04 * ((i * j) % 3), 0.12 * ((i * 2 + j) % 3 - 1))
+					mb.color(wood.darkened(0.05 * ((i + j) % 3)))
+					mb.tube(PackedVector3Array([p, p + lean * 0.7]), 0.032, 6)
+					mb.color(Color(0.75, 0.62, 0.45)) # madeira lascada
+					mb.tube(PackedVector3Array([p + lean * 0.7, p + lean * 0.9]), 0.02, 6)
+					mb.color(Color(0.12, 0.09, 0.07)) # ponta queimada
+					mb.tube(PackedVector3Array([p + lean * 0.9, p + lean]), 0.008, 4)
+			mb.color(Color(0.45, 0.12, 0.08))
+			mb.box(Vector3(0.14, 0.25, 0.14), Vector3(0.08, 0.1, 0.01), Basis(Vector3.UP, 0.5)) # trapo
 			obj._shape(Vector3(0, 0.05, 0), Vector3(1.2, 0.1, 1.2))
 		"beartrap":
 			mb.color(iron)
@@ -164,27 +173,47 @@ func _build() -> void:
 				_jaws.append(pivot)
 			obj._shape(Vector3(0, 0.03, 0), Vector3(0.55, 0.06, 0.55))
 		"barbed":
+			# Postes de tronco com escoras, travessas e arame farpado enrolado em espiral.
 			mb.color(wood.darkened(0.1))
 			for x in [-1.1, 1.1]:
-				mb.box(Vector3(x, 0.55, 0), Vector3(0.12, 1.1, 0.12))
+				mb.lathe(PackedVector2Array([Vector2(0.07, 0.0), Vector2(0.065, 1.1), Vector2(0.03, 1.18)]), 7, Basis.IDENTITY, Vector3(x, 0, 0))
+				mb.tube(PackedVector3Array([Vector3(x, 0.7, 0.03), Vector3(x * 0.8, 0.0, 0.35)]), 0.04, 5) # escora
 			mb.color(wood)
-			for y in [0.3, 0.65, 1.0]:
-				mb.box(Vector3(0, y, 0), Vector3(2.3, 0.12, 0.05))
+			for y in [0.3, 1.0]:
+				mb.box(Vector3(0, y, 0), Vector3(2.3, 0.1, 0.05))
 			mb.color(iron)
 			for y in [0.47, 0.82]:
-				mb.box(Vector3(0, y, 0.04), Vector3(2.2, 0.012, 0.012))
-				for k in 14:
-					var x := -1.05 + k * 0.16
-					mb.box(Vector3(x, y, 0.04), Vector3(0.012, 0.07, 0.012), Basis(Vector3.BACK, 0.7 * (1 if k % 2 == 0 else -1)))
-					mb.box(Vector3(x, y, 0.04), Vector3(0.012, 0.012, 0.09))
+				var coil := PackedVector3Array()
+				for k in 90:
+					var t := k / 89.0
+					var a := t * TAU * 18.0
+					coil.append(Vector3(lerpf(-1.08, 1.08, t), y + sin(a) * 0.09, 0.06 + cos(a) * 0.09))
+				mb.tube(coil, 0.006, 3)
+				for k in 18:
+					var x := -1.0 + k * 0.118
+					mb.box(Vector3(x, y + 0.09, 0.06), Vector3(0.01, 0.05, 0.01), Basis(Vector3.BACK, 0.7))
+					mb.box(Vector3(x, y + 0.09, 0.06), Vector3(0.01, 0.01, 0.05))
+			mb.color(Color(0.55, 0.12, 0.08))
+			mb.box(Vector3(0.0, 0.65, 0.04), Vector3(0.3, 0.2, 0.01)) # placa de perigo
+			mb.color(Color(0.9, 0.85, 0.75))
+			mb.box(Vector3(0.0, 0.65, 0.046), Vector3(0.04, 0.14, 0.004))
 			obj._shape(Vector3(0, 0.55, 0), Vector3(2.4, 1.1, 0.3))
 		"mine":
+			# Mina de prato: carcaça com nervuras, alças, tampa de latão com pino, luz e faixa de aviso.
 			mb.color(Color(0.36, 0.32, 0.22))
-			mb.lathe(PackedVector2Array([Vector2(0.002, 0.0), Vector2(0.17, 0.0), Vector2(0.18, 0.04), Vector2(0.14, 0.07), Vector2(0.002, 0.075)]), 10)
+			mb.lathe(PackedVector2Array([Vector2(0.002, 0.0), Vector2(0.17, 0.0), Vector2(0.185, 0.02), Vector2(0.18, 0.05), Vector2(0.14, 0.075), Vector2(0.002, 0.08)]), 14)
+			mb.color(Color(0.3, 0.27, 0.18))
+			for k in 8:
+				var a := TAU * k / 8.0
+				mb.box(Vector3(cos(a) * 0.16, 0.05, sin(a) * 0.16), Vector3(0.05, 0.03, 0.015), Basis(Vector3.UP, -a))
+			for side in [-1.0, 1.0]:
+				mb.tube(PackedVector3Array([Vector3(side * 0.17, 0.03, -0.04), Vector3(side * 0.21, 0.04, 0.0), Vector3(side * 0.17, 0.03, 0.04)]), 0.008, 4)
 			mb.color(ItemModels.BRASS)
-			mb.lathe(PackedVector2Array([Vector2(0.002, 0.075), Vector2(0.035, 0.075), Vector2(0.03, 0.1), Vector2(0.002, 0.1)]), 8)
+			mb.lathe(PackedVector2Array([Vector2(0.002, 0.08), Vector2(0.05, 0.08), Vector2(0.045, 0.1), Vector2(0.015, 0.105), Vector2(0.012, 0.13), Vector2(0.002, 0.135)]), 10)
 			mb.color(Color(0.6, 0.1, 0.06))
-			mb.box(Vector3(0.12, 0.05, 0), Vector3(0.04, 0.02, 0.04)) # luzinha
+			mb.box(Vector3(0.12, 0.06, 0), Vector3(0.04, 0.02, 0.04)) # luzinha
+			mb.color(Color(0.85, 0.75, 0.2))
+			mb.box(Vector3(-0.08, 0.077, 0.06), Vector3(0.06, 0.004, 0.03)) # faixa de aviso
 			obj._shape(Vector3(0, 0.04, 0), Vector3(0.36, 0.08, 0.36))
 	var mesh := MeshInstance3D.new()
 	mesh.mesh = mb.finish(PlacedObject._mat(), false)

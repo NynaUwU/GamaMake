@@ -92,3 +92,23 @@ func _build_body(model: Node3D) -> void:
 
 func _build_dash(model: Node3D) -> void:
 	_plate_dash(model, 0.33, 0.62, 0.95, 0.86, PAINT_55.darkened(0.2))
+
+
+## Bagageiro no teto com estepe e galão, frisos e maçanetas das portas, retrovisores e antena.
+func _car_extras(dark: MeshBuilder, light: MeshBuilder, red: MeshBuilder, rubber: MeshBuilder) -> void:
+	for x in [-0.62, 0.62]:
+		dark.box(Vector3(x, 1.44, -0.45), Vector3(0.04, 0.04, 1.3)) # trilhos
+	for z in [-0.95, -0.45, 0.05]:
+		dark.box(Vector3(0, 1.44, z), Vector3(1.28, 0.03, 0.03))
+	rubber.lathe(PackedVector2Array([Vector2(0.18, -0.07), Vector2(0.3, -0.07), Vector2(0.32, 0.0), Vector2(0.3, 0.07), Vector2(0.18, 0.07)]), 12, Basis.IDENTITY, Vector3(-0.22, 1.53, -0.7)) # estepe deitado
+	red.box(Vector3(0.3, 1.6, -0.25), Vector3(0.18, 0.3, 0.32)) # galão
+	dark.box(Vector3(0.3, 1.77, -0.25), Vector3(0.05, 0.04, 0.12))
+	for side in [-1.0, 1.0]:
+		var x: float = side * 0.905
+		dark.box(Vector3(x, 0.7, 0.32), Vector3(0.006, 0.4, 0.01)) # frisos da porta
+		dark.box(Vector3(x, 0.7, -1.02), Vector3(0.006, 0.4, 0.01))
+		light.box(Vector3(x + side * 0.01, 0.84, -0.85), Vector3(0.02, 0.025, 0.12)) # maçaneta
+		dark.tube(PackedVector3Array([Vector3(side * 0.76, 0.95, 0.3), Vector3(side * 0.92, 1.02, 0.32)]), 0.01, 4)
+		light.box(Vector3(side * 0.95, 1.04, 0.32), Vector3(0.05, 0.08, 0.1)) # retrovisor
+	dark.tube(PackedVector3Array([Vector3(0.82, 0.95, -1.9), Vector3(0.8, 2.0, -2.0)]), 0.005, 3) # antena
+	red.box(Vector3(0.8, 2.0, -2.0), Vector3(0.05, 0.03, 0.005)) # fitinha

@@ -41,6 +41,9 @@ static func build(id: StringName) -> Node3D:
 	if Creatures.is_creature(id):
 		return Creatures.node(id) # bichos da água (crus e assados)
 	var parts := {} # cor -> MeshBuilder
+	if ItemDetail.has(id):
+		ItemDetail.build(id, parts) # versão mais elaborada
+		return _assemble(parts)
 	match id:
 		&"lanca":
 			_spear(parts)
@@ -234,6 +237,10 @@ static func build(id: StringName) -> Node3D:
 			_tape(parts)
 		_:
 			_mb(parts, IRON).box(Vector3.ZERO, Vector3.ONE * 0.2)
+	return _assemble(parts)
+
+
+static func _assemble(parts: Dictionary) -> Node3D:
 	var root := Node3D.new()
 	root.name = "Model"
 	for color in parts:

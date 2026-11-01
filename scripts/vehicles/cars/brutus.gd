@@ -106,3 +106,15 @@ func _build_body(model: Node3D) -> void:
 
 func _build_dash(model: Node3D) -> void:
 	_plate_dash(model, 0.24, 0.72, 1.05, 0.44, Color(0.35, 0.24, 0.14)) # painel de madeira
+
+
+## Número de corrida, cintas no capô e um tanque extra preso atrás.
+func _car_extras(dark: MeshBuilder, light: MeshBuilder, red: MeshBuilder, rubber: MeshBuilder) -> void:
+	for side in [-1.0, 1.0]:
+		_roundel(light, dark, Vector3(side * 0.47, 0.62, -0.9), side)
+	for z in [0.7, 1.3]:
+		rubber.box(Vector3(0, 0.92, z), Vector3(0.82, 0.012, 0.05))
+		dark.box(Vector3(0.22, 0.93, z), Vector3(0.04, 0.02, 0.06))
+	dark.lathe(PackedVector2Array([Vector2(0.002, -0.3), Vector2(0.14, -0.28), Vector2(0.15, 0.0), Vector2(0.14, 0.28), Vector2(0.002, 0.3)]), 10, Basis(Vector3.BACK, PI / 2), Vector3(0, 0.7, -2.0))
+	for x in [-0.15, 0.15]:
+		rubber.box(Vector3(x, 0.7, -2.0), Vector3(0.04, 0.32, 0.32)) # cintas do tanque

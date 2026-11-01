@@ -24,6 +24,13 @@ reação física a golpes e ragdoll (estilo Dying Light), visual de PC dos anos 
 - Os outros jogadores aparecem com o nome em cima, o item da mão, a lanterna acesa e uma bolinha
   azul no minimapa/mapa. Em cima, no meio da tela, aparece quem está online.
 
+## Modelos mais elaborados (rodada de feedback)
+- **Itens** (`scripts/items/item_detail.gd`, usado pelo `ItemModels` na mão, no chão, nos ícones e nos zumbis): espada com sulco, guarda curva e pomo; maça com flanges e rebites; martelo, talhadeira, pá com punho em D e lâmina com degrau; machado barbado; picareta com pontas afinando; lança em folha; ferramentas de pedra lascada amarradas; lanterna com alça e botão; bumerangue torneado; tocha enrolada; comidas com forma de verdade (maçã, lata com frisos, pão com cortes, cenoura com rama, batata com olhos, abóbora em gomos, peixe seco); materiais (tábua com veios e nó, tronco com casca e anéis, pedras e minérios irregulares com veios, lingotes, vidro com borda, sucata com parafuso, pilha de pano, carretel, rolo de tecido, garrafa com rótulo); roupas (capuz, capacete com crista e rebites, coletes de chapas, calça com remendos, botas com cadarço, casaco com gola de lã).
+- **Objetos e máquinas:** fogueira (pedras variadas, lenha em pirâmide, brasas, panelinha), mesa de trabalho (tampo de tábuas, travessas em X, painel de ferramentas), baú com ripas e cantoneiras, fornalha de barro com lenha, secador com cordas e balde de sal, vasos e floreiras, cova, bandeira, armadilhas (estacas queimadas, arame farpado em espiral, mina com nervuras) e mais peças nas máquinas do Tier 1.
+- **Móveis** das casas e baús de saque refeitos (pernas torneadas, almofadas, livros variados, louça, banheira com pés de garra...).
+- **Carros:** kit comum (placas com parafusos, lanternas, escapamento com abafador, para-barros, ganchos de reboque) e detalhes próprios (números de corrida, cintas no capô, tanque extra, galões, bagageiro com estepe e antena no Chevy).
+- **Estúdio de fotos:** `tests/studio.gd` (STUDIO=items|placed|furniture|cars) gera folhas de contato de todos os modelos.
+
 ## Ajustes do Tier 1 (feedback)
 - **Mais lugares:** grelha 6, filtro 6 (20 s por garrafa), defumador 6, composteira 9, secador 6.
 - **Defumador gasta carvão:** 1 carvão defuma 4 peças (3 carvões = 2 rodadas de 6), puxado sozinho da mochila; sem carvão não aceita. Frente aberta: dá para ver os peixes pendurados dentro.

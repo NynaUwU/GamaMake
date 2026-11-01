@@ -189,6 +189,18 @@ static func build(kind: String, obj: PlacedObject) -> void:
 			crank.color(IRON)
 			crank.box(Vector3(0, 0, 0.2), Vector3(0.05, 0.05, 0.32))
 			crank.box(Vector3(0, 0.12, 0.34), Vector3(0.04, 0.24, 0.04))
+			# Cocho de água embaixo da pedra, pedal e mancais de ferro.
+			mb.color(WOOD.darkened(0.2))
+			mb.box(Vector3(0, 0.3, 0), Vector3(0.5, 0.12, 0.3))
+			mb.color(Color(0.3, 0.42, 0.5))
+			mb.box(Vector3(0, 0.365, 0), Vector3(0.44, 0.01, 0.24))
+			mb.color(IRON)
+			for x in [-0.35, 0.35]:
+				mb.box(Vector3(x, 0.75, 0), Vector3(0.1, 0.06, 0.14)) # mancal
+			mb.color(WOOD)
+			mb.box(Vector3(0.0, 0.1, 0.32), Vector3(0.5, 0.04, 0.12), Basis(Vector3.RIGHT, 0.2)) # pedal
+			mb.color(IRON)
+			mb.tube(PackedVector3Array([Vector3(0.2, 0.12, 0.3), Vector3(0.3, 0.5, 0.15), Vector3(0.36, 0.75, 0.0)]), 0.01, 4) # biela
 			obj._shape(Vector3(0, 0.55, 0), Vector3(0.9, 1.1, 0.5))
 		"quern":
 			mb.color(WOOD)
@@ -200,6 +212,19 @@ static func build(kind: String, obj: PlacedObject) -> void:
 			crank.lathe(PackedVector2Array([Vector2(0.05, 0.0), Vector2(0.33, 0.0), Vector2(0.33, 0.14), Vector2(0.05, 0.14)]), 14)
 			crank.color(WOOD.darkened(0.2))
 			crank.box(Vector3(0.25, 0.28, 0), Vector3(0.05, 0.3, 0.05)) # cabo
+			# Bica de farinha, saco embaixo e cintas de ferro na caixa.
+			mb.color(WOOD.darkened(0.25))
+			mb.box(Vector3(0, 0.55, 0.45), Vector3(0.12, 0.05, 0.2), Basis(Vector3.RIGHT, 0.3))
+			mb.color(Color(0.82, 0.78, 0.66))
+			mb.lathe(PackedVector2Array([Vector2(0.002, 0.0), Vector2(0.13, 0.0), Vector2(0.15, 0.15), Vector2(0.1, 0.32), Vector2(0.06, 0.36)]), 8, Basis.IDENTITY, Vector3(0, 0, 0.62))
+			mb.color(Color(0.95, 0.93, 0.88))
+			mb.lathe(PackedVector2Array([Vector2(0.06, 0.36), Vector2(0.002, 0.37)]), 8, Basis.IDENTITY, Vector3(0, 0, 0.62))
+			mb.color(IRON)
+			for y in [0.1, 0.5]:
+				mb.box(Vector3(0, y, 0), Vector3(0.82, 0.04, 0.82))
+			mb.color(Color(0.85, 0.72, 0.4))
+			for k in 5:
+				mb.box(Vector3(-0.3 + k * 0.03, 0.62, -0.3), Vector3(0.012, 0.18, 0.012)) # feixe de trigo encostado
 			obj._shape(Vector3(0, 0.45, 0), Vector3(0.8, 0.9, 0.8))
 		"pump":
 			mb.color(IRON)
@@ -210,6 +235,20 @@ static func build(kind: String, obj: PlacedObject) -> void:
 			crank_at = Vector3(0, 1.1, 0)
 			crank.color(IRON.lightened(0.2))
 			crank.box(Vector3(0, 0, -0.3), Vector3(0.05, 0.05, 0.65)) # alavanca
+			# Cano descendo até a água, balde embaixo da bica, rebites e base de pedra.
+			mb.color(IRON.darkened(0.2))
+			mb.tube(PackedVector3Array([Vector3(0, 0.1, -0.1), Vector3(0, -0.2, -0.4), Vector3(0, -0.6, -0.6)]), 0.04, 6)
+			mb.color(Color(0.5, 0.49, 0.46))
+			for k in 6:
+				var a := TAU * k / 6.0
+				mb.box(Vector3(cos(a) * 0.28, 0.06, sin(a) * 0.28), Vector3(0.16, 0.12, 0.12), Basis(Vector3.UP, a))
+			mb.color(WOOD)
+			mb.lathe(PackedVector2Array([Vector2(0.002, 0.0), Vector2(0.1, 0.0), Vector2(0.12, 0.2), Vector2(0.125, 0.21)]), 10, Basis.IDENTITY, Vector3(0, 0.1, 0.35))
+			mb.color(IRON)
+			mb.lathe(PackedVector2Array([Vector2(0.123, 0.18), Vector2(0.123, 0.2)]), 10, Basis.IDENTITY, Vector3(0, 0.1, 0.35))
+			mb.lathe(PackedVector2Array([Vector2(0.105, 0.04), Vector2(0.105, 0.06)]), 10, Basis.IDENTITY, Vector3(0, 0.1, 0.35))
+			for y in [0.3, 0.6, 0.9]:
+				mb.box(Vector3(0, y, 0.092), Vector3(0.02, 0.02, 0.01)) # rebites
 			obj._shape(Vector3(0, 0.55, 0), Vector3(0.4, 1.1, 0.4))
 		"spinning":
 			mb.color(WOOD)
@@ -225,6 +264,17 @@ static func build(kind: String, obj: PlacedObject) -> void:
 				var a := TAU * k / 8.0
 				crank.box(Vector3(cos(a) * 0.18, sin(a) * 0.18, 0), Vector3(0.03, 0.36, 0.03), Basis(Vector3.FORWARD, a))
 			crank.lathe(PackedVector2Array([Vector2(0.33, -0.02), Vector2(0.36, -0.02), Vector2(0.36, 0.02), Vector2(0.33, 0.02)]), 16, Basis(Vector3.RIGHT, PI / 2))
+			# Pedal, banquinho e cesto de fibra do lado.
+			mb.color(WOOD.darkened(0.15))
+			mb.box(Vector3(0.25, 0.06, 0.15), Vector3(0.3, 0.03, 0.12), Basis(Vector3.RIGHT, 0.15))
+			mb.color(IRON)
+			mb.tube(PackedVector3Array([Vector3(0.25, 0.08, 0.15), Vector3(0.25, 0.5, 0.05)]), 0.006, 3)
+			mb.color(Color(0.5, 0.4, 0.25))
+			mb.lathe(PackedVector2Array([Vector2(0.002, 0.0), Vector2(0.14, 0.0), Vector2(0.17, 0.16), Vector2(0.175, 0.17)]), 10, Basis.IDENTITY, Vector3(-0.55, 0, 0.35))
+			mb.color(Color(0.95, 0.94, 0.9))
+			mb.lathe(PackedVector2Array([Vector2(0.16, 0.15), Vector2(0.1, 0.2), Vector2(0.002, 0.22)]), 10, Basis.IDENTITY, Vector3(-0.55, 0, 0.35))
+			mb.color(Color(0.85, 0.82, 0.74))
+			mb.tube(PackedVector3Array([Vector3(-0.35, 0.5, 0), Vector3(0.0, 0.62, 0), Vector3(0.25, 0.75, 0)]), 0.004, 3) # fio sendo puxado
 			obj._shape(Vector3(0, 0.55, 0), Vector3(1.0, 1.1, 0.4))
 		"loom":
 			mb.color(WOOD)
@@ -238,6 +288,15 @@ static func build(kind: String, obj: PlacedObject) -> void:
 			crank_at = Vector3(0, 0.95, -0.35)
 			crank.color(WOOD.lightened(0.15))
 			crank.box(Vector3.ZERO, Vector3(1.2, 0.08, 0.08)) # liço
+			# Rolo de tecido pronto na frente, fios verticais (urdidura) e pedais.
+			mb.color(Color(0.68, 0.62, 0.5))
+			mb.lathe(PackedVector2Array([Vector2(0.002, -0.55), Vector2(0.07, -0.55), Vector2(0.07, 0.55), Vector2(0.002, 0.55)]), 10, Basis(Vector3.BACK, PI / 2), Vector3(0, 0.55, 0.38))
+			mb.color(Color(0.9, 0.88, 0.82))
+			for k in 14:
+				mb.box(Vector3(-0.5 + k * 0.077, 0.95, 0.0), Vector3(0.004, 0.45, 0.004))
+			mb.color(WOOD.darkened(0.2))
+			for x in [-0.2, 0.2]:
+				mb.box(Vector3(x, 0.08, 0.2), Vector3(0.12, 0.03, 0.4), Basis(Vector3.RIGHT, 0.12))
 			obj._shape(Vector3(0, 0.6, 0), Vector3(1.3, 1.2, 0.8))
 		"stone_furnace":
 			mb.color(BRICK)
@@ -252,6 +311,21 @@ static func build(kind: String, obj: PlacedObject) -> void:
 			crank.color(WOOD)
 			crank.box(Vector3(0, 0, 0), Vector3(0.42, 0.04, 0.62))
 			crank.box(Vector3(0, 0, 0.4), Vector3(0.06, 0.06, 0.3)) # cabo
+			# Tijolos à vista (juntas), cinta de ferro, pilha de carvão e lingotes prontos.
+			mb.color(BRICK.darkened(0.35))
+			for k in 6:
+				mb.box(Vector3(0, 0.1 + k * 0.2, 0.552), Vector3(1.2, 0.012, 0.004))
+				for j in 4:
+					var x := -0.45 + j * 0.3 + (0.15 if k % 2 == 1 else 0.0)
+					mb.box(Vector3(x, 0.2 + k * 0.2, 0.552), Vector3(0.012, 0.19, 0.004))
+			mb.color(IRON)
+			mb.box(Vector3(0, 1.0, 0), Vector3(1.24, 0.06, 1.14))
+			mb.color(Color(0.1, 0.09, 0.09))
+			for k in 6:
+				mb.box(Vector3(-0.85 + (k % 3) * 0.1, 0.05 + (k / 3) * 0.08, 0.35 + (k % 2) * 0.08), Vector3(0.1, 0.08, 0.09), Basis(Vector3.UP, k))
+			mb.color(IRON.lightened(0.2))
+			for k in 3:
+				mb.box(Vector3(-0.75, 0.03 + k * 0.045, -0.35), Vector3(0.24, 0.04, 0.08), Basis(Vector3.UP, (k % 2) * PI / 2))
 			obj._shape(Vector3(0, 0.6, 0), Vector3(1.6, 1.2, 1.1))
 			StationModels._fire(obj, Vector3(0, 0.35, 0.45), 0.1, 0.8)
 		"oven":
@@ -260,6 +334,17 @@ static func build(kind: String, obj: PlacedObject) -> void:
 				Vector2(0.25, 1.05), Vector2(0.002, 1.1)]), 12)
 			mb.color(Color(0.08, 0.06, 0.05))
 			mb.box(Vector3(0, 0.35, 0.6), Vector3(0.4, 0.35, 0.05))
+			# Chaminé, pá de padeiro encostada, lenha e um pão na boca.
+			mb.color(BRICK.darkened(0.15))
+			mb.lathe(PackedVector2Array([Vector2(0.12, 0.9), Vector2(0.1, 1.45), Vector2(0.13, 1.5)]), 8, Basis.IDENTITY, Vector3(0.0, 0, -0.25))
+			mb.color(WOOD)
+			mb.tube(PackedVector3Array([Vector3(0.72, 0.0, 0.3), Vector3(0.62, 1.2, 0.4)]), 0.02, 5)
+			mb.box(Vector3(0.73, 0.1, 0.29), Vector3(0.22, 0.02, 0.26), Basis(Vector3.BACK, 0.08))
+			for k in 4:
+				mb.color(WOOD.darkened(0.1 + 0.05 * (k % 2)))
+				mb.tube(PackedVector3Array([Vector3(-0.85, 0.06 + (k / 2) * 0.11, -0.2 + (k % 2) * 0.13), Vector3(-0.55, 0.06 + (k / 2) * 0.11, -0.2 + (k % 2) * 0.13)]), 0.055, 6)
+			mb.color(Color(0.78, 0.5, 0.22))
+			mb.box(Vector3(0, 0.22, 0.58), Vector3(0.18, 0.07, 0.1))
 			obj._shape(Vector3(0, 0.55, 0), Vector3(1.24, 1.1, 1.24))
 			StationModels._fire(obj, Vector3(0, 0.3, 0.45), 0.08, 0.6)
 		"filter":

@@ -79,3 +79,11 @@ func _build_body(model: Node3D) -> void:
 
 func _build_dash(model: Node3D) -> void:
 	_plate_dash(model, 0.13, 0.5, 0.8, 0.48)
+
+
+## Número de corrida, fileira de respiros na lateral e rebites ao longo do corpo.
+func _car_extras(dark: MeshBuilder, light: MeshBuilder, red: MeshBuilder, rubber: MeshBuilder) -> void:
+	for side in [-1.0, 1.0]:
+		_roundel(light, dark, Vector3(side * 0.52, 0.5, -0.9), side)
+		for k in 6:
+			dark.box(Vector3(side * 0.5, 0.5, 0.9 + k * 0.12), Vector3(0.01, 0.12, 0.05), Basis(Vector3.UP, side * 0.3)) # respiros

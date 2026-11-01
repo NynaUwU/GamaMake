@@ -92,3 +92,11 @@ func _build_body(model: Node3D) -> void:
 
 func _build_dash(model: Node3D) -> void:
 	pass # sem painel: o velocímetro fica preso na parede corta-fogo
+
+
+## Número de corrida, cinta no capô e tampa de radiador.
+func _car_extras(dark: MeshBuilder, light: MeshBuilder, red: MeshBuilder, rubber: MeshBuilder) -> void:
+	for side in [-1.0, 1.0]:
+		_roundel(light, dark, Vector3(side * 0.44, 0.45, -0.6), side)
+	rubber.box(Vector3(0, 0.8, 0.8), Vector3(0.7, 0.012, 0.05))
+	light.lathe(PackedVector2Array([Vector2(0.002, 0.0), Vector2(0.05, 0.0), Vector2(0.04, 0.04), Vector2(0.002, 0.05)]), 8, Basis.IDENTITY, Vector3(0.0, 0.96, 1.42))

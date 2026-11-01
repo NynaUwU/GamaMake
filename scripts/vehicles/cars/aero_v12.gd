@@ -92,3 +92,13 @@ func _build_body(model: Node3D) -> void:
 
 func _build_dash(model: Node3D) -> void:
 	_plate_dash(model, -0.2, 0.5, 0.74, 0.44)
+
+
+## Número de corrida, cintas no capô comprido e tampa de combustível.
+func _car_extras(dark: MeshBuilder, light: MeshBuilder, red: MeshBuilder, rubber: MeshBuilder) -> void:
+	for side in [-1.0, 1.0]:
+		_roundel(light, dark, Vector3(side * 0.47, 0.5, -1.2), side)
+	for z in [0.6, 1.2, 1.8]:
+		rubber.box(Vector3(0, 0.76, z), Vector3(0.9, 0.012, 0.05))
+		dark.box(Vector3(0.25, 0.77, z), Vector3(0.04, 0.02, 0.06))
+	light.lathe(PackedVector2Array([Vector2(0.002, 0.0), Vector2(0.06, 0.0), Vector2(0.06, 0.04), Vector2(0.002, 0.045)]), 10, Basis.IDENTITY, Vector3(0.0, 0.62, -1.9))
