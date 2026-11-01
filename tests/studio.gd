@@ -31,26 +31,45 @@ func _init() -> void:
 				await _save(out + "/itens_%d.png" % (page + 1))
 				page += 1
 		"placed":
-			var kinds := ["pot_small", "pot_wide", "bed", "ground", "workbench", "campfire", "furnace", "chest", "drawboard",
-				"spikes", "beartrap", "barbed", "mine", "flag", "airdrop", "dryer", "grindstone", "quern", "oven", "pump",
-				"stone_furnace", "spinning", "loom", "sieve", "rain_collector", "filter", "smoker", "compost"]
+			# Objetos do martelo anteriores ao Tier 3, em páginas por tamanho (fornalhas acesas).
+			var pages := [
+				[2.4, ["pot_small", "pot_wide", "ground", "flag", "chest", "drawboard"]],
+				[3.6, ["bed", "workbench", "campfire"]],
+				[3.0, ["furnace", "oven", "stone_furnace", "smoker", "compost", "rain_collector"]],
+				[2.6, ["dryer", "grindstone", "quern", "pump", "filter", "sieve"]],
+				[3.2, ["spinning", "loom", "shaft", "sawmill", "ram_pump", "stairs"]],
+				[5.5, ["water_wheel", "windmill"]],
+				[2.8, ["spikes", "beartrap", "barbed", "mine", "airdrop"]],
+			]
 			var manager := PlacedManager.new()
 			manager.name = "Placed"
 			stage_root.add_child(manager)
-			var page := 0
-			while page * 6 < kinds.size():
+			for page in pages.size():
 				_clear([manager])
 				for child in manager.get_children():
 					child.free()
 				manager.objects.clear()
-				var chunk := kinds.slice(page * 6, page * 6 + 6)
+				var spacing: float = pages[page][0]
+				var chunk: Array = pages[page][1]
 				for i in chunk.size():
-					var at := _slot_pos3(i, chunk.size(), 2.8)
-					manager._spawn(page * 100 + i + 1, chunk[i], Transform3D(Basis(Vector3.UP, 0.5), at), true)
-					_label(chunk[i], at + Vector3(0, -0.15, 1.2))
-				_frame3(chunk.size(), 2.8, 32.0)
+					var at := _slot_pos3(i, chunk.size(), spacing)
+					var place := at
+					if chunk[i] == "bed":
+						place -= Vector3(1.4, 0, 1.4) # o canteiro tem a origem no canto
+					manager._spawn(page * 100 + i + 1, chunk[i], Transform3D(Basis(Vector3.UP, 0.5) if chunk[i] != "bed" else Basis(), place), true)
+					var obj: PlacedObject = manager.objects[page * 100 + i + 1]
+					if chunk[i] in PlacedObject.LIT_KINDS:
+						StationModels.set_lit(obj, true)
+					if chunk[i] == "airdrop":
+						for fx in obj.get_children():
+							if fx is AirdropFX:
+								fx.land_now()
+					if chunk[i] == "rain_collector":
+						obj.extra.water = 6.0
+						obj.refresh(0.0)
+					_label(chunk[i], at + Vector3(0, -0.15, spacing * 0.42))
+				_frame3(chunk.size(), spacing, 32.0)
 				await _save(out + "/objetos_%d.png" % (page + 1))
-				page += 1
 		"tier3":
 			# Máquinas do Tier 3, duas páginas; o alto-forno já montado (base + 2 anéis) e um cano.
 			var manager := PlacedManager.new()

@@ -23,16 +23,45 @@ func setup(key_: String) -> void:
 	add_child(_crate)
 	var mb := MeshBuilder.new()
 	var olive := Color(0.3, 0.34, 0.2)
-	mb.color(olive)
-	mb.box(Vector3(0, 0.42, 0), Vector3(1.1, 0.84, 1.1))
-	mb.color(olive.darkened(0.3))
-	for y in [0.08, 0.76]:
-		mb.box(Vector3(0, y, 0), Vector3(1.14, 0.08, 1.14)) # cintas
+	# Caixa militar: miolo, tábuas em cada face com sarrafos em X, cantoneiras
+	# de metal, duas cintas com fivela, alças de corda, placa com cruz e números.
+	mb.color(olive.darkened(0.1))
+	mb.box(Vector3(0, 0.42, 0), Vector3(1.06, 0.8, 1.06))
+	for side in [-1.0, 1.0]:
+		for k in 4:
+			mb.color(olive.darkened(0.06 * (k % 2)))
+			mb.box(Vector3(0, 0.11 + k * 0.2, side * 0.54), Vector3(1.0, 0.19, 0.03))
+			mb.box(Vector3(side * 0.54, 0.11 + k * 0.2, 0), Vector3(0.03, 0.19, 1.0))
+		mb.color(olive.darkened(0.25))
+		for diag in [0.62, -0.62]:
+			mb.box(Vector3(0, 0.42, side * 0.56), Vector3(1.05, 0.08, 0.025), Basis(Vector3.BACK, diag)) # sarrafo em X
+		mb.box(Vector3(side * 0.56, 0.42, 0), Vector3(0.025, 0.08, 1.05), Basis(Vector3.RIGHT, 0.62))
+	for k in 5:
+		mb.color(olive.darkened(0.04 * (k % 2)))
+		mb.box(Vector3(0, 0.85, -0.44 + k * 0.22), Vector3(1.08, 0.04, 0.21)) # tampa
+	mb.color(Color(0.42, 0.42, 0.4))
+	for x in [-0.55, 0.55]:
+		for z in [-0.55, 0.55]:
+			for y in [0.05, 0.82]:
+				mb.box(Vector3(x, y, z), Vector3(0.12, 0.1, 0.12)) # cantoneiras
+	mb.color(Color(0.22, 0.2, 0.15))
+	for x in [-0.28, 0.28]:
+		mb.box(Vector3(x, 0.44, 0), Vector3(0.07, 0.9, 1.15)) # cintas
+		mb.box(Vector3(x, 0.875, 0), Vector3(0.07, 0.015, 1.1))
+		mb.color(Color(0.55, 0.55, 0.52))
+		mb.box(Vector3(x, 0.6, 0.58), Vector3(0.09, 0.07, 0.02)) # fivela
+		mb.color(Color(0.22, 0.2, 0.15))
+	mb.color(Color(0.62, 0.55, 0.42))
+	for side in [-1.0, 1.0]:
+		mb.tube(PackedVector3Array([Vector3(side * 0.57, 0.55, -0.18), Vector3(side * 0.64, 0.5, 0.0), Vector3(side * 0.57, 0.55, 0.18)]), 0.015, 4) # alça de corda
 	mb.color(Color(0.85, 0.82, 0.7))
-	mb.box(Vector3(0, 0.45, 0.556), Vector3(0.5, 0.18, 0.01)) # placa
+	mb.box(Vector3(0, 0.45, 0.578), Vector3(0.36, 0.22, 0.01)) # placa
 	mb.color(Color(0.75, 0.1, 0.08))
-	mb.box(Vector3(0, 0.45, 0.562), Vector3(0.18, 0.06, 0.01)) # cruz
-	mb.box(Vector3(0, 0.45, 0.562), Vector3(0.06, 0.16, 0.01))
+	mb.box(Vector3(0, 0.45, 0.585), Vector3(0.16, 0.05, 0.01)) # cruz
+	mb.box(Vector3(0, 0.45, 0.585), Vector3(0.05, 0.16, 0.01))
+	mb.color(Color(0.1, 0.1, 0.08))
+	for k in 4:
+		mb.box(Vector3(-0.36 + k * 0.05, 0.15, 0.575), Vector3(0.03, 0.06, 0.01)) # números estampados
 	var mesh := MeshInstance3D.new()
 	mesh.mesh = mb.finish(PlacedObject._mat(), false)
 	_crate.add_child(mesh)
@@ -73,6 +102,13 @@ func setup(key_: String) -> void:
 	_light.position.y = 1.15
 	_crate.add_child(_light)
 	_crate.position.y = FALL_HEIGHT
+
+
+## Já no chão (fotos/testes): sem queda e sem paraquedas.
+func land_now() -> void:
+	_crate.position.y = 0.0
+	_landed = true
+	_chute.visible = false
 
 
 func _process(delta: float) -> void:

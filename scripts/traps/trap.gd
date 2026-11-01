@@ -149,12 +149,27 @@ func _build() -> void:
 			mb.box(Vector3(0.14, 0.25, 0.14), Vector3(0.08, 0.1, 0.01), Basis(Vector3.UP, 0.5)) # trapo
 			obj._shape(Vector3(0, 0.05, 0), Vector3(1.2, 0.1, 1.2))
 		"beartrap":
+			# Base em cruz com molas de lâmina dos dois lados, prato do gatilho com
+			# lingueta, olhais e corrente presa a uma estaca cravada no chão.
 			mb.color(iron)
-			mb.lathe(PackedVector2Array([Vector2(0.002, 0.0), Vector2(0.26, 0.0), Vector2(0.26, 0.03), Vector2(0.002, 0.04)]), 10)
+			mb.box(Vector3(0, 0.015, 0), Vector3(0.62, 0.03, 0.08))
+			mb.box(Vector3(0, 0.015, 0), Vector3(0.08, 0.03, 0.34))
+			mb.lathe(PackedVector2Array([Vector2(0.002, 0.0), Vector2(0.25, 0.0), Vector2(0.255, 0.02), Vector2(0.24, 0.03), Vector2(0.21, 0.03)]), 12) # aro
+			mb.color(iron.lightened(0.12))
+			for side in [-1.0, 1.0]:
+				mb.box(Vector3(side * 0.42, 0.04, 0), Vector3(0.22, 0.02, 0.07), Basis(Vector3.BACK, side * 0.12)) # mola de lâmina
+				mb.box(Vector3(side * 0.42, 0.065, 0), Vector3(0.2, 0.02, 0.06), Basis(Vector3.BACK, side * 0.25))
+				mb.box(Vector3(side * 0.53, 0.055, 0), Vector3(0.04, 0.07, 0.09)) # olhal
 			mb.color(Color(0.55, 0.45, 0.3))
-			mb.lathe(PackedVector2Array([Vector2(0.002, 0.04), Vector2(0.08, 0.04), Vector2(0.08, 0.06), Vector2(0.002, 0.06)]), 8) # gatilho
+			mb.lathe(PackedVector2Array([Vector2(0.002, 0.03), Vector2(0.09, 0.03), Vector2(0.1, 0.045), Vector2(0.085, 0.06), Vector2(0.002, 0.06)]), 10) # prato
+			mb.color(iron.darkened(0.1))
+			mb.box(Vector3(0.0, 0.05, 0.1), Vector3(0.025, 0.012, 0.12)) # lingueta
 			mb.color(iron.darkened(0.2))
-			mb.tube(PackedVector3Array([Vector3(0.26, 0.02, 0), Vector3(0.5, 0.01, 0.1)]), 0.012, 4) # corrente
+			for k in 6:
+				var p := Vector3(0.0, 0.015, 0.18).lerp(Vector3(0.12, 0.01, 0.62), k / 5.0)
+				mb.torus(0.025, 0.006, 6, 3, Basis(Vector3.BACK, PI / 2 * (k % 2)) * Basis(Vector3.UP, 0.3), p) # elos
+			mb.color(Color(0.4, 0.27, 0.15))
+			mb.lathe(PackedVector2Array([Vector2(0.002, -0.02), Vector2(0.03, 0.05), Vector2(0.03, 0.12), Vector2(0.035, 0.14), Vector2(0.002, 0.15)]), 6, Basis.IDENTITY, Vector3(0.13, 0, 0.66)) # estaca
 			for side in [-1.0, 1.0]:
 				var pivot := Node3D.new()
 				pivot.position = Vector3(0, 0.04, 0)
@@ -171,7 +186,7 @@ func _build() -> void:
 				jaw_mesh.rotation.y = PI / 2 if side > 0 else -PI / 2
 				pivot.add_child(jaw_mesh)
 				_jaws.append(pivot)
-			obj._shape(Vector3(0, 0.03, 0), Vector3(0.55, 0.06, 0.55))
+			obj._shape(Vector3(0, 0.03, 0), Vector3(0.62, 0.06, 0.55))
 		"barbed":
 			# Postes de tronco com escoras, travessas e arame farpado enrolado em espiral.
 			mb.color(wood.darkened(0.1))

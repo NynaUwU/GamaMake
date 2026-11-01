@@ -373,13 +373,8 @@ func _build() -> void:
 		if kind in LIT_KINDS:
 			StationModels.set_lit(self, false)
 		return
-	if Machines.is_crank(kind) or kind in ["oven", "filter", "smoker", "compost", "shaft", "water_wheel", "windmill", "sawmill", "ram_pump"]:
-		Machines.build(kind, self)
-		if kind in LIT_KINDS:
-			StationModels.set_lit(self, false)
-		return
-	if kind in ["campfire", "furnace", "workbench", "chest", "dryer", "rain_collector"]:
-		StationModels.build(kind, self)
+	if ObjectModels.has(kind):
+		ObjectModels.build(kind, self) # plantadores, estações e máquinas (Tier 0-2)
 		if kind == "campfire":
 			Cooking.fires.append(self)
 		if kind in LIT_KINDS:
@@ -405,103 +400,6 @@ func _build() -> void:
 		return
 	var mb := MeshBuilder.new()
 	match kind:
-		"flag":
-			# Mastro torneado com ponteira, pano ondulado com bainha e cordas, e base de pedras.
-			mb.color(Color(0.42, 0.3, 0.18))
-			mb.lathe(PackedVector2Array([Vector2(0.045, -0.2), Vector2(0.04, 0.3), Vector2(0.032, 2.5), Vector2(0.028, 2.62)]), 8)
-			mb.color(ItemModels.BRASS)
-			mb.lathe(PackedVector2Array([Vector2(0.03, 2.62), Vector2(0.05, 2.66), Vector2(0.04, 2.72), Vector2(0.002, 2.78)]), 8)
-			var cloth := []
-			for r in 5:
-				var row := PackedVector3Array()
-				for c in 8:
-					var x := 0.04 + c * 0.095
-					row.append(Vector3(x, 2.5 - r * 0.1, sin(c * 1.1 + r * 0.3) * 0.05 * (c / 7.0)))
-				cloth.append(row)
-			mb.color(Color(0.78, 0.12, 0.1))
-			mb.sheet(cloth)
-			mb.color(Color(0.95, 0.9, 0.8))
-			mb.box(Vector3(0.38, 2.3, 0.0), Vector3(0.14, 0.14, 0.03), Basis(Vector3.BACK, PI / 4)) # emblema
-			mb.color(Color(0.62, 0.55, 0.42))
-			mb.tube(PackedVector3Array([Vector3(0.03, 2.52, 0), Vector3(0.03, 1.6, 0.02), Vector3(0.06, 1.0, 0.03)]), 0.006, 3) # corda
-			mb.color(Color(0.5, 0.49, 0.46))
-			for k in 6:
-				var a := TAU * k / 6.0
-				mb.box(Vector3(cos(a) * 0.16, 0.06, sin(a) * 0.16), Vector3(0.14, 0.12, 0.12), Basis(Vector3.UP, a))
-			_shape(Vector3(0, 1.2, 0), Vector3(0.2, 2.6, 0.2))
-		"pot_small":
-			# Vaso de barro torneado com borda virada, faixas pintadas.
-			mb.color(CLAY)
-			mb.lathe(PackedVector2Array([Vector2(0.002, 0.0), Vector2(0.14, 0.0), Vector2(0.16, 0.02), Vector2(0.21, 0.24), Vector2(0.235, 0.26),
-				Vector2(0.24, 0.3), Vector2(0.2, 0.31), Vector2(0.185, 0.28)]), 14)
-			mb.color(CLAY.darkened(0.25))
-			mb.lathe(PackedVector2Array([Vector2(0.172, 0.08), Vector2(0.182, 0.1)]), 14)
-			mb.lathe(PackedVector2Array([Vector2(0.196, 0.18), Vector2(0.204, 0.2)]), 14)
-			mb.color(Color(0.85, 0.75, 0.55))
-			mb.lathe(PackedVector2Array([Vector2(0.189, 0.13), Vector2(0.194, 0.15)]), 14)
-			mb.color(SOIL)
-			mb.lathe(PackedVector2Array([Vector2(0.19, 0.27), Vector2(0.1, 0.285), Vector2(0.002, 0.29)]), 12)
-			mb.color(SOIL.lightened(0.15))
-			for k in 4:
-				mb.box(Vector3(cos(k * 1.6) * 0.1, 0.29, sin(k * 1.6) * 0.1), Vector3(0.03, 0.015, 0.025)) # torrões
-			_shape(Vector3(0, 0.155, 0), Vector3(0.42, 0.31, 0.42))
-		"pot_wide":
-			# Floreira de tábuas pregadas com cantoneiras, pés e terra fofa com torrões.
-			var wood := Color(0.4, 0.26, 0.15)
-			mb.color(wood.darkened(0.2))
-			for x in [-0.58, 0.58]:
-				for z in [-0.2, 0.2]:
-					mb.box(Vector3(x, 0.03, z), Vector3(0.08, 0.06, 0.08)) # pés
-			mb.color(wood)
-			mb.box(Vector3(0, 0.08, 0), Vector3(1.24, 0.05, 0.46))
-			for side in [-1.0, 1.0]:
-				for k in 2:
-					mb.color(wood.darkened(0.06 * k))
-					mb.box(Vector3(0, 0.15 + k * 0.12, side * 0.21), Vector3(1.24, 0.11, 0.05))
-				mb.box(Vector3(side * 0.6, 0.21, 0), Vector3(0.05, 0.24, 0.46))
-			mb.color(ItemModels.IRON)
-			for x in [-0.6, 0.6]:
-				for z in [-0.215, 0.215]:
-					mb.box(Vector3(x, 0.21, z), Vector3(0.07, 0.25, 0.07))
-			for side in [-1.0, 1.0]:
-				for x in [-0.45, 0.0, 0.45]:
-					mb.box(Vector3(x, 0.15, side * 0.237), Vector3(0.012, 0.012, 0.004)) # pregos
-					mb.box(Vector3(x, 0.27, side * 0.237), Vector3(0.012, 0.012, 0.004))
-			mb.color(SOIL)
-			mb.box(Vector3(0, 0.3, 0), Vector3(1.14, 0.04, 0.38))
-			mb.color(SOIL.lightened(0.15))
-			for k in 8:
-				mb.box(Vector3(-0.5 + k * 0.14, 0.325, sin(k * 2.0) * 0.12), Vector3(0.05, 0.02, 0.04), Basis(Vector3.UP, k))
-			_shape(Vector3(0, 0.18, 0), Vector3(1.24, 0.36, 0.48))
-		"bed":
-			var s := BuildPiece.SIZE
-			var t := BuildPiece.THICK
-			mb.color(Color(0.36, 0.24, 0.14))
-			for side in [0.0, 1.0]:
-				mb.box(Vector3(s * 0.5, (0.22 - t) * 0.5, side * s + (0.06 if side == 0.0 else -0.06)), Vector3(s, 0.22 + t, 0.12))
-				mb.box(Vector3(side * s + (0.06 if side == 0.0 else -0.06), (0.22 - t) * 0.5, s * 0.5), Vector3(0.12, 0.22 + t, s - 0.24))
-			mb.color(SOIL)
-			mb.box(Vector3(s * 0.5, (0.18 - t) * 0.5, s * 0.5), Vector3(s - 0.24, 0.18 + t, s - 0.24))
-			# Sulcos de terra entre as fileiras.
-			mb.color(SOIL.darkened(0.25))
-			for j in 2:
-				mb.box(Vector3(s * 0.5, 0.185, 0.93 * (j + 1)), Vector3(s - 0.3, 0.02, 0.08))
-			_shape(Vector3(s * 0.5, (0.22 - t) * 0.5, s * 0.5), Vector3(s, 0.22 + t, s))
-		"ground":
-			# Cova: terra revirada em monte com borda de torrões e pedrinhas.
-			mb.color(SOIL)
-			mb.lathe(PackedVector2Array([Vector2(0.47, -0.05), Vector2(0.42, 0.03), Vector2(0.3, 0.07), Vector2(0.15, 0.06), Vector2(0.002, 0.03)]), 12)
-			mb.color(SOIL.darkened(0.3))
-			mb.lathe(PackedVector2Array([Vector2(0.12, 0.062), Vector2(0.002, 0.045)]), 10) # buraco úmido
-			for k in 9:
-				var a := TAU * k / 9.0 + 0.4
-				mb.color(SOIL.lightened(0.05 + 0.05 * (k % 3)))
-				mb.box(Vector3(cos(a) * 0.4, 0.04, sin(a) * 0.4), Vector3(0.1 + (k % 2) * 0.04, 0.06, 0.08), Basis(Vector3.UP, a) * Basis(Vector3.BACK, 0.2))
-			mb.color(Color(0.5, 0.49, 0.46))
-			for k in 4:
-				var a := k * 1.7
-				mb.box(Vector3(cos(a) * 0.3, 0.06, sin(a) * 0.28), Vector3(0.04, 0.03, 0.035), Basis(Vector3.UP, a))
-			_shape(Vector3(0, 0.0, 0), Vector3(0.8, 0.12, 0.8))
 		"stairs":
 			# Escada de madeira: sobe um andar (2,8 m) em 7 degraus de 0,4 m, para
 			# a frente (-Z). Duas longarinas inclinadas, degraus com espelho e corrimão.
@@ -539,24 +437,6 @@ func _build() -> void:
 				Vector3(-0.6, s2, -s2), Vector3(0.6, s2, -s2)])
 			ramp.shape = wedge
 			add_child(ramp)
-		"bench":
-			var wood := Color(0.42, 0.28, 0.16)
-			mb.color(wood)
-			mb.box(Vector3(0, 0.86, 0), Vector3(1.6, 0.08, 0.75))
-			for x in [-0.72, 0.72]:
-				for z in [-0.3, 0.3]:
-					mb.box(Vector3(x, 0.41, z), Vector3(0.08, 0.82, 0.08))
-			mb.box(Vector3(0, 0.25, 0), Vector3(1.44, 0.05, 0.6)) # prateleira
-			# Torno de ferro e engrenagem de latão (steampunk).
-			mb.color(ItemModels.IRON)
-			mb.box(Vector3(0.6, 0.97, 0.2), Vector3(0.16, 0.14, 0.12))
-			mb.box(Vector3(0.6, 0.97, 0.32), Vector3(0.03, 0.03, 0.14))
-			mb.color(ItemModels.BRASS)
-			mb.lathe(PackedVector2Array([Vector2(0.002, -0.015), Vector2(0.12, -0.015), Vector2(0.12, 0.015), Vector2(0.002, 0.015)]), 10,
-					Basis(Vector3.RIGHT, PI / 2), Vector3(-0.45, 0.91, -0.1))
-			mb.color(ItemModels.WOOD)
-			mb.box(Vector3(-0.1, 0.92, 0.05), Vector3(0.6, 0.04, 0.12), Basis(Vector3.UP, 0.3))
-			_shape(Vector3(0, 0.45, 0), Vector3(1.6, 0.9, 0.75))
 	var mesh := MeshInstance3D.new()
 	mesh.mesh = mb.finish(_mat(), false)
 	add_child(mesh)

@@ -24,6 +24,14 @@ reação física a golpes e ragdoll (estilo Dying Light), visual de PC dos anos 
 - Os outros jogadores aparecem com o nome em cima, o item da mão, a lanterna acesa e uma bolinha
   azul no minimapa/mapa. Em cima, no meio da tela, aparece quem está online.
 
+## Modelos refeitos no padrão do Tier 3
+Todos os objetos do martelo anteriores ao Tier 3 foram refeitos com o mesmo nível de detalhe das máquinas a vapor (`scripts/machines/object_models.gd`): tábuas com frestas e tons alternados, fiadas de tijolo, cintas de ferro rebitadas, polias de latão nas portas de energia, fumaça só com fogo aceso e objetos de cena (lenha, ferramentas, baldes, sacos).
+- Plantadores (pote com pratinho e pintura, floreira com cantoneiras, **canteiro com leiras de terra, torrões, sulcos e plaquinhas**, cova), bandeira com monte de pedras e cunho.
+- Estações: mesa de trabalho (gaveteiro, painel de ferramentas, lampião), fogueira (chaleira, lenha de reserva), fornalha de barro, forno de tijolo com pães, baú, secador com pele estendida, coletor com torneira de latão, lousa (bandeja de tintas, paleta).
+- Manivela: amolar, moinho (tina de aduelas), **bomba** (a alavanca agora sobe e desce), roca de pedal, **tear** (os liços sobem e descem, pano listrado), fornalha de pedra (fole que abre e fecha, cadinho, chaminé), filtro (faixas de cascalho, carvão e areia, pingando), defumador, composteira, peneira.
+- Energia: eixo com mancais e copo de graxa, roda d'água (a polia de saída agora fica onde o eixo encaixa), moinho de vento (pás de treliça com lona), serraria (carrinho com tora, correia), carneiro hidráulico (câmara de ar rebitada, válvula cuspindo água).
+- Armadilha de urso (molas, prato, corrente e estaca) e caixa do airdrop (tábuas com sarrafos, cintas, cantoneiras).
+
 ## Tier 3: vapor, aço e canos
 Martelo → aba **Vapor**. Ordem natural: torno (ferro) → parafusos/engrenagens → alto-forno → aço → caldeira + motor a vapor.
 - **Canos** (`scripts/machines/fluids.gd`, `pipe_tool.gd`): cano de cobre na mão (mesa: 1 barra de cobre = 2 canos; torno: 4). **Segure o clique** numa saída de latão (ou na ponta de um cano), arraste e **solte** onde o cano termina; clicar na ponta de um cano continua a linha. **Shift** deixa reto (no nível e em 45°). Cada 2 m gasta 1 cano, até 6 m por trecho. Bolinha amarela = encaixou numa porta. Desmontar devolve os canos.
