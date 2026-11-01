@@ -14,6 +14,7 @@ extends StaticBody3D
 ##   piso:   x/z 0..SIZE, y -T..0 (o topo fica na altura da grade: pisa-se em cima)
 ##   teto:   x/z 0..SIZE, y 0..T (a base fica na altura da grade: apoia no topo das paredes)
 ##   pilar:  x/z -0.2..0.2 (centrado no ponto da grade), y 0..SIZE
+##           deitado (viga, rot 1 = ao longo de X, rot 2 = de Z): mesmo espaço local, girado
 
 enum Kind { WALL, FLOOR, ROOF, PILLAR }
 
@@ -63,6 +64,11 @@ func _ready() -> void:
 
 
 static func piece_transform(kind_: Kind, cell_: Vector3i, rot_: int) -> Transform3D:
+	if kind_ == Kind.PILLAR and rot_ > 0:
+		# Pilar deitado (viga): ao longo de +X (rot 1) ou +Z (rot 2), com a base
+		# na altura da grade (apoia em cima de parede, pilar ou piso).
+		var lying := Basis(Vector3.BACK, -PI / 2) if rot_ == 1 else Basis(Vector3.RIGHT, PI / 2)
+		return Transform3D(lying, Vector3(cell_) * SEG + Vector3.UP * SEG * 0.5)
 	var basis := Basis(Vector3.UP, -PI / 2) if rot_ == 1 else Basis.IDENTITY
 	return Transform3D(basis, Vector3(cell_) * SEG)
 
@@ -187,16 +193,13 @@ func rebuild() -> void:
 
 func _panel(st: SurfaceTool, faces: PackedVector3Array) -> void:
 	var w := _w_range()
-	var base: Color = COLORS[kind]
 	for index in TRIS:
 		if removed[index] == 1:
 			continue
 		var square := index / 4
 		var i := square % N
 		var j := square / N
-		# Tábuas: cada fileira com um tom (parede = fileiras na altura; piso/teto = ao longo de x).
-		var row := j if kind == Kind.WALL else i
-		var color := base.darkened(fposmod(sin(row * 12.9898 + cell.x * 3.1 + cell.z * 7.7) * 43758.5453, 1.0) * 0.18)
+		var color := _tone(i, j)
 		var c := triangle_uv(index)
 		# Frente e verso.
 		_tri(st, faces, uvw(c[0].x, c[0].y, w.y), uvw(c[1].x, c[1].y, w.y), uvw(c[2].x, c[2].y, w.y), color)
@@ -210,6 +213,72 @@ func _panel(st: SurfaceTool, faces: PackedVector3Array) -> void:
 			var side := color.darkened(0.25)
 			_tri(st, faces, uvw(a.x, a.y, w.x), uvw(b.x, b.y, w.x), uvw(b.x, b.y, w.y), side)
 			_tri(st, faces, uvw(a.x, a.y, w.x), uvw(b.x, b.y, w.y), uvw(a.x, a.y, w.y), side)
+	# Detalhes (sem colisão) só nos quadrados inteiros: cortou, o detalhe sai junto.
+	for square in N * N:
+		var q := square * 4
+		if removed[q] == 1 or removed[q + 1] == 1 or removed[q + 2] == 1 or removed[q + 3] == 1:
+			continue
+		_square_details(st, square % N, square / N, w)
+
+
+## Cor de cada quadrado: parede de tábuas deitadas, piso de tábuas com emendas
+## desencontradas, teto de telhas em fiadas.
+func _tone(i: int, j: int) -> Color:
+	var base: Color = COLORS[kind]
+	var noise := fposmod(sin(i * 3.7 + j * 12.9898 + cell.x * 3.1 + cell.z * 7.7 + cell.y * 1.3) * 43758.5453, 1.0)
+	match kind:
+		Kind.WALL:
+			# Tábuas deitadas: cada fileira com um tom, quase sem variar no meio dela.
+			var row := fposmod(sin(j * 12.9898 + cell.x * 3.1 + cell.z * 7.7) * 43758.5453, 1.0)
+			return base.lightened(0.04).darkened(row * 0.16 + noise * 0.03)
+		Kind.FLOOR:
+			var board := fposmod(sin(j * 9.1 + floori((i + (j % 3)) / 3.0) * 4.3 + cell.x * 3.1 + cell.z * 7.7) * 43758.5453, 1.0)
+			return base.darkened(board * 0.12 + noise * 0.02)
+		Kind.ROOF:
+			var tile := (i + (j % 2)) % 2
+			return base.darkened(0.06 * tile + noise * 0.1 + (0.08 if j % 2 == 1 else 0.0))
+	return base
+
+
+## Frestas entre as tábuas, pregos nos caibros, beiral das telhas.
+func _square_details(st: SurfaceTool, i: int, j: int, w: Vector2) -> void:
+	var u0 := i * SEG
+	var v0 := j * SEG
+	var seam: Color = (COLORS[kind] as Color).darkened(0.55)
+	var nail := Color(0.28, 0.27, 0.26)
+	match kind:
+		Kind.WALL:
+			for face in [w.x - 0.003, w.y + 0.003]:
+				if j > 0:
+					_box(st, uvw(u0 + SEG * 0.5, v0 + 0.006, face), Vector3(SEG, 0.012, 0.006), seam) # fresta entre tábuas
+				_box(st, uvw(u0 + SEG * 0.5, v0 + SEG * 0.5, face), Vector3(SEG, 0.008, 0.005), seam.lightened(0.15)) # meia tábua
+				if i % 3 == 0:
+					for k in 2:
+						_box(st, uvw(u0 + 0.06, v0 + SEG * (0.25 + 0.5 * k), face), Vector3(0.022, 0.022, 0.012), nail) # pregos
+		Kind.FLOOR:
+			var top := w.y + 0.003
+			_box(st, uvw(u0 + SEG * 0.5, v0 + 0.006, top), Vector3(SEG, 0.006, 0.012), seam) # fresta (ao longo de x)
+			if (i + (j % 3)) % 3 == 0:
+				_box(st, uvw(u0 + 0.006, v0 + SEG * 0.5, top), Vector3(0.012, 0.006, SEG), seam) # emenda da tábua
+			if i % 3 == 0:
+				for k in 2:
+					_box(st, uvw(u0 + 0.05, v0 + SEG * (0.28 + 0.44 * k), top), Vector3(0.022, 0.01, 0.022), nail)
+		Kind.ROOF:
+			var top := w.y
+			# Beiral de cada fiada: degrau de telha sobreposta na borda de baixo do quadrado.
+			_box(st, uvw(u0 + SEG * 0.5, v0 + 0.04, top + 0.02), Vector3(SEG - 0.01, 0.04, 0.08), _tone(i, j).darkened(0.15))
+			_box(st, uvw(u0 + 0.005, v0 + SEG * 0.5, top + 0.01), Vector3(0.01, 0.02, SEG), _tone(i, j).darkened(0.3)) # junta
+
+
+## Caixa de enfeite (só na malha, sem colisão), em espaço local da peça.
+func _box(st: SurfaceTool, center: Vector3, size: Vector3, color: Color) -> void:
+	var junk := PackedVector3Array()
+	var h := size * 0.5
+	var p := [center + Vector3(-h.x, -h.y, -h.z), center + Vector3(h.x, -h.y, -h.z), center + Vector3(h.x, h.y, -h.z), center + Vector3(-h.x, h.y, -h.z),
+		center + Vector3(-h.x, -h.y, h.z), center + Vector3(h.x, -h.y, h.z), center + Vector3(h.x, h.y, h.z), center + Vector3(-h.x, h.y, h.z)]
+	for f in [[0, 1, 2, 3], [5, 4, 7, 6], [4, 0, 3, 7], [1, 5, 6, 2], [3, 2, 6, 7], [4, 5, 1, 0]]:
+		_tri(st, junk, p[f[0]], p[f[2]], p[f[1]], color)
+		_tri(st, junk, p[f[0]], p[f[3]], p[f[2]], color)
 
 
 ## Vizinho do lado "edge" (0 = aresta de fora do quadrado, 1 e 2 = diagonais) ainda existe?
@@ -339,17 +408,31 @@ static func _part_index(i: int, j: int, q: int) -> int:
 
 
 func _pillar(st: SurfaceTool, faces: PackedVector3Array) -> void:
+	# Colisão: o prisma simples de 0,4 m. Desenho: base de pedra, poste de cantos
+	# chanfrados, cintas de ferro com pregos e capitel no topo.
 	var h := SEG * 0.5
 	var corners := [Vector3(-h, 0, -h), Vector3(h, 0, -h), Vector3(h, 0, h), Vector3(-h, 0, h)]
-	var color: Color = COLORS[kind]
 	for e in 4:
 		var a: Vector3 = corners[e]
 		var b: Vector3 = corners[(e + 1) % 4]
 		var top := Vector3.UP * SIZE
-		_tri(st, faces, a, b, b + top, color.darkened(0.08 * e))
-		_tri(st, faces, a, b + top, a + top, color.darkened(0.08 * e))
-	_tri(st, faces, corners[0] + Vector3.UP * SIZE, corners[1] + Vector3.UP * SIZE, corners[2] + Vector3.UP * SIZE, color)
-	_tri(st, faces, corners[0] + Vector3.UP * SIZE, corners[2] + Vector3.UP * SIZE, corners[3] + Vector3.UP * SIZE, color)
+		faces.append_array(PackedVector3Array([a, b + top, b, a, a + top, b + top]))
+	var wood: Color = COLORS[kind]
+	var stone := Color(0.5, 0.48, 0.45)
+	_box(st, Vector3(0, 0.12, 0), Vector3(0.4, 0.24, 0.4), stone)
+	_box(st, Vector3(0, 0.26, 0), Vector3(0.36, 0.04, 0.36), stone.lightened(0.1))
+	_box(st, Vector3(0, SIZE * 0.5 + 0.12, 0), Vector3(0.3, SIZE - 0.44, 0.3), wood)
+	for k in 4: # chanfros
+		var a := TAU * k / 4.0 + PI / 4.0
+		var at := Vector3(cos(a) * 0.15, SIZE * 0.5 + 0.12, sin(a) * 0.15)
+		_box(st, at, Vector3(0.06, SIZE - 0.44, 0.06), wood.darkened(0.12))
+	for y in [0.7, SIZE - 0.7]:
+		_box(st, Vector3(0, y, 0), Vector3(0.33, 0.06, 0.33), Color(0.24, 0.23, 0.23))
+		for k in 4:
+			var a := TAU * k / 4.0
+			_box(st, Vector3(cos(a) * 0.168, y, sin(a) * 0.168), Vector3(0.025, 0.025, 0.025), Color(0.62, 0.5, 0.26))
+	_box(st, Vector3(0, SIZE - 0.12, 0), Vector3(0.36, 0.1, 0.36), wood.darkened(0.15))
+	_box(st, Vector3(0, SIZE - 0.03, 0), Vector3(0.4, 0.06, 0.4), wood.darkened(0.25))
 
 
 func _tri(st: SurfaceTool, faces: PackedVector3Array, a: Vector3, b: Vector3, c: Vector3, color: Color) -> void:

@@ -28,7 +28,7 @@ const ENTRIES := {
 		{"id": "wall", "name": "Parede", "kind": BuildPiece.Kind.WALL, "desc": "2,8 x 2,8 m; R gira", "cost": {&"tabua": 4}},
 		{"id": "floor", "name": "Piso", "kind": BuildPiece.Kind.FLOOR, "desc": "Topo na altura da grade", "cost": {&"tabua": 4}},
 		{"id": "roof", "name": "Teto", "kind": BuildPiece.Kind.ROOF, "desc": "Apoia no topo das paredes", "cost": {&"tabua": 4}},
-		{"id": "pillar", "name": "Pilar", "kind": BuildPiece.Kind.PILLAR, "desc": "0,4 m de lado, 2,8 m de altura", "cost": {&"tabua": 1, &"pedra": 1}},
+		{"id": "pillar", "name": "Pilar", "kind": BuildPiece.Kind.PILLAR, "desc": "0,4 m de lado, 2,8 m de altura. R deita (viga): em cima de uma parede cobre o topo dela", "cost": {&"tabua": 1, &"pedra": 1}},
 		{"id": "stairs", "name": "Escada", "place": "stairs", "desc": "Sobe um andar (2,8 m) para a frente. Segure Shift para alinhar com a grade", "cost": {&"tabua": 6, &"graveto": 2}},
 	],
 	"Aberturas": [
@@ -112,7 +112,7 @@ const PLACE_RADIUS := {"pot_small": 0.35, "pot_wide": 0.7, "bench": 0.9, "campfi
 var player: Player
 var selection: Dictionary = ENTRIES["Estrutura"][0]
 var kind := BuildPiece.Kind.WALL
-var flip := false ## R: gira a parede (o padrão é ficar de frente para quem constrói)
+var flip := false ## R: gira a parede (o padrão é ficar de frente para quem constrói) ou deita o pilar (viga)
 var target := {} ## onde o martelo vai construir {kind, cell, rot, valid}
 var fill_target := {} ## buraco mirado para janela/porta {piece, tris, valid}
 var cut_target := {} ## {piece, quarters}: meio quadrado mirado pela talhadeira
@@ -761,11 +761,19 @@ func _compute_target() -> Dictionary:
 			else:
 				cell = Vector3i(roundi(p.x / seg) - n / 2, roundi(p.y / seg), roundi(p.z / seg) - n / 2)
 		BuildPiece.Kind.PILLAR:
-			if piece and on_top and piece.kind in [BuildPiece.Kind.WALL, BuildPiece.Kind.PILLAR]:
+			# R deita o pilar (viga), no sentido da parede que fica de frente para quem constrói.
+			var lying := flip
+			if lying:
+				rot = 1 if absf(forward.z) >= absf(forward.x) else 2
+			var standing_piece: bool = piece != null and (piece.kind == BuildPiece.Kind.WALL or (piece.kind == BuildPiece.Kind.PILLAR and piece.rot == 0))
+			if lying and piece and on_top and piece.kind == BuildPiece.Kind.WALL:
+				cell = piece.cell + Vector3i(0, n, 0) # cobre o topo da parede inteiro
+				rot = 1 if piece.rot == 0 else 2
+			elif piece and on_top and standing_piece:
 				cell = Vector3i(roundi(p.x / seg), piece.cell.y + n, roundi(p.z / seg))
 			else:
 				cell = Vector3i(roundi(p.x / seg), roundi(p.y / seg), roundi(p.z / seg))
-	if kind != BuildPiece.Kind.WALL:
+	if kind != BuildPiece.Kind.WALL and kind != BuildPiece.Kind.PILLAR:
 		rot = 0
 	return {"kind": kind, "cell": cell, "rot": rot, "valid": _manager().can_place(kind, cell, rot)}
 

@@ -155,25 +155,59 @@ func _door_pane(set: Dictionary) -> Dictionary:
 	return pane
 
 
-## Frisos: travessas de madeira a cada 2 quadrados dividindo o vidro (só onde
-## o buraco continua dos dois lados da linha).
+## Frisos: travessas de madeira dividindo o vidro em vidraças iguais de ~0,8 m,
+## medidas pelo formato da própria janela (não pela posição na parede). Em
+## buraco torto (L, losango...) a travessa só aparece onde tem vidro dos dois lados.
 func _muntins(wood: MeshBuilder, set: Dictionary, mid: float, origin: Vector3) -> void:
-	var n := BuildPiece.N
-	var seg := BuildPiece.SEG
-	var bar := Color(0.3, 0.2, 0.12)
-	wood.color(bar)
+	var lo := Vector2(INF, INF)
+	var hi := Vector2(-INF, -INF)
 	for index in set:
-		var square: int = index / 4
-		var i: int = square % n
-		var j: int = square / n
-		var q: int = index % 4
-		if q == 1 and (i + 1) % 2 == 0 and set.has(piece._neighbor_index(index, 0)):
-			# Linha vertical em u = (i+1) * SEG, de v = j a j+1.
-			var center := Vector2((i + 1) * seg, (j + 0.5) * seg)
-			wood.box(_p(center, mid, origin), _size(0.035, seg + 0.035, 0.05))
-		elif q == 2 and (j + 1) % 2 == 0 and set.has(piece._neighbor_index(index, 0)):
-			var center := Vector2((i + 0.5) * seg, (j + 1) * seg)
-			wood.box(_p(center, mid, origin), _size(seg + 0.035, 0.035, 0.05))
+		for c in BuildPiece.triangle_uv(index):
+			lo = Vector2(minf(lo.x, c.x), minf(lo.y, c.y))
+			hi = Vector2(maxf(hi.x, c.x), maxf(hi.y, c.y))
+	var span := hi - lo
+	var cols := maxi(1, roundi(span.x / 0.8))
+	var rows := maxi(1, roundi(span.y / 0.8))
+	wood.color(Color(0.3, 0.2, 0.12))
+	for k in range(1, cols):
+		var u := lo.x + span.x * k / cols
+		_bar_line(wood, set, Vector2(u, lo.y), Vector2(u, hi.y), mid, origin)
+	for k in range(1, rows):
+		var v := lo.y + span.y * k / rows
+		_bar_line(wood, set, Vector2(lo.x, v), Vector2(hi.x, v), mid, origin)
+
+
+## Uma travessa de "a" a "b": anda em passos curtos e junta os trechos em que os
+## dois lados da linha estão dentro do vidro.
+func _bar_line(wood: MeshBuilder, set: Dictionary, a: Vector2, b: Vector2, mid: float, origin: Vector3) -> void:
+	var along := (b - a).normalized()
+	var side := Vector2(-along.y, along.x) * 0.04
+	var steps := maxi(1, ceili(a.distance_to(b) / 0.05))
+	var start := -1.0
+	for k in steps + 1:
+		var t := float(k) / steps
+		var p := a.lerp(b, t)
+		var inside := k < steps and _in_glass(set, p + side) and _in_glass(set, p - side)
+		if inside and start < 0.0:
+			start = t
+		elif not inside and start >= 0.0:
+			var p0 := a.lerp(b, start)
+			var p1 := a.lerp(b, t)
+			var length := p0.distance_to(p1) + 0.035
+			var size := _size(length, 0.035, 0.05) if absf(along.x) > 0.5 else _size(0.035, length, 0.05)
+			wood.box(_p((p0 + p1) * 0.5, mid, origin), size)
+			start = -1.0
+
+
+## O ponto (u, v) do plano da peça cai num quarto que faz parte desta janela?
+func _in_glass(set: Dictionary, p: Vector2) -> bool:
+	var seg := BuildPiece.SEG
+	var i := floori(p.x / seg)
+	var j := floori(p.y / seg)
+	if i < 0 or j < 0 or i >= BuildPiece.N or j >= BuildPiece.N:
+		return false
+	var q := BuildPiece.quarter_at(p.x / seg - i, p.y / seg - j)
+	return set.has((j * BuildPiece.N + i) * 4 + q)
 
 
 ## Tamanho (u, v, w) -> espaço local da peça.

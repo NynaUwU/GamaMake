@@ -57,7 +57,9 @@ func host_apply(action: String, args: Array) -> Array:
 		"place":
 			var kind: int = args[0]
 			var cell: Vector3i = args[1]
-			var rot: int = args[2] if kind == BuildPiece.Kind.WALL else 0
+			var rot: int = args[2] if kind in [BuildPiece.Kind.WALL, BuildPiece.Kind.PILLAR] else 0
+			if kind == BuildPiece.Kind.PILLAR and (rot < 0 or rot > 2):
+				return []
 			if not can_place(kind, cell, rot):
 				return []
 			var id := _next_id

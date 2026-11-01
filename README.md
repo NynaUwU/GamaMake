@@ -24,6 +24,11 @@ reação física a golpes e ragdoll (estilo Dying Light), visual de PC dos anos 
 - Os outros jogadores aparecem com o nome em cima, o item da mão, a lanterna acesa e uma bolinha
   azul no minimapa/mapa. Em cima, no meio da tela, aparece quem está online.
 
+## Construções do martelo
+- **Parede** de tábuas deitadas (tom por fileira, frestas, pregos), **piso** de tábuas com emendas desencontradas, **teto** de telhas em fiadas com degrau. Os detalhes só aparecem nos quadrados inteiros: cortou com a talhadeira, o detalhe sai junto.
+- **Pilar** com base de pedra, cantos chanfrados, cintas de ferro e capitel. **R deita o pilar (viga)**: fica no sentido da parede à sua frente, apoiado na altura da grade; mirando o topo de uma parede, cobre o topo dela inteiro.
+- **Janela:** as travessas dividem o vidro em vidraças iguais (~0,8 m) medidas pelo formato da própria janela, não pela posição na parede; em janela torta (L, losango) só aparecem onde tem vidro dos dois lados.
+
 ## Modelos refeitos no padrão do Tier 3
 Todos os objetos do martelo anteriores ao Tier 3 foram refeitos com o mesmo nível de detalhe das máquinas a vapor (`scripts/machines/object_models.gd`): tábuas com frestas e tons alternados, fiadas de tijolo, cintas de ferro rebitadas, polias de latão nas portas de energia, fumaça só com fogo aceso e objetos de cena (lenha, ferramentas, baldes, sacos).
 - Plantadores (pote com pratinho e pintura, floreira com cantoneiras, **canteiro com leiras de terra, torrões, sulcos e plaquinhas**, cova), bandeira com monte de pedras e cunho.

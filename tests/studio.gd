@@ -71,6 +71,54 @@ func _init() -> void:
 					_label(chunk[i], at + Vector3(0, -0.15, spacing * 0.42))
 				_frame3(chunk.size(), spacing, 32.0)
 				await _save(out + ("/fornos_%d.png" if mode == "fornos" else "/objetos_%d.png") % (page + 1))
+		"pecas":
+			# Peças do martelo: parede, parede com janela, parede com porta, piso, teto e pilar.
+			var entries := [Builder.ENTRIES["Estrutura"][0], Builder.ENTRIES["Aberturas"][0], Builder.ENTRIES["Aberturas"][1],
+				Builder.ENTRIES["Estrutura"][1], Builder.ENTRIES["Estrutura"][2], Builder.ENTRIES["Estrutura"][3]]
+			var names := ["parede", "janela", "porta", "piso", "teto", "pilar"]
+			for i in entries.size():
+				var piece: Node3D = Builder.preview_model(entries[i])
+				stage_root.add_child(piece)
+				var at := _slot_pos3(i, entries.size(), 3.6)
+				piece.position = at + (Vector3(-1.4, 0, 0) if i < 3 else (Vector3(-1.4, 0.21, -1.4) if i < 5 else Vector3.ZERO))
+				piece.rotation.y = 0.0
+				_label(names[i], at + Vector3(0, -0.15, 1.7))
+			_frame3(6, 3.6, 36.0)
+			await _save(out + "/pecas.png")
+		"janelas":
+			# Janelas de formatos e posições diferentes: as travessas seguem a própria janela.
+			var shapes := [
+				["3x3 à esquerda", func(i, j, q): return i >= 1 and i <= 3 and j >= 2 and j <= 4],
+				["3x3 à direita", func(i, j, q): return i >= 3 and i <= 5 and j >= 2 and j <= 4],
+				["larga 5x2", func(i, j, q): return i >= 1 and i <= 5 and j >= 3 and j <= 4],
+				["estreita 1x4", func(i, j, q): return i == 3 and j >= 1 and j <= 4],
+				["em L", func(i, j, q): return (i >= 1 and i <= 4 and j >= 2 and j <= 3) or (i >= 1 and i <= 2 and j >= 4 and j <= 5)],
+				["losango", func(i, j, q): return absf(i + 0.5 - 3.5) + absf(j + 0.5 - 3.5) <= 2.0],
+			]
+			for k in shapes.size():
+				var piece := BuildPiece.new()
+				piece.setup(BuildPiece.Kind.WALL, Vector3i.ZERO, 0)
+				var parts := PackedInt32Array()
+				for j in BuildPiece.N:
+					for i in BuildPiece.N:
+						for q in 4:
+							if shapes[k][1].call(i, j, q):
+								parts.append((j * BuildPiece.N + i) * 4 + q)
+				for t in parts:
+					piece.removed[t] = 1
+				piece.add_fill("window", parts)
+				stage_root.add_child(piece)
+				var at := Vector3((k - 2.5) * 3.2, 0, 0)
+				piece.position = at + Vector3(-1.4, 0, 0)
+				_label(shapes[k][0], at + Vector3(0, 0.05, 0.6))
+			var beam := BuildPiece.new()
+			beam.setup(BuildPiece.Kind.PILLAR, Vector3i.ZERO, 1)
+			stage_root.add_child(beam)
+			beam.global_transform = Transform3D(beam.transform.basis, Vector3(-2.5 * 3.2 - 1.4, BuildPiece.SIZE + 0.2, 0))
+			cam.fov = 40.0
+			cam.position = Vector3(0, 3.0, 15.5)
+			cam.look_at(Vector3(0, 1.4, 0))
+			await _save(out + "/janelas.png")
 		"tier3":
 			# Máquinas do Tier 3, duas páginas; o alto-forno já montado (base + 2 anéis) e um cano.
 			var manager := PlacedManager.new()

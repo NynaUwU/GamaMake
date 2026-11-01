@@ -38,7 +38,7 @@ const ITEMS := {
 	&"martelo": {"name": "Martelo", "kind": "weapon", "weapon": "hammer", "stack": 1, "size": Vector3(0.16, 0.2, 0.45),
 		"desc": "Constrói na grade invisível: paredes, pisos, tetos, pilares, janelas e portas.",
 		"controls": ["Clique: constrói a peça escolhida", "Segurar botão direito: menu de construção (solte no item)",
-			"R: gira a parede", "Shift + botão direito: desmonta o que está mirado (fica vermelho)", "Segure Shift: alinha com a grade do piso",
+			"R: gira a parede / deita o pilar (viga)", "Shift + botão direito: desmonta o que está mirado (fica vermelho)", "Segure Shift: alinha com a grade do piso",
 			"Janela/Porta: mire um buraco feito pela talhadeira", "Porta: o buraco precisa encostar no chão"]},
 	&"talhadeira": {"name": "Talhadeira", "kind": "weapon", "weapon": "chisel", "stack": 1, "size": Vector3(0.05, 0.05, 0.35),
 		"desc": "Tira triângulos de paredes, pisos e tetos. Janela, porta, buraco para espiar zumbi.",
