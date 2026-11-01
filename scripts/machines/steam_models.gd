@@ -288,22 +288,19 @@ static func _blast_base(mb: MeshBuilder, obj: PlacedObject) -> void:
 	var h := Fluids.BLAST_BASE_H
 	for row in 6:
 		mb.color(BRICK if row % 2 == 0 else BRICK.darkened(0.08))
-		var y := row * h / 6.0
-		var w := 1.6 - row * 0.03
-		mb.box(Vector3(0, y + h / 12.0, -0.25), Vector3(w, h / 6.0 - 0.01, w - 0.5)) # fundo
-		for side in [-1.0, 1.0]:
-			mb.box(Vector3(side * (w * 0.5 - 0.25), y + h / 12.0, 0.5), Vector3(0.5, h / 6.0 - 0.01, 0.5)) # laterais da boca
+		mb.box(Vector3(0, row * h / 6.0 + h / 12.0, 0), Vector3(1.6, h / 6.0 - 0.01, 1.6))
+	ObjectModels.mouth(mb, Vector3(0, 0.45, 0.8), 0.5, 0.42)
 	mb.color(BRICK_DARK)
-	mb.box(Vector3(0, h - 0.18, 0.5), Vector3(0.6, 0.36, 0.5)) # verga em cima da boca
-	mb.color(Color(0.08, 0.06, 0.05))
-	mb.box(Vector3(0, 0.45, 0.42), Vector3(0.6, 0.9, 0.3)) # boca escura
+	for k in 7:
+		var a := PI * k / 6.0
+		mb.box(Vector3(cos(a) * 0.3, 0.7 + sin(a) * 0.12, 0.815), Vector3(0.11, 0.08, 0.03), Basis(Vector3.BACK, a)) # arco
 	mb.color(IRON)
 	for y in [0.15, h - 0.08]:
 		mb.box(Vector3(0, y, 0.0), Vector3(1.64, 0.05, 1.64)) # cintas
 	for x in [-0.78, 0.78]:
 		for z in [-0.78, 0.78]:
 			mb.box(Vector3(x, h * 0.5, z), Vector3(0.07, h, 0.07)) # cantoneiras
-	mb.box(Vector3(0, 0.08, 0.72), Vector3(0.7, 0.04, 0.12)) # soleira de ferro
+	mb.box(Vector3(0, 0.2, 0.83), Vector3(0.62, 0.04, 0.08)) # soleira de ferro
 	# Fole de couro e madeira do lado esquerdo, soprando pelo tubo.
 	mb.color(WOOD)
 	mb.box(Vector3(-1.0, 0.25, 0), Vector3(0.32, 0.5, 0.5)) # caixa do mancal
@@ -314,11 +311,7 @@ static func _blast_base(mb: MeshBuilder, obj: PlacedObject) -> void:
 	mb.color(IRON.lightened(0.1))
 	mb.tube(PackedVector3Array([Vector3(-0.78, 0.85, 0), Vector3(-0.5, 0.7, 0), Vector3(-0.2, 0.35, 0.2)]), 0.05, 6) # tubo de ar
 	mb.tube(PackedVector3Array([Vector3(-1.0, 0.6, 0), Vector3(-0.98, 0.75, 0)]), 0.02, 4) # biela do fole
-	# Carvão e lingotes de aço na frente.
-	mb.color(Color(0.08, 0.08, 0.08))
-	for k in 5:
-		mb.box(Vector3(0.6 + (k % 3) * 0.1, 0.05, 0.95 + (k / 3) * 0.1), Vector3(0.1, 0.08, 0.09), Basis(Vector3.UP, k))
-	StationModels._fire(obj, Vector3(0, 0.3, 0.45), 0.14, 1.0)
+	StationModels._fire(obj, Vector3(0, 0.4, 0.74), 0.1, 1.0)
 	var smoke := _smoke(Vector3(0, h + Fluids.BLAST_RING_H * Fluids.BLAST_RINGS + 0.1, 0), 0.35)
 	smoke.name = "Smoke"
 	obj.add_child(smoke)
@@ -349,13 +342,7 @@ static func _boiler(mb: MeshBuilder, obj: PlacedObject) -> void:
 	for row in 4:
 		mb.color(BRICK if row % 2 == 0 else BRICK.darkened(0.08))
 		mb.box(Vector3(0, row * 0.2 + 0.1, 0), Vector3(2.2, 0.19, 1.1))
-	mb.color(IRON)
-	mb.box(Vector3(0, 0.35, 0.56), Vector3(0.5, 0.42, 0.04)) # porta da fornalha
-	mb.color(Color(0.12, 0.1, 0.09))
-	for k in 3:
-		mb.box(Vector3(-0.15 + k * 0.15, 0.45, 0.585), Vector3(0.08, 0.03, 0.02)) # respiros
-	mb.color(BRASS)
-	mb.box(Vector3(0.2, 0.35, 0.59), Vector3(0.06, 0.06, 0.04)) # trinco
+	ObjectModels.mouth(mb, Vector3(0, 0.38, 0.55), 0.44, 0.34)
 	mb.color(STEEL)
 	var drum := Basis(Vector3.BACK, PI / 2) # torno em X
 	mb.lathe(PackedVector2Array([Vector2(0.002, -1.0), Vector2(0.4, -1.02), Vector2(0.5, -0.95), Vector2(0.52, -0.85),
@@ -408,7 +395,7 @@ static func _boiler(mb: MeshBuilder, obj: PlacedObject) -> void:
 	level_node.position = Vector3(-0.45, 1.08, 0.565)
 	level_node.scale.y = 0.02
 	obj.add_child(level_node)
-	StationModels._fire(obj, Vector3(0, 0.3, 0.45), 0.12, 0.9)
+	StationModels._fire(obj, Vector3(0, 0.36, 0.48), 0.1, 0.9)
 	var smoke := _smoke(Vector3(-0.85, 2.95, 0), 0.2)
 	obj.add_child(smoke)
 	StationModels._register_fire(obj, smoke) # fumaça só com fogo aceso
@@ -634,8 +621,7 @@ static func _distillery(mb: MeshBuilder, obj: PlacedObject) -> void:
 	for row in 3:
 		mb.color(BRICK if row % 2 == 0 else BRICK.darkened(0.08))
 		mb.box(Vector3(-0.3, row * 0.17 + 0.085, 0), Vector3(0.8, 0.16, 0.8))
-	mb.color(Color(0.08, 0.06, 0.05))
-	mb.box(Vector3(-0.3, 0.2, 0.39), Vector3(0.32, 0.26, 0.04)) # boca da fornalha
+	ObjectModels.mouth(mb, Vector3(-0.3, 0.24, 0.4), 0.28, 0.22)
 	mb.color(COPPER)
 	mb.lathe(PackedVector2Array([Vector2(0.002, 0.5), Vector2(0.3, 0.52), Vector2(0.38, 0.65), Vector2(0.36, 0.85), Vector2(0.2, 0.98),
 		Vector2(0.12, 1.02), Vector2(0.12, 1.06)]), 14, Basis.IDENTITY, Vector3(-0.3, 0, 0)) # barriga
@@ -660,7 +646,7 @@ static func _distillery(mb: MeshBuilder, obj: PlacedObject) -> void:
 	mb.tube(PackedVector3Array([Vector3(0.55, 0.15, -0.3), Vector3(0.95, 0.15, -0.3), Vector3(0.98, 0.1, -0.3)]), 0.02, 4) # bica de saída
 	mb.color(Color(0.55, 0.42, 0.3))
 	mb.lathe(PackedVector2Array([Vector2(0.002, 0.0), Vector2(0.08, 0.0), Vector2(0.1, 0.08), Vector2(0.07, 0.14), Vector2(0.03, 0.15), Vector2(0.03, 0.19)]), 8, Basis.IDENTITY, Vector3(0.98, 0, -0.3)) # jarro
-	StationModels._fire(obj, Vector3(-0.3, 0.18, 0.35), 0.09, 0.7)
+	StationModels._fire(obj, Vector3(-0.3, 0.22, 0.34), 0.07, 0.7)
 	var drip := _steam_puff(Vector3(-0.3, 1.45, 0), Vector3.UP, 5)
 	drip.initial_velocity_min = 0.3
 	drip.initial_velocity_max = 0.6

@@ -158,6 +158,8 @@ static func _spin(obj: PlacedObject, delta: float) -> void:
 				crank.position.y = base.y + sin(t) * 0.06
 			"spin_up": # mó do moinho: gira deitada
 				crank.rotate_object_local(Vector3.UP, delta * 6.0)
+			"spin_x": # pedra de amolar: gira no eixo de lado a lado
+				crank.rotate_object_local(Vector3.RIGHT, delta * 6.0)
 			_:
 				crank.rotate_object_local(Vector3.FORWARD, delta * 6.0)
 		obj.set_meta("crank_t", t)

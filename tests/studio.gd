@@ -30,9 +30,10 @@ func _init() -> void:
 				_frame(chunk.size(), 1.25, 30.0)
 				await _save(out + "/itens_%d.png" % (page + 1))
 				page += 1
-		"placed":
+		"placed", "fornos":
 			# Objetos do martelo anteriores ao Tier 3, em páginas por tamanho (fornalhas acesas).
-			var pages := [
+			var pages := [[2.6, ["furnace", "oven", "stone_furnace", "smoker", "campfire", "grindstone"]],
+				[3.4, ["blast_furnace", "boiler", "distillery"]]] if mode == "fornos" else [
 				[2.4, ["pot_small", "pot_wide", "ground", "flag", "chest", "drawboard"]],
 				[3.6, ["bed", "workbench", "campfire"]],
 				[3.0, ["furnace", "oven", "stone_furnace", "smoker", "compost", "rain_collector"]],
@@ -69,7 +70,7 @@ func _init() -> void:
 						obj.refresh(0.0)
 					_label(chunk[i], at + Vector3(0, -0.15, spacing * 0.42))
 				_frame3(chunk.size(), spacing, 32.0)
-				await _save(out + "/objetos_%d.png" % (page + 1))
+				await _save(out + ("/fornos_%d.png" if mode == "fornos" else "/objetos_%d.png") % (page + 1))
 		"tier3":
 			# Máquinas do Tier 3, duas páginas; o alto-forno já montado (base + 2 anéis) e um cano.
 			var manager := PlacedManager.new()

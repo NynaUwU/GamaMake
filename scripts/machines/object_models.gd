@@ -62,6 +62,7 @@ static func build(kind: String, obj: PlacedObject) -> void:
 		"rain_collector": _rain_collector(mb, obj)
 		"grindstone":
 			crank_at = Vector3(0, 0.78, 0)
+			obj.set_meta("crank_mode", "spin_x") # a pedra gira no eixo entre os mancais (X)
 			_grindstone(mb, crank, obj)
 		"quern":
 			crank_at = Vector3(0, 0.74, 0)
@@ -159,10 +160,31 @@ static func _bricks(mb: MeshBuilder, center: Vector3, size: Vector3, rows: int, 
 		mb.color(color if r % 2 == 0 else color.darkened(0.09))
 		var y := center.y - size.y * 0.5 + h * (r + 0.5)
 		mb.box(Vector3(center.x, y, center.z), Vector3(size.x - (r % 2) * 0.01, h - 0.012, size.z - (r % 2) * 0.01))
-	mb.color(color.lightened(0.06))
+
+
+## Boca de fornalha numa face virada para +Z ("center" fica bem na face):
+## buraco escuro rente à face, moldura de ferro e porta presa na dobradiça da
+## esquerda, aberta para fora ("open" em radianos; 0 = fechada).
+static func mouth(mb: MeshBuilder, center: Vector3, w: float, h: float, open := 1.15, frame := IRON) -> void:
+	mb.color(SOOT)
+	mb.box(center + Vector3(0, 0, 0.006), Vector3(w, h, 0.012))
+	var t := 0.035
+	mb.color(frame)
+	for side in [-1.0, 1.0]:
+		mb.box(center + Vector3(0, side * (h * 0.5 + t * 0.5), 0.012), Vector3(w + 2.0 * t, t, 0.024))
+		mb.box(center + Vector3(side * (w * 0.5 + t * 0.5), 0, 0.012), Vector3(t, h, 0.024))
+	var hinge := center + Vector3(-w * 0.5 - t * 0.5, 0, 0.03)
+	var basis := Basis(Vector3.UP, -open)
+	var along := basis * Vector3.RIGHT
+	mb.color(frame.lightened(0.08))
+	mb.box(hinge + along * (w * 0.5 + t * 0.5), Vector3(w + t, h + t, 0.025), basis) # porta
+	mb.color(frame.darkened(0.2))
 	for k in 3:
-		var y := center.y - size.y * 0.5 + h * (1 + k * 2 % rows + 0.5)
-		mb.box(Vector3(center.x - size.x * 0.25 + k * size.x * 0.22, y, center.z + size.z * 0.5), Vector3(size.x * 0.18, h - 0.02, 0.02))
+		mb.box(hinge + along * (w * 0.3 + k * w * 0.2) + basis * Vector3(0, 0.0, 0.016), Vector3(0.05, h * 0.25, 0.01), basis) # respiros
+	for y in [-h * 0.3, h * 0.3]:
+		mb.box(hinge + Vector3(0, y, 0), Vector3(0.04, 0.06, 0.04)) # dobradiças
+	mb.color(BRASS)
+	mb.box(hinge + along * (w * 0.92) + basis * Vector3(0, 0, 0.025), Vector3(0.03, 0.06, 0.03), basis) # trinco
 
 
 static func _nail(mb: MeshBuilder, at: Vector3, color := IRON) -> void:
@@ -197,19 +219,6 @@ static func _stone_ring(mb: MeshBuilder, center: Vector3, radius: float, count: 
 		mb.color(STONE.darkened(rng.randf_range(0.0, 0.22)))
 		mb.box(center + Vector3(cos(a) * radius, s.y * 0.5, sin(a) * radius), s,
 			Basis(Vector3.UP, -a + rng.randf_range(-0.2, 0.2)) * Basis(Vector3.BACK, rng.randf_range(-0.15, 0.15)))
-
-
-## Toras empilhadas (pilha de lenha) ao longo de X.
-static func _woodpile(mb: MeshBuilder, at: Vector3, count: int, length := 0.34) -> void:
-	for k in count:
-		var row := k / 3
-		var col := k % 3
-		var p := at + Vector3(0, 0.065 + row * 0.12, (col - 1) * 0.13 + row * 0.065)
-		mb.color(WOOD_DARK.lightened(0.05 * ((k * 3) % 4)))
-		mb.lathe(PackedVector2Array([Vector2(0.06, -length * 0.5), Vector2(0.06, length * 0.5)]), 7, AROUND_X, p)
-		mb.color(WOOD_LIGHT.lightened(0.1))
-		for side in [-1.0, 1.0]:
-			mb.lathe(PackedVector2Array([Vector2(0.002, 0.0), Vector2(0.055, 0.0)]), 7, AROUND_X if side < 0 else Basis(Vector3.BACK, -PI / 2), p + Vector3(side * length * 0.5, 0, 0))
 
 
 static func _smoke(obj: PlacedObject, at: Vector3, width: float, lit_only := true) -> CPUParticles3D:
@@ -547,7 +556,6 @@ static func _campfire(mb: MeshBuilder, obj: PlacedObject) -> void:
 	mb.color(IRON.lightened(0.15))
 	mb.lathe(PackedVector2Array([Vector2(0.002, 0.28), Vector2(0.09, 0.29), Vector2(0.11, 0.36), Vector2(0.1, 0.43), Vector2(0.06, 0.47), Vector2(0.002, 0.48)]), 10, Basis.IDENTITY, Vector3(-0.58, 0, 0.1))
 	mb.tube(PackedVector3Array([Vector3(-0.49, 0.4, 0.1), Vector3(-0.42, 0.45, 0.1)]), 0.012, 4) # bico
-	_woodpile(mb, Vector3(0.0, 0.0, 0.85), 5, 0.4)
 	obj._shape(Vector3(0, 0.3, 0), Vector3(1.0, 0.6, 1.0))
 	StationModels._fire(obj, Vector3(0, 0.12, 0), 0.22, 1.0)
 	_smoke(obj, Vector3(0, 0.8, 0), 0.12)
@@ -573,17 +581,16 @@ static func _furnace(mb: MeshBuilder, obj: PlacedObject) -> void:
 	mb.lathe(PackedVector2Array([Vector2(0.002, 1.66), Vector2(0.22, 1.63), Vector2(0.2, 1.61)]), 8, Basis.IDENTITY, Vector3(0.1, 0, 0)) # chapéu
 	for k in 3:
 		mb.tube(PackedVector3Array([Vector3(0.1 + cos(k * 2.1) * 0.15, 1.56, sin(k * 2.1) * 0.15), Vector3(0.1 + cos(k * 2.1) * 0.19, 1.63, sin(k * 2.1) * 0.19)]), 0.008, 3)
-	mb.color(STONE.darkened(0.2))
-	for k in 9:
-		var a := PI * k / 8.0
-		mb.box(Vector3(cos(a) * 0.28, 0.3 + sin(a) * 0.28, 0.6), Vector3(0.1, 0.09, 0.12), Basis(Vector3.BACK, a))
+	# Entrada: túnel de pedra saindo da cúpula, com a boca na frente dele.
+	mb.color(STONE.darkened(0.15))
+	mb.box(Vector3(0, 0.33, 0.6), Vector3(0.62, 0.5, 0.24))
+	mb.color(STONE.darkened(0.25))
+	for k in 7:
+		var a := PI * k / 6.0
+		mb.box(Vector3(cos(a) * 0.27, 0.5 + sin(a) * 0.12, 0.7), Vector3(0.1, 0.08, 0.06), Basis(Vector3.BACK, a)) # arco
 	mb.color(SOOT)
-	mb.box(Vector3(0, 0.7, 0.55), Vector3(0.32, 0.2, 0.06), Basis(Vector3.RIGHT, -0.35))
-	mb.box(Vector3(0, 0.3, 0.55), Vector3(0.44, 0.44, 0.04)) # fundo escuro da boca
-	mb.color(IRON)
-	mb.box(Vector3(0.36, 0.32, 0.72), Vector3(0.03, 0.4, 0.3), Basis(Vector3.UP, -0.6)) # porta aberta
-	mb.color(IRON.lightened(0.15))
-	mb.box(Vector3(0.44, 0.32, 0.84), Vector3(0.02, 0.05, 0.05))
+	mb.box(Vector3(0, 0.72, 0.6), Vector3(0.3, 0.18, 0.08), Basis(Vector3.RIGHT, -0.4)) # fuligem
+	mouth(mb, Vector3(0, 0.32, 0.72), 0.34, 0.3)
 	var glow := MeshInstance3D.new()
 	var disc := CylinderMesh.new()
 	disc.top_radius = 0.22
@@ -593,17 +600,12 @@ static func _furnace(mb: MeshBuilder, obj: PlacedObject) -> void:
 	glow.mesh = disc
 	glow.material_override = StationModels._glow_mat()
 	glow.rotation.x = PI / 2
-	glow.position = Vector3(0, 0.3, 0.575)
+	glow.position = Vector3(0, 0.32, 0.735)
+	glow.scale = Vector3(0.7, 1.0, 0.62)
 	obj.add_child(glow)
 	StationModels._register_fire(obj, glow)
-	_woodpile(mb, Vector3(0.88, 0.0, 0.0), 6, 0.34)
-	mb.color(IRON)
-	mb.tube(PackedVector3Array([Vector3(-0.68, 0.05, 0.42), Vector3(-0.74, 0.92, 0.3)]), 0.015, 5)
-	mb.box(Vector3(-0.67, 0.04, 0.44), Vector3(0.15, 0.02, 0.17), Basis(Vector3.UP, 0.3))
-	mb.color(WOOD_LIGHT)
-	mb.tube(PackedVector3Array([Vector3(-0.74, 0.92, 0.3), Vector3(-0.745, 1.0, 0.29)]), 0.02, 5)
 	obj._shape(Vector3(0, 0.6, 0), Vector3(1.3, 1.2, 1.3))
-	StationModels._fire(obj, Vector3(0, 0.3, 0.66), 0.0, 0.8)
+	StationModels._fire(obj, Vector3(0, 0.3, 0.68), 0.0, 0.8)
 	_smoke(obj, Vector3(0.12, 1.62, 0), 0.08)
 
 
@@ -764,15 +766,19 @@ static func _grindstone(mb: MeshBuilder, crank: MeshBuilder, obj: PlacedObject) 
 	mb.box(Vector3(0.0, 0.12, 0.34), Vector3(0.5, 0.04, 0.14), Basis(Vector3.RIGHT, 0.2)) # pedal
 	mb.color(IRON)
 	mb.tube(PackedVector3Array([Vector3(0.22, 0.14, 0.32), Vector3(0.3, 0.5, 0.15), Vector3(0.38, 0.78, 0.06)]), 0.012, 4)
+	# Pedra em pé no plano YZ: o eixo passa pelos dois mancais (X) e gira nele.
 	crank.color(STONE)
-	crank.lathe(PackedVector2Array([Vector2(0.002, -0.065), Vector2(0.31, -0.065), Vector2(0.33, -0.04), Vector2(0.33, 0.04), Vector2(0.31, 0.065), Vector2(0.002, 0.065)]), 16, AROUND_Z)
+	crank.lathe(PackedVector2Array([Vector2(0.002, -0.065), Vector2(0.31, -0.065), Vector2(0.33, -0.04), Vector2(0.33, 0.04), Vector2(0.31, 0.065), Vector2(0.002, 0.065)]), 16, AROUND_X)
 	crank.color(STONE.darkened(0.15))
-	crank.lathe(PackedVector2Array([Vector2(0.18, 0.066), Vector2(0.2, 0.066)]), 16, AROUND_Z)
+	for side in [-1.0, 1.0]:
+		crank.lathe(PackedVector2Array([Vector2(0.18, side * 0.066), Vector2(0.2, side * 0.066)]), 16, AROUND_X)
 	crank.color(IRON)
-	crank.lathe(PackedVector2Array([Vector2(0.03, -0.4), Vector2(0.03, 0.4)]), 6, AROUND_X)
-	crank.box(Vector3(0.44, 0, 0), Vector3(0.05, 0.2, 0.04))
+	crank.lathe(PackedVector2Array([Vector2(0.03, -0.46), Vector2(0.03, 0.46)]), 6, AROUND_X) # eixo
+	for side in [-1.0, 1.0]:
+		crank.lathe(PackedVector2Array([Vector2(0.03, side * 0.07), Vector2(0.07, side * 0.07), Vector2(0.07, side * 0.1), Vector2(0.03, side * 0.1)]), 8, AROUND_X) # flanges da pedra
+	crank.box(Vector3(0.46, 0.09, 0), Vector3(0.04, 0.22, 0.05)) # braço da manivela
 	crank.color(WOOD_LIGHT)
-	crank.lathe(PackedVector2Array([Vector2(0.022, 0.0), Vector2(0.022, 0.12)]), 6, AROUND_Z, Vector3(0.44, 0.09, 0.02))
+	crank.lathe(PackedVector2Array([Vector2(0.022, 0.0), Vector2(0.022, 0.13)]), 6, Basis(Vector3.BACK, -PI / 2), Vector3(0.46, 0.18, 0)) # pega (para fora, +X)
 	obj._shape(Vector3(0, 0.55, 0), Vector3(0.9, 1.1, 0.5))
 
 
@@ -978,16 +984,13 @@ static func _stone_furnace(mb: MeshBuilder, crank: MeshBuilder, obj: PlacedObjec
 	for x in [-0.6, 0.6]:
 		for z in [-0.55, 0.55]:
 			mb.box(Vector3(x, 0.6, z), Vector3(0.06, 1.2, 0.06))
-	mb.color(SOOT)
-	mb.box(Vector3(0, 0.36, 0.553), Vector3(0.5, 0.42, 0.01))
+	mouth(mb, Vector3(0, 0.38, 0.55), 0.44, 0.34)
 	mb.color(BRICK.darkened(0.3))
 	for k in 7:
 		var a := PI * k / 6.0
-		mb.box(Vector3(cos(a) * 0.27, 0.57 + sin(a) * 0.12, 0.57), Vector3(0.1, 0.08, 0.06), Basis(Vector3.BACK, a))
+		mb.box(Vector3(cos(a) * 0.28, 0.6 + sin(a) * 0.1, 0.565), Vector3(0.1, 0.07, 0.03), Basis(Vector3.BACK, a)) # arco
 	mb.color(SOOT)
-	mb.box(Vector3(0, 0.82, 0.556), Vector3(0.4, 0.18, 0.01))
-	mb.color(IRON)
-	mb.box(Vector3(-0.38, 0.36, 0.62), Vector3(0.04, 0.44, 0.32), Basis(Vector3.UP, 0.7)) # porta aberta
+	mb.box(Vector3(0, 0.82, 0.553), Vector3(0.4, 0.16, 0.01)) # fuligem
 	mb.color(STONE.darkened(0.3))
 	mb.lathe(PackedVector2Array([Vector2(0.002, 1.25), Vector2(0.16, 1.25), Vector2(0.18, 1.38), Vector2(0.14, 1.38), Vector2(0.13, 1.3), Vector2(0.002, 1.3)]), 10, Basis.IDENTITY, Vector3(0.25, 0, 0.15)) # cadinho
 	mb.color(Color(1.0, 0.55, 0.15))
@@ -1010,22 +1013,13 @@ static func _stone_furnace(mb: MeshBuilder, crank: MeshBuilder, obj: PlacedObjec
 	mb.tube(PackedVector3Array([Vector3(0.82, 0.38, -0.08), Vector3(0.7, 0.38, -0.25), Vector3(0.55, 0.38, -0.3)]), 0.04, 6) # bico
 	mb.color(WOOD_DARK)
 	mb.box(Vector3(0.82, 0.18, 0.25), Vector3(0.08, 0.36, 0.08))
-	mb.color(SOOT)
-	for k in 7:
-		mb.box(Vector3(-0.85 + (k % 3) * 0.1, 0.05 + (k / 3) * 0.08, 0.38 + (k % 2) * 0.08), Vector3(0.1, 0.08, 0.09), Basis(Vector3.UP, k))
-	mb.color(IRON.lightened(0.2))
-	for k in 3:
-		mb.box(Vector3(-0.78, 0.03 + k * 0.045, -0.35), Vector3(0.24, 0.04, 0.08), Basis(Vector3.UP, (k % 2) * PI / 2)) # lingotes
-	mb.color(IRON)
-	mb.tube(PackedVector3Array([Vector3(-0.66, 0.0, 0.62), Vector3(-0.64, 0.9, 0.58)]), 0.012, 4) # tenaz
-	mb.tube(PackedVector3Array([Vector3(-0.6, 0.0, 0.64), Vector3(-0.62, 0.9, 0.58)]), 0.012, 4)
 	# Tábua de cima do fole (a manivela: dobradiça atrás, abre e fecha).
 	crank.color(WOOD)
 	crank.box(Vector3(0, 0.0, -0.32), Vector3(0.44, 0.04, 0.66))
 	crank.color(WOOD_DARK)
 	crank.box(Vector3(0, 0.03, 0.02), Vector3(0.06, 0.05, 0.22)) # cabo
 	obj._shape(Vector3(0, 0.6, 0), Vector3(1.6, 1.2, 1.1))
-	StationModels._fire(obj, Vector3(0, 0.35, 0.45), 0.1, 0.8)
+	StationModels._fire(obj, Vector3(0, 0.36, 0.48), 0.1, 0.8)
 	_smoke(obj, Vector3(-0.2, 2.2, -0.2), 0.12)
 
 
@@ -1042,32 +1036,19 @@ static func _oven(mb: MeshBuilder, obj: PlacedObject) -> void:
 		var r1 := 0.6 * cos(asin(clampf((k + 1) / 7.0, 0.0, 1.0)))
 		mb.color(BRICK if k % 2 == 0 else BRICK.darkened(0.09))
 		mb.lathe(PackedVector2Array([Vector2(r0, y0), Vector2(maxf(r1, 0.002), y0 + 0.115)]), 12)
+	# Entrada: túnel de tijolo saindo da cúpula, com a boca na frente dele.
+	_bricks(mb, Vector3(0, 0.5, 0.6), Vector3(0.6, 0.48, 0.22), 4)
 	mb.color(BRICK.darkened(0.25))
 	for k in 7:
 		var a := PI * k / 6.0
-		mb.box(Vector3(cos(a) * 0.24, 0.45 + sin(a) * 0.2, 0.58), Vector3(0.1, 0.08, 0.1), Basis(Vector3.BACK, a))
+		mb.box(Vector3(cos(a) * 0.25, 0.68 + sin(a) * 0.1, 0.71), Vector3(0.09, 0.07, 0.04), Basis(Vector3.BACK, a)) # arco
 	mb.color(SOOT)
-	mb.box(Vector3(0, 0.44, 0.55), Vector3(0.38, 0.36, 0.02))
-	mb.box(Vector3(0, 0.76, 0.48), Vector3(0.3, 0.16, 0.05), Basis(Vector3.RIGHT, -0.4))
-	mb.color(IRON)
-	mb.box(Vector3(0.36, 0.42, 0.66), Vector3(0.36, 0.34, 0.03), Basis(Vector3.UP, 0.2) * Basis(Vector3.BACK, 0.12)) # porta encostada
-	mb.color(IRON.lightened(0.2))
-	mb.box(Vector3(0.36, 0.45, 0.69), Vector3(0.08, 0.03, 0.03))
+	mb.box(Vector3(0, 0.8, 0.6), Vector3(0.28, 0.12, 0.06), Basis(Vector3.RIGHT, -0.4)) # fuligem
+	mouth(mb, Vector3(0, 0.49, 0.71), 0.32, 0.26)
 	mb.color(BRICK.darkened(0.15))
 	mb.lathe(PackedVector2Array([Vector2(0.12, 0.9), Vector2(0.1, 1.45), Vector2(0.14, 1.5), Vector2(0.14, 1.55)]), 8, Basis.IDENTITY, Vector3(0, 0, -0.25))
-	mb.color(STONE.lightened(0.05))
-	mb.box(Vector3(0, 0.3, 0.78), Vector3(0.7, 0.04, 0.24)) # prateleira da boca
-	for k in 3:
-		mb.color(Color(0.78, 0.5, 0.22))
-		mb.lathe(PackedVector2Array([Vector2(0.002, 0.0), Vector2(0.07, 0.0), Vector2(0.065, 0.04), Vector2(0.002, 0.06)]), 8, Basis.IDENTITY, Vector3(-0.2 + k * 0.2, 0.32, 0.78))
-		mb.color(Color(0.62, 0.38, 0.16))
-		mb.box(Vector3(-0.2 + k * 0.2, 0.37, 0.78), Vector3(0.08, 0.008, 0.012), Basis(Vector3.UP, 0.6))
-	mb.color(WOOD)
-	mb.tube(PackedVector3Array([Vector3(0.75, 0.0, 0.3), Vector3(0.66, 1.25, 0.42)]), 0.02, 5)
-	mb.box(Vector3(0.76, 0.12, 0.29), Vector3(0.24, 0.02, 0.28), Basis(Vector3.BACK, 0.08))
-	_woodpile(mb, Vector3(-0.85, 0.0, -0.1), 5, 0.36)
 	obj._shape(Vector3(0, 0.55, 0), Vector3(1.24, 1.1, 1.24))
-	StationModels._fire(obj, Vector3(0, 0.38, 0.45), 0.08, 0.6)
+	StationModels._fire(obj, Vector3(0, 0.45, 0.62), 0.06, 0.6)
 	_smoke(obj, Vector3(0, 1.6, -0.25), 0.08)
 
 
@@ -1112,10 +1093,7 @@ static func _smoker(mb: MeshBuilder, obj: PlacedObject) -> void:
 	# tábuas com a porta aberta de lado (peixes pendurados nas varas, y = 1,2),
 	# frestas com fuligem, teto com chaminé de lata e fumaça.
 	_bricks(mb, Vector3(0, 0.3, 0), Vector3(0.8, 0.6, 0.6), 5, BRICK.darkened(0.08))
-	mb.color(SOOT)
-	mb.box(Vector3(0, 0.25, 0.302), Vector3(0.3, 0.22, 0.01))
-	mb.color(IRON)
-	mb.box(Vector3(-0.22, 0.25, 0.4), Vector3(0.02, 0.22, 0.24), Basis(Vector3.UP, 0.8)) # portinhola aberta
+	mouth(mb, Vector3(0, 0.26, 0.3), 0.28, 0.2)
 	for x in [-0.38, 0.38]:
 		for z in [-0.27, 0.27]:
 			mb.color(WOOD_DARK)
@@ -1137,7 +1115,7 @@ static func _smoker(mb: MeshBuilder, obj: PlacedObject) -> void:
 	mb.color(STEEL.darkened(0.25))
 	mb.lathe(PackedVector2Array([Vector2(0.06, 1.36), Vector2(0.06, 1.6), Vector2(0.1, 1.64), Vector2(0.002, 1.7)]), 8, Basis.IDENTITY, Vector3(-0.25, 0, -0.15))
 	obj._shape(Vector3(0, 0.7, 0), Vector3(0.8, 1.4, 0.6))
-	StationModels._fire(obj, Vector3(0, 0.15, 0.2), 0.08, 0.5)
+	StationModels._fire(obj, Vector3(0, 0.22, 0.24), 0.06, 0.5)
 	_smoke(obj, Vector3(-0.25, 1.72, -0.15), 0.06)
 
 
