@@ -223,6 +223,37 @@ func _init() -> void:
 				_label(styles[k], box.position + Vector3(0, -0.15, 1.2))
 			_frame(kinds.size() + styles.size(), 2.6, 34.0)
 			await _save(out + "/moveis.png")
+		"zumbis":
+			# Zumbi comum + os 5 especiais, de frente e de costas.
+			var kinds := [""] + ZombieSpecial.KINDS
+			var scene: PackedScene = load("res://scenes/zombie.tscn")
+			for i in kinds.size():
+				var z: Zombie = scene.instantiate()
+				z.puppet = true
+				z.variant = kinds[i]
+				z.position = Vector3((i - (kinds.size() - 1) * 0.5) * 1.5, 0.0, 0.0)
+				stage_root.add_child(z)
+				_label(ZombieSpecial.NAMES.get(kinds[i], "Comum"), z.position + Vector3(0, 0.02, 0.75))
+			for k in 20:
+				await physics_frame
+			for view in 2:
+				for z in stage_root.get_children():
+					if z is Zombie:
+						z.rotation.y = PI + 0.35 if view == 0 else 0.35
+				cam.fov = 40.0
+				cam.position = Vector3(0, 2.2, 8.6)
+				cam.look_at(Vector3(0, 0.9, 0))
+				await _save(out + "/zumbis_%s.png" % ["frente", "costas"][view])
+			# De perto: cada especial.
+			for i in kinds.size():
+				var zx := (i - (kinds.size() - 1) * 0.5) * 1.5
+				cam.fov = 40.0
+				for z in stage_root.get_children():
+					if z is Zombie:
+						z.rotation.y = PI + 0.35
+				cam.position = Vector3(zx + 0.9, 1.5, 2.6)
+				cam.look_at(Vector3(zx, 0.95, 0))
+				await _save(out + "/zumbi_%s.png" % (kinds[i] if kinds[i] != "" else "comum"))
 		"cars":
 			var models := [load("res://scenes/vehicles/vintage_car.tscn"), AeroV12Car, BrutusCar, DarracqV8Car, HallScottCar]
 			for i in models.size():

@@ -27,8 +27,12 @@ func _init() -> void:
 	print("árvore: golpes de machado=", hits, " marcada=", Net.i.taken.size())
 	for k in 10:
 		await process_frame
+	print("troncos na mochila=", player.inventory.count(&"tronco"), " (no chão: ",
+		get_nodes_in_group("interactable").filter(func(i): return i is PickupItem and i.item_id == &"tronco").size(), ")")
+	# Tronco largado no chão ainda vira tábua com o machado.
+	Net.i.drop_item(&"tronco", 1, Transform3D(Basis(), player.global_position + Vector3(1, 0.5, 0)), Vector3.ZERO)
+	await process_frame
 	var logs := get_nodes_in_group("interactable").filter(func(i): return i is PickupItem and i.item_id == &"tronco")
-	print("troncos no chão=", logs.size())
 	Net.i.convert_pickup(logs[0], &"tabua", 2)
 	await process_frame
 	await process_frame

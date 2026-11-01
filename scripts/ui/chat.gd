@@ -125,7 +125,7 @@ func _command(text: String) -> void:
 	var parts := text.substr(1).split(" ", false)
 	var cmd := parts[0].to_lower() if parts.size() > 0 else ""
 	if cmd in ["ajuda", "help", "?"]:
-		add_line("", "Comandos: /ajuda · host: /noite, /dia, /hora <0-23>, /horda")
+		add_line("", "Comandos: /ajuda · host: /noite, /dia, /hora <0-23>, /horda, /especial <%s>" % "|".join(ZombieSpecial.KINDS))
 		return
 	if not Net.i.is_host():
 		add_line("", "Só o host usa comandos.")
@@ -148,6 +148,14 @@ func _command(text: String) -> void:
 			if HordeManager.i:
 				HordeManager.i.spawn_near(player.global_position)
 				add_line("", "Uma horda apareceu por perto...")
+		"especial":
+			var kind: String = parts[1].to_lower() if parts.size() > 1 else ZombieSpecial.KINDS.pick_random()
+			if kind not in ZombieSpecial.KINDS:
+				add_line("", "Tipos: " + ", ".join(ZombieSpecial.KINDS))
+				return
+			var world := player.get_parent()
+			if world.has_method("spawn_special"):
+				world.spawn_special(kind, player.global_position - player.global_basis.z * 12.0)
 		_:
 			add_line("", "Comando desconhecido. /ajuda")
 

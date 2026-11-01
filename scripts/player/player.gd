@@ -180,6 +180,7 @@ var stamina := max_stamina
 var _busy := false # chutando
 var _regen_delay := 0.0
 var _shake := 0.0
+var bile_time := 0.0 ## bile do inchado na cara: tela verde (segundos que faltam)
 var _interact_target: Node
 var _hitstops := 0
 var _gravity: float = ProjectSettings.get_setting("physics/3d/default_gravity")
@@ -425,14 +426,14 @@ func _unhandled_input(event: InputEvent) -> void:
 			exit_vehicle()
 		elif event.is_action_pressed("flashlight"):
 			vehicle.toggle_headlights()
-		elif event is InputEventMouseButton and event.pressed and Input.mouse_mode != Input.MOUSE_MODE_CAPTURED:
+		elif _should_recapture(event):
 			Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 		return
 	if event is InputEventMouseMotion and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
 		rotate_y(-event.relative.x * mouse_sensitivity)
 		head.rotate_x(-event.relative.y * mouse_sensitivity)
 		head.rotation.x = clampf(head.rotation.x, deg_to_rad(-85), deg_to_rad(85))
-	elif event is InputEventMouseButton and event.pressed and Input.mouse_mode != Input.MOUSE_MODE_CAPTURED:
+	elif _should_recapture(event):
 		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 		get_viewport().set_input_as_handled()
 	elif health > 0.0 and not ui_blocked:
@@ -535,6 +536,7 @@ func _physics_process(delta: float) -> void:
 	_update_crank(delta)
 	if not is_puppet():
 		_update_hunger(delta)
+		bile_time = maxf(bile_time - delta, 0.0)
 	if vehicle:
 		# Sentado no banco: acompanha o carro (o mouse gira só a cabeça).
 		# Sentado: o corpo fica preso ao banco; o mouse gira só a cabeça (pernas não seguem a câmera).
@@ -1501,6 +1503,26 @@ func take_damage(amount: float, from_direction := Vector3.ZERO, attacker: Node =
 		died.emit()
 
 
+## Efeito de zumbi especial: "bile" (segundos de tela verde) ou "knock" (empurrão
+## forte do bote/investida). Boneco de outro jogador: quem aplica é o dono.
+func apply_special(what: String, value: float, direction := Vector3.ZERO) -> void:
+	if health <= 0.0:
+		return
+	if is_puppet():
+		Net.i.player_special(remote_peer, what, value, direction)
+		return
+	match what:
+		"bile":
+			bile_time = maxf(bile_time, value)
+			Sfx.play("slap", 0.0, 0.6)
+			_shake = maxf(_shake, 0.15)
+		"knock":
+			if vehicle:
+				return
+			velocity += Vector3(direction.x, 0.0, direction.z) * value + Vector3.UP * value * 0.4
+			_shake = maxf(_shake, 0.35)
+
+
 func heal(amount: float) -> void:
 	health = minf(health + amount, max_health)
 	health_changed.emit(health, max_health)
@@ -2207,6 +2229,17 @@ func _use_belt() -> void:
 	(get_parent().get_node("Placed") as PlacedManager).request("belt", [_belt_from.net_id, target.net_id])
 	Sfx.play_at("slap", hit.position, -2.0, 0.8)
 	_belt_from = null
+
+
+## Clicou no jogo com o mouse solto (ex.: depois de alt-tab): prende de novo.
+## Nunca com um menu aberto, e nunca pela rodinha (rolar a lista de um menu
+## mandava o evento para cá e prendia o mouse com o menu ainda na frente).
+func _should_recapture(event: InputEvent) -> bool:
+	if not (event is InputEventMouseButton and event.pressed) or Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
+		return false
+	if event.button_index not in [MOUSE_BUTTON_LEFT, MOUSE_BUTTON_RIGHT, MOUSE_BUTTON_MIDDLE]:
+		return false
+	return not ui_blocked and not (builder and builder.menu_open())
 
 
 ## Objeto colocado mirado (de um destes tipos) ou null.

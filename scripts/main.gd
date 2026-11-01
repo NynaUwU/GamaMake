@@ -221,6 +221,19 @@ func player_positions() -> Array[Vector3]:
 	return list
 
 
+## Comando /especial: um zumbi especial no ponto (no chão).
+func spawn_special(kind: String, at: Vector3) -> Zombie:
+	var terrain := get_node_or_null("Terrain") as TerrainWorld
+	if terrain:
+		at.y = maxf(at.y, terrain.height_at(at.x, at.z)) + 0.3
+	var zombie: Zombie = ZOMBIE_SCENE.instantiate()
+	zombie.variant = kind
+	zombie.position = at
+	zombie.target = player
+	enemies.add_child(zombie)
+	return zombie
+
+
 func spawn_puppet_zombie(net_id: int, data: Dictionary) -> void:
 	var zombie: Zombie = ZOMBIE_SCENE.instantiate()
 	zombie.puppet = true

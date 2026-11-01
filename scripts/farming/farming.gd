@@ -39,16 +39,23 @@ static func use(player: Player, crop: String) -> bool:
 	if hit.is_empty():
 		return false
 	var obj := hit.collider as PlacedObject
+	if obj == null or not obj.is_farm():
+		# Mirou do lado do pote/canteiro (chão, borda): vale o que estiver a 1 m.
+		var near := _farm_near(placed, hit.position, 1.0)
+		if near:
+			obj = near
 	if crop == "arvore":
 		return _plant_tree(player, placed, hit, obj)
 	if obj and obj.is_farm() and not obj.extra.has("tree"):
-		var slot := obj.slot_at(hit.position)
-		var entry: Dictionary = obj.crops[slot]
-		if PlacedObject.progress(entry, placed.clock) >= 1.0:
-			placed.request("harvest", [obj.net_id, slot])
+		# Não precisa mirar na vaga: colhe a pronta mais perto da mira; se não houver,
+		# planta na vaga vazia mais perto.
+		var ready := _closest_slot(obj, hit.position, func(e: Dictionary): return PlacedObject.progress(e, placed.clock) >= 1.0)
+		if ready >= 0:
+			placed.request("harvest", [obj.net_id, ready])
 			return true
-		if not entry.is_empty():
-			pass # o painel ao lado da mira já mostra a %
+		var slot := _closest_slot(obj, hit.position, func(e: Dictionary): return e.is_empty())
+		if slot < 0:
+			Sfx.play("click", -6.0, 0.6) # tudo plantado e crescendo (o painel da mira mostra a %)
 			return false
 		# Vaga vazia: planta.
 		var chosen := crop
@@ -91,6 +98,42 @@ static func use(player: Player, crop: String) -> bool:
 	if crop != "":
 		Sfx.play("click", -6.0, 0.6)
 	return false
+
+
+## Vaga mais perto do ponto que cumpre "test" (-1 = nenhuma).
+static func _closest_slot(obj: PlacedObject, point: Vector3, test: Callable) -> int:
+	var local := obj.to_local(point)
+	var slots := obj.slot_positions()
+	var best := -1
+	var best_d := INF
+	for i in mini(slots.size(), obj.crops.size()):
+		var d: float = Vector2(local.x - slots[i].x, local.z - slots[i].z).length()
+		if d < best_d and test.call(obj.crops[i]):
+			best_d = d
+			best = i
+	return best
+
+
+## Pote/canteiro/cova mais perto de um ponto (até "radius" metros da borda).
+static func _farm_near(placed: PlacedManager, point: Vector3, radius: float) -> PlacedObject:
+	var best: PlacedObject = null
+	var best_d := radius
+	for value in placed.objects.values():
+		if not is_instance_valid(value):
+			continue
+		var obj := value as PlacedObject
+		if obj == null or not obj.is_farm() or obj.extra.has("tree"):
+			continue
+		if absf(obj.global_position.y - point.y) > 1.5:
+			continue
+		var slots := obj.slot_positions()
+		for i in slots.size():
+			var w := obj.to_global(slots[i])
+			var d := Vector2(w.x - point.x, w.z - point.z).length()
+			if d < best_d:
+				best_d = d
+				best = obj
+	return best
 
 
 static func _shore(at: Vector3) -> bool:

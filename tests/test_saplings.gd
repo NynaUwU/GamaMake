@@ -29,7 +29,8 @@ func _init() -> void:
 		if i is PickupItem and i.global_position.distance_to(Vector3(20, 0, 30)) < 6.0:
 			if i.item_id == &"muda": saplings += i.amount
 			if i.item_id == &"tronco": logs += 1
-	print("derrubada: existe=", placed.objects.has(t1[0]), " mudas=", saplings, " troncos=", logs)
+	print("derrubada: existe=", placed.objects.has(t1[0]), " no chão: mudas=", saplings, " troncos=", logs,
+		" | na mochila: troncos=", player.inventory.count(&"tronco"), " mudas=", player.inventory.count(&"muda"), " gravetos=", player.inventory.count(&"graveto"))
 	var tree2: PlacedObject = placed.objects[t2[0]]
 	tree2.refresh(placed.clock)
 	print("floreira depois de 500 s: ", tree2.get_interact_text(), " estágio=", tree2._tree_stage)

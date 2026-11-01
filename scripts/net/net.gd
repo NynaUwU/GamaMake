@@ -500,6 +500,18 @@ func _pdamage(amount: float, direction: Vector3, zombie_id: int) -> void:
 		world.player.take_damage(amount, direction, _zombies.get(zombie_id))
 
 
+## Host: efeito de zumbi especial (bile, empurrão) no jogador "peer".
+func player_special(peer: int, what: String, value: float, direction: Vector3) -> void:
+	if online():
+		_pspecial.rpc_id(peer, what, value, direction)
+
+
+@rpc("authority", "reliable")
+func _pspecial(what: String, value: float, direction: Vector3) -> void:
+	if world and world.player:
+		world.player.apply_special(what, value, direction)
+
+
 # --- Zumbis --------------------------------------------------------------------
 
 func register_zombie(zombie: Zombie) -> void:
@@ -938,25 +950,31 @@ signal looted(key: String) ## um baú foi revistado (por qualquer jogador)
 
 ## Abre o baú "key": o host sorteia os itens e solta no chão na frente dele.
 ## Cada baú só uma vez por mundo (fica em "taken", que vai no save).
-func loot_request(key: String, where: Transform3D, table: String) -> void:
+## to_me = o que sair vai direto para a mochila de quem pediu (árvore derrubada);
+## o que não couber cai no chão perto dele.
+func loot_request(key: String, where: Transform3D, table: String, to_me := false) -> void:
 	if taken.has(key):
 		return
 	if not online() or multiplayer.is_server():
-		_do_loot(key, where, table)
+		_do_loot(key, where, table, my_id() if to_me else 0)
 	else:
-		_req_loot.rpc_id(1, key, where, table)
+		_req_loot.rpc_id(1, key, where, table, to_me)
 
 
 @rpc("any_peer", "reliable")
-func _req_loot(key: String, where: Transform3D, table: String) -> void:
+func _req_loot(key: String, where: Transform3D, table: String, to_me := false) -> void:
 	if not taken.has(key):
-		_do_loot(key, where, table)
+		_do_loot(key, where, table, multiplayer.get_remote_sender_id() if to_me else 0)
 
 
-func _do_loot(key: String, where: Transform3D, table: String) -> void:
+func _do_loot(key: String, where: Transform3D, table: String, to_peer := 0) -> void:
 	if online():
 		_taken.rpc(key)
 	_taken(key)
+	if to_peer > 0:
+		for drop in Loot.roll(table):
+			give_to(to_peer, drop[0], drop[1])
+		return
 	for drop in Loot.roll(table):
 		# Troncos saem um por um (cada um é carregado/cortado separado).
 		var pieces: int = drop[1] if drop[0] == &"tronco" else 1

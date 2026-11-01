@@ -217,6 +217,7 @@ func _spawn_zombies(city_node: Node3D, city: Dictionary) -> void:
 		var street: Dictionary = city.streets[rng.randi() % city.streets.size()]
 		var p: Vector2 = street.a.lerp(street.b, rng.randf()) - city.center
 		var zombie: Zombie = ZOMBIE_SCENE.instantiate()
+		zombie.variant = ZombieSpecial.roll("city")
 		zombie.position = Vector3(p.x, 0.5, p.y)
 		zombie.rotation.y = rng.randf() * TAU
 		city_node.add_child(zombie)

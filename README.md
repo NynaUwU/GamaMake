@@ -62,13 +62,26 @@ Martelo → aba **Vapor**. Ordem natural: torno (ferro) → parafusos/engrenagen
   - **Antisséptico:** bandagem + álcool (mesa) = **bandagem com álcool** (+60 vida e cura a doença).
 - **Itens novos:** barra de aço, parafusos, engrenagem, eixo torneado, cano, suco, óleo, álcool, bandagem com álcool (modelos próprios).
 
+## Zumbis especiais, IA nova e plantio (rodada de feedback)
+- **Zumbis desviam da sua base:** se você **não está dentro** dela, o zumbi contorna paredes, portas, janelas e cercas (leque de raios, sempre pelo mesmo lado até ficar livre) em vez de quebrar. Se você **está dentro** (teto em cima, piso construído no alto, ou paredes em 6 de 8 direções), eles batem na parede como antes. Rodou 14 s sem chegar mais perto: desiste e quebra por um tempo. `Zombie.target_sheltered`, `Zombie._avoid_builds`.
+- **Zumbis nadam:** em água funda boiam com a cabeça para fora (sem afundar), braços abertos, na metade da velocidade, com som de água; saem andando na margem. Também nas cópias do multiplayer.
+- **Zumbis especiais** (raros: ~5% no mapa, 7% nas hordas, 5% → 16% nas ondas conforme os dias; slider **Zumbis especiais** no Criar mundo; `/especial <tipo>` cria um na sua frente). Corpos **deformados de verdade** (blocos esticados, inchados e tortos no próprio esqueleto) + pústulas, ossos saindo, papo de ácido. `scripts/enemies/zombie_special.gd`.
+  - **Inchado:** barril de pústulas, lento, 50 de vida. Perto de você **vomita bile**; morto, **estoura**. Bile na cara = tela verde por 7 s, todo zumbi a 40 m vem atrás de você e chegam mais 5.
+  - **Saltador:** magro, braços até o chão, quase de quatro. De 4,5 a 14 m **agacha e dá um bote** em arco: 22 de dano e empurrão. Bloqueio defende.
+  - **Brutamontes:** braço direito gigante, cabeça enterrada nos ombros, 520 de vida, não cambaleia com golpe fraco. **Urra e dispara** em linha reta (9 m/s): 30 de dano e arremesso; **arrebenta parede** de construção de uma vez; batendo em árvore/pedra fica tonto.
+  - **Cuspidor:** pescoço esticado, mandíbula pendurada. Fica a 7–13 m rodeando e **cospe ácido**: poça verde de 2,2 m que queima (9/s) por 7 s. Morto, deixa uma poça pequena.
+- **Ondas da noite com direção:** cada noite sorteia um lado; **3 de cada 4 zumbis** vêm dele (leque de ~50°) e o resto de qualquer lado. Um **urro e gemidos ao longe** avisam de onde a onda vem (sem texto).
+- **Árvore derrubada:** troncos, mudas e gravetos vão **direto para a mochila** (o que não couber cai no chão).
+- **Plantar/colher sem mirar na vaga:** em pote, floreira, canteiro ou cova, colhe a pronta mais perto da mira; senão planta na vaga vazia mais perto. Mirando o chão do lado (até 1 m), também vale.
+- **Bug do scroll:** a roda do mouse não prende mais o mouse na câmera com um menu aberto (só os botões esquerdo/direito/meio recapturam, e só sem menu).
+
 ## Criar mundo, desmontar e ladeiras (rodada de feedback)
 - **Menu "Criar mundo"** (menu inicial → Novo mundo, ou Multiplayer → Criar servidor): sliders de tudo do mapa, com **prévia do mapa** que se atualiza sozinha (cidades, lagos, rios, pista e tamanho embaixo).
   - **Mapa:** tamanho (1,5–4,5 km), tamanho da ilha, recorte da costa.
   - **Relevo:** altura e quantidade de montanhas, morros nas planícies, clima (mais frio ↔ mais quente: muda onde fica neve e deserto).
   - **Lugares:** cidades, lagos, rios (0–12), pista de corrida (sim/não).
   - **Recursos:** árvores e plantas, rochas e minérios, saque nos baús.
-  - **Perigo:** zumbis, hordas, animais. **Tempo:** duração do dia (5–60 min), chuva.
+  - **Perigo:** zumbis, hordas, zumbis especiais, animais. **Tempo:** duração do dia (5–60 min), chuva.
   - Semente (ou aleatória) e "Tudo no padrão". As configurações vão no save e o host manda para quem entra (todo mundo gera o mesmo mapa). `scripts/world/world_settings.gd`.
 - **Desmontar:** segurando **Shift**, o que está mirado fica vermelho e o **clique direito desmonta**; o esquerdo só constrói (e com Shift alinha na grade).
 - **Ladeiras:** o câmbio só sobe a marcha se a próxima ainda tiver força para a subida, e não troca de novo logo em seguida (nada de ficar caçando marcha). A 1ª tem corte de giro: **sobe 45° saindo parado a ~20 km/h**, devagar e sem parar; 30° sobe em 2ª.
@@ -270,7 +283,7 @@ Martelo → aba **Vapor**. Ordem natural: torno (ferro) → parafusos/engrenagen
 ## Chat e marcador (`scripts/ui/chat.gd`, `scripts/ui/ping_markers.gd`)
 
 - **Enter** abre o chat (Enter envia, Esc cancela). As mensagens aparecem no canto de baixo à esquerda e somem depois de uns segundos; entradas/saídas de jogadores também aparecem ali.
-- **Comandos do host:** `/noite`, `/dia`, `/hora 14`, `/horda` (uma horda a ~90 m vindo até você). `/ajuda` lista.
+- **Comandos do host:** `/noite`, `/dia`, `/hora 14`, `/horda` (uma horda a ~90 m vindo até você), `/especial <inchado|saltador|brutamontes|cuspidor>`. `/ajuda` lista.
 - **B ou botão do meio do mouse:** marca onde você mira (até 300 m). Todos veem um losango por cima de tudo (atravessa paredes) com o nome, o que é (**Zumbi!**, Item, Carro ou Aqui) e a distância; também aparece no mapa e no minimapa (preso na borda se estiver longe). Some em 12 s.
 - O nome no chat vem da lista do host (ninguém consegue falar como outro jogador).
 - Teste: `tests/test_chat.gd` (e `net_host.gd`/`net_client.gd` na rede).
@@ -286,6 +299,7 @@ Martelo → aba **Vapor**. Ordem natural: torno (ferro) → parafusos/engrenagen
 ### Hordas noturnas (`scripts/enemies/horde_manager.gd`)
 - De noite nascem zumbis a 45-65 m de cada jogador, fora da vista, **já vindo atrás dele**.
 - Limite por jogador: 13 na 1ª noite, +3 a cada dia (até 30). Ao amanhecer os que estão longe vão embora.
+- Cada noite tem uma **direção**: 75% dos zumbis vêm dela, o resto de qualquer lado (urro ao longe avisa).
 
 ### Hordas no mapa
 - 5 hordas (7 de noite) de 12-30 zumbis andando **de cidade em cidade** (mais rápido de noite). Aparecem no mapa/minimapa como manchas vermelhas pulsando, com a contagem.
@@ -293,7 +307,7 @@ Martelo → aba **Vapor**. Ordem natural: torno (ferro) → parafusos/engrenagen
 - Matou todos: a horda some; outra nasce longe depois de um tempo. As hordas vão no save.
 
 ### Zumbis quebram construções
-- Zumbi perseguindo alguém com uma parede/porta/janela de construção na frente **para e bate nela**.
+- Zumbi perseguindo alguém **que está dentro da construção** com uma parede/porta/janela na frente **para e bate nela** (se a pessoa está fora, ele dá a volta).
 - **Parede:** cava um buraco de ~1,2 m de largura do chão para cima (cada pedaço aguenta 2 golpes). Um zumbi sozinho demora; uma horda passa rápido.
 - **Janela** aguenta 3 golpes e **porta** 6; depois caem.
 - Teste: `tests/test_night.gd`.

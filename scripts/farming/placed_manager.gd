@@ -373,7 +373,7 @@ func host_apply(action: String, args: Array) -> Array:
 				return []
 			if obj.extra.get("deco", false):
 				# Muda de decoração (vaso/floreira): um golpe arranca e devolve a muda.
-				Net.i.drop_item(&"muda", 1, Transform3D(Basis(), obj.global_position + Vector3.UP * 0.5), Vector3.UP * 2.0)
+				Net.i.give_to(Net.i.request_peer, &"muda", 1)
 				_fell(obj)
 				return [args[0]]
 			if obj.tree_growth(clock) < 1.0:
@@ -381,15 +381,13 @@ func host_apply(action: String, args: Array) -> Array:
 			obj.extra.hp = obj.extra.get("hp", 90.0) - float(args[1])
 			if obj.extra.hp > 0.0:
 				return []
-			# Derrubou: troncos, gravetos e SEMPRE uma muda (10% de chance de duas).
-			var where := Transform3D(Basis(), obj.global_position + Vector3.UP * 0.8)
-			var push := Vector3(randf_range(-1.5, 1.5), 2.5, randf_range(-1.5, 1.5))
-			for k in randi_range(2, 3):
-				Net.i.drop_item(&"tronco", 1, where.translated(Vector3(k * 0.4, 0, 0)), push)
-			Net.i.drop_item(&"muda", 2 if randf() < 0.1 else 1, where, push * Vector3(-1, 1, -1))
+			# Derrubou: troncos, gravetos e SEMPRE uma muda (10% de chance de duas),
+			# direto para a mochila de quem derrubou (o que não couber cai no chão).
+			Net.i.give_to(Net.i.request_peer, &"tronco", randi_range(2, 3))
+			Net.i.give_to(Net.i.request_peer, &"muda", 2 if randf() < 0.1 else 1)
 			var sticks := randi_range(0, 2)
 			if sticks > 0:
-				Net.i.drop_item(&"graveto", sticks, where, push * 0.6)
+				Net.i.give_to(Net.i.request_peer, &"graveto", sticks)
 			Sfx.play_at("thud", obj.global_position + Vector3.UP, 4.0, 0.6)
 			_fell(obj)
 			return [args[0]]

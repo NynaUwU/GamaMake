@@ -73,6 +73,7 @@ func _spawn_near(center: Vector3) -> void:
 	if absf(x) > half or absf(z) > half or _terrain.coast_distance(x, z) < 15.0:
 		return # nada de zumbi no mar
 	var zombie: Zombie = ZOMBIE_SCENE.instantiate()
+	zombie.variant = ZombieSpecial.roll("open")
 	zombie.position = Vector3(x, _terrain.height_at(x, z) + 0.3, z)
 	zombie.rotation.y = _rng.randf() * TAU
 	get_parent().add_child(zombie)

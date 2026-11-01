@@ -71,6 +71,10 @@ const LIMBS := {
 @export var weapon_damage_multiplier := 1.6
 @export var slipper_damage := 30.0 ## chinelada (sempre na cabeça: x2.5)
 @export var stiff_fall_time := 0.6 ## quanto demora para cair duro
+## Zumbi especial ("" = comum): inchado, saltador, brutamontes, cuspidor (ver ZombieSpecial).
+@export var variant := ""
+@export var wall_power := 1 ## golpes que cada pancada conta na parede (brutamontes = 2)
+@export var stagger_resist := 0.0 ## golpe mais fraco que isso não faz dar passo para trás
 
 @export_group("Navegação")
 ## Desvia de obstáculos pelo NavigationMesh. Só escala quando o caminho em volta
@@ -152,6 +156,22 @@ var march_to := Vector3.INF ## horda: para onde andar enquanto não vê ninguém
 var _wall := {} # parede/porta/janela que está quebrando {collider, normal}
 var _wall_check := 0.0
 # Nível de detalhe pela distância até o jogador mais perto (0 perto, 1 médio, 2 longe).
+var special: ZombieSpecial ## comportamento do zumbi especial (null = comum)
+var pose_crouch := 0.0 ## agachado a mais (saltador)
+var pose_flail := 0.0 ## braços abertos a mais (nadando)
+var _body_set := false
+# Desviar de construção quando o alvo não está dentro dela.
+var _avoid_dir := Vector3.ZERO
+var _avoid_hand := 0.0
+var _avoid_check := 0.0
+var _avoid_free := 0.0
+var _avoid_since := 0.0
+var _avoid_best := INF
+var _frustrated := 0.0
+# Nadar.
+var _water_check := 0.0
+var _water_level := INF
+var _splash := 0.0
 var _lod := 0
 var hitboxes_active := true ## false = longe; golpes à distância usam a cápsula
 var _lod_distance := 0.0
@@ -166,11 +186,26 @@ var _step := 1
 @onready var ragdoll: Ragdoll = $Skeleton3D/PhysicalBoneSimulator3D
 
 
+func _enter_tree() -> void:
+	# Antes do esqueleto montar a malha: cores e números do zumbi especial.
+	if variant != "" and not _body_set:
+		_body_set = true
+		ZombieSpecial.setup_body(self, variant)
+
+
 func _ready() -> void:
 	if not puppet and not Net.i.is_host():
 		queue_free() # online, os zumbis do cliente vêm todos do host
 		return
 	health = max_health
+	if variant != "":
+		ZombieSpecial.add_extras(self, variant)
+		special = ZombieSpecial.new()
+		special.name = "Special"
+		special.zombie = self
+		special.kind = variant
+		special._cd = 0.6 if variant == "saltador" else 2.0
+		add_child(special)
 	if _net_spawn.is_empty():
 		move_speed *= randf_range(0.85, 1.25)
 	for limb in LIMBS:
@@ -240,14 +275,22 @@ func _physics_process(delta: float) -> void:
 			_update_stunned(delta)
 		State.DEAD, State.IMPALED:
 			pass
-	if state in [State.IDLE, State.CHASE, State.ATTACK, State.STAGGER, State.STUMBLE]:
-		if not is_on_floor():
+	if state in [State.IDLE, State.CHASE, State.ATTACK, State.STAGGER, State.STUMBLE, State.STUNNED]:
+		var swim := _swim_factor(delta)
+		if swim < 1.0:
+			pass # na água: _swim_factor já cuidou da altura (boia)
+		elif not is_on_floor():
 			velocity.y -= _gravity * delta
-		if state == State.CHASE or state == State.IDLE:
+		if (state == State.CHASE or state == State.IDLE) and swim >= 1.0:
 			StepClimb.step(self, delta * _step)
-		velocity *= _step # pulou ticks: move_and_slide usa o tick normal, então anda o dobro
+		var scale_h := _step * swim
+		velocity.x *= scale_h # pulou ticks: move_and_slide usa o tick normal, então anda o dobro
+		velocity.z *= scale_h
+		velocity.y *= _step
 		move_and_slide()
-		velocity /= _step
+		velocity.x /= scale_h
+		velocity.z /= scale_h
+		velocity.y /= _step
 	_update_balance(delta)
 	_update_body_pose(delta)
 	_bump_others()
@@ -257,6 +300,8 @@ func _physics_process(delta: float) -> void:
 # --- Estados ---------------------------------------------------------------
 
 func _update_idle(delta: float) -> void:
+	if special and special.idle(delta):
+		return
 	if _can_see_target():
 		_set_state(State.CHASE)
 		return
@@ -279,8 +324,13 @@ func _update_chase(delta: float) -> void:
 	if not is_instance_valid(target) or not _can_see_target():
 		_set_state(State.IDLE)
 		return
+	if special and special.chase(delta):
+		return
 	var to_target := _flat_to_target()
 	var direction := _chase_direction(to_target, delta)
+	var smash := _should_smash()
+	if not smash and not crawler:
+		direction = _avoid_builds(direction, to_target, delta) # alvo fora da base: dá a volta
 	var afraid := _fire_fear()
 	if afraid != Vector3.ZERO:
 		# Fogueira acesa à noite: não entra no círculo da luz; fica rondando a borda.
@@ -297,8 +347,8 @@ func _update_chase(delta: float) -> void:
 		return
 	if _climb_mode and _try_start_climb(direction):
 		return
-	if _cooldown <= 0.0 and _check_wall(direction, delta):
-		_set_state(State.ATTACK) # construção no caminho: bate nela
+	if smash and _cooldown <= 0.0 and _check_wall(direction, delta):
+		_set_state(State.ATTACK) # alvo dentro da base: bate na construção do caminho
 		return
 	var desired := direction * (crawl_speed if crawler else move_speed) + _separation() * 2.5
 	velocity.x = lerpf(velocity.x, desired.x, 1.0 - exp(-5.0 * delta))
@@ -419,6 +469,8 @@ func take_hit(hit: HitInfo) -> void:
 			_damage_limb(limb, hit) # dá para arrancar pedaços do corpo caído
 		_rag_hit(hit.bone, hit.direction * hit.force, hit.point)
 		return
+	if special:
+		special.on_hit()
 	var body_damage: float = hit.damage * BONE_DAMAGE.get(hit.bone, 1.0)
 	if limb != &"" and _limb_state[limb] == LimbState.BROKEN:
 		body_damage *= broken_limb_damage # osso já quebrado: quase não dói mais
@@ -491,6 +543,8 @@ func take_explosion(center: Vector3, damage: float, force: float) -> void:
 
 
 func _stagger(direction: Vector3, force: float) -> void:
+	if force < stagger_resist:
+		return # grandão: o golpe só balança o tronco
 	_end_attack()
 	var flat := Vector3(direction.x, 0, direction.z).normalized()
 	if crawler:
@@ -1054,6 +1108,148 @@ func _arm_count() -> int:
 
 # --- Quebrar construções --------------------------------------------------------
 
+## Peça construída pelo jogador (parede/piso/teto, porta/janela, cerca de espinhos).
+static func is_build(collider: Object) -> bool:
+	return collider is BuildPiece or collider is BuildFill or (collider is PlacedObject and collider.kind == "barbed")
+
+
+## O jogador está dentro de uma construção? Teto em cima, piso construído no alto
+## debaixo dos pés, ou paredes em volta (6 de 8 direções). Fica guardado 1 s no
+## próprio jogador (todos os zumbis perguntam a mesma coisa).
+static func target_sheltered(t: Node3D) -> bool:
+	var now := Time.get_ticks_msec()
+	if now - int(t.get_meta("shelter_at", -100000)) < 1000:
+		return t.get_meta("shelter", false)
+	var space := t.get_world_3d().direct_space_state
+	var exclude: Array[RID] = []
+	if t is CollisionObject3D:
+		exclude.append(t.get_rid())
+	var base := t.global_position + Vector3.UP * 1.0
+	var inside := false
+	var up := space.intersect_ray(PhysicsRayQueryParameters3D.create(base, base + Vector3.UP * 8.0, 1, exclude))
+	if up and is_build(up.collider):
+		inside = true
+	if not inside:
+		var down := space.intersect_ray(PhysicsRayQueryParameters3D.create(base, base + Vector3.DOWN * 2.5, 1, exclude))
+		if down and is_build(down.collider):
+			# Piso construído: só conta se for alto (em cima da base, não um piso no chão).
+			var below: Vector3 = down.position + Vector3.DOWN * 0.3
+			var ground := space.intersect_ray(PhysicsRayQueryParameters3D.create(below, below + Vector3.DOWN * 1.2, 1, exclude))
+			inside = ground.is_empty()
+	if not inside:
+		var walls := 0
+		for k in 8:
+			var a := TAU * k / 8.0
+			var h := space.intersect_ray(PhysicsRayQueryParameters3D.create(base, base + Vector3(cos(a), 0.0, sin(a)) * 12.0, 1, exclude))
+			if h and is_build(h.collider):
+				walls += 1
+		inside = walls >= 6
+	t.set_meta("shelter", inside)
+	t.set_meta("shelter_at", now)
+	return inside
+
+
+## Bate na construção só se o alvo estiver dentro dela (ou se cansou de dar a volta,
+## ou se é o brutamontes, que arrebenta tudo).
+func _should_smash() -> bool:
+	_frustrated -= get_physics_process_delta_time() * _step
+	if wall_power > 1 or _frustrated > 0.0:
+		return true
+	return is_instance_valid(target) and Zombie.target_sheltered(target)
+
+
+## Alvo fora da construção: em vez de quebrar, contorna. Raios em leque a partir da
+## direção desejada, mantendo o mesmo lado (mão esquerda/direita) até ficar livre.
+## 14 s rodando sem chegar mais perto: desiste e passa a quebrar por um tempo.
+func _avoid_builds(direction: Vector3, to_target: Vector3, delta: float) -> Vector3:
+	_avoid_check -= delta
+	if _avoid_check > 0.0:
+		return _avoid_dir if _avoid_hand != 0.0 and _avoid_free <= 0.0 else direction
+	_avoid_check = 0.25
+	if not _build_ahead(direction, minf(1.8, to_target.length())):
+		_avoid_free += 0.25
+		if _avoid_free > 0.75: # livre faz um tempo: esquece o lado escolhido
+			_avoid_hand = 0.0
+			_avoid_since = 0.0
+			_avoid_best = INF
+		return direction
+	_avoid_free = 0.0
+	_avoid_since += 0.25
+	var dist := to_target.length()
+	if dist < _avoid_best - 1.0:
+		_avoid_best = dist
+		_avoid_since = 0.0
+	if _avoid_since > 14.0:
+		_frustrated = 8.0
+		_avoid_since = 0.0
+		_avoid_best = INF
+		_avoid_hand = 0.0
+		return direction
+	if _avoid_hand == 0.0:
+		_avoid_hand = _pick_hand(direction)
+	for hand: float in [_avoid_hand, -_avoid_hand]:
+		for k in range(1, 9):
+			var candidate := direction.rotated(Vector3.UP, hand * k * PI / 8.0)
+			if not _build_ahead(candidate, 1.6):
+				_avoid_hand = hand
+				_avoid_dir = candidate
+				return candidate
+	_avoid_dir = -direction
+	return _avoid_dir
+
+
+## Lado que libera primeiro (empate: metade vai por cada lado).
+func _pick_hand(direction: Vector3) -> float:
+	for k in range(1, 9):
+		var left := not _build_ahead(direction.rotated(Vector3.UP, k * PI / 8.0), 1.6)
+		var right := not _build_ahead(direction.rotated(Vector3.UP, -k * PI / 8.0), 1.6)
+		if left != right:
+			return 1.0 if left else -1.0
+		if left and right:
+			break
+	return 1.0 if get_instance_id() % 2 == 0 else -1.0
+
+
+func _build_ahead(dir: Vector3, reach: float) -> bool:
+	var from := global_position + Vector3.UP * 0.7
+	var hit := get_world_3d().direct_space_state.intersect_ray(PhysicsRayQueryParameters3D.create(from, from + dir * reach, 1, [get_rid()]))
+	return not hit.is_empty() and is_build(hit.collider)
+
+
+# --- Nadar ---------------------------------------------------------------------------
+
+## Na água funda boia com a cabeça para fora (sem gravidade), braços abrindo, e anda
+## na metade da velocidade. Devolve o multiplicador da velocidade (1 = em terra).
+func _swim_factor(delta: float) -> float:
+	_water_check -= delta
+	if _water_check <= 0.0:
+		_water_check = 0.25
+		_water_level = INF
+		if WaterManager.i:
+			var depth := WaterManager.i.depth_at(global_position)
+			if depth > 1.15 or (depth > 0.85 and pose_flail > 0.0):
+				_water_level = global_position.y + depth
+	if _water_level == INF:
+		pose_flail = 0.0
+		return 1.0
+	var float_y := _water_level - (0.3 if crawler else 1.25)
+	velocity.y = clampf((float_y - global_position.y) * 3.0, -2.0, 2.0)
+	pose_flail = 0.6
+	_splash -= delta
+	if _splash <= 0.0 and Vector2(velocity.x, velocity.z).length() > 0.3:
+		_splash = randf_range(1.2, 2.2)
+		Sfx.play_at("splash", global_position + Vector3.UP * 1.2, -2.0)
+	return 0.5
+
+
+## Cópia: só a pose (braços abertos na água); a posição vem do host.
+func _puppet_swim_pose(delta: float) -> void:
+	_water_check -= delta
+	if _water_check <= 0.0:
+		_water_check = 0.3
+		pose_flail = 0.6 if WaterManager.i and WaterManager.i.depth_at(global_position) > 0.9 else 0.0
+
+
 ## Andando e com uma parede/porta/janela de construção logo à frente (mais perto
 ## que o alvo): para e bate nela. Checa poucas vezes por segundo.
 func _check_wall(direction: Vector3, delta: float) -> bool:
@@ -1068,7 +1264,7 @@ func _check_wall(direction: Vector3, delta: float) -> bool:
 		var from := global_position + Vector3.UP * height
 		var query := PhysicsRayQueryParameters3D.create(from, from + direction * reach, 1, [get_rid()])
 		hit = get_world_3d().direct_space_state.intersect_ray(query)
-		if hit and (hit.collider is BuildPiece or hit.collider is BuildFill or hit.collider is PlacedObject and hit.collider.kind == "barbed"):
+		if hit and is_build(hit.collider):
 			break
 		hit = {}
 	if hit.is_empty():
@@ -1112,7 +1308,7 @@ func _damage_wall() -> void:
 			# Cada pedaço aguenta 2 golpes (uma horda passa rápido; um zumbi sozinho demora).
 			var key := square[0] / 4
 			var hits: Dictionary = piece.get_meta("hits", {})
-			hits[key] = hits.get(key, 0) + 1
+			hits[key] = hits.get(key, 0) + wall_power
 			piece.set_meta("hits", hits)
 			Sfx.play_at("knock", hit.position, 3.0, 0.75)
 			if hits[key] >= 2:
@@ -1148,6 +1344,8 @@ func _set_state(new_state: State) -> void:
 	if new_state == State.DEAD and not _loot_dropped:
 		_loot_dropped = true # qualquer morte (golpe, explosão, empalado, carro...) solta o saque
 		_drop_loot()
+		if special:
+			special.on_death.call_deferred()
 	state = new_state
 	_state_time = 0.0
 	if new_state == State.ATTACK:
@@ -1201,7 +1399,8 @@ func _update_body_pose(delta: float) -> void:
 	var t := 1.0 - exp(-8.0 * delta)
 	locomotion.wobble = lerpf(locomotion.wobble, maxf(stumbling, dizzy * 0.4), t)
 	locomotion.flail = lerpf(locomotion.flail, stumbling * clampf(balance + 0.4, 0.0, 1.0), t)
-	locomotion.crouch = lerpf(locomotion.crouch, stumbling * (0.05 + balance * 0.15) + dizzy * 0.03, t)
+	locomotion.crouch = lerpf(locomotion.crouch, stumbling * (0.05 + balance * 0.15) + dizzy * 0.03 + pose_crouch, t)
+	locomotion.flail = maxf(locomotion.flail, pose_flail)
 
 
 ## Direção do mundo -> (lado, frente/trás) no espaço local do zumbi.
@@ -1491,6 +1690,11 @@ func _ev_equip(id: StringName) -> void:
 		_equip_weapon(id)
 
 
+func _ev_special(what: String, args: Array) -> void:
+	if special:
+		special.fx(what, args)
+
+
 func _ev_unequip() -> void:
 	if _held_weapon:
 		_held_weapon.queue_free()
@@ -1556,7 +1760,7 @@ func apply_snapshot(entry: Array) -> void:
 
 ## Host: tudo para criar a cópia (inclusive para quem entra no meio da partida).
 func spawn_data() -> Dictionary:
-	return {"pos": global_position, "yaw": rotation.y, "weapon": weapon_id,
+	return {"pos": global_position, "yaw": rotation.y, "weapon": weapon_id, "variant": variant,
 		"speed": move_speed, "state": state, "crawler": crawler, "cut": _cut_bones.duplicate(),
 		"ragdoll": ragdoll.is_ragdolling() if ragdoll else false}
 
@@ -1566,6 +1770,7 @@ func setup_from_net(data: Dictionary) -> void:
 	position = data.pos
 	rotation.y = data.yaw
 	weapon_id = data.weapon
+	variant = data.get("variant", "")
 	move_speed = data.speed
 	crawler = data.crawler
 	state = data.state
@@ -1615,6 +1820,9 @@ func _puppet_physics(delta: float) -> void:
 		velocity = Vector3.ZERO
 	locomotion.attack = _snap_attack
 	locomotion.swing = _snap_swing
+	if special:
+		special.puppet_tick()
+	_puppet_swim_pose(delta)
 	_groans(delta)
 	if state == State.GETTING_UP and not crawler:
 		_getup_progress = _snap_getup

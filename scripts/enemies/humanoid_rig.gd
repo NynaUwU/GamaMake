@@ -22,6 +22,11 @@ const LAYER_HITBOX := 1 << 4
 @export var merge_visuals := true
 
 var skin_mesh: MeshInstance3D ## malha única do corpo (modo merge_visuals)
+## Deformação por osso (zumbis especiais): {osso: [escala, rotação em graus, deslocamento, (cor)]}
+## no espaço do osso. Muda o bloco do corpo e a hitbox; o esqueleto e o ragdoll ficam iguais.
+## Definir antes do _ready (Zombie._enter_tree). look_key separa o cache da malha.
+var part_mods := {}
+var look_key := ""
 var _cut := {} # ossos arrancados (não entram mais na malha)
 static var _body_material: StandardMaterial3D
 static var _mesh_cache := {} # corpo inteiro (sem cortes) já montado, por cores: todos os zumbis usam o mesmo
@@ -90,6 +95,10 @@ func _build_bone_visual(def: Array, enemy: Node) -> void:
 	var dir: float = def[4]
 	var size := Vector3(def[5], length, def[6])
 	var center := Vector3(0, dir * length * 0.5, 0)
+	if part_mods.has(bone_name):
+		var mod: Array = part_mods[bone_name]
+		size *= mod[0]
+		center = Vector3(0, dir * length * mod[0].y * 0.5, 0) + mod[2]
 
 	var attachment := BoneAttachment3D.new()
 	attachment.name = attachment_name(bone_name)
@@ -279,7 +288,7 @@ func get_bone_subtree(bone_name: StringName) -> Array[StringName]:
 ## Refaz a malha do corpo (sem os ossos arrancados). Cada bloco fica preso ao
 ## seu osso com peso 1, então a pose, o ragdoll e as molas mexem tudo junto.
 func _rebuild_skin() -> void:
-	var key := "%s|%s|%s|%s" % [skin_color, shirt_color, pants_color, glowing_eyes]
+	var key := "%s|%s|%s|%s|%s" % [skin_color, shirt_color, pants_color, glowing_eyes, look_key]
 	if _cut.is_empty() and _mesh_cache.has(key):
 		skin_mesh.mesh = _mesh_cache[key]
 		return
@@ -311,16 +320,31 @@ func _part_geometry(body: SurfaceTool, eyes: SurfaceTool, def: Array, xform: Tra
 	var size := Vector3(def[5], length, def[6])
 	var center := Vector3(0, def[4] * length * 0.5, 0)
 	var color: Color = {"skin": skin_color, "shirt": shirt_color, "pants": pants_color}[def[8]]
+	var tip := Vector3(0, -length, 0)
+	if part_mods.has(bone_name):
+		# Deformado: o bloco cresce/estica/entorta em volta da junta.
+		var mod: Array = part_mods[bone_name]
+		var bend := Transform3D(Basis.from_euler(mod[1] * PI / 180.0), Vector3.ZERO)
+		size *= mod[0]
+		center = Vector3(0, def[4] * length * mod[0].y * 0.5, 0) + mod[2]
+		tip = Vector3(0, -length * mod[0].y, 0) + mod[2]
+		xform = xform * bend
+		if mod.size() > 3: # outra cor (ex.: barriga à mostra = pele)
+			color = {"skin": skin_color, "shirt": shirt_color, "pants": pants_color}[mod[3]]
 	_add_box(body, bone, xform * Transform3D(Basis(), center), size, color)
 	var has_eyes := false
 	if bone_name == "Head" and glowing_eyes:
 		has_eyes = true
+		var eye := Vector3(0.04, 0.03, 0.02) * clampf(size.x / 0.22, 0.7, 1.6)
 		for side in [-1.0, 1.0]:
-			var at := center + Vector3(side * 0.05, 0.03, -size.z * 0.5 - 0.005)
-			_add_box(eyes, bone, xform * Transform3D(Basis(), at), Vector3(0.04, 0.03, 0.02), Color.WHITE)
+			var at := center + Vector3(side * size.x * 0.23, 0.03 * size.y / 0.26, -size.z * 0.5 - 0.005)
+			_add_box(eyes, bone, xform * Transform3D(Basis(), at), eye, Color.WHITE)
 	if bone_name.begins_with("LowerArm"):
 		var hand := BlockyHand.open(null, glowing_eyes)
-		var hand_xform := Transform3D(Basis(Vector3.UP, PI) if bone_name.ends_with(".R") else Basis(), Vector3(0, -length, 0))
+		var hand_scale := 1.0
+		if part_mods.has(bone_name):
+			hand_scale = clampf((part_mods[bone_name][0].x + part_mods[bone_name][0].z) * 0.5, 0.6, 2.4)
+		var hand_xform := Transform3D((Basis(Vector3.UP, PI) if bone_name.ends_with(".R") else Basis()).scaled(Vector3.ONE * hand_scale), tip)
 		for block in hand.get_children():
 			if block is MeshInstance3D:
 				_add_box(body, bone, xform * hand_xform * block.transform, block.mesh.size, skin_color)

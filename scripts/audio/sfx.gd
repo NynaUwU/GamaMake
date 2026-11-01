@@ -102,12 +102,13 @@ static func _setup_bus() -> void:
 
 ## Ajuste de volume por som (dB).
 const _VOLUME := {"groan": -4.0, "growl": -2.0, "step_soft": -14.0, "step_hard": -10.0, "engine": -6.0,
-	"wind": -20.0, "rain": -6.0, "whirr": -8.0, "swing": -6.0, "pickup": -8.0, "explosion": 4.0, "shot": 2.0}
+	"wind": -20.0, "rain": -6.0, "whirr": -8.0, "swing": -6.0, "pickup": -8.0, "explosion": 4.0, "shot": 2.0,
+	"roar": 2.0, "splash": -6.0}
 
 
 const NAMES := ["swing", "hit", "slice", "thud", "shot", "explosion", "step_soft", "step_hard", "groan", "growl",
 	"death", "engine", "creak", "knock", "ping", "pickup", "crunch", "slap", "whirr", "wind", "click", "punch", "rain",
-	"hiss", "whistle", "chug"]
+	"hiss", "whistle", "chug", "roar", "splash", "spit", "retch"]
 static var _mutex := Mutex.new()
 static var _warm_task := -1
 
@@ -203,6 +204,14 @@ static func _make(name: String) -> AudioStreamWAV:
 			return _wav(_mix([_tone(0.9, 880.0, 930.0, 0.05, 0.7, 0.45), _tone(0.9, 1320.0, 1390.0, 0.05, 0.7, 0.2), _noise_env(rng, 0.9, 6000.0, 0.05, 0.7, 3000.0)]))
 		"chug": # pistão do motor a vapor: baforada grave
 			return _wav(_mix([_noise_env(rng, 0.18, 900.0, 0.004, 0.14, 150.0), _tone(0.12, 95.0, 70.0, 0.002, 0.1, 0.5)]))
+		"roar": # urro grave do brutamontes
+			return _wav(_mix([_voice(rng, 1.4, 52.0, 1.1, [380.0, 760.0]), _noise_env(rng, 1.2, 420.0, 0.08, 0.9)]))
+		"splash": # água batendo
+			return _wav(_mix([_noise_env(rng, 0.35, 1800.0, 0.004, 0.25, 250.0), _noise_env(rng, 0.2, 5000.0, 0.002, 0.1, 1800.0)]))
+		"spit": # cuspe molhado
+			return _wav(_concat([_noise_env(rng, 0.08, 3000.0, 0.002, 0.05, 900.0), _mix([_noise_env(rng, 0.18, 1200.0, 0.003, 0.12, 200.0), _tone(0.12, 220.0, 120.0, 0.002, 0.1, 0.4)])]))
+		"retch": # vômito: voz engasgada + jorro
+			return _wav(_concat([_voice(rng, 0.35, 120.0, 0.9, [500.0, 1000.0]), _mix([_noise_env(rng, 0.7, 1100.0, 0.01, 0.55, 150.0), _voice(rng, 0.7, 95.0, 1.2, [420.0, 850.0], true)])]))
 	return _wav(_tone(0.1, 440.0, 440.0, 0.01, 0.08, 0.3))
 
 

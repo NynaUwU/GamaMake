@@ -69,7 +69,11 @@ func tool_hit(player: Node, weapon_type: int, damage: float, point: Vector3) -> 
 		# Cai sempre para o mesmo lado em todos os jogadores (sorteado pela chave).
 		var fall := _fall_direction()
 		var where := Transform3D(Basis.looking_at(fall), global_position + fall * (2.2 if is_tree() else 0.0) + Vector3.UP * 0.4)
-		Net.i.loot_request(key, where, TABLE.get(kind, "rocha"))
+		# Árvore: troncos, gravetos e muda vão direto para a mochila de quem derrubou.
+		Net.i.loot_request(key, where, TABLE.get(kind, "rocha"), is_tree())
+		if is_tree():
+			for k in 3:
+				ItemFly.play(&"tronco", global_position + Vector3.UP * (1.0 + k * 0.4), player)
 
 
 func _fall_direction() -> Vector3:

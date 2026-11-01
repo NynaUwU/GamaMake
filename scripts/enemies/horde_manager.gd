@@ -11,7 +11,9 @@ extends Node
 ##
 ## Hordas noturnas: de noite nascem zumbis a 45-65 m de cada jogador, fora da
 ## vista, que já vêm atrás dele (até NIGHT_CAP por jogador, cresce a cada
-## dia). Ao amanhecer os que estão longe vão embora.
+## dia). Cada noite a onda tem uma direção: 3 de cada 4 vêm dela (num leque de
+## ~50°) e o resto de qualquer lado. Um urro ao longe avisa de onde ela vem.
+## Ao amanhecer os que estão longe vão embora.
 
 const ZOMBIE_SCENE := preload("res://scenes/zombie.tscn")
 const MATERIALIZE := 120.0
@@ -37,6 +39,12 @@ var _night_tick := 0.0
 var _respawn := 30.0
 var _broadcast := 0.0
 var _spawn_queue: Array = [] # [horde, quantos faltam]
+## Direção da onda desta noite (ângulo no plano XZ; o host sorteia ao anoitecer).
+var wave_angle := 0.0
+var _cue_angle := INF # cliente/host: direção que já foi avisada com o som
+var _mob_at := {} # jogador -> quando a bile chamou zumbis pela última vez (ms)
+const WAVE_SHARE := 0.75 ## parte da onda que vem da direção da noite
+const WAVE_SPREAD := 0.45 ## meia abertura do leque (rad)
 
 
 func _enter_tree() -> void:
@@ -89,7 +97,7 @@ func _process(delta: float) -> void:
 		map_list = _make_map_list()
 		_count_wave()
 		if Net.i.online():
-			Net.i.broadcast_system_state(name, {"map": map_list, "wave": [wave_alive, wave_killed, wave_quota]})
+			Net.i.broadcast_system_state(name, {"map": map_list, "wave": [wave_alive, wave_killed, wave_quota, wave_angle]})
 
 
 # --- Hordas no mapa --------------------------------------------------------------------
@@ -192,6 +200,7 @@ func _process_spawn_queue() -> void:
 		var r := randf_range(1.0, 7.0)
 		var p: Vector2 = horde.pos + Vector2(cos(a), sin(a)) * r
 		var zombie: Zombie = ZOMBIE_SCENE.instantiate()
+		zombie.variant = ZombieSpecial.roll("horde")
 		zombie.position = Vector3(p.x, terrain.height_at(p.x, p.y) + 0.4, p.y)
 		zombie.rotation.y = randf() * TAU
 		zombie.set_meta("horde", horde.id)
@@ -287,6 +296,55 @@ func _on_nightfall() -> void:
 	wave_killed = 0
 	wave_done = false
 	wave_quota = quota_for(DayNight.i.day if DayNight.i else 1)
+	if Net.i.is_host():
+		wave_angle = randf() * TAU
+
+
+## Ângulo de onde nasce o próximo zumbi da onda: quase sempre da direção da noite.
+func wave_spawn_angle() -> float:
+	if randf() < WAVE_SHARE:
+		return wave_angle + randf_range(-WAVE_SPREAD, WAVE_SPREAD)
+	return randf() * TAU
+
+
+## Aviso da direção da onda: urro e gemidos ao longe, do lado de onde ela vem.
+func _wave_cue() -> void:
+	if is_equal_approx(_cue_angle, wave_angle):
+		return
+	_cue_angle = wave_angle
+	var world := _world()
+	if world == null or world.get("player") == null:
+		return
+	var dir := Vector3(cos(wave_angle), 0.0, sin(wave_angle))
+	var at: Vector3 = world.player.global_position + dir * 32.0 + Vector3.UP * 2.0
+	Sfx.play_at("roar", at, 3.0, 0.75)
+	for k in 3:
+		get_tree().create_timer(0.6 + k * 0.5).timeout.connect(func():
+			Sfx.play_at("groan", at + Vector3(randf_range(-6, 6), 0, randf_range(-6, 6)), 3.0, randf_range(0.8, 1.0)))
+
+
+## Bile do inchado: chega mais gente (no máximo uma vez a cada 20 s por jogador).
+func call_mob(player: Node3D, count: int) -> void:
+	if not Net.i.is_host() or _terrain() == null:
+		return
+	var now := Time.get_ticks_msec()
+	if now - int(_mob_at.get(player, -100000)) < 20000:
+		return
+	_mob_at[player] = now
+	var enemies := _world().get_node("Enemies")
+	for k in count:
+		var a := randf() * TAU
+		var r := randf_range(24.0, 34.0)
+		var p: Vector3 = player.global_position + Vector3(cos(a) * r, 0, sin(a) * r)
+		if _terrain().coast_distance(p.x, p.z) < 5.0:
+			continue
+		p.y = _terrain().height_at(p.x, p.z) + 0.4
+		var zombie: Zombie = ZOMBIE_SCENE.instantiate()
+		zombie.position = p
+		zombie.target = player
+		zombie.set_meta("mob", true)
+		enemies.add_child(zombie)
+		zombie.alert(player)
 
 
 func _night_spawns() -> void:
@@ -309,17 +367,19 @@ func _night_spawns() -> void:
 		if left <= 0:
 			continue
 		for k in mini(mini(3, night_cap() - near), left):
-			var a := randf() * TAU
+			var a := wave_spawn_angle()
 			var r := randf_range(45.0, 65.0)
 			var p: Vector3 = player.global_position + Vector3(cos(a) * r, 0, sin(a) * r)
 			p.y = terrain.height_at(p.x, p.z) + 0.4
 			var zombie: Zombie = ZOMBIE_SCENE.instantiate()
+			zombie.variant = ZombieSpecial.roll("night")
 			zombie.position = p
 			zombie.set_meta("night", true)
 			zombie.target = player
 			enemies.add_child(zombie)
 			_wave_seen[zombie] = true
 			zombie.alert(player) # já sabe onde você está
+		_wave_cue()
 
 
 func _player_nodes() -> Array:
@@ -371,6 +431,10 @@ func load_data(data: Dictionary) -> void:
 		wave_killed = data.wave[1]
 		if data.wave.size() > 2:
 			wave_quota = data.wave[2]
+		if data.wave.size() > 3:
+			wave_angle = data.wave[3]
+			if DayNight.i and DayNight.i.is_night() and wave_alive > 0:
+				_wave_cue()
 
 
 func net_sync_to(peer: int) -> void:

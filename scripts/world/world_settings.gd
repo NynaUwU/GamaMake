@@ -24,6 +24,7 @@ const DEFS := [
 	["loot", "Saque nos baús", 25.0, 300.0, 25.0, 100.0, "%", "Recursos"],
 	["zombies", "Zumbis", 0.0, 300.0, 10.0, 100.0, "%", "Perigo"],
 	["hordes", "Hordas", 0.0, 300.0, 25.0, 100.0, "%", "Perigo"],
+	["specials", "Zumbis especiais", 0.0, 300.0, 25.0, 100.0, "%", "Perigo"],
 	["animals", "Animais", 0.0, 300.0, 25.0, 100.0, "%", "Perigo"],
 	["day_length", "Duração do dia", 5.0, 60.0, 5.0, 20.0, "min", "Tempo"],
 	["rain", "Chuva", 0.0, 250.0, 25.0, 100.0, "%", "Tempo"],

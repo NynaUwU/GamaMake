@@ -17,9 +17,17 @@ var _players_label: Label
 var _clock: Label
 var _wave: ProgressBar
 var _arcs: StatusArcs
+var _bile: ColorRect
+var _bile_mat: ShaderMaterial
+var _player: Node
 
 
 func _process(_delta: float) -> void:
+	if _bile and is_instance_valid(_player):
+		var amount := clampf(_player.bile_time / 2.0, 0.0, 1.0)
+		_bile.visible = amount > 0.0
+		if _bile.visible:
+			_bile_mat.set_shader_parameter("amount", amount)
 	if _clock and DayNight.i:
 		_clock.text = DayNight.i.clock_text()
 		_clock.modulate = Color(1.0, 0.95, 0.85) if not DayNight.i.is_night() else Color(0.7, 0.78, 1.0)
@@ -72,6 +80,31 @@ void fragment() {
 		_arcs.temperature = temp
 		_arcs.heat = body_heat / player.MAX_HEAT
 		frost_mat.set_shader_parameter("amount", clampf(1.0 - body_heat / 60.0, 0.0, 1.0))) # geada nas bordas quando gela
+	# Bile do inchado: manchas verdes escorrendo na tela (some nos últimos 2 s).
+	var bile := ColorRect.new()
+	bile.name = "Bile"
+	bile.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	bile.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var bile_mat := ShaderMaterial.new()
+	bile_mat.shader = Shader.new()
+	bile_mat.shader.code = """shader_type canvas_item;
+uniform float amount = 0.0;
+float h(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+void fragment() {
+	vec2 cell = floor(UV * vec2(14.0, 9.0) + vec2(0.0, -TIME * 0.15 * h(vec2(floor(UV.x * 14.0), 3.0))));
+	float blot = step(0.45, h(cell)) * (0.6 + 0.4 * h(cell + 7.0));
+	vec2 d = abs(UV - 0.5) * 2.0;
+	float edge = smoothstep(0.1, 0.9, max(d.x, d.y));
+	float a = clamp(blot * 0.75 + edge * 0.6 + 0.25, 0.0, 0.92) * amount;
+	COLOR = vec4(0.38, 0.5, 0.08, a);
+}"""
+	bile.material = bile_mat
+	bile.visible = false
+	$Root.add_child(bile)
+	$Root.move_child(bile, 1)
+	_bile = bile
+	_bile_mat = bile_mat
+	_player = player
 	var plants := PlantPanel.new()
 	plants.name = "PlantPanel"
 	$Root.add_child(plants)
