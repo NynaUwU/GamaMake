@@ -16,7 +16,8 @@ const IDS := [&"pistola", &"espada", &"taco", &"martelo", &"talhadeira", &"pa", 
 	&"barra_ferro", &"barra_cobre", &"vidro", &"sucata", &"pano", &"argila", &"areia", &"tijolo", &"fibra",
 	&"fio", &"tecido", &"garrafa", &"agua", &"agua_suja", &"capuz", &"capacete", &"colete", &"peitoral",
 	&"calca", &"botas", &"casaco",
-	&"barra_aco", &"parafuso", &"engrenagem", &"eixo_aco", &"cano", &"suco", &"oleo", &"alcool", &"bandagem_esteril"]
+	&"barra_aco", &"parafuso", &"engrenagem", &"eixo_aco", &"cano", &"suco", &"oleo", &"alcool", &"bandagem_esteril",
+	&"carne_crua", &"carne_assada", &"carne_seca", &"pele", &"couro", &"gordura", &"casaco_pele", &"correia", &"vara"]
 
 
 static func has(id: StringName) -> bool:
@@ -76,6 +77,14 @@ static func build(id: StringName, p: Dictionary) -> void:
 		&"tecido": _bolt(p)
 		&"garrafa", &"agua", &"agua_suja", &"suco", &"oleo", &"alcool": _bottle(p, id)
 		&"barra_aco": _ingot(p, Color(0.46, 0.49, 0.54))
+		&"carne_crua", &"carne_assada": _steak(p, id == &"carne_assada")
+		&"carne_seca": _jerky(p)
+		&"pele": _fur_hide(p)
+		&"couro": _leather_roll(p)
+		&"gordura": _lard(p)
+		&"casaco_pele": _fur_coat(p)
+		&"correia": _belt_coil(p)
+		&"vara": _fishing_rod(p)
 		&"parafuso": _bolts(p)
 		&"engrenagem": _gear(p)
 		&"eixo_aco": _steel_shaft(p)
@@ -914,4 +923,134 @@ static func _pipe_piece(p: Dictionary) -> void:
 	_mb(p, copper.darkened(0.25)).lathe(PackedVector2Array([Vector2(0.016, -0.19), Vector2(0.016, 0.19)]), 8, AXIS_Z) # boca escura por dentro
 	_mb(p, ItemModels.BRASS).lathe(PackedVector2Array([Vector2(0.016, -0.2), Vector2(0.04, -0.2), Vector2(0.04, -0.18), Vector2(0.024, -0.18)]), 8, AXIS_Z) # flange
 	_mb(p, copper.darkened(0.1)).lathe(PackedVector2Array([Vector2(0.024, 0.15), Vector2(0.03, 0.15), Vector2(0.03, 0.2), Vector2(0.016, 0.2)]), 8, AXIS_Z) # luva
+
+
+# --- carnes, couro e pele -------------------------------------------------------------
+
+## Bife com osso: peça grossa de contorno irregular, capa de gordura na borda,
+## marmoreio, osso redondo saindo; assada = tostada com marcas de grelha.
+static func _steak(p: Dictionary, cooked: bool) -> void:
+	var meat := Color(0.5, 0.26, 0.12) if cooked else Color(0.72, 0.2, 0.18)
+	var outline := PackedVector2Array([Vector2(-0.09, -0.045), Vector2(-0.02, -0.06), Vector2(0.06, -0.055), Vector2(0.095, -0.01),
+		Vector2(0.08, 0.05), Vector2(0.0, 0.065), Vector2(-0.07, 0.05), Vector2(-0.1, 0.0)])
+	_mb(p, meat).extrude(outline, 0.045, Basis(Vector3.RIGHT, PI / 2), Vector3(0, 0.0225, 0))
+	_mb(p, meat.darkened(0.25)).extrude(outline, 0.004, Basis(Vector3.RIGHT, PI / 2), Vector3(0, 0.047, 0)) # casquinha de cima
+	var fat := Color(0.85, 0.72, 0.5) if cooked else Color(0.95, 0.9, 0.8)
+	for k in 4:
+		var a := -0.5 + k * 0.45
+		_mb(p, fat).box(Vector3(cos(a) * 0.095, 0.022, sin(a) * 0.058), Vector3(0.035, 0.044, 0.014), Basis(Vector3.UP, -a - PI / 2)) # capa de gordura
+	for k in 5:
+		_mb(p, fat.darkened(0.05)).box(Vector3(-0.05 + k * 0.025, 0.049, sin(k * 1.9) * 0.025), Vector3(0.03, 0.003, 0.004), Basis(Vector3.UP, k)) # marmoreio
+	_mb(p, Color(0.92, 0.9, 0.82)).lathe(PackedVector2Array([Vector2(0.012, -0.03), Vector2(0.01, 0.0), Vector2(0.014, 0.03), Vector2(0.018, 0.04), Vector2(0.002, 0.045)]), 6, Basis(Vector3.BACK, -PI / 2), Vector3(0.09, 0.022, 0.0)) # osso
+	if cooked:
+		for k in 3:
+			_mb(p, Color(0.2, 0.1, 0.05)).box(Vector3(-0.04 + k * 0.04, 0.05, 0.0), Vector3(0.008, 0.002, 0.1), Basis(Vector3.UP, 0.6)) # marcas da grelha
+
+
+## Charque: tiras secas e torcidas amarradas com barbante.
+static func _jerky(p: Dictionary) -> void:
+	var dry := Color(0.42, 0.18, 0.12)
+	for k in 4:
+		var twist := Basis(Vector3.UP, (k - 1.5) * 0.12) * Basis(Vector3.RIGHT, sin(k * 1.7) * 0.15)
+		_mb(p, dry.darkened(0.08 * (k % 2))).box(Vector3(0, 0.012 + (k % 2) * 0.012, -0.045 + k * 0.03), Vector3(0.19, 0.012, 0.028), twist)
+		_mb(p, dry.lightened(0.15)).box(Vector3(-0.03, 0.019 + (k % 2) * 0.012, -0.045 + k * 0.03), Vector3(0.06, 0.002, 0.01), twist) # fibra
+	_mb(p, Color(0.85, 0.8, 0.65)).torus(0.045, 0.004, 10, 3, Basis(Vector3.BACK, PI / 2), Vector3(0.0, 0.02, 0.0)) # barbante
+	for k in 6:
+		_mb(p, Color(0.95, 0.95, 0.92)).box(Vector3(-0.07 + k * 0.03, 0.034, sin(k) * 0.03), Vector3(0.006, 0.004, 0.006)) # sal grosso
+
+
+## Pele crua: couro com contorno de bicho (patas e rabo), pelo em tufos por cima.
+static func _fur_hide(p: Dictionary) -> void:
+	var skin := Color(0.62, 0.48, 0.34)
+	var fur := Color(0.45, 0.32, 0.2)
+	var outline := PackedVector2Array([Vector2(-0.15, -0.04), Vector2(-0.12, -0.12), Vector2(-0.06, -0.08), Vector2(0.06, -0.08), Vector2(0.12, -0.12),
+		Vector2(0.15, -0.04), Vector2(0.14, 0.05), Vector2(0.12, 0.12), Vector2(0.05, 0.08), Vector2(0.0, 0.13), Vector2(-0.05, 0.08),
+		Vector2(-0.12, 0.12), Vector2(-0.14, 0.05)])
+	_mb(p, skin).extrude(outline, 0.008, Basis(Vector3.RIGHT, PI / 2), Vector3(0, 0.004, 0))
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 3
+	for k in 18:
+		var at := Vector3(rng.randf_range(-0.11, 0.11), 0.012, rng.randf_range(-0.07, 0.08))
+		_mb(p, fur.darkened(rng.randf_range(0.0, 0.2))).box(at, Vector3(0.035, 0.012, 0.025), Basis(Vector3.UP, rng.randf() * TAU)) # tufos
+	_mb(p, fur.darkened(0.3)).box(Vector3(0, 0.014, 0.0), Vector3(0.02, 0.006, 0.16)) # listra do lombo
+
+
+## Couro: rolo de couro curtido amarrado com tira, borda costurada aparecendo.
+static func _leather_roll(p: Dictionary) -> void:
+	var leather := Color(0.42, 0.26, 0.15)
+	_mb(p, leather).lathe(PackedVector2Array([Vector2(0.002, -0.13), Vector2(0.045, -0.13), Vector2(0.05, -0.12), Vector2(0.05, 0.12), Vector2(0.045, 0.13), Vector2(0.002, 0.13)]), 10, Basis(Vector3.BACK, PI / 2), Vector3(0, 0.05, 0))
+	_mb(p, leather.darkened(0.3)).lathe(PackedVector2Array([Vector2(0.02, 0.131), Vector2(0.035, 0.131)]), 10, Basis(Vector3.BACK, PI / 2), Vector3(0, 0.05, 0)) # espiral na ponta
+	_mb(p, leather.lightened(0.08)).box(Vector3(0, 0.002, 0.07), Vector3(0.26, 0.004, 0.06)) # aba desenrolada
+	for k in 9:
+		_mb(p, Color(0.85, 0.78, 0.6)).box(Vector3(-0.12 + k * 0.03, 0.005, 0.098), Vector3(0.012, 0.002, 0.003)) # costura
+	for x in [-0.07, 0.07]:
+		_mb(p, leather.darkened(0.45)).torus(0.052, 0.006, 10, 3, Basis(Vector3.BACK, PI / 2), Vector3(x, 0.05, 0)) # tiras
+
+
+## Gordura: banha num potinho de barro com pano amarrado na boca.
+static func _lard(p: Dictionary) -> void:
+	var clay := Color(0.6, 0.36, 0.22)
+	_mb(p, clay).lathe(PackedVector2Array([Vector2(0.002, -0.04), Vector2(0.045, -0.04), Vector2(0.058, -0.01), Vector2(0.056, 0.025), Vector2(0.045, 0.035), Vector2(0.05, 0.042)]), 10)
+	_mb(p, Color(0.95, 0.92, 0.8)).lathe(PackedVector2Array([Vector2(0.002, 0.045), Vector2(0.04, 0.042), Vector2(0.046, 0.036)]), 10) # banha aparecendo
+	_mb(p, Color(0.8, 0.74, 0.6)).lathe(PackedVector2Array([Vector2(0.05, 0.035), Vector2(0.06, 0.03), Vector2(0.058, 0.0)]), 10) # pano
+	_mb(p, Color(0.5, 0.36, 0.2)).torus(0.052, 0.004, 10, 3, Basis.IDENTITY, Vector3(0, 0.03, 0)) # barbante
+
+
+## Casaco de pele: corpo afinando na cintura, mangas torneadas, gola e punhos de
+## pelo claro, frente aberta com botões de osso e cinto.
+static func _fur_coat(p: Dictionary) -> void:
+	var hide := Color(0.48, 0.34, 0.22)
+	var fur := Color(0.88, 0.82, 0.7)
+	var rings := []
+	for s in [[0.0, 0.2, 0.11], [0.2, 0.18, 0.1], [0.38, 0.2, 0.11], [0.5, 0.21, 0.11]]:
+		rings.append(MeshBuilder.ring(Vector3(0, s[0], 0), s[1], s[2], 2.5, 10))
+	_mb(p, hide).loft(rings, true, true)
+	for side in [-1.0, 1.0]:
+		var arm := Basis(Vector3.BACK, side * 0.25)
+		_mb(p, hide.darkened(0.06)).lathe(PackedVector2Array([Vector2(0.06, 0.0), Vector2(0.065, 0.2), Vector2(0.058, 0.38)]), 8, Basis(Vector3.BACK, PI) * arm, Vector3(side * 0.25, 0.5, 0))
+		_mb(p, fur).lathe(PackedVector2Array([Vector2(0.06, 0.0), Vector2(0.07, 0.05)]), 8, Basis(Vector3.BACK, PI) * arm, Vector3(side * 0.25 + side * 0.1, 0.13, 0)) # punho
+	_mb(p, fur).torus(0.15, 0.04, 12, 4, Basis.IDENTITY, Vector3(0, 0.52, 0)) # gola
+	_mb(p, fur).box(Vector3(0, 0.25, 0.112), Vector3(0.06, 0.48, 0.02)) # frente de pelo
+	for k in 4:
+		_mb(p, Color(0.92, 0.9, 0.82)).box(Vector3(0.05, 0.1 + k * 0.1, 0.118), Vector3(0.025, 0.025, 0.012)) # botões de osso
+	_mb(p, Color(0.28, 0.18, 0.1)).box(Vector3(0, 0.2, 0.0), Vector3(0.38, 0.04, 0.24)) # cinto
+	_mb(p, Color(0.62, 0.5, 0.26)).box(Vector3(0, 0.2, 0.122), Vector3(0.05, 0.05, 0.01)) # fivela
+	for k in 6:
+		_mb(p, hide.darkened(0.15)).box(Vector3(-0.15 + k * 0.06, 0.0, 0.1), Vector3(0.012, 0.03, 0.01)) # franja
+
+
+## Correia: tira de couro enrolada em espiral com furos, ponta solta e fivela de latão.
+static func _belt_coil(p: Dictionary) -> void:
+	var leather := Color(0.32, 0.2, 0.12)
+	var path := PackedVector3Array()
+	for k in 40:
+		var t := k / 39.0
+		var a := t * TAU * 2.6
+		var r := 0.035 + t * 0.06
+		path.append(Vector3(cos(a) * r, 0.02, sin(a) * r))
+	path.append(Vector3(0.12, 0.02, 0.06))
+	_mb(p, leather).tube(path, 0.014, 4)
+	for k in 4:
+		_mb(p, Color(0.1, 0.07, 0.05)).box(Vector3(0.105 - k * 0.012, 0.035, 0.04 + k * 0.006), Vector3(0.006, 0.003, 0.006)) # furos
+	_mb(p, Color(0.62, 0.5, 0.26)).torus(0.018, 0.004, 8, 3, Basis(Vector3.BACK, PI / 2), Vector3(0.035, 0.02, 0.0)) # fivela
+	_mb(p, Color(0.62, 0.5, 0.26)).box(Vector3(0.035, 0.02, 0.0), Vector3(0.004, 0.004, 0.036)) # pino
+
+
+## Vara de pesca: cabo de cortiça com arremate, molinete de latão com manivela,
+## vara afinando com passadores (argolas) e a linha descendo até o anzol.
+static func _fishing_rod(p: Dictionary) -> void:
+	var cane := Color(0.62, 0.55, 0.3)
+	_mb(p, Color(0.72, 0.6, 0.42)).lathe(PackedVector2Array([Vector2(0.02, -0.12), Vector2(0.024, -0.1), Vector2(0.022, 0.08), Vector2(0.018, 0.1)]), 8, AXIS_Z) # cortiça
+	_mb(p, ItemModels.BRASS).lathe(PackedVector2Array([Vector2(0.002, -0.13), Vector2(0.022, -0.13), Vector2(0.022, -0.12)]), 8, AXIS_Z) # arremate
+	_mb(p, cane).lathe(PackedVector2Array([Vector2(0.016, 0.1), Vector2(0.012, 0.6), Vector2(0.005, 1.45)]), 6, AXIS_Z)
+	for k in 5:
+		var z := 0.3 + k * 0.25
+		_mb(p, cane.darkened(0.25)).lathe(PackedVector2Array([Vector2(0.017 - k * 0.0022, z), Vector2(0.017 - k * 0.0022, z + 0.02)]), 6, AXIS_Z) # amarrações
+		_mb(p, ItemModels.STEEL).torus(0.008, 0.002, 6, 3, Basis(Vector3.RIGHT, PI / 2), Vector3(0, -0.018 + k * 0.002, -z - 0.01)) # passador
+	# Molinete embaixo do cabo.
+	_mb(p, ItemModels.BRASS).lathe(PackedVector2Array([Vector2(0.002, -0.015), Vector2(0.035, -0.015), Vector2(0.035, 0.015), Vector2(0.002, 0.015)]), 10, Basis(Vector3.BACK, PI / 2), Vector3(0, -0.05, 0.02))
+	_mb(p, Color(0.85, 0.82, 0.75)).lathe(PackedVector2Array([Vector2(0.015, -0.012), Vector2(0.03, -0.012), Vector2(0.03, 0.012), Vector2(0.015, 0.012)]), 10, Basis(Vector3.BACK, PI / 2), Vector3(0, -0.05, 0.02)) # linha enrolada
+	_mb(p, ItemModels.BRASS).box(Vector3(0, -0.025, 0.02), Vector3(0.01, 0.03, 0.02)) # pé do molinete
+	_mb(p, ItemModels.IRON).box(Vector3(0.025, -0.05, 0.02), Vector3(0.01, 0.006, 0.04)) # manivela
+	_mb(p, Color(0.2, 0.15, 0.1)).box(Vector3(0.03, -0.05, 0.04), Vector3(0.012, 0.012, 0.012))
 

@@ -178,7 +178,8 @@ func _init() -> void:
 				_frame3(6, 3.4, 34.0)
 				await _save(out + "/tier3_%d.png" % (page + 1))
 		"items3":
-			var ids := [&"barra_aco", &"parafuso", &"engrenagem", &"eixo_aco", &"cano", &"suco", &"oleo", &"alcool", &"bandagem_esteril"]
+			var ids := [&"barra_aco", &"parafuso", &"engrenagem", &"eixo_aco", &"cano", &"suco", &"oleo", &"alcool", &"bandagem_esteril"] if OS.get_environment("ITEMS") == "" \
+				else Array(OS.get_environment("ITEMS").split(",")).map(func(x): return StringName(x))
 			for i in ids.size():
 				var node := ItemModels.build(ids[i])
 				var size: Vector3 = ItemDB.def(ids[i]).size
