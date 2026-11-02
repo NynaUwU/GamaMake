@@ -27,7 +27,7 @@ const ENTRIES := {
 	"Estrutura": [
 		{"id": "wall", "name": "Parede", "kind": BuildPiece.Kind.WALL, "desc": "2,8 x 2,8 m; R gira", "cost": {&"tabua": 4}},
 		{"id": "floor", "name": "Piso", "kind": BuildPiece.Kind.FLOOR, "desc": "Topo na altura da grade", "cost": {&"tabua": 4}},
-		{"id": "roof", "name": "Teto", "kind": BuildPiece.Kind.ROOF, "desc": "Apoia no topo das paredes", "cost": {&"tabua": 4}},
+		{"id": "roof", "name": "Teto", "kind": BuildPiece.Kind.ROOF, "desc": "Apoia no topo das paredes. R: telhado inclinado (45°), subindo para o seu lado: de dentro da casa, sobe da parede para o meio", "cost": {&"tabua": 4}},
 		{"id": "pillar", "name": "Pilar", "kind": BuildPiece.Kind.PILLAR, "desc": "0,4 m de lado, 2,8 m de altura. R deita (viga): em cima de uma parede cobre o topo dela", "cost": {&"tabua": 1, &"pedra": 1}},
 		{"id": "stairs", "name": "Escada", "place": "stairs", "desc": "Sobe um andar (2,8 m) para a frente. Segure Shift para alinhar com a grade", "cost": {&"tabua": 6, &"graveto": 2}},
 	],
@@ -118,7 +118,7 @@ const PLACE_RADIUS := {"pot_small": 0.35, "pot_wide": 0.7, "bench": 0.9, "campfi
 var player: Player
 var selection: Dictionary = ENTRIES["Estrutura"][0]
 var kind := BuildPiece.Kind.WALL
-var flip := false ## R: gira a parede (o padrão é ficar de frente para quem constrói) ou deita o pilar (viga)
+var flip := false ## R: gira a parede (o padrão é ficar de frente para quem constrói), deita o pilar (viga) ou inclina o teto (telhado)
 var target := {} ## onde o martelo vai construir {kind, cell, rot, valid}
 var fill_target := {} ## buraco mirado para janela/porta {piece, tris, valid}
 var cut_target := {} ## {piece, quarters}: meio quadrado mirado pela talhadeira
@@ -219,7 +219,8 @@ func _manager() -> BuildingManager:
 func tool_name() -> String:
 	if repair_target:
 		return "Consertar  [%s]" % cost_text(repair_cost(repair_target), player.inventory)
-	var text: String = "%s%s" % [selection.name, "  (girada)" if flip and selection.get("kind", -1) == BuildPiece.Kind.WALL else ""]
+	var text: String = "%s%s" % [selection.name, "  (girada)" if flip and selection.get("kind", -1) == BuildPiece.Kind.WALL else
+		("  (inclinado)" if flip and selection.get("kind", -1) == BuildPiece.Kind.ROOF else "")]
 	if selection.has("cost"):
 		text += "  [%s]" % cost_text(selection.cost, player.inventory if player else null)
 	return text
@@ -407,6 +408,7 @@ func update(tool: String) -> void:
 			return
 		_ghost.visible = true
 		_ghost.global_transform = BuildPiece.piece_transform(target.kind, target.cell, target.rot)
+		_slope_ghost(target)
 		_tint(target.valid)
 	elif tool == "chisel":
 		if not _drag.is_empty():
@@ -763,6 +765,38 @@ func _compute_target() -> Dictionary:
 					cell = Vector3i(roundi(p.x / seg) - n / 2, y, roundi(p.z / seg))
 				else:
 					cell = Vector3i(roundi(p.x / seg), y, roundi(p.z / seg) - n / 2)
+		BuildPiece.Kind.ROOF when flip:
+			# Telhado inclinado: sobe para o lado de quem constrói (de dentro da casa, a
+			# borda de baixo fica na parede e ele sobe para o meio).
+			var back := Vector3(-forward.x, 0.0, -forward.z)
+			if absf(back.z) >= absf(back.x):
+				rot = 2 if back.z > 0.0 else 4
+			else:
+				rot = 3 if back.x > 0.0 else 5
+			var up_dir := BuildPiece.slope_dir(rot)
+			if piece and piece.kind == BuildPiece.Kind.WALL and on_top:
+				# Em cima da parede: do lado para onde ele sobe.
+				var o := piece.cell
+				var y := o.y + n
+				if piece.rot == 0:
+					cell = Vector3i(o.x, y, o.z if up_dir.z > 0.0 else o.z - n) if absf(up_dir.z) > 0.5 else Vector3i(roundi(p.x / seg) - n / 2, y, o.z if me.z > o.z * seg else o.z - n)
+				else:
+					cell = Vector3i(o.x if up_dir.x > 0.0 else o.x - n, y, o.z) if absf(up_dir.x) > 0.5 else Vector3i(o.x if me.x > o.x * seg else o.x - n, y, roundi(p.z / seg) - n / 2)
+			elif piece and BuildPiece.is_slope(piece.kind, piece.rot):
+				# Encostado noutro telhado: continua a fileira (de lado) ou sobe/desce junto.
+				var o := piece.cell
+				rot = piece.rot
+				up_dir = BuildPiece.slope_dir(rot)
+				var local := piece.to_local(p)
+				var lu := local.x / seg
+				var lv := local.z / seg
+				var edges := [lu, n - lu, lv, n - lv]
+				var best: int = edges.find(edges.min())
+				var side := piece.global_basis.x.normalized()
+				var step: Vector3 = [-side, side, -up_dir, up_dir][best]
+				cell = o + Vector3i(roundi(step.x) * n, (n if best == 3 else (-n if best == 2 else 0)), roundi(step.z) * n)
+			else:
+				cell = Vector3i(roundi(p.x / seg) - n / 2, roundi(p.y / seg), roundi(p.z / seg) - n / 2)
 		BuildPiece.Kind.FLOOR, BuildPiece.Kind.ROOF:
 			if piece and on_top and piece.kind == kind:
 				# Perto da borda de outro piso/teto igual: vai para o lado dele.
@@ -796,7 +830,7 @@ func _compute_target() -> Dictionary:
 				cell = Vector3i(roundi(p.x / seg), piece.cell.y + n, roundi(p.z / seg))
 			else:
 				cell = Vector3i(roundi(p.x / seg), roundi(p.y / seg), roundi(p.z / seg))
-	if kind != BuildPiece.Kind.WALL and kind != BuildPiece.Kind.PILLAR:
+	if kind != BuildPiece.Kind.WALL and kind != BuildPiece.Kind.PILLAR and not (kind == BuildPiece.Kind.ROOF and flip):
 		rot = 0
 	return {"kind": kind, "cell": cell, "rot": rot, "valid": _manager().can_place(kind, cell, rot)}
 
@@ -824,11 +858,27 @@ func _set_ghost_shape() -> void:
 	_ghost_mesh.mesh = box
 
 
+## Fantasma do telhado inclinado: a placa deitada a 45° (sobe SIZE ao longo de +Z local).
+func _slope_ghost(t: Dictionary) -> void:
+	if t.kind != BuildPiece.Kind.ROOF:
+		return
+	var size := BuildPiece.SIZE
+	var th := BuildPiece.THICK
+	if BuildPiece.is_slope(t.kind, t.rot):
+		var box := BoxMesh.new()
+		box.size = Vector3(size, th, size * sqrt(2.0))
+		_ghost_mesh.mesh = box
+		_ghost_mesh.transform = Transform3D(Basis(Vector3.RIGHT, -PI / 4.0), Vector3(size * 0.5, size * 0.5 + th * 0.5, size * 0.5))
+	elif _ghost_mesh.transform.basis != Basis.IDENTITY:
+		_ghost_mesh.transform = Transform3D.IDENTITY
+		_set_ghost_shape()
+
+
 ## Triângulos realçados na face virada para quem mira (um pouco para fora dela).
 func _draw_triangles(piece: BuildPiece, tris: PackedInt32Array, color: Color) -> void:
 	var w := Vector2(-BuildPiece.THICK * 0.5, BuildPiece.THICK * 0.5) if piece.kind == BuildPiece.Kind.WALL 			else Vector2(0.0, BuildPiece.THICK)
 	var eye := piece.to_local(player.camera.global_position)
-	var eye_w := eye.z if piece.kind == BuildPiece.Kind.WALL else eye.y + (BuildPiece.THICK if piece.kind == BuildPiece.Kind.FLOOR else 0.0)
+	var eye_w := eye.z if piece.kind == BuildPiece.Kind.WALL else eye.y + (BuildPiece.THICK if piece.kind == BuildPiece.Kind.FLOOR else 0.0) - eye.z * piece.slope()
 	var depth := w.y + 0.01 if eye_w > (w.x + w.y) * 0.5 else w.x - 0.01
 	_highlight_mesh.clear_surfaces()
 	if tris.is_empty():

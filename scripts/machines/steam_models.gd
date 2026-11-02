@@ -597,6 +597,8 @@ static func _press(mb: MeshBuilder, spin: MeshBuilder, obj: PlacedObject) -> voi
 	# Caixa de engrenagens com polia (porta de energia à esquerda).
 	mb.color(IRON.lightened(0.05))
 	mb.box(Vector3(-0.68, 0.6, 0), Vector3(0.2, 0.36, 0.3))
+	mb.color(BRASS) # polia da porta de energia (onde encaixa eixo/esteira)
+	mb.lathe(PackedVector2Array([Vector2(0.002, -0.04), Vector2(0.1, -0.04), Vector2(0.1, 0.04), Vector2(0.002, 0.04)]), 10, Basis(Vector3.BACK, PI / 2), Vector3(-0.82, 0.6, 0))
 	mb.color(BRASS)
 	mb.lathe(PackedVector2Array([Vector2(0.002, -0.04), Vector2(0.12, -0.04), Vector2(0.12, 0.04), Vector2(0.002, 0.04)]), 10, Basis(Vector3.BACK, PI / 2), Vector3(-0.66, 1.2, 0))
 	mb.color(STEEL)

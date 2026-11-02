@@ -126,6 +126,11 @@ static func build(kind: String, obj: PlacedObject) -> void:
 		node.position = crank_at
 		obj.add_child(node)
 		obj.set_meta("crank_base", crank_at)
+		if Power.DEMAND.has(kind):
+			# Movida por eixo/esteira: a manivela anda sozinha enquanto trabalha.
+			var animator := PowerSpin.new()
+			animator.crank = true
+			obj.add_child(animator)
 
 
 # --- Ajudantes ------------------------------------------------------------------------

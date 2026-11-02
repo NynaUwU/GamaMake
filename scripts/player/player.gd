@@ -863,7 +863,10 @@ func _update_fp_arm() -> void:
 		if _held and _held.visible:
 			_held.position = right + offset # o modelo já vem posicionado (em pé no punho ou em cima dele)
 		if _torch and _torch.visible:
-			_torch.position = right + offset + Vector3(0.0, 0.02, -0.02)
+			if inventory.selected_id() == &"tocha":
+				_torch.position = right + offset + Vector3(0.0, 0.02, -0.02)
+			else:
+				_torch.position = left + offset + Vector3(-0.1, -0.08, -0.06) # mão secundária: na esquerda, mais baixa e para o canto
 		_place_arm(_fp_arm, _fp_hand, FP_SHOULDER, grip)
 		return
 	match _weapon_type:
@@ -2009,7 +2012,7 @@ func _toggle_flashlight() -> void:
 	if vehicle:
 		vehicle.toggle_headlights() # no carro, L liga/desliga os faróis
 		return
-	if not inventory.has(&"lanterna"):
+	if not _has_lantern():
 		notify.emit("Você não tem uma lanterna")
 		return
 	if not _flashlight.visible and flashlight_charge < 0.02:
@@ -2189,9 +2192,14 @@ var _torch_light: OmniLight3D
 var _torch_burn := 0.0
 
 
-## Tocha na mão: aparece acesa (luz que tremula) e queima por meio dia.
+## Tocha na mão (ou na mão secundária, à esquerda): aparece acesa (luz que tremula)
+## e queima por meio dia. Lanterna na mão secundária aparece na mão esquerda.
 func _update_torch(delta: float) -> void:
-	var holding := inventory.selected_id() == &"tocha"
+	var off: Dictionary = inventory.equipment.get("offhand", {})
+	var in_main := inventory.selected_id() == &"tocha"
+	var in_off: bool = not off.is_empty() and off.id == &"tocha" and not in_main
+	var holding := in_main or in_off
+	_update_offhand_lantern(not off.is_empty() and off.id == &"lanterna")
 	if holding and _torch == null:
 		_torch = Node3D.new()
 		_torch.add_child(ItemModels.build(&"tocha"))
@@ -2205,19 +2213,42 @@ func _update_torch(delta: float) -> void:
 		_torch_light.position = Vector3(0, 0.3, 0)
 		_torch.add_child(_torch_light)
 	if _torch:
-		_torch.visible = holding
+		_torch.visible = holding and vehicle == null
+		_torch.position = Vector3(0.28, -0.3, -0.45) if in_main else Vector3(-0.34, -0.36, -0.46)
+		_torch.rotation = Vector3(0.2, 0, -0.15) if in_main else Vector3(0.2, 0, 0.18)
 	if not holding:
 		return
 	_torch_light.light_energy = 1.6 + 0.35 * sin(Time.get_ticks_msec() * 0.013) + randf_range(-0.1, 0.1)
 	_torch_burn += delta
 	if _torch_burn >= 1.0:
 		_torch_burn -= 1.0
-		var slot: Dictionary = inventory.slots[inventory.selected]
+		var slot: Dictionary = inventory.slots[inventory.selected] if in_main else off
 		slot.dur = slot.get("dur", 1.0) - 1.0 / ItemDB.max_durability(&"tocha")
 		if slot.dur <= 0.0:
-			inventory.slots[inventory.selected] = {} # apagou: acabou a tocha
+			if in_main:
+				inventory.slots[inventory.selected] = {} # apagou: acabou a tocha
+			else:
+				inventory.equipment["offhand"] = {}
 			Sfx.play("creak", -10.0, 1.6)
 		inventory.changed.emit()
+
+
+## Lanterna na mão secundária: o modelo aparece na mão esquerda (a luz é a de sempre, L).
+var _off_lantern: Node3D
+func _update_offhand_lantern(show: bool) -> void:
+	if show and _off_lantern == null:
+		_off_lantern = Node3D.new()
+		_off_lantern.add_child(ItemModels.build(&"lanterna"))
+		_off_lantern.position = Vector3(-0.22, -0.16, -0.3)
+		_off_lantern.rotation = Vector3(0.05, 0.0, 0.0)
+		camera.add_child(_off_lantern)
+	if _off_lantern:
+		_off_lantern.visible = show and vehicle == null
+
+
+func _has_lantern() -> bool:
+	var off: Dictionary = inventory.equipment.get("offhand", {})
+	return inventory.has(&"lanterna") or (not off.is_empty() and off.id == &"lanterna")
 
 
 # Máquinas de manivela (Tier 1) ------------------------------------------------
@@ -2435,7 +2466,7 @@ func is_flashlight_on() -> bool:
 
 ## Luz na cara de um zumbi que está olhando para você: ele vem de longe.
 func _update_flashlight(delta: float) -> void:
-	if _flashlight.visible and not inventory.has(&"lanterna"):
+	if _flashlight.visible and not _has_lantern():
 		_flashlight.visible = false # soltou a lanterna
 	if not _flashlight.visible:
 		return

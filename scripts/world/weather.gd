@@ -66,10 +66,13 @@ func _process(delta: float) -> void:
 	_update_fx()
 
 
-## Host: próximo tempo. ~35% de chance de chover; vento mais forte com chuva.
+## Host: próximo tempo. ~18% de chance de chover (só coletor de chuva não dá conta da
+## sede); chuva dura menos que o tempo seco; vento mais forte com chuva.
 func _roll() -> void:
 	_timer = randf_range(120.0, 300.0)
-	target_rain = randf_range(0.4, 1.0) if randf() < minf(0.35 * WorldSettings.mult("rain"), 0.9) else 0.0
+	target_rain = randf_range(0.35, 0.9) if randf() < minf(0.18 * WorldSettings.mult("rain"), 0.9) else 0.0
+	if target_rain > 0.0:
+		_timer *= 0.6
 	target_wind = clampf(randf_range(0.05, 0.7) + target_rain * 0.3, 0.0, 1.0)
 	if Net.i.online():
 		Net.i.broadcast_system_state(name, save_data())

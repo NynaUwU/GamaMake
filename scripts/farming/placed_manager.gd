@@ -15,14 +15,20 @@ func _ready() -> void:
 	add_to_group("persist")
 
 
+## Relógio das plantas: anda junto com o relógio, mas a 20% de noite (Farming.growth_rate).
+static var grow_clock := 0.0
+
+
 func _process(delta: float) -> void:
 	clock += delta
+	grow_clock += delta * Farming.growth_rate()
 	_refresh -= delta
 	if _belts_dirty:
 		_rebuild_belts()
 	if _refresh <= 0.0:
 		_refresh = 1.0
 		_collect_rain()
+		_fertilize_beds()
 		_smelt()
 		_fluids()
 		_power()
@@ -131,6 +137,29 @@ func _smelt() -> void:
 				request("boom", [obj.net_id]) # caldeira seca e quente: explode
 
 
+## Host, 1x por segundo: adubo guardado no cesto do canteiro aduba a terra sozinho
+## (1 adubo = 3 colheitas em dobro; só pega outro quando acabar o efeito).
+func _fertilize_beds() -> void:
+	if not Net.i.is_host() or ContainerManager.i == null:
+		return
+	for obj: PlacedObject in objects.values():
+		if not obj.has_basket() or obj.extra.get("fert", 0) > 0:
+			continue
+		var key := obj.basket_key()
+		var slots: Array = ContainerManager.i.contents.get(key, [])
+		for k in slots.size():
+			if not slots[k].is_empty() and slots[k].id == &"adubo":
+				slots[k].amount -= 1
+				if slots[k].amount <= 0:
+					slots[k] = {}
+				ContainerManager.i.changed.emit(key)
+				if Net.i.online():
+					Net.i._system.rpc("Containers", "sync", [key, slots])
+				request("extra", [obj.net_id, {"fert": 3}])
+				Sfx.play_at("step_soft", obj.slot_world(PlacedObject.BASKET_SLOT), 0.0, 0.8)
+				break
+
+
 ## Host, 1x por segundo: chovendo, os coletores enchem (chuva forte: ~1 garrafa a cada 25 s).
 ## Manda o nível para os outros só quando muda uma garrafa inteira.
 var _rain_sent := {}
@@ -148,7 +177,7 @@ func _collect_rain() -> void:
 			continue
 		if obj.kind != "rain_collector":
 			continue
-		var water: float = minf(obj.extra.get("water", 0.0) + Weather.i.rain * 0.04, PlacedObject.COLLECTOR_CAP)
+		var water: float = minf(obj.extra.get("water", 0.0) + Weather.i.rain * 0.015, PlacedObject.COLLECTOR_CAP)
 		obj.extra.water = water
 		if int(water) != _rain_sent.get(obj.net_id, -1):
 			_rain_sent[obj.net_id] = int(water)
@@ -386,11 +415,11 @@ func host_apply(action: String, args: Array) -> Array:
 			if obj == null or slot < 0 or slot >= obj.crops.size() or not obj.crops[slot].is_empty() \
 					or not Farming.CROPS.has(crop) or not obj.allows(crop) or not obj.plantable(slot):
 				return []
-			obj.crops[slot] = {"crop": crop, "t": clock}
+			obj.crops[slot] = {"crop": crop, "t": grow_clock}
 			if irrigated(obj.global_position):
 				obj.crops[slot].boost = IRRIGATION_BOOST
 			obj.refresh(clock)
-			return [args[0], slot, crop, clock, obj.crops[slot].get("boost", 1.0)]
+			return [args[0], slot, crop, grow_clock, obj.crops[slot].get("boost", 1.0)]
 		"cook":
 			var obj: PlacedObject = objects.get(args[0])
 			var slot: int = args[1]
@@ -761,13 +790,14 @@ func save_data() -> Dictionary:
 		if obj.board:
 			obj.extra["pixels"] = obj.board.packed() # desenho da lousa vai junto
 		list.append([id, obj.kind, obj.global_transform, obj.crops.duplicate(true), obj.extra.duplicate(true)])
-	return {"clock": clock, "next": _next_id, "list": list}
+	return {"clock": clock, "grow": grow_clock, "next": _next_id, "list": list}
 
 
 func load_data(data: Dictionary) -> void:
 	for id in objects.keys():
 		_remove(id)
 	clock = data.get("clock", 0.0)
+	grow_clock = data.get("grow", clock) # save antigo: as plantas contavam pelo relógio normal
 	_next_id = data.get("next", 1)
 	for entry in data.get("list", []):
 		_spawn(entry[0], entry[1], entry[2], true)

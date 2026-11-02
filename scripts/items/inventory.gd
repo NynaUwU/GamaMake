@@ -1,7 +1,8 @@
 class_name Inventory
 extends Node
 ## Inventário do player: 9 slots de hotbar (teclas 1-9) + mochila 9x4, e o
-## equipamento vestido (cabeça, corpo, pernas, pés).
+## equipamento vestido (cabeça, corpo, pernas, pés) + a mão secundária (tocha ou
+## lanterna, sempre com você sem ocupar a mão da arma).
 ## Cada slot é {} (vazio) ou {"id": StringName, "amount": int}.
 
 signal changed ## qualquer slot mudou
@@ -10,11 +11,11 @@ signal gained(id: StringName, amount: int) ## entrou na mochila (aviso de coleta
 
 const HOTBAR_SIZE := 9
 const BACKPACK_SIZE := 36
-const EQUIP_SLOTS := ["head", "body", "legs", "feet"]
+const EQUIP_SLOTS := ["head", "body", "legs", "feet", "offhand"]
 
 var slots: Array = []
 var selected := 0
-var equipment := {"head": {}, "body": {}, "legs": {}, "feet": {}} ## o que está vestido
+var equipment := {"head": {}, "body": {}, "legs": {}, "feet": {}, "offhand": {}} ## o que está vestido / na outra mão
 
 
 ## Gasta "uses" usos do item do slot. Devolve true se quebrou (some do slot).
@@ -32,6 +33,8 @@ func wear(index: int, uses := 1.0) -> bool:
 func wear_equipment() -> bool:
 	var broke := false
 	for slot in equipment:
+		if slot == "offhand":
+			continue # tocha/lanterna não gastam com pancada
 		if not equipment[slot].is_empty() and _wear_item(equipment[slot], 1):
 			equipment[slot] = {}
 			broke = true

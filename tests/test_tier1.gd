@@ -113,6 +113,7 @@ func _init() -> void:
 	placed.host_apply("extra", [pot.net_id, {"fert": 3}])
 	placed.host_apply("plant", [pot.net_id, 0, "trigo"])
 	placed.clock += 400.0
+	PlacedManager.grow_clock += 5000.0
 	var before: int = get_nodes_in_group("interactable").filter(func(n): return n is PickupItem and n.item_id == &"trigo").reduce(func(a, n): return a + n.amount, 0)
 	placed.host_apply("harvest", [pot.net_id, 0])
 	await process_frame

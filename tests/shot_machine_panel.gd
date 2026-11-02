@@ -39,6 +39,7 @@ func _init() -> void:
 				ContainerManager.add_to(basket, &"semente_cenoura", 2)
 				ContainerManager.i.contents[obj.basket_key()] = basket
 				placed.clock += 140.0
+				PlacedManager.grow_clock += 700.0
 		obj.refresh(placed.clock)
 		var aim: Vector3 = obj.to_global(shot[1])
 		player.global_position = aim + (player.global_basis.z * (2.6 if shot[1].y > 0.5 else 1.7)) + Vector3(0, -aim.y + at.y, 0)

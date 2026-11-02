@@ -47,6 +47,7 @@ func _init() -> void:
 	placed.request("plant", [pot.net_id, 0, "batata"])
 	print("vaga ocupada recusa: ", pot.crops[0].crop)
 	placed.clock += 250.0
+	PlacedManager.grow_clock += 5000.0 # plantas crescem pelo relógio delas (~2 dias)
 	pot.refresh(placed.clock)
 	await _frames(2)
 	print("pronta: ", pot.get_interact_text(), " estágio=", pot._stages[0])

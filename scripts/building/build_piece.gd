@@ -13,6 +13,8 @@ extends StaticBody3D
 ##   parede: x 0..SIZE (comprimento), y 0..SIZE (altura), z -T/2..T/2
 ##   piso:   x/z 0..SIZE, y -T..0 (o topo fica na altura da grade: pisa-se em cima)
 ##   teto:   x/z 0..SIZE, y 0..T (a base fica na altura da grade: apoia no topo das paredes)
+##           inclinado (telhado, rot 2..5): o mesmo plano subindo 45° (sobe SIZE ao longo
+##           de +Z local); rot 2 sobe para +Z do mundo, 3 para +X, 4 para -Z, 5 para -X
 ##   pilar:  x/z -0.2..0.2 (centrado no ponto da grade), y 0..SIZE
 ##           deitado (viga, rot 1 = ao longo de X, rot 2 = de Z): mesmo espaço local, girado
 
@@ -29,7 +31,7 @@ const COLORS := {Kind.WALL: Color(0.46, 0.33, 0.2), Kind.FLOOR: Color(0.4, 0.29,
 
 var kind := Kind.WALL
 var cell := Vector3i.ZERO ## origem na grade (em quadrados)
-var rot := 0 ## 0 = ao longo de +X; 1 = ao longo de +Z
+var rot := 0 ## 0 = ao longo de +X; 1 = ao longo de +Z (teto: 2..5 = inclinado)
 var net_id := 0
 var removed := PackedByteArray() ## 1 = quarto tirado (índice: (j * N + i) * 4 + q; q: 0 baixo, 1 direita, 2 cima, 3 esquerda)
 ## Janelas e portas encaixadas nos buracos: [{"type": "window"/"door", "tris": PackedInt32Array, "open": bool}]
@@ -63,7 +65,31 @@ func _ready() -> void:
 	rebuild()
 
 
+## Teto inclinado (telhado de 45°)?
+static func is_slope(kind_: int, rot_: int) -> bool:
+	return kind_ == Kind.ROOF and rot_ >= 2 and rot_ <= 5
+
+
+## Sobe quanto por metro (telhado): 1 = 45°.
+func slope() -> float:
+	return 1.0 if is_slope(kind, rot) else 0.0
+
+
+## Direção (no mundo) para onde o telhado sobe, pela rotação 2..5.
+static func slope_dir(rot_: int) -> Vector3:
+	return [Vector3.BACK, Vector3.RIGHT, Vector3.FORWARD, Vector3.LEFT][clampi(rot_ - 2, 0, 3)]
+
+
 static func piece_transform(kind_: Kind, cell_: Vector3i, rot_: int) -> Transform3D:
+	if is_slope(kind_, rot_):
+		# Gira em Y para o lado da subida e acerta a origem: a peça cobre o mesmo
+		# quadrado da grade (cell .. cell + SIZE em x/z), com a borda de baixo na altura da grade.
+		var basis := Basis(Vector3.UP, (rot_ - 2) * PI / 2.0)
+		var low := Vector3(INF, 0, INF)
+		for corner in [Vector3.ZERO, Vector3(SIZE, 0, 0), Vector3(0, 0, SIZE), Vector3(SIZE, 0, SIZE)]:
+			var p: Vector3 = basis * corner
+			low = Vector3(minf(low.x, p.x), 0, minf(low.z, p.z))
+		return Transform3D(basis, Vector3(cell_) * SEG - low)
 	if kind_ == Kind.PILLAR and rot_ > 0:
 		# Pilar deitado (viga): ao longo de +X (rot 1) ou +Z (rot 2), com a base
 		# na altura da grade (apoia em cima de parede, pilar ou piso).
@@ -160,7 +186,7 @@ func uvw(u: float, v: float, w: float) -> Vector3:
 		Kind.FLOOR:
 			return Vector3(u, w - THICK, v)
 		_:
-			return Vector3(u, w, v)
+			return Vector3(u, w + v * slope(), v) # telhado inclinado: o plano sobe com v
 
 
 func _to_uv(local: Vector3) -> Vector2:
@@ -297,8 +323,8 @@ func ray_to_panel(from: Vector3, to: Vector3) -> Dictionary:
 	var a := to_local(from)
 	var b := to_local(to)
 	var mid := (_w_range().x + _w_range().y) * 0.5
-	var wa := a.z if kind == Kind.WALL else a.y + (THICK if kind == Kind.FLOOR else 0.0)
-	var wb := b.z if kind == Kind.WALL else b.y + (THICK if kind == Kind.FLOOR else 0.0)
+	var wa := a.z if kind == Kind.WALL else a.y + (THICK if kind == Kind.FLOOR else 0.0) - a.z * slope()
+	var wb := b.z if kind == Kind.WALL else b.y + (THICK if kind == Kind.FLOOR else 0.0) - b.z * slope()
 	if is_equal_approx(wa, wb) or (wa - mid) * (wb - mid) > 0.0:
 		return {}
 	var t := (mid - wa) / (wb - wa)
@@ -408,8 +434,8 @@ static func _part_index(i: int, j: int, q: int) -> int:
 
 
 func _pillar(st: SurfaceTool, faces: PackedVector3Array) -> void:
-	# Colisão: o prisma simples de 0,4 m. Desenho: base de pedra, poste de cantos
-	# chanfrados, cintas de ferro com pregos e capitel no topo.
+	# Colisão: o prisma simples de 0,4 m. Desenho uniforme de ponta a ponta (viga de
+	# madeira de cantos chanfrados com cintas de ferro), para emendar bem deitado.
 	var h := SEG * 0.5
 	var corners := [Vector3(-h, 0, -h), Vector3(h, 0, -h), Vector3(h, 0, h), Vector3(-h, 0, h)]
 	for e in 4:
@@ -418,21 +444,15 @@ func _pillar(st: SurfaceTool, faces: PackedVector3Array) -> void:
 		var top := Vector3.UP * SIZE
 		faces.append_array(PackedVector3Array([a, b + top, b, a, a + top, b + top]))
 	var wood: Color = COLORS[kind]
-	var stone := Color(0.5, 0.48, 0.45)
-	_box(st, Vector3(0, 0.12, 0), Vector3(0.4, 0.24, 0.4), stone)
-	_box(st, Vector3(0, 0.26, 0), Vector3(0.36, 0.04, 0.36), stone.lightened(0.1))
-	_box(st, Vector3(0, SIZE * 0.5 + 0.12, 0), Vector3(0.3, SIZE - 0.44, 0.3), wood)
-	for k in 4: # chanfros
+	_box(st, Vector3(0, SIZE * 0.5, 0), Vector3(0.34, SIZE, 0.34), wood)
+	for k in 4: # chanfros (cantos mais escuros), inteiros de ponta a ponta
 		var a := TAU * k / 4.0 + PI / 4.0
-		var at := Vector3(cos(a) * 0.15, SIZE * 0.5 + 0.12, sin(a) * 0.15)
-		_box(st, at, Vector3(0.06, SIZE - 0.44, 0.06), wood.darkened(0.12))
-	for y in [0.7, SIZE - 0.7]:
-		_box(st, Vector3(0, y, 0), Vector3(0.33, 0.06, 0.33), Color(0.24, 0.23, 0.23))
+		_box(st, Vector3(cos(a) * 0.17, SIZE * 0.5, sin(a) * 0.17), Vector3(0.06, SIZE, 0.06), wood.darkened(0.12))
+	for y in [0.35, SIZE * 0.5, SIZE - 0.35]:
+		_box(st, Vector3(0, y, 0), Vector3(0.37, 0.06, 0.37), Color(0.24, 0.23, 0.23)) # cinta de ferro
 		for k in 4:
 			var a := TAU * k / 4.0
-			_box(st, Vector3(cos(a) * 0.168, y, sin(a) * 0.168), Vector3(0.025, 0.025, 0.025), Color(0.62, 0.5, 0.26))
-	_box(st, Vector3(0, SIZE - 0.12, 0), Vector3(0.36, 0.1, 0.36), wood.darkened(0.15))
-	_box(st, Vector3(0, SIZE - 0.03, 0), Vector3(0.4, 0.06, 0.4), wood.darkened(0.25))
+			_box(st, Vector3(cos(a) * 0.186, y, sin(a) * 0.186), Vector3(0.025, 0.025, 0.025), Color(0.62, 0.5, 0.26))
 
 
 func _tri(st: SurfaceTool, faces: PackedVector3Array, a: Vector3, b: Vector3, c: Vector3, color: Color) -> void:

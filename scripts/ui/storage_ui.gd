@@ -89,6 +89,82 @@ func _build_furnace(column: VBoxContainer) -> void:
 		_status.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		_status.modulate = Color(1.0, 0.75, 0.45)
 		column.add_child(_status)
+	_build_recipes(column)
+
+
+## Receitas desta fornalha: material -> resultado (com ícones). Com o material na
+## mochila fica claro; clique manda o que tiver dele para o lugar do material.
+var _recipe_box: HFlowContainer
+func _build_recipes(column: VBoxContainer) -> void:
+	var title := Label.new()
+	title.text = "Receitas (clique: põe o material)"
+	title.add_theme_font_size_override("font_size", 10)
+	title.modulate = Color(1, 1, 1, 0.7)
+	column.add_child(title)
+	_recipe_box = HFlowContainer.new()
+	_recipe_box.add_theme_constant_override("h_separation", 6)
+	_recipe_box.add_theme_constant_override("v_separation", 4)
+	_recipe_box.custom_minimum_size = Vector2(300, 0)
+	column.add_child(_recipe_box)
+	_fill_recipes()
+
+
+func _fill_recipes() -> void:
+	if _recipe_box == null:
+		return
+	for child in _recipe_box.get_children():
+		_recipe_box.remove_child(child)
+		child.queue_free()
+	var kind: String = source.kind if source else "furnace"
+	var icons := get_tree().root.get_node_or_null("ItemIcons")
+	for r: Dictionary in CraftingUI.RECIPES:
+		if r.station != Smelting.station(kind) or r.cost.size() != 1:
+			continue
+		var input: StringName = r.cost.keys()[0]
+		var need: int = r.cost[input]
+		var have := player.inventory.count(input)
+		var button := Button.new()
+		button.focus_mode = Control.FOCUS_NONE
+		button.tooltip_text = "%d %s -> %d %s" % [need, ItemDB.display_name(input), r.get("amount", 1), ItemDB.display_name(r.id)]
+		var row := HBoxContainer.new()
+		row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		row.add_theme_constant_override("separation", 2)
+		button.add_child(row)
+		for part in [[input, need], ["->", 0], [r.id, r.get("amount", 1)]]:
+			if part[0] is String:
+				var arrow := Label.new()
+				arrow.text = "→"
+				arrow.add_theme_font_size_override("font_size", 10)
+				row.add_child(arrow)
+				continue
+			var icon := TextureRect.new()
+			icon.custom_minimum_size = Vector2(20, 20)
+			icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+			icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+			icon.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+			icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			if icons and icons.has_method("get_icon"):
+				icon.texture = icons.get_icon(part[0])
+			row.add_child(icon)
+			if part[1] > 1:
+				var count := Label.new()
+				count.text = "x%d" % part[1]
+				count.add_theme_font_size_override("font_size", 9)
+				row.add_child(count)
+		button.custom_minimum_size = Vector2(row.get_combined_minimum_size().x + 10, 26)
+		row.position = Vector2(5, 3)
+		button.modulate = Color(1, 1, 1, 1.0) if have >= need else Color(1, 1, 1, 0.4)
+		button.pressed.connect(func(): _use_recipe(input))
+		_recipe_box.add_child(button)
+
+
+## Manda todo o material da receita que estiver na mochila para o lugar do material.
+func _use_recipe(input: StringName) -> void:
+	var index := Cooking.find_any(player.inventory, {input: true})
+	if index < 0:
+		Sfx.play("click", -6.0, 0.6)
+		return
+	_quick("bag", index)
 
 
 ## Caldeira: só o combustível (com a chama) e as três barras: água, calor e pressão.
@@ -237,6 +313,7 @@ func _refresh() -> void:
 		child.queue_free()
 	for child in _bag_grid.get_children() + _hotbar_grid.get_children():
 		child.queue_free()
+	_fill_recipes() # mochila mudou: receitas com/sem material
 	var slots: Array = ContainerManager.i.slots_of(key)
 	if _is_furnace():
 		for k in 3:

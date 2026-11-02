@@ -60,6 +60,8 @@ func _rebuild(target: PlacedObject) -> void:
 		Cooking.LABELS.get(target.kind, ["", "", ""])[2])
 	if target.has_basket():
 		title.text += "  ·  cesto: %d" % target.basket_count()
+	if target.extra.get("fert", 0) > 0:
+		title.text += "  ·  adubada (%d)" % target.extra.fert
 	title.add_theme_font_size_override("font_size", 11)
 	title.modulate = Color(1, 0.9, 0.7)
 	_list.add_child(title)

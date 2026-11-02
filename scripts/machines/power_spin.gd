@@ -5,11 +5,16 @@ extends Node
 
 const RATE := 4.0 ## radianos por segundo a 100%
 var axis := Vector3.RIGHT
+var crank := false ## máquina de manivela (moinho, roca, tear): com força e trabalho, a manivela anda sozinha
 
 
 func _process(delta: float) -> void:
 	var obj := get_parent() as PlacedObject
 	if obj == null:
+		return
+	if crank:
+		if obj.extra.get("pstate", "") == "ok" and Power.busy(obj):
+			Machines._spin(obj, delta) # mesmo movimento (e rangido) de quem gira na mão
 		return
 	var part := obj.get_node_or_null("Spin") as Node3D
 	var speed: float = obj.extra.get("speed", 0.0)

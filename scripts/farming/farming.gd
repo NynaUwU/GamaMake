@@ -7,19 +7,39 @@ extends RefCounted
 ## Plantas são seres vivos: blocos (como os zumbis e o jogador).
 
 const REACH := 3.6
+## "days": dias de jogo até ficar pronta (contando a noite mais lenta).
 const CROPS := {
-	"cenoura": {"time": 240.0, "food": &"cenoura", "seed": &"semente_cenoura", "yield": [2, 3], "seeds": [1, 2],
+	"cenoura": {"time": 240.0, "days": 1.6, "food": &"cenoura", "seed": &"semente_cenoura", "yield": [2, 3], "seeds": [1, 2],
 		"leaf": Color(0.3, 0.55, 0.2), "fruit": Color(0.85, 0.42, 0.1)},
-	"batata": {"time": 300.0, "food": &"batata", "seed": &"semente_batata", "yield": [2, 4], "seeds": [1, 2],
+	"batata": {"time": 300.0, "days": 2.0, "food": &"batata", "seed": &"semente_batata", "yield": [2, 4], "seeds": [1, 2],
 		"leaf": Color(0.25, 0.45, 0.2), "fruit": Color(0.85, 0.82, 0.95)},
-	"abobora": {"time": 420.0, "food": &"abobora", "seed": &"semente_abobora", "yield": [1, 2], "seeds": [1, 3],
+	"abobora": {"time": 420.0, "days": 2.5, "food": &"abobora", "seed": &"semente_abobora", "yield": [1, 2], "seeds": [1, 3],
 		"leaf": Color(0.28, 0.5, 0.18), "fruit": Color(0.86, 0.45, 0.1)},
-	"trigo": {"time": 300.0, "food": &"trigo", "seed": &"semente_trigo", "yield": [2, 4], "seeds": [1, 2],
+	"trigo": {"time": 300.0, "days": 1.8, "food": &"trigo", "seed": &"semente_trigo", "yield": [2, 4], "seeds": [1, 2],
 		"leaf": Color(0.55, 0.6, 0.25), "fruit": Color(0.85, 0.72, 0.35)},
-	"algodao": {"time": 360.0, "food": &"fibra", "seed": &"semente_algodao", "yield": [2, 3], "seeds": [1, 2],
+	"algodao": {"time": 360.0, "days": 2.2, "food": &"fibra", "seed": &"semente_algodao", "yield": [2, 3], "seeds": [1, 2],
 		"leaf": Color(0.3, 0.45, 0.22), "fruit": Color(0.95, 0.94, 0.9)},
 }
 const SEED_ORDER := ["cenoura", "batata", "abobora", "trigo", "algodao"]
+## Velocidade de crescimento à noite (de dia = 1).
+const NIGHT_GROWTH := 0.2
+## Parte do dia que é noite (20h às 6h, com as transições).
+const NIGHT_SHARE := 0.42
+
+
+## Segundos do relógio das plantas até a cultura ficar pronta: "days" dias de jogo
+## (pela duração do dia do mundo), já contando que de noite ela cresce a 20%.
+static func grow_time(crop: String) -> float:
+	var day := WorldSettings.get_value("day_length") * 60.0
+	var per_day := day * (1.0 - NIGHT_SHARE + NIGHT_SHARE * NIGHT_GROWTH)
+	return CROPS[crop].get("days", 2.0) * per_day
+
+
+## Quanto as plantas crescem por segundo agora (1 de dia, 0,2 de noite).
+static func growth_rate() -> float:
+	if DayNight.i == null:
+		return 1.0
+	return lerpf(1.0, NIGHT_GROWTH, DayNight.i.night)
 
 
 static func manager(player: Node) -> PlacedManager:

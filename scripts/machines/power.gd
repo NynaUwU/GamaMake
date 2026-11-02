@@ -37,10 +37,10 @@ const PORTS := {
 	"quern": [[Vector3(-0.55, 0.6, 0), Vector3.LEFT]],
 	"spinning": [[Vector3(-0.65, 0.6, 0), Vector3.LEFT]],
 	"loom": [[Vector3(-0.8, 0.6, 0), Vector3.LEFT]],
-	"steam_engine": [[Vector3(1.15, 0.6, 0), Vector3.RIGHT]],
+	"steam_engine": [[Vector3(1.08, 0.6, 0), Vector3.RIGHT]],
 	"blast_furnace": [[Vector3(-1.0, 0.6, 0), Vector3.LEFT]],
-	"lathe": [[Vector3(-1.1, 0.6, 0), Vector3.LEFT]],
-	"press": [[Vector3(-0.75, 0.6, 0), Vector3.LEFT]],
+	"lathe": [[Vector3(-0.98, 0.6, 0), Vector3.LEFT]], # na polia de latão do modelo
+	"press": [[Vector3(-0.84, 0.6, 0), Vector3.LEFT]],
 }
 const PARTS := ["axle", "tripod", "cog", "pulley"]
 const COG_RADIUS := {"cog": 0.3}

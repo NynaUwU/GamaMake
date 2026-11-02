@@ -159,7 +159,7 @@ func is_lit(clock := -1.0) -> bool:
 
 # --- Coletor de água da chuva ----------------------------------------------------
 
-const COLLECTOR_CAP := 10 ## garrafas
+const COLLECTOR_CAP := 5 ## garrafas
 var _water_mesh: Node3D
 
 
@@ -251,8 +251,9 @@ static func progress(entry: Dictionary, clock: float) -> float:
 	# (boost: irrigada pelo carneiro hidráulico cresce mais rápido)
 	if entry.is_empty():
 		return -1.0
-	var time: float = Farming.CROPS[entry.crop].time / entry.get("boost", 1.0)
-	return clampf((clock - entry.t) / time, 0.0, 1.0)
+	# Relógio das plantas (PlacedManager.grow_clock): anda a 20% de noite.
+	var time: float = Farming.grow_time(entry.crop) / entry.get("boost", 1.0)
+	return clampf((PlacedManager.grow_clock - entry.t) / time, 0.0, 1.0)
 
 
 ## Atualiza o desenho das plantas (chamado ~1x por segundo pelo manager).

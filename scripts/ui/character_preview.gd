@@ -7,7 +7,8 @@ extends SubViewportContainer
 const RIG := preload("res://scripts/enemies/humanoid_rig.gd")
 ## slot -> [osso, deslocamento, escala] do modelo do item no boneco.
 const MOUNT := {"head": [&"Head", Vector3(0, 0.12, 0), 1.15], "body": [&"Chest", Vector3(0, -0.24, 0), 0.95],
-	"legs": [&"Hips", Vector3(0, -0.62, 0), 1.0], "feet": [&"Hips", Vector3(0, -0.98, 0), 1.0]}
+	"legs": [&"Hips", Vector3(0, -0.62, 0), 1.0], "feet": [&"Hips", Vector3(0, -0.98, 0), 1.0],
+	"offhand": [&"LowerArm.L", Vector3(0, -0.34, 0.05), 0.7]} # tocha/lanterna na mão esquerda
 
 var _viewport: SubViewport
 var _pivot: Node3D

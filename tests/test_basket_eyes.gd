@@ -28,6 +28,7 @@ func _init() -> void:
 		planted.append(not res.is_empty())
 	print("plantar nas 9 vagas: %s (a do meio é o cesto)" % [planted])
 	placed.clock += 400.0
+	PlacedManager.grow_clock += 5000.0
 	var inv0 := player.inventory.count(&"cenoura")
 	var ground0 := root.get_tree().get_nodes_in_group("interactable").filter(func(i): return i is PickupItem and i.item_id == &"cenoura").size()
 	for slot in 9:

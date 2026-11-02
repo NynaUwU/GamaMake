@@ -62,6 +62,18 @@ Martelo → aba **Vapor**. Ordem natural: torno (ferro) → parafusos/engrenagen
   - **Antisséptico:** bandagem + álcool (mesa) = **bandagem com álcool** (+60 vida e cura a doença).
 - **Itens novos:** barra de aço, parafusos, engrenagem, eixo torneado, cano, suco, óleo, álcool, bandagem com álcool (modelos próprios).
 
+## Telhado inclinado, plantas mais lentas, mão secundária e receitas na fornalha (rodada de feedback)
+- **Telhado inclinado (45°):** com o **Teto** no martelo, **[R]** troca para "Teto (inclinado)". Ele sobe na direção para onde você olha (a parte baixa fica do seu lado). Em cima de uma parede cobre o lado para onde sobe; ao lado de outro telhado inclinado ele **continua a rampa** (de lado na mesma altura, para cima ou para baixo na diagonal). Dois lados virados um para o outro fazem um telhado de **duas águas**. Fantasma inclinado, colisão inclinada (dá para andar em cima), talhadeira funciona, salva e sincroniza.
+- **Pilar uniforme:** sem a base e o topo de pedra; agora é uma viga de madeira de ponta a ponta (cantos chanfrados, 3 cintas de ferro com cravos), então **deitado emenda certinho** com outro pilar.
+- **Plantas mais lentas:** cada cultura leva **~2 dias de jogo** (cenoura 1,6, trigo 1,8, batata 2, algodão 2,2, abóbora 2,5). **De noite crescem a 20%** da velocidade (relógio das plantas próprio, salvo junto). Irrigação, aspersor e adubo continuam valendo.
+- **Adubo no cesto do canteiro:** adubo guardado no cesto **aduba a terra sozinho** (1 adubo = 3 colheitas em dobro, gasta o próximo quando acabar). O painel do canteiro mostra "adubada (N)".
+- **Coletor de chuva guarda 5** (era 10) e **chove menos**: chance de chuva bem menor, chuva mais fraca e mais curta; o coletor enche mais devagar. Só coletor não basta mais para viver.
+- **Manivela com força:** moinho, roca, tear, amolador e fole ligados por eixo/esteira agora **giram a manivela sozinhos** quando estão trabalhando (antes ficavam parados mesmo funcionando).
+- **Polia do torno/prensa/motor no lugar:** a porta de força do torno ficava longe da polia de latão do modelo; agora a esteira encosta na polia que aparece (torno, prensa e motor a vapor).
+- **Mão secundária:** vaga nova no equipamento (ícone de tocha) para **tocha ou lanterna**. Tocha ali fica **acesa na mão esquerda** (gasta igual) e deixa a direita livre para arma/ferramenta; lanterna ali aparece na mão esquerda e o [L] usa ela.
+- **Receitas na fornalha:** fornalhas (barro, pedra, alto-forno) mostram embaixo **as receitas disponíveis** (material × N → resultado × M); as que você tem material ficam claras, e **clicar põe o material** no lugar dele.
+- Testes: `tests/test_round40.gd`. Fotos: `tests/shot_round40.gd`.
+
 ## Força rotacional nova, estilo Create (rodada de feedback)
 - **Sem velocidade:** geradores dão **força** (roda d'água 4, moinho de vento até 6 conforme o vento e a altura, motor a vapor 10) e máquinas **trabalhando** pedem **carga** (moinho 1, roca 1, tear 1,5, prensa 1,5, alto-forno 2, torno 2, serraria 3). Força ≥ carga: tudo gira a 100%. Carga maior: **sobrecarga, tudo para**. `scripts/machines/power.gd`.
 - **Eixo de qualquer tamanho** (item **eixo**, mesa: 2 tábuas + 1 barra de ferro = 3): segure o clique no começo e solte no fim (até 8 m, 1 eixo a cada 2 m). Começa numa porta de latão, num tripé, numa ponta de eixo ou no chão (na altura das portas); fica no nível do começo; Shift = reto a 45°. Fantasma verde/vermelho; bolinha amarela = ponta encaixada.
@@ -208,7 +220,7 @@ Martelo → aba **Vapor**. Ordem natural: torno (ferro) → parafusos/engrenagen
 - **Garrafa** (fornalha: 1 vidro → 2 garrafas; casas e caixote inicial): clique com ela na **água do lago** → **água suja**; num **coletor de chuva** → **água potável**. Beber devolve a garrafa vazia.
 - **Doença** (água suja: 60% de chance): por 3 min a vida cai devagar (até 15), a stamina enche pela metade e fome/sede gastam 60% mais rápido. Arco da vida fica verde. Some sozinha.
 - **Clima** (`scripts/world/weather.gd`): o host sorteia o tempo a cada 2–5 min (~35% de chuva) e o vento (mais forte com chuva; vai mover moinhos no Tier 2). Chuva: gotas em volta da câmera, céu cinza, sol fraco, som de chuva. Vai no save e na rede.
-- **Coletor de água da chuva** (martelo → Outros: 4 tábuas + 1 pano): barril com funil; chovendo enche (chuva forte ≈ 1 garrafa a cada 25 s, até 10). A água aparece subindo dentro.
+- **Coletor de água da chuva** (martelo → Outros: 4 tábuas + 1 pano): barril com funil; chovendo enche (chuva forte ≈ 1 garrafa a cada ~70 s, até 5). A água aparece subindo dentro.
 - **Secador** (martelo → Outros: 6 gravetos + 1 pano): varal com 4 ganchos; peixe/frutos do lago viram **peixe seco** em 90 s (+40 fome, não queima). Pele → couro entra quando houver animais.
 - **Argila → tijolo:** a pá na **beira dos lagos** (até ~1 m acima da água) tira argila em vez de abrir cova; na grelha da fogueira vira tijolo e **não queima** (pode esquecer lá). O tijolo é a base da fornalha de pedra (Tier 1).
 - **A fogueira afasta zumbis à noite:** eles não entram a menos de ~6 m dela, nem indo atrás de quem está ao lado do fogo; ficam rondando a borda da luz. De dia não adianta.
@@ -379,7 +391,7 @@ Martelo → aba **Vapor**. Ordem natural: torno (ferro) → parafusos/engrenagen
 - **Martelo → aba Outros:** pote (1 planta, 2 pedras), floreira (3 plantas), **canteiro** (piso de terra na grade da construção, 9 plantas), bancada.
 - **Pá:** clique = golpe. **Botão direito** no chão de terra cava uma **cova** (às vezes acha pedra); numa cova/pote/canteiro vazio planta a primeira semente da mochila; numa planta pronta, colhe.
 - **Semente na mão:** clique planta onde mirar. **[E]** colhe tudo que estiver pronto.
-- Culturas: cenoura (~4 min), batata (~5 min), abóbora (~7 min, não cabe no pote pequeno). A colheita dá comida + sementes.
+- Culturas: cenoura (~1,6 dia), batata (~2 dias), abóbora (~2,5 dias, não cabe no pote pequeno); de noite crescem a 20%. A colheita dá comida + sementes.
 - As plantas crescem pelo relógio do mundo (salvo junto) e sincronizam no multiplayer.
 - Testes: `tests/test_farming.gd`.
 
@@ -482,7 +494,7 @@ Todos os sons são **sintetizados no código** ao abrir o jogo (sem arquivos de 
 | Tab | mochila (arraste os itens entre os slots) |
 | E / G | pegar / soltar item |
 | M | mapa do mundo (o minimapa fica no canto de baixo à direita) |
-| L | lanterna (precisa estar no inventário e ter bateria) |
+| L | lanterna (precisa estar no inventário ou na mão secundária e ter bateria) |
 | R | recarregar a pistola |
 | Enter | chat (comandos do host: `/noite`, `/dia`, `/hora N`, `/horda`) |
 | B / botão do meio | marcar (ping) onde mira |
