@@ -314,7 +314,7 @@ func host_apply(action: String, args: Array) -> Array:
 			var obj: PlacedObject = objects[args[0]]
 			if obj.kind == "flag":
 				Net.i.give_to(Net.i.request_peer, &"bandeira", 1) # recolheu: volta para a mochila
-			if obj.kind in ["chest", "airdrop", "trough"] and ContainerManager.i:
+			if obj.kind in ["chest", "airdrop", "trough", "bed"] and ContainerManager.i:
 				ContainerManager.i.dump("placed_%d" % obj.net_id, obj.global_position) # o que tinha dentro cai
 			if obj.kind in Smelting.KINDS and ContainerManager.i:
 				ContainerManager.i.dump(Smelting.key_of(obj), obj.global_position)
@@ -325,7 +325,7 @@ func host_apply(action: String, args: Array) -> Array:
 			var slot: int = args[1]
 			var crop: String = args[2]
 			if obj == null or slot < 0 or slot >= obj.crops.size() or not obj.crops[slot].is_empty() \
-					or not Farming.CROPS.has(crop) or not obj.allows(crop):
+					or not Farming.CROPS.has(crop) or not obj.allows(crop) or not obj.plantable(slot):
 				return []
 			obj.crops[slot] = {"crop": crop, "t": clock}
 			if irrigated(obj.global_position):
@@ -463,7 +463,24 @@ func _drop_harvest(obj: PlacedObject, slot: int) -> void:
 		food *= 2
 		obj.extra.fert = obj.extra.fert - 1
 	var seeds := randi_range(def.seeds[0], def.seeds[1])
-	Net.i.drop_item(def.food, food, where, Vector3(randf_range(-1, 1), 2.5, randf_range(-1, 1)))
+	if obj.has_basket() and ContainerManager.i:
+		# Canteiro: tudo vai para o cesto do meio (o que não couber cai do lado).
+		var key := obj.basket_key()
+		if not ContainerManager.i.contents.has(key):
+			ContainerManager.i.contents[key] = ContainerManager.empty_slots(ContainerManager.STORAGE_SLOTS)
+		var slots: Array = ContainerManager.i.contents[key]
+		var basket := obj.slot_world(PlacedObject.BASKET_SLOT) + Vector3.UP * 0.5
+		food = ContainerManager.add_to(slots, def.food, food)
+		if seeds > 0:
+			seeds = ContainerManager.add_to(slots, def.seed, seeds)
+		ContainerManager.i.changed.emit(key)
+		if Net.i.online():
+			Net.i._system.rpc("Containers", "sync", [key, slots])
+		ImpactFX.burst(self, basket, Vector3.UP, Color(0.6, 0.5, 0.3), 6, 1.2, 0.03)
+		where.origin = basket
+		obj.refresh(clock)
+	if food > 0:
+		Net.i.drop_item(def.food, food, where, Vector3(randf_range(-1, 1), 2.5, randf_range(-1, 1)))
 	if seeds > 0:
 		Net.i.drop_item(def.seed, seeds, where, Vector3(randf_range(-1, 1), 2.5, randf_range(-1, 1)))
 	Sfx.play_at("pickup", where.origin, 0.0, 0.8)

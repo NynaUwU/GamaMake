@@ -20,9 +20,13 @@ var _arcs: StatusArcs
 var _bile: ColorRect
 var _bile_mat: ShaderMaterial
 var _player: Node
+var _machine: MachinePanel
 
 
 func _process(_delta: float) -> void:
+	if _machine:
+		var plants := $Root.get_node_or_null("PlantPanel") as Control
+		prompt_label.visible = not _machine.visible and not (plants and plants.visible)
 	if _bile and is_instance_valid(_player):
 		var amount := clampf(_player.bile_time / 2.0, 0.0, 1.0)
 		_bile.visible = amount > 0.0
@@ -109,6 +113,11 @@ void fragment() {
 	plants.name = "PlantPanel"
 	$Root.add_child(plants)
 	plants.setup(player)
+	# Máquinas: painel pequeno (nome, barras, teclas) no lugar da frase embaixo da mira.
+	_machine = MachinePanel.new()
+	_machine.name = "MachinePanel"
+	$Root.add_child(_machine)
+	_machine.setup(player)
 	player.interact_prompt_changed.connect(func(text: String): prompt_label.text = text)
 	player.notify.connect(show_message)
 	var feed := PickupFeed.new()

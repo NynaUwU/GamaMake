@@ -125,7 +125,8 @@ func _build() -> void:
 	material.roughness = 1.0
 	quad.material = material
 	canvas.mesh = quad
-	canvas.position = Vector3(0, 1.23, 0.005)
-	canvas.rotation.x = -0.06
+	# Entre o fundo (frente em z=-0,01) e as ripas da moldura (frente em z=0,025),
+	# reta como a moldura: antes vinha inclinada e metade entrava nas tábuas do fundo.
+	canvas.position = Vector3(0, 1.23, 0.002)
 	add_child(canvas)
 	obj._shape(Vector3(0, 0.9, -0.1), Vector3(1.1, 1.8, 0.5))

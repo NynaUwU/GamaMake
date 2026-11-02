@@ -55,7 +55,7 @@ static func text(obj: PlacedObject) -> String:
 		"pump":
 			return name + "  [segure E: enche garrafas vazias]"
 		"stone_furnace":
-			return "%s %d%%  [E] abrir · [segure E] fole" % [name, int(heat(obj) * 100.0)]
+			return "%s: calor %d%%  [E] abrir · [segure E] fole" % [name, int(heat(obj) * 100.0)]
 		"oven":
 			return "[E] " + name
 	match obj.kind:

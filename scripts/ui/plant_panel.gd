@@ -1,12 +1,14 @@
 class_name PlantPanel
 extends PanelContainer
-## Mirando um pote/floreira/canteiro/cova (ou a grelha da fogueira): painel ao
-## lado da mira com a foto de cada planta, a barra de crescimento e a %.
+## Mirando um pote/floreira/canteiro/cova (ou a grelha da fogueira, o varal do
+## secador, o filtro, o defumador, a composteira): painel ao lado da mira com a
+## foto de cada planta/comida, a barra e a %. Canteiro: quantos itens no cesto.
 
 var player: Player
 var _list: VBoxContainer
 var _target: PlacedObject
 var _timer := 0.0
+var _prompt := ""
 
 
 func setup(p: Player) -> void:
@@ -31,13 +33,14 @@ func _process(delta: float) -> void:
 	# O alvo pode ter sido destruído neste frame (tronco cortado, item pego): checa antes do "as".
 	var raw: Variant = player.get("_interact_target")
 	var target: PlacedObject = raw as PlacedObject if is_instance_valid(raw) else null
-	if target == null or not (target.is_farm() or target.kind == "campfire"):
+	if target == null or not (target.is_farm() or target.kind in Cooking.KINDS):
 		visible = false
 		_target = null
 		return
 	_timer -= delta
-	if target == _target and _timer > 0.0:
+	if target == _target and _timer > 0.0 and target.get_interact_text() == _prompt:
 		return
+	_prompt = target.get_interact_text()
 	_target = target
 	_timer = 0.25
 	visible = true
@@ -53,7 +56,10 @@ func _rebuild(target: PlacedObject) -> void:
 	var clock := manager.clock if manager else 0.0
 	var icons := (Engine.get_main_loop() as SceneTree).root.get_node_or_null("ItemIcons")
 	var title := Label.new()
-	title.text = {"pot_small": "Pote", "pot_wide": "Floreira", "bed": "Canteiro", "ground": "Cova", "campfire": "Grelha"}.get(target.kind, "")
+	title.text = {"pot_small": "Pote", "pot_wide": "Floreira", "bed": "Canteiro", "ground": "Cova", "campfire": "Grelha"}.get(target.kind,
+		Cooking.LABELS.get(target.kind, ["", "", ""])[2])
+	if target.has_basket():
+		title.text += "  ·  cesto: %d" % target.basket_count()
 	title.add_theme_font_size_override("font_size", 11)
 	title.modulate = Color(1, 0.9, 0.7)
 	_list.add_child(title)
@@ -67,7 +73,7 @@ func _rebuild(target: PlacedObject) -> void:
 		var id: StringName
 		var progress := 0.0
 		var note := ""
-		if target.kind == "campfire":
+		if target.kind in Cooking.KINDS:
 			var st := Cooking.stage(entry, clock)
 			id = entry.food if st == 0 else Cooking.result_of(entry, clock)
 			progress = clampf((clock - entry.t) / entry.get("cook", Cooking.COOK_TIME), 0.0, 1.0)
@@ -116,6 +122,27 @@ func _rebuild(target: PlacedObject) -> void:
 		empty.text = "Vazio"
 		empty.add_theme_font_size_override("font_size", 10)
 		_list.add_child(empty)
+	# A ação ([E] Colher, [E] Cesto...) fica no rodapé do painel, não embaixo da mira.
+	var prompt := target.get_interact_text()
+	if prompt.begins_with("["):
+		var close := prompt.find("]")
+		var foot := HBoxContainer.new()
+		foot.add_theme_constant_override("separation", 3)
+		var key := Label.new()
+		key.text = prompt.substr(1, close - 1)
+		key.add_theme_font_size_override("font_size", 9)
+		var key_style := StyleBoxFlat.new()
+		key_style.bg_color = Color(0.85, 0.82, 0.7)
+		key_style.content_margin_left = 3
+		key_style.content_margin_right = 3
+		key.add_theme_stylebox_override("normal", key_style)
+		key.add_theme_color_override("font_color", Color(0.1, 0.1, 0.1))
+		foot.add_child(key)
+		var action := Label.new()
+		action.text = prompt.substr(close + 1).strip_edges()
+		action.add_theme_font_size_override("font_size", 9)
+		foot.add_child(action)
+		_list.add_child(foot)
 	offset_left = 40.0 # volta para o lugar de sempre (ao lado da mira) antes de medir
 	offset_top = -60.0
 	size = Vector2.ZERO # encolhe para o conteúdo atual (sem sobrar metade vazia)

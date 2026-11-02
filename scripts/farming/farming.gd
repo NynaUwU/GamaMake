@@ -53,7 +53,7 @@ static func use(player: Player, crop: String) -> bool:
 		if ready >= 0:
 			placed.request("harvest", [obj.net_id, ready])
 			return true
-		var slot := _closest_slot(obj, hit.position, func(e: Dictionary): return e.is_empty())
+		var slot := _closest_slot(obj, hit.position, func(e: Dictionary): return e.is_empty(), true)
 		if slot < 0:
 			Sfx.play("click", -6.0, 0.6) # tudo plantado e crescendo (o painel da mira mostra a %)
 			return false
@@ -101,12 +101,14 @@ static func use(player: Player, crop: String) -> bool:
 
 
 ## Vaga mais perto do ponto que cumpre "test" (-1 = nenhuma).
-static func _closest_slot(obj: PlacedObject, point: Vector3, test: Callable) -> int:
+static func _closest_slot(obj: PlacedObject, point: Vector3, test: Callable, planting := false) -> int:
 	var local := obj.to_local(point)
 	var slots := obj.slot_positions()
 	var best := -1
 	var best_d := INF
 	for i in mini(slots.size(), obj.crops.size()):
+		if planting and not obj.plantable(i):
+			continue # canteiro: a vaga do meio é o cesto
 		var d: float = Vector2(local.x - slots[i].x, local.z - slots[i].z).length()
 		if d < best_d and test.call(obj.crops[i]):
 			best_d = d

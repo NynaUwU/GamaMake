@@ -29,6 +29,7 @@ enum LimbState { OK, BROKEN, CUT }
 const LAYER_HITBOX := 1 << 4
 const LAYER_ENEMY := 1 << 2
 const SEPARATION_RADIUS := 0.75
+const SPEED_SCALE := 1.25 ## todos os zumbis (comuns e especiais) andam 25% mais rápido
 
 # Grade de vizinhança (montada uma vez por tick de física, para todos os zumbis).
 static var _grid := {}
@@ -207,7 +208,8 @@ func _ready() -> void:
 		special._cd = 0.6 if variant == "saltador" else 2.0
 		add_child(special)
 	if _net_spawn.is_empty():
-		move_speed *= randf_range(0.85, 1.25)
+		move_speed *= randf_range(0.85, 1.25) * SPEED_SCALE
+		crawl_speed *= SPEED_SCALE
 	for limb in LIMBS:
 		_limb_state[limb] = LimbState.OK
 		_limb_hp[limb] = {"head": head_health, "arm": arm_health, "leg": leg_health}[LIMBS[limb].kind]
@@ -697,6 +699,7 @@ func _hurt(amount: float) -> void:
 	health -= amount
 	if health <= 0.0:
 		_impale_died = true
+		skeleton.eyes_off() # morreu na lâmina
 		_drop_weapon()
 		died.emit(self)
 
@@ -1348,6 +1351,8 @@ var _loot_dropped := false
 func _set_state(new_state: State) -> void:
 	if new_state != state:
 		_state_sound(new_state)
+	if new_state == State.DEAD:
+		skeleton.eyes_off() # olhos apagam: morreu de vez
 	if new_state == State.DEAD and not _loot_dropped:
 		_loot_dropped = true # qualquer morte (golpe, explosão, empalado, carro...) solta o saque
 		_drop_loot()
@@ -1753,6 +1758,8 @@ func apply_snapshot(entry: Array) -> void:
 		if entry[3] != state:
 			_state_sound(entry[3])
 		state = entry[3]
+		if state == State.DEAD:
+			skeleton.eyes_off()
 	crawler = entry[4]
 	_snap_attack = entry[5]
 	_snap_swing = entry[6]
@@ -1796,6 +1803,8 @@ func _apply_spawn_state() -> void:
 		_apply_body_shape()
 	if _net_spawn.ragdoll:
 		_enter_ragdoll()
+	if state == State.DEAD:
+		skeleton.eyes_off(0.0) # entrou no meio da partida: corpo já morto
 
 
 ## Marionete: segue a posição/estado do host e anima com isso (sem IA).

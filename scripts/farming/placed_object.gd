@@ -93,6 +93,45 @@ func allows(crop: String) -> bool:
 	return is_farm() and not extra.has("tree") and not (kind == "pot_small" and crop == "abobora")
 
 
+## Canteiro: a vaga do meio é o cesto (a colheita vai para ele, não dá para plantar).
+const BASKET_SLOT := 4
+
+
+func has_basket() -> bool:
+	return kind == "bed"
+
+
+func plantable(slot: int) -> bool:
+	return not (has_basket() and slot == BASKET_SLOT)
+
+
+func basket_key() -> String:
+	return "placed_%d" % net_id
+
+
+func basket_count() -> int:
+	var n := 0
+	if ContainerManager.i:
+		for s in ContainerManager.i.slots_of(basket_key()):
+			if not s.is_empty():
+				n += s.amount
+	return n
+
+
+## A mira está no cesto? (raio da câmera do jogador)
+func aiming_basket(player: Node) -> bool:
+	if not has_basket() or player.get("camera") == null:
+		return false
+	var cam: Camera3D = player.camera
+	var hit := get_world_3d().direct_space_state.intersect_ray(PhysicsRayQueryParameters3D.create(cam.global_position,
+		cam.global_position - cam.global_basis.z * 4.0, 1 | (1 << 5), [player.get_rid()]))
+	if hit.is_empty() or hit.collider != self:
+		return false
+	var local := to_local(hit.position)
+	var c: Vector3 = slot_positions()[BASKET_SLOT]
+	return Vector2(local.x - c.x, local.z - c.z).length() < 0.42
+
+
 # --- Fogo (acende só em uso) -----------------------------------------------------
 
 const LIT_KINDS := ["campfire", "furnace", "stone_furnace", "oven", "smoker", "blast_furnace", "boiler", "distillery"]
@@ -230,6 +269,10 @@ func refresh(clock: float) -> void:
 	if kind == "rain_collector":
 		_refresh_collector()
 		return
+	if has_basket():
+		var fill := get_node_or_null("Fill") as Node3D
+		if fill:
+			fill.visible = basket_count() > 0
 	if kind in Cooking.KINDS:
 		for i in crops.size():
 			var st := Cooking.stage(crops[i], clock)
@@ -299,6 +342,10 @@ func get_interact_text() -> String:
 			return "[E] Recolher bandeira"
 	if trap:
 		return trap.get_text()
+	if has_basket():
+		var player := get_tree().get_first_node_in_group("player")
+		if player and aiming_basket(player):
+			return "[E] Cesto (%d colhido%s)" % [basket_count(), "s" if basket_count() != 1 else ""]
 	var ready := ready_count(clock)
 	if ready > 0:
 		return "[E] Colher (%d pronta%s)" % [ready, "s" if ready > 1 else ""]
@@ -365,6 +412,9 @@ func interact(player: Node) -> void:
 		return
 	if trap:
 		trap.interact(player)
+		return
+	if has_basket() and (aiming_basket(player) or ready_count(manager.clock) == 0):
+		StorageUI.open_for(player, basket_key()) # cesto do canteiro: pega o que foi colhido
 		return
 	for i in crops.size():
 		if progress(crops[i], manager.clock) >= 1.0:

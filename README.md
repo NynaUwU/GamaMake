@@ -62,6 +62,13 @@ Martelo → aba **Vapor**. Ordem natural: torno (ferro) → parafusos/engrenagen
   - **Antisséptico:** bandagem + álcool (mesa) = **bandagem com álcool** (+60 vida e cura a doença).
 - **Itens novos:** barra de aço, parafusos, engrenagem, eixo torneado, cano, suco, óleo, álcool, bandagem com álcool (modelos próprios).
 
+## Cesto no canteiro, painel das máquinas, olhos e velocidade dos zumbis (rodada de feedback)
+- **Canteiro com cesto:** a vaga do meio virou um **cesto de vime**. Tudo que é colhido no canteiro (comida e sementes) **vai para o cesto** em vez de pular no chão; o que não couber cai do lado. Mirando o cesto, **[E] abre** (baú de 21 vagas); mirando o resto do canteiro, [E] colhe o que estiver pronto (sem nada pronto, abre o cesto). O cesto mostra comida dentro quando tem algo. Desmontar o canteiro derruba o que tinha no cesto. Muda plantada no canteiro cresce na vaga da frente.
+- **Painel pequeno das máquinas** (`scripts/ui/machine_panel.gd`): mirando uma máquina/estação, um painel ao lado da mira mostra **nome, barras** (água, pressão, calor, força, comida...), **ícones** do que está dentro (3 Trigo, 1 Farinha) e as **teclas** ([E] abrir, [segure E] girar, clique: despeja) — no lugar da frase comprida embaixo da mira. Monta sozinho a partir do texto de cada máquina, então serve para todas. O painel das plantas agora também cobre secador, filtro, defumador e composteira, com a ação ([E] Colher, [E] Cesto) no rodapé.
+- **Olhos dos zumbis apagam quando morrem** (o brilho some em ~0,3 s e fica cinza fosco): fácil saber quando parar de bater. Derrubado mas vivo, os olhos continuam acesos. Cabeça arrancada também fica com os olhos apagados.
+- **Zumbis 25% mais rápidos** (todos, comuns e especiais; rastejando também).
+- **Lousa:** a tela branca ficava inclinada e metade dentro das tábuas do fundo; agora fica reta, entre o fundo e as ripas da moldura.
+
 ## Não cair pelo mundo e saque mais raro (rodada de feedback)
 - **Descer do carro tombado ou capotado:** o jogador desce num ponto livre em volta do carro (porta, outro lado, atrás, frente, mais longe, por cima), sempre em cima do chão e só onde o corpo cabe. Antes descia dentro do terreno e caía pelo mundo. `Player._safe_exit`.
 - **Barreira no fundo do mundo** (`scripts/world/world_floor.gd`): quem passou de y = -60 ou ficou mais de 4 m abaixo do terreno volta **para cima da terra** (ou boiando na água), parado. Vale para o jogador, zumbis de pé, bichos, itens no chão e carros. Item que cai onde o chão ainda não tem colisão (longe de todo mundo) fica congelado até o chão aparecer.

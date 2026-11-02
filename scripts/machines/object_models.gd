@@ -393,7 +393,54 @@ static func _bed(mb: MeshBuilder, obj: PlacedObject) -> void:
 		mb.box(Vector3(s * 0.5, 0.152, 0.93 * (j + 1)), Vector3(s - 0.34, 0.012, 0.16)) # sulco
 	mb.color(WATER.darkened(0.2))
 	mb.box(Vector3(s * 0.5 + 0.4, 0.156, 0.93), Vector3(0.6, 0.01, 0.09)) # poça no sulco
+	_basket(mb, Vector3(s * 0.5, 0.19, s * 0.5))
 	obj._shape(Vector3(s * 0.5, (0.22 - t) * 0.5, s * 0.5), Vector3(s, 0.22 + t, s))
+	obj._shape(Vector3(s * 0.5, 0.19 + 0.17, s * 0.5), Vector3(0.6, 0.34, 0.5)) # cesto (mira e colisão)
+	# O que já foi colhido aparece dentro do cesto ("Fill").
+	var fill := MeshBuilder.new()
+	var produce := [Color(0.86, 0.42, 0.1), Color(0.85, 0.72, 0.35), Color(0.82, 0.8, 0.9), Color(0.86, 0.45, 0.1), Color(0.95, 0.94, 0.9)]
+	for k in 9:
+		fill.color(produce[k % produce.size()])
+		fill.box(Vector3(-0.17 + (k % 3) * 0.17, (k / 3) * 0.015, -0.12 + (k / 3) * 0.12), Vector3(0.12, 0.08, 0.1), Basis(Vector3.UP, k * 0.8))
+	var node := MeshInstance3D.new()
+	node.name = "Fill"
+	node.mesh = fill.finish(PlacedObject._mat(), false)
+	node.position = Vector3(s * 0.5, 0.19 + 0.27, s * 0.5)
+	node.visible = false
+	obj.add_child(node)
+
+
+## Cesto de vime no meio do canteiro: corpo trançado (faixas alternadas), borda
+## grossa e alça em arco. Tudo que é colhido no canteiro vai para ele.
+static func _basket(mb: MeshBuilder, at: Vector3) -> void:
+	var wicker := Color(0.66, 0.5, 0.28)
+	var w := 0.56
+	var d := 0.44
+	var h := 0.32
+	mb.color(wicker.darkened(0.2))
+	mb.box(at + Vector3(0, 0.02, 0), Vector3(w - 0.04, 0.04, d - 0.04)) # fundo
+	for row in 5:
+		var y := 0.05 + row * 0.06
+		for side in [-1.0, 1.0]:
+			mb.color(wicker.darkened(0.08 * ((row + (1 if side > 0 else 0)) % 2)))
+			mb.box(at + Vector3(0, y, side * d * 0.5), Vector3(w, 0.055, 0.03))
+			mb.color(wicker.darkened(0.08 * ((row + (0 if side > 0 else 1)) % 2)))
+			mb.box(at + Vector3(side * w * 0.5, y, 0), Vector3(0.03, 0.055, d))
+	for k in 7:
+		mb.color(wicker.darkened(0.25))
+		var x := -w * 0.5 + 0.04 + k * (w - 0.08) / 6.0
+		for side in [-1.0, 1.0]:
+			mb.box(at + Vector3(x, h * 0.5 + 0.02, side * (d * 0.5 + 0.012)), Vector3(0.015, h, 0.01)) # varetas
+	mb.color(wicker.lightened(0.08))
+	for side in [-1.0, 1.0]:
+		mb.box(at + Vector3(0, h + 0.02, side * d * 0.5), Vector3(w + 0.04, 0.04, 0.05)) # borda
+		mb.box(at + Vector3(side * w * 0.5, h + 0.02, 0), Vector3(0.05, 0.04, d + 0.04))
+	mb.color(wicker.darkened(0.1))
+	var arc := PackedVector3Array()
+	for k in 9:
+		var a := PI * k / 8.0
+		arc.append(at + Vector3(cos(a) * w * 0.42, h + 0.04 + sin(a) * 0.22, 0))
+	mb.tube(arc, 0.018, 5) # alça
 
 
 static func _ground(mb: MeshBuilder, obj: PlacedObject) -> void:

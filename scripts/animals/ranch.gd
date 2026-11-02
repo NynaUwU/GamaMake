@@ -166,7 +166,7 @@ static func text(obj: PlacedObject) -> String:
 			return "[E] Cocho (%d de comida)" % count
 		"water_trough":
 			var water: float = obj.extra.get("water", 0.0)
-			return "Bebedouro: %d de %d%s" % [int(water), int(WATER_CAP), "  (clique com água na mão para encher)" if water < WATER_CAP - 1.0 else ""]
+			return "Bebedouro: água %d de %d%s" % [int(water), int(WATER_CAP), "  (clique com água na mão para encher)" if water < WATER_CAP - 1.0 else ""]
 		"fence":
 			return "Cerca"
 		"gate":

@@ -31,6 +31,9 @@ var _cut := {} # ossos arrancados (não entram mais na malha)
 static var _body_material: StandardMaterial3D
 static var _mesh_cache := {} # corpo inteiro (sem cortes) já montado, por cores: todos os zumbis usam o mesmo
 static var _eye_material: StandardMaterial3D
+static var _dead_eye_material: StandardMaterial3D
+var eyes_dead := false ## morreu: olhos apagados (fica fácil saber quando parar de bater)
+var _eye_fade: StandardMaterial3D
 
 # nome, pai, posição relativa ao pai, comprimento, direção (+1 cima / -1 baixo),
 # largura, profundidade, massa, parte (define cor e multiplicador de dano)
@@ -291,6 +294,7 @@ func _rebuild_skin() -> void:
 	var key := "%s|%s|%s|%s|%s" % [skin_color, shirt_color, pants_color, glowing_eyes, look_key]
 	if _cut.is_empty() and _mesh_cache.has(key):
 		skin_mesh.mesh = _mesh_cache[key]
+		_apply_dead_eyes()
 		return
 	var body := SurfaceTool.new()
 	body.begin(Mesh.PRIMITIVE_TRIANGLES)
@@ -308,6 +312,7 @@ func _rebuild_skin() -> void:
 		eyes.commit(mesh)
 		mesh.surface_set_material(1, _get_eye_material())
 	skin_mesh.mesh = mesh
+	_apply_dead_eyes()
 	if _cut.is_empty():
 		_mesh_cache[key] = mesh
 
@@ -376,6 +381,50 @@ static func _get_body_material() -> StandardMaterial3D:
 	return _body_material
 
 
+## Olho apagado: cinza amarelado fosco, sem brilho.
+static func _get_dead_eye_material() -> StandardMaterial3D:
+	if _dead_eye_material == null:
+		_dead_eye_material = StandardMaterial3D.new()
+		_dead_eye_material.albedo_color = Color(0.16, 0.15, 0.12)
+		_dead_eye_material.roughness = 1.0
+	return _dead_eye_material
+
+
+## Morreu: o brilho dos olhos some em "fade" segundos (0 = na hora).
+func eyes_off(fade := 0.35) -> void:
+	if eyes_dead or not glowing_eyes:
+		return
+	eyes_dead = true
+	if fade <= 0.0 or not is_inside_tree():
+		_eye_fade = null
+		_apply_dead_eyes()
+		return
+	_eye_fade = _get_eye_material().duplicate() as StandardMaterial3D
+	_apply_dead_eyes()
+	var tween := create_tween()
+	tween.set_parallel(true)
+	tween.tween_property(_eye_fade, "emission_energy_multiplier", 0.0, fade)
+	tween.tween_property(_eye_fade, "albedo_color", _get_dead_eye_material().albedo_color, fade)
+	tween.chain().tween_callback(func():
+		_eye_fade = null
+		_apply_dead_eyes())
+
+
+## Põe o material de olho apagado (ou o do fade) na malha do corpo e nos olhos soltos.
+func _apply_dead_eyes() -> void:
+	if not eyes_dead:
+		return
+	var mat: StandardMaterial3D = _eye_fade if _eye_fade else _get_dead_eye_material()
+	if skin_mesh and skin_mesh.mesh and skin_mesh.mesh.get_surface_count() > 1:
+		skin_mesh.set_surface_override_material(1, mat)
+	if not merge_visuals:
+		var head := get_node_or_null(attachment_name("Head"))
+		if head:
+			for child in head.get_children():
+				if child is MeshInstance3D and child.material_override != null and child.material_override.emission_enabled:
+					child.material_override = mat
+
+
 static func _get_eye_material() -> StandardMaterial3D:
 	if _eye_material == null:
 		_eye_material = StandardMaterial3D.new()
@@ -423,7 +472,7 @@ func detach_limb(bone_name: StringName, impulse: Vector3) -> Array[StringName]:
 		limb_mesh.surface_set_material(0, _get_body_material())
 		if piece_has_eyes:
 			piece_eyes.commit(limb_mesh)
-			limb_mesh.surface_set_material(1, _get_eye_material())
+			limb_mesh.surface_set_material(1, _get_dead_eye_material()) # cabeça arrancada: olhos apagados
 		var limb_visual := MeshInstance3D.new()
 		limb_visual.mesh = limb_mesh
 		limb.add_child(limb_visual)
