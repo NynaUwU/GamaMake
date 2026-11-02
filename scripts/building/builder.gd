@@ -59,7 +59,6 @@ const ENTRIES := {
 		{"id": "loom", "name": "Tear", "place": "loom", "desc": "Fio vira tecido (segure E)", "cost": {&"tabua": 6, &"graveto": 6}},
 		{"id": "water_wheel", "name": "Roda d'água", "place": "water_wheel", "desc": "Na beira de um rio, de frente para a água: gira sem parar (força 4). A porta de latão fica na margem", "cost": {&"tabua": 14, &"barra_ferro": 3}},
 		{"id": "windmill", "name": "Moinho vento", "place": "windmill", "desc": "Força conforme o vento (até 6, mais alto = mais forte). Porta de latão na base", "cost": {&"tabua": 12, &"tecido": 4, &"barra_ferro": 2}},
-		{"id": "shaft", "name": "Eixo", "place": "shaft", "desc": "Leva o giro adiante: encaixa sozinho na porta de latão mais perto. Use correias para ligar de longe", "cost": {&"tabua": 2, &"barra_ferro": 1}},
 		{"id": "sawmill", "name": "Serraria", "place": "sawmill", "desc": "Com energia: 1 tronco vira 12 tábuas (força 3)", "cost": {&"tabua": 8, &"barra_ferro": 4, &"sucata": 2}},
 		{"id": "ram_pump", "name": "Carneiro", "place": "ram_pump", "desc": "Na beira de um rio: bombeia água sem energia. Irriga as plantações em volta (10 m crescem 50% mais rápido) e enche garrafas", "cost": {&"barra_ferro": 4, &"sucata": 4, &"tabua": 2}},
 		{"id": "smoker", "name": "Defumador", "place": "smoker", "desc": "Peixe cru vira defumado: enche muito e nunca estraga", "cost": {&"tijolo": 4, &"tabua": 4, &"sucata": 1}},
@@ -495,6 +494,13 @@ func _mark_removal() -> void:
 			_:
 				box.size = Vector3(BuildPiece.SEG, size, BuildPiece.SEG)
 				center = Vector3(0, size * 0.5, 0)
+	elif node is PlacedObject and node.kind in ["axle", "pipe"]:
+		var length: float = node.extra.get("len", 1.0)
+		box.size = Vector3(0.18, 0.18, length)
+		center = Vector3(0, 0, length * 0.5)
+	elif node is PlacedObject and PowerParts.has(node.kind):
+		box.size = Vector3(0.5, 0.5, 0.5)
+		center = Vector3.ZERO
 	elif node is PlacedObject and not node.kind in ["ground", "tree", "airdrop"]:
 		box.size = PLACE_SIZE.get(node.kind, Vector3(0.8, 0.8, 0.8))
 		center = PLACE_CENTER.get(node.kind, Vector3(0, box.size.y * 0.5, 0))
@@ -522,6 +528,16 @@ func dismantle() -> bool:
 	if hit and hit.collider is PlacedObject and not hit.collider.kind in ["ground", "tree", "airdrop"]:
 		if hit.collider.kind == "pipe":
 			player.inventory.add(&"cano", Fluids.pipe_cost(hit.collider.extra.get("len", 1.0))) # cano volta inteiro
+		elif hit.collider.kind == "axle":
+			player.inventory.add(PowerParts.AXLE_ITEM, PowerParts.axle_cost(hit.collider.extra.get("len", 1.0)))
+		elif PowerParts.ITEMS.has(hit.collider.kind):
+			player.inventory.add(PowerParts.ITEMS[hit.collider.kind], 1)
+			if hit.collider.extra.get("belts", []).size() > 0:
+				player.inventory.add(&"correia", hit.collider.extra.belts.size()) # esteiras voltam junto
+		elif hit.collider.kind == "tripod":
+			pass # tripé vem junto com o eixo
+		elif hit.collider.kind == "shaft":
+			player.inventory.add(PowerParts.AXLE_ITEM, 1) # eixo antigo vira eixo novo
 		else:
 			_refund(entry_for("place", hit.collider.kind).get("cost", {}))
 		_placed().request("remove", [hit.collider.net_id])

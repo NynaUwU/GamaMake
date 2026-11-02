@@ -209,9 +209,9 @@ func _rebuild(info: Dictionary) -> void:
 		hint.modulate = Color(0.75, 0.75, 0.75)
 		_box.add_child(hint)
 	if not info.keys.is_empty():
-		var keys := HFlowContainer.new()
-		keys.add_theme_constant_override("h_separation", 6)
-		keys.custom_minimum_size.x = 120
+		# HBox (e não HFlow): o tamanho já sai certo na hora, a tecla não vaza do painel.
+		var keys := HBoxContainer.new()
+		keys.add_theme_constant_override("separation", 6)
 		_box.add_child(keys)
 		for pair: Array in info.keys:
 			var chip := HBoxContainer.new()
@@ -232,5 +232,11 @@ func _rebuild(info: Dictionary) -> void:
 			action.add_theme_font_size_override("font_size", 9)
 			chip.add_child(action)
 			keys.add_child(chip)
+	size = Vector2.ZERO
+	reset_size()
+	_fit.call_deferred() # mede de novo depois do layout (texto novo pode ter crescido)
+
+
+func _fit() -> void:
 	size = Vector2.ZERO
 	reset_size()

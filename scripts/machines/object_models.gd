@@ -95,7 +95,7 @@ static func build(kind: String, obj: PlacedObject) -> void:
 			spin_at = Vector3(0, 0.6, 0)
 			_shaft(mb, spin, obj)
 		"water_wheel":
-			spin_at = Vector3(0, 0.45, -1.6)
+			spin_at = Vector3(0, 0.6, -1.6)
 			spin_axis = Vector3.BACK
 			_water_wheel(mb, spin, obj)
 		"windmill":
@@ -1286,7 +1286,7 @@ static func _water_wheel(mb: MeshBuilder, spin: MeshBuilder, obj: PlacedObject) 
 		mb.box(Vector3(x, 0.5, -0.55), Vector3(0.1, 1.0, 0.1))
 		mb.box(Vector3(x, 0.95, -1.08), Vector3(0.08, 0.08, 1.2))
 		mb.color(IRON)
-		mb.box(Vector3(x, 0.45, -1.6), Vector3(0.14, 0.12, 0.16)) # mancal
+		mb.box(Vector3(x, 0.6, -1.6), Vector3(0.14, 0.12, 0.16)) # mancal
 	mb.color(WOOD)
 	mb.box(Vector3(0, 0.95, -1.08), Vector3(1.22, 0.06, 0.08))
 	_slats(mb, Vector3(0, -0.45, -2.3), 0.7, 0.3, 0.04, 2, true, WOOD.darkened(0.15)) # calha
@@ -1305,7 +1305,7 @@ static func _water_wheel(mb: MeshBuilder, spin: MeshBuilder, obj: PlacedObject) 
 		spin.color(IRON)
 		spin.torus(1.09, 0.012, 20, 3, AROUND_Z, Vector3(0, 0, side))
 	spin.color(WOOD)
-	spin.tube(PackedVector3Array([Vector3(0, 0, -0.3), Vector3(0, 0.15, 1.6)]), 0.06, 8)
+	spin.tube(PackedVector3Array([Vector3(0, 0, -0.3), Vector3(0, 0, 1.4)]), 0.06, 8) # eixo reto até a caixa
 	for k in 12:
 		var a := TAU * k / 12.0
 		var out := Vector3(cos(a), sin(a), 0)

@@ -88,6 +88,16 @@ func _rebuild_belts() -> void:
 	_belt_node.mesh = Power.belt_mesh(objects)
 
 
+## Altura do ponto até o chão logo abaixo (pernas do tripé).
+func _ground_below(p: Vector3) -> float:
+	var world := get_parent() as Node3D
+	var hit := world.get_world_3d().direct_space_state.intersect_ray(PhysicsRayQueryParameters3D.create(p + Vector3.UP * 0.05, p + Vector3.DOWN * 6.0, 1))
+	if hit:
+		return clampf(p.y - hit.position.y, 0.15, 6.0)
+	var terrain := world.get_node_or_null("Terrain") as TerrainWorld
+	return clampf(p.y - terrain.height_at(p.x, p.z), 0.15, 6.0) if terrain else 0.6
+
+
 ## Na margem de um rio (para a roda d'água e o carneiro).
 func river_bank(at: Vector3) -> bool:
 	var terrain := get_parent().get_node_or_null("Terrain") as TerrainWorld
@@ -203,19 +213,68 @@ func host_apply(action: String, args: Array) -> Array:
 			_spawn(id, kind, xform)
 			return [id, kind, xform]
 		"belt":
-			# Correia entre duas peças de energia (a correia já saiu da mochila de quem ligou).
+			# Esteira polia <-> polia ou polia <-> máquina (a esteira já saiu da mochila de quem
+			# ligou). Ligar de novo o mesmo par tira a esteira (e devolve).
 			var a: PlacedObject = objects.get(args[0])
 			var b: PlacedObject = objects.get(args[1])
-			if a == null or b == null or a == b or not Power.is_power(a.kind) or not Power.is_power(b.kind) \
-					or a.global_position.distance_to(b.global_position) > Power.BELT_RANGE:
+			if a == null or b == null or not Power.belt_ok(a, b):
 				Net.i.give_to(Net.i.request_peer, &"correia", 1)
 				return []
-			var belts: Array = a.extra.get("belts", []).duplicate()
-			if b.net_id not in belts:
-				belts.append(b.net_id)
-			a.extra.belts = belts
+			var holder := a if a.kind == "pulley" else b
+			var other := b if holder == a else a
+			var belts: Array = holder.extra.get("belts", []).duplicate()
+			var other_belts: Array = other.extra.get("belts", [])
+			if other.net_id in belts or holder.net_id in other_belts:
+				belts.erase(other.net_id)
+				if holder.net_id in other_belts:
+					other_belts = other_belts.duplicate()
+					other_belts.erase(holder.net_id)
+					other.extra.belts = other_belts
+				Net.i.give_to(Net.i.request_peer, &"correia", 2) # a desta vez e a que estava
+			else:
+				belts.append(other.net_id)
+			holder.extra.belts = belts
 			_belts_dirty = true
-			return [args[0], belts]
+			Power.dirty = true
+			return [holder.net_id, belts, other.net_id, other.extra.get("belts", [])]
+		"axle":
+			# Eixo [xform, comprimento] (os eixos já saíram da mochila). Ponta solta vira tripé.
+			var xform: Transform3D = args[0]
+			var length := float(args[1])
+			if length < 0.3 or length > PowerParts.MAX_AXLE + 0.01:
+				Net.i.give_to(Net.i.request_peer, PowerParts.AXLE_ITEM, PowerParts.axle_cost(clampf(length, 0.3, PowerParts.MAX_AXLE)))
+				return []
+			var ends: Array[Vector3] = [xform.origin, xform * Vector3(0, 0, length)]
+			var tripods := []
+			for p in ends:
+				if Power.snap_point(objects, p, Power.SNAP) == Vector3.INF:
+					tripods.append([_next_id + 1 + tripods.size(), p, _ground_below(p)])
+			var id := _next_id
+			_next_id += 1 + tripods.size()
+			_spawn(id, "axle", xform, true)
+			objects[id].extra.len = length
+			objects[id].refresh(clock)
+			for t in tripods:
+				_spawn(t[0], "tripod", Transform3D(Basis(), t[1]), true)
+				objects[t[0]].extra.h = t[2]
+				objects[t[0]].refresh(clock)
+			Sfx.play_at("knock", xform.origin, -2.0, 1.2)
+			return [id, xform, length, tripods]
+		"mount":
+			# Engrenagem/polia [tipo, xform] montada num eixo, tripé ou porta (o item já saiu).
+			var kind: String = args[0]
+			var xform: Transform3D = args[1]
+			if not kind in PowerParts.ITEMS:
+				return []
+			for value in objects.values():
+				if is_instance_valid(value) and value.kind in PowerParts.ITEMS and value.global_position.distance_to(xform.origin) < 0.2:
+					Net.i.give_to(Net.i.request_peer, PowerParts.ITEMS[kind], 1) # já tem uma aí
+					return []
+			var id := _next_id
+			_next_id += 1
+			_spawn(id, kind, xform, true)
+			Sfx.play_at("knock", xform.origin, -2.0, 1.5)
+			return [id, kind, xform]
 		"pipe":
 			# Trecho de cano [xform, comprimento] (os canos já saíram da mochila de quem pôs).
 			var xform: Transform3D = args[0]
@@ -608,7 +667,21 @@ func apply_remote(action: String, args: Array) -> void:
 			var obj: PlacedObject = objects.get(args[0])
 			if obj and obj.board:
 				obj.board.clear()
+		"axle":
+			if not objects.has(args[0]):
+				_spawn(args[0], "axle", args[1], true)
+				objects[args[0]].extra.len = args[2]
+				objects[args[0]].refresh(clock)
+				for t in args[3]:
+					_spawn(t[0], "tripod", Transform3D(Basis(), t[1]), true)
+					objects[t[0]].extra.h = t[2]
+					objects[t[0]].refresh(clock)
+		"mount":
+			if not objects.has(args[0]):
+				_spawn(args[0], args[1], args[2], true)
 		"belt":
+			if args.size() >= 4 and objects.has(args[2]):
+				objects[args[2]].extra.belts = args[3]
 			var obj: PlacedObject = objects.get(args[0])
 			if obj:
 				obj.extra.belts = args[1]
@@ -650,6 +723,8 @@ func apply_remote(action: String, args: Array) -> void:
 
 
 func _spawn(id: int, kind: String, xform: Transform3D, quiet := false) -> void:
+	if Power.is_power(kind):
+		Power.dirty = true # forma da rede de força mudou
 	var obj := PlacedObject.new()
 	obj.name = "Placed_%d" % id
 	obj.net_id = id
@@ -666,6 +741,7 @@ func _spawn(id: int, kind: String, xform: Transform3D, quiet := false) -> void:
 
 func _remove(id: int) -> void:
 	_belts_dirty = true
+	Power.dirty = true
 	var obj: PlacedObject = objects.get(id)
 	objects.erase(id)
 	if is_instance_valid(obj):

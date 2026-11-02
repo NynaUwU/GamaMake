@@ -48,11 +48,14 @@ func _init() -> void:
 	Weather.i.wind = 1.0
 	var o := player.global_position
 	var wm := placed.host_apply("place", ["windmill", Transform3D(Basis(), o + Vector3(10, 0, 0))])
-	var qn := placed.host_apply("place", ["quern", Transform3D(Basis(), o + Vector3(14, 0, 3))])
+	var qn := placed.host_apply("place", ["quern", Transform3D(Basis(Vector3.UP, PI / 2), o + Vector3(14, 0, 3))]) # porta virada para a polia (paralelas)
 	placed.host_apply("machine_put", [qn[0], 4])
 	placed._power()
 	var q_before: int = placed.objects[qn[0]].extra.get("out", 0)
-	placed.host_apply("belt", [wm[0], qn[0]])
+	# Esteira: polia montada na porta do moinho de vento -> polia de latão do moinho manual.
+	var wport: Array = Power.world_ports(placed.objects[wm[0]])[0]
+	var pul := placed.host_apply("mount", ["pulley", Transform3D(Basis.looking_at(-wport[1], Vector3.UP), wport[0])])
+	print("esteira (polia na porta do moinho de vento): ", not placed.host_apply("belt", [pul[0], qn[0]]).is_empty())
 	for k in 6:
 		placed._power()
 	print("moinho manual por correia (vento 100%%): farinha %d -> %d, %s" % [q_before, placed.objects[qn[0]].extra.get("out", 0), placed.objects[wm[0]].get_interact_text()])

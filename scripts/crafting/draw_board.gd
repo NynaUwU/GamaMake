@@ -69,20 +69,23 @@ func _build() -> void:
 	# Cavalete: duas pernas da frente abertas com travessa, perna de trás com
 	# dobradiça e corrente, bandeja com potes de tinta e pincéis, moldura com
 	# cantoneiras, presilha de latão e a paleta pendurada.
+	# Pernas da frente ATRÁS da moldura (a tela fica na frente delas, apoiada na bandeja).
 	for side in [-1.0, 1.0]:
 		mb.color(wood)
-		mb.tube(PackedVector3Array([Vector3(side * 0.45, 0.0, 0.15), Vector3(side * 0.38, 0.9, 0.05), Vector3(side * 0.3, 1.78, -0.05)]), 0.03, 6)
+		mb.tube(PackedVector3Array([Vector3(side * 0.47, 0.0, 0.12), Vector3(side * 0.4, 0.74, -0.075), Vector3(side * 0.33, 1.7, -0.08),
+			Vector3(side * 0.3, 1.8, -0.1)]), 0.03, 6)
 		mb.color(wood.darkened(0.25))
-		mb.box(Vector3(side * 0.45, 0.02, 0.15), Vector3(0.07, 0.04, 0.07)) # pezinho
+		mb.box(Vector3(side * 0.47, 0.02, 0.12), Vector3(0.07, 0.04, 0.07)) # pezinho
 	mb.color(wood.darkened(0.1))
-	mb.box(Vector3(0, 0.35, 0.12), Vector3(0.86, 0.04, 0.04)) # travessa de baixo
-	mb.tube(PackedVector3Array([Vector3(0, 0.0, -0.5), Vector3(0, 0.8, -0.3), Vector3(0, 1.66, -0.09)]), 0.028, 6)
+	mb.box(Vector3(0, 0.35, 0.0), Vector3(0.9, 0.04, 0.04)) # travessa de baixo
+	mb.box(Vector3(0, 1.74, -0.09), Vector3(0.7, 0.05, 0.04)) # travessa de cima (atrás)
+	mb.tube(PackedVector3Array([Vector3(0, 0.0, -0.62), Vector3(0, 0.8, -0.4), Vector3(0, 1.72, -0.13)]), 0.028, 6)
 	mb.color(ItemModels.IRON)
-	mb.box(Vector3(0, 1.66, -0.07), Vector3(0.08, 0.06, 0.05)) # dobradiça
-	mb.tube(PackedVector3Array([Vector3(0, 0.6, -0.36), Vector3(0, 0.58, -0.1), Vector3(0, 0.6, 0.1)]), 0.005, 3) # corrente
+	mb.box(Vector3(0, 1.72, -0.12), Vector3(0.08, 0.06, 0.05)) # dobradiça
+	mb.tube(PackedVector3Array([Vector3(0, 0.6, -0.47), Vector3(0, 0.58, -0.25), Vector3(0, 0.6, -0.04)]), 0.005, 3) # corrente
 	mb.color(wood)
-	mb.box(Vector3(0, 0.74, 0.08), Vector3(1.12, 0.04, 0.16)) # bandeja
-	mb.box(Vector3(0, 0.77, 0.155), Vector3(1.12, 0.04, 0.02)) # borda
+	mb.box(Vector3(0, 0.74, 0.04), Vector3(1.12, 0.04, 0.2)) # bandeja (na frente das pernas)
+	mb.box(Vector3(0, 0.77, 0.135), Vector3(1.12, 0.04, 0.02)) # borda
 	var paints := [Color(0.8, 0.15, 0.1), Color(0.15, 0.35, 0.75), Color(0.9, 0.75, 0.15), Color(0.2, 0.55, 0.25)]
 	for k in 4:
 		mb.color(Color(0.55, 0.55, 0.52))

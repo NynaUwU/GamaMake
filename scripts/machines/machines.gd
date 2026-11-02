@@ -60,7 +60,7 @@ static func text(obj: PlacedObject) -> String:
 			return "[E] " + name
 	match obj.kind:
 		"water_wheel", "windmill":
-			return "%s: %d%% de força" % [name, int(Power.output(obj) / Power.OUTPUT[obj.kind] * 100.0)]
+			return "%s: gera %s de força · %s" % [name, Power._num(snappedf(Power.output(obj), 0.1)), Power.status(obj)]
 		"shaft":
 			return "%s %s" % [name, "girando" if obj.extra.get("speed", 0.0) > 0.0 else "parado"]
 		"ram_pump":
@@ -69,9 +69,9 @@ static func text(obj: PlacedObject) -> String:
 		var recipe: Array = PROCESS[obj.kind]
 		var parts := "%s: %d %s · %d %s" % [name, obj.extra.get("in", 0), ItemDB.display_name(recipe[0]),
 			obj.extra.get("out", 0), ItemDB.display_name(recipe[2])]
-		if Power.DEMAND.has(obj.kind) and obj.extra.get("speed", 0.0) > 0.0:
-			return parts + "  · energia %d%%" % int(obj.extra.speed * 100.0)
-		return parts + ("" if obj.kind == "sawmill" else "  [segure E] girar")
+		if Power.DEMAND.has(obj.kind):
+			parts += " · " + Power.status(obj)
+		return parts + ("" if obj.kind == "sawmill" or obj.extra.get("pstate", "") == "ok" else "  [segure E] girar")
 	return name
 
 

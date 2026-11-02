@@ -18,7 +18,8 @@ const IDS := [&"pistola", &"espada", &"taco", &"martelo", &"talhadeira", &"pa", 
 	&"calca", &"botas", &"casaco",
 	&"barra_aco", &"parafuso", &"engrenagem", &"eixo_aco", &"cano", &"suco", &"oleo", &"alcool", &"bandagem_esteril",
 	&"carne_crua", &"carne_assada", &"carne_seca", &"pele", &"couro", &"gordura", &"casaco_pele", &"correia", &"vara",
-	&"ovo", &"ovo_frito", &"leite", &"la", &"pena", &"gorro_la", &"casaco_la", &"casaco_penas"]
+	&"ovo", &"ovo_frito", &"leite", &"la", &"pena", &"gorro_la", &"casaco_la", &"casaco_penas",
+	&"eixo", &"engrenagem_madeira", &"polia"]
 
 
 static func has(id: StringName) -> bool:
@@ -95,6 +96,9 @@ static func build(id: StringName, p: Dictionary) -> void:
 		&"vara": _fishing_rod(p)
 		&"parafuso": _bolts(p)
 		&"engrenagem": _gear(p)
+		&"eixo": _wood_axle(p)
+		&"engrenagem_madeira": _wood_cog(p, false)
+		&"polia": _wood_pulley(p)
 		&"eixo_aco": _steel_shaft(p)
 		&"cano": _pipe_piece(p)
 		&"bandagem_esteril":
@@ -1136,3 +1140,39 @@ static func _down_coat(p: Dictionary) -> void:
 		_mb(p, shell.darkened(0.2)).box(Vector3(0, 0.06 + k * 0.12, 0.125), Vector3(0.4, 0.01, 0.01)) # costuras
 	_mb(p, Color(0.75, 0.75, 0.78)).box(Vector3(0, 0.25, 0.13), Vector3(0.012, 0.48, 0.01)) # zíper
 	_mb(p, Color(0.55, 0.57, 0.62)).box(Vector3(0.12, 0.45, 0.12), Vector3(0.02, 0.06, 0.004)) # pena escapando
+
+
+# --- força rotacional ----------------------------------------------------------------
+
+static func _wood_axle(p: Dictionary) -> void:
+	var around_z := Basis(Vector3(1, 0, 0), PI / 2)
+	_mb(p, Color(0.5, 0.35, 0.2)).lathe(PackedVector2Array([Vector2(0.04, -0.24), Vector2(0.04, 0.24)]), 8, around_z)
+	for z in [-0.12, 0.0, 0.12]:
+		_mb(p, ItemModels.IRON).lathe(PackedVector2Array([Vector2(0.045, z - 0.012), Vector2(0.045, z + 0.012)]), 8, around_z)
+	for z in [-0.23, 0.23]:
+		_mb(p, ItemModels.BRASS).lathe(PackedVector2Array([Vector2(0.002, z - 0.025), Vector2(0.06, z - 0.025), Vector2(0.06, z + 0.025), Vector2(0.002, z + 0.025)]), 10, around_z)
+
+
+static func _wood_cog(p: Dictionary, large: bool) -> void:
+	var around_z := Basis(Vector3(1, 0, 0), PI / 2)
+	var r := 0.24 if large else 0.14
+	var teeth := 16 if large else 10
+	var wood := Color(0.52, 0.36, 0.2)
+	_mb(p, wood).lathe(PackedVector2Array([Vector2(0.002, -0.03), Vector2(r - 0.03, -0.03), Vector2(r - 0.03, 0.03), Vector2(0.002, 0.03)]), teeth, around_z)
+	for k in teeth:
+		var a := TAU * k / teeth
+		_mb(p, wood.lightened(0.06 * (k % 2))).box(Vector3(cos(a) * (r - 0.01), sin(a) * (r - 0.01), 0), Vector3(0.04, 0.045, 0.06), Basis(Vector3.BACK, a))
+	if large:
+		for k in 6:
+			var a := TAU * k / 6.0
+			_mb(p, wood.darkened(0.3)).box(Vector3(cos(a), sin(a), 0) * r * 0.45, Vector3(0.025, r * 0.7, 0.07), Basis(Vector3.BACK, a - PI / 2))
+	_mb(p, ItemModels.IRON).lathe(PackedVector2Array([Vector2(0.002, -0.04), Vector2(0.05, -0.04), Vector2(0.05, 0.04), Vector2(0.002, 0.04)]), 8, around_z)
+
+
+static func _wood_pulley(p: Dictionary) -> void:
+	var around_z := Basis(Vector3(1, 0, 0), PI / 2)
+	var r := 0.12
+	_mb(p, Color(0.5, 0.35, 0.2)).lathe(PackedVector2Array([Vector2(0.002, -0.05), Vector2(r + 0.02, -0.05), Vector2(r + 0.02, -0.035), Vector2(r, -0.03),
+		Vector2(r, 0.03), Vector2(r + 0.02, 0.035), Vector2(r + 0.02, 0.05), Vector2(0.002, 0.05)]), 12, around_z)
+	_mb(p, ItemModels.IRON).lathe(PackedVector2Array([Vector2(0.002, -0.06), Vector2(0.04, -0.06), Vector2(0.04, 0.06), Vector2(0.002, 0.06)]), 8, around_z)
+	_mb(p, Color(0.2, 0.13, 0.08)).lathe(PackedVector2Array([Vector2(r + 0.004, -0.028), Vector2(r + 0.004, 0.028)]), 12, around_z) # pedaço de esteira

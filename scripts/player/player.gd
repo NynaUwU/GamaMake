@@ -302,6 +302,7 @@ var hammer: Node3D ## martelo de construção na mão
 var chisel: Node3D ## talhadeira na mão
 var builder: Builder ## fantasma da peça / triângulo mirado (só o jogador local)
 var pipe_tool: PipeTool ## cano na mão: arrasta e solta para pôr um trecho
+var power_tool: PowerTool ## eixo/engrenagem/polia/esteira na mão
 var _tool_hit := 0.0 # 1 = acabou de bater com o martelo/talhadeira
 var charger: Node3D # carregador a dínamo na mão (modelo com Lever/Rotor/Needle)
 var _crank_rate := 0.0
@@ -414,6 +415,10 @@ func _ready() -> void:
 		pipe_tool.name = "PipeTool"
 		pipe_tool.player = self
 		add_child(pipe_tool)
+		power_tool = PowerTool.new()
+		power_tool.name = "PowerTool"
+		power_tool.player = self
+		add_child(power_tool)
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -441,6 +446,8 @@ func _unhandled_input(event: InputEvent) -> void:
 			SteamModels.pour(self, _aimed_placed(PlacedManager.POUR_CAP.keys())) # despeja na caldeira/destilaria/caixa
 		elif event.is_action_pressed("attack") and inventory.selected_id() == &"cano":
 			pipe_tool.press()
+		elif event.is_action_pressed("attack") and PowerTool.handles(inventory.selected_id()):
+			power_tool.press() # eixo (arrastar), engrenagem/polia (montar), esteira (ligar)
 		elif event.is_action_pressed("attack") and inventory.selected_id() in [&"alcool", &"oleo"] and _aimed_car() != null:
 			_refuel(_aimed_car())
 		elif event.is_action_pressed("attack") and ItemDB.def(inventory.selected_id()).kind == "food":
@@ -518,8 +525,6 @@ func _unhandled_input(event: InputEvent) -> void:
 			# Máquina de manivela: toque = abrir/pôr/tirar; segurando = girar (ver _update_crank).
 			_crank_target = _interact_target
 			_crank_hold = 0.0
-		elif event.is_action_pressed("attack") and inventory.selected_id() == &"correia":
-			_use_belt()
 		elif event.is_action_pressed("attack") and inventory.selected_id() == &"adubo":
 			_fertilize()
 		elif event.is_action_pressed("interact") and is_instance_valid(_interact_target):
@@ -2253,29 +2258,6 @@ func _flush_crank() -> void:
 	if _crank_send > 0.0 and is_instance_valid(_crank_target) and _crank_target.kind != "grindstone" and _crank_target.kind != "pump":
 		(get_parent().get_node("Placed") as PlacedManager).request("crank", [_crank_target.net_id, _crank_send])
 	_crank_send = 0.0
-
-
-## Correia na mão: clique numa peça de energia e depois na outra (até 8 m).
-var _belt_from: PlacedObject
-func _use_belt() -> void:
-	var origin := camera.global_position
-	var query := PhysicsRayQueryParameters3D.create(origin, origin - camera.global_basis.z * interact_range, MASK_INTERACT, [get_rid()])
-	var hit := get_world_3d().direct_space_state.intersect_ray(query)
-	if hit.is_empty() or not hit.collider is PlacedObject or not Power.is_power(hit.collider.kind):
-		Sfx.play("click", -6.0, 0.6)
-		return
-	var target: PlacedObject = hit.collider
-	if not is_instance_valid(_belt_from) or _belt_from == target:
-		_belt_from = target # primeira ponta escolhida
-		Sfx.play_at("knock", hit.position, -4.0, 1.4)
-		return
-	if _belt_from.global_position.distance_to(target.global_position) > Power.BELT_RANGE:
-		Sfx.play("click", -6.0, 0.6) # longe demais
-		return
-	inventory.take(inventory.selected, 1)
-	(get_parent().get_node("Placed") as PlacedManager).request("belt", [_belt_from.net_id, target.net_id])
-	Sfx.play_at("slap", hit.position, -2.0, 0.8)
-	_belt_from = null
 
 
 ## Clicou no jogo com o mouse solto (ex.: depois de alt-tab): prende de novo.

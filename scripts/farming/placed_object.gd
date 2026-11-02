@@ -46,6 +46,8 @@ func setup(kind_: String) -> void:
 	_build()
 	if Fluids.PORTS.has(kind) and not kind in SteamModels.KINDS:
 		SteamModels.add_ports(self) # flange de latão onde o cano encaixa (carneiro, coletor)
+	if Power.is_machine(kind):
+		PowerParts.add_lamp(self) # luz de força em cima da porta de latão
 
 
 func is_farm() -> bool:
@@ -258,6 +260,11 @@ func refresh(clock: float) -> void:
 	if kind == "tree":
 		_refresh_tree(clock)
 		return
+	if PowerParts.has(kind):
+		PowerParts.refresh(self)
+		return
+	if Power.is_machine(kind):
+		PowerParts.refresh_lamp(self)
 	if kind in LIT_KINDS:
 		StationModels.set_lit(self, is_lit(clock))
 	if kind in SteamModels.KINDS:
@@ -323,6 +330,8 @@ func get_interact_text() -> String:
 		return SteamModels.text(self)
 	if Ranch.has(kind):
 		return Ranch.text(self)
+	if PowerParts.has(kind):
+		return PowerParts.text(self)
 	match kind:
 		"rain_collector":
 			var water: float = extra.get("water", 0.0)
@@ -380,6 +389,9 @@ func interact(player: Node) -> void:
 	if Ranch.has(kind):
 		Ranch.interact(player, self)
 		return
+	if PowerParts.has(kind):
+		Sfx.play("click", -6.0, 0.6)
+		return
 	if kind == "ram_pump":
 		var bottle := Cooking.find_any(player.inventory, {&"garrafa": true})
 		if bottle < 0:
@@ -433,6 +445,9 @@ func _build() -> void:
 		return
 	if Ranch.has(kind):
 		Ranch.build(kind, self) # cocho, bebedouro, cerca, porteira
+		return
+	if PowerParts.has(kind):
+		PowerParts.build(self) # eixo, tripé, engrenagem, polia
 		return
 	if ObjectModels.has(kind):
 		ObjectModels.build(kind, self) # plantadores, estações e máquinas (Tier 0-2)

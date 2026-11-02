@@ -49,7 +49,7 @@ static func text(obj: PlacedObject) -> String:
 			if rings < Fluids.BLAST_RINGS:
 				return "[E] %s (incompleto: falta%s %d anel%s em cima)" % [name, "m" if Fluids.BLAST_RINGS - rings > 1 else "",
 					Fluids.BLAST_RINGS - rings, "" if Fluids.BLAST_RINGS - rings == 1 else "s"]
-			return "[E] %s%s" % [name, "  · fole girando" if obj.extra.get("speed", 0.0) >= 0.3 else "  · fole parado (eixo)"]
+			return "[E] %s · %s" % [name, Power.status(obj)]
 		"blast_stack":
 			return name
 		"boiler":
@@ -59,13 +59,13 @@ static func text(obj: PlacedObject) -> String:
 				int(obj.extra.get("pressure", 0.0) / Fluids.PRESSURE_MAX * 100.0), hint]
 		"steam_engine":
 			var steam: float = obj.extra.get("steam", 0.0)
-			return "%s: %d%% de força" % [name, int(steam * 100.0)] if steam > 0.02 else name + ": sem vapor (cano da caldeira)"
+			return "%s: gera %s de força · %s" % [name, Power._num(snappedf(Power.output(obj), 0.1)), Power.status(obj)] if steam > 0.02 else name + ": sem vapor (cano da caldeira)"
 		"water_tank":
 			return "%s: %d de %d%s%s" % [name, int(water), int(Fluids.TANK_CAP), "  [E] encher garrafa" if water >= 1.0 else "", hint]
 		"sprinkler":
 			return name + (": molhando (plantas a 8 m crescem mais rápido)" if obj.extra.get("wet", false) else ": sem água no cano")
 		"lathe", "press":
-			return "[E] %s%s" % [name, "  · girando" if CraftingUI.powered(obj) else "  · parado (ligue um eixo com força)"]
+			return "[E] %s · %s" % [name, Power.status(obj)]
 		"distillery":
 			return "[E] %s · água %d/%d%s" % [name, int(water), int(Fluids.STILL_WATER), hint]
 	return name
