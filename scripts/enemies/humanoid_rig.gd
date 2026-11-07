@@ -377,6 +377,7 @@ static func _get_body_material() -> StandardMaterial3D:
 	if _body_material == null:
 		_body_material = StandardMaterial3D.new()
 		_body_material.vertex_color_use_as_albedo = true
+		_body_material.vertex_color_is_srgb = true # cor escolhida em sRGB (sem isso fica pálida no Forward+)
 		_body_material.roughness = 0.9
 	return _body_material
 

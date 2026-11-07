@@ -5,7 +5,7 @@ extends RefCounted
 
 const FIRE := Color(1.0, 0.55, 0.15)
 
-static var _glow: StandardMaterial3D
+static var _glow: Material
 
 
 ## Chamas (partículas) + luz alaranjada que tremula.
@@ -68,12 +68,11 @@ static func set_lit(obj: Node3D, lit: bool) -> void:
 				node.emitting = lit
 
 
-static func _glow_mat() -> StandardMaterial3D:
+## Chamas e brasas: sem luz e acima de 1 (o brilho/glow pega). Cor = da partícula/vértice.
+static func _glow_mat() -> Material:
 	if _glow == null:
-		_glow = StandardMaterial3D.new()
-		_glow.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-		_glow.vertex_color_use_as_albedo = true
-		_glow.albedo_color = FIRE
+		_glow = Look.glow_material().duplicate()
+		_glow.set_shader_parameter("tint", FIRE)
 	return _glow
 
 

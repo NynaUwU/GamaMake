@@ -83,6 +83,10 @@ func _show_main() -> void:
 		LegacyGUI.button(column, "Carregar mundo...", _show_saves)
 	LegacyGUI.button(column, "Novo mundo (sozinho)...", func(): _show_create(false))
 	LegacyGUI.button(column, "Multiplayer (rede local)", _show_multiplayer)
+	var graphics: Button
+	graphics = LegacyGUI.button(column, PauseMenu._graphics_text(), func():
+		Look.set_quality((Look.quality() + 1) % 3)
+		graphics.text = PauseMenu._graphics_text())
 	LegacyGUI.button(column, "Sair", func(): get_tree().quit())
 	_add_status(column)
 

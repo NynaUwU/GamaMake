@@ -37,7 +37,7 @@ func _ready() -> void:
 	_environment.fog_mode = Environment.FOG_MODE_DEPTH
 	_environment.fog_density = 1.0
 	_environment.fog_depth_curve = 1.4
-	_environment.fog_sky_affect = 1.0
+	_environment.fog_sky_affect = 0.0 # o céu (sky.gdshader) mistura a neblina sozinho, no horizonte
 	_snow = _make_snow()
 	_player.add_child(_snow)
 	_sample()
@@ -96,6 +96,15 @@ func _apply(t: float) -> void:
 	if WaterManager.i and WaterManager.i.underwater:
 		tint = Color.WHITE.lerp(tint, 0.5)
 	_environment.fog_light_color = _environment.fog_light_color.lerp(target.color * tint, t)
+	# Céu: horizonte na cor da neblina; neblina curta (nevasca, debaixo d'água) encobre tudo.
+	var sky := Look.sky_material()
+	sky.set_shader_parameter("fog_color", _environment.fog_light_color)
+	var wet := Weather.i.rain if Weather.i else 0.0
+	sky.set_shader_parameter("haze", clampf(1.0 - smoothstep(55.0, 140.0, _environment.fog_depth_end) * 0.92 + wet * 0.35, 0.0, 1.0))
+	# Não desenha o que a neblina já escondeu (menos chamadas de desenho).
+	var camera := get_viewport().get_camera_3d()
+	if camera:
+		camera.far = clampf(_environment.fog_depth_end * 1.1 + 15.0, 60.0, 220.0)
 	_snow_amount = lerpf(_snow_amount, _target.snow, t)
 	_snow.emitting = _snow_amount > 0.25
 	_snow.speed_scale = 0.6 + _snow_amount * 0.6

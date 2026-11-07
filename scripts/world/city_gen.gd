@@ -31,7 +31,7 @@ const PLASTER := [Color(0.68, 0.62, 0.5), Color(0.46, 0.5, 0.42), Color(0.44, 0.
 	Color(0.6, 0.48, 0.32), Color(0.55, 0.42, 0.4)]
 const ROOF := [Color(0.42, 0.2, 0.14), Color(0.27, 0.29, 0.31), Color(0.33, 0.27, 0.2)]
 
-static var _material: StandardMaterial3D
+static var _material: Material
 
 
 # --- Onde ficam as cidades ----------------------------------------------------
@@ -252,12 +252,9 @@ static func _layout(city: Dictionary, cfg: Dictionary) -> void:
 
 # --- Construção de uma casa ---------------------------------------------------
 
-static func material() -> StandardMaterial3D:
+static func material() -> Material:
 	if _material == null:
-		_material = StandardMaterial3D.new()
-		_material.vertex_color_use_as_albedo = true
-		_material.roughness = 0.95
-		_material.cull_mode = BaseMaterial3D.CULL_DISABLED # ruínas abertas: sem faces "furadas"
+		_material = Look.surface(true, 1.0, 0.95) # ruínas abertas: dois lados, sem faces "furadas"
 	return _material
 
 

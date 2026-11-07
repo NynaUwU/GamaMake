@@ -13,7 +13,7 @@ var type := "window"
 var open := false
 
 static var _glass: StandardMaterial3D
-static var _wood: StandardMaterial3D
+static var _wood: Material
 
 
 func build(type_: String, tris: PackedInt32Array, open_: bool) -> void:
@@ -253,10 +253,7 @@ static func _glass_material() -> StandardMaterial3D:
 	return _glass
 
 
-static func _wood_material() -> StandardMaterial3D:
+static func _wood_material() -> Material:
 	if _wood == null:
-		_wood = StandardMaterial3D.new()
-		_wood.vertex_color_use_as_albedo = true
-		_wood.roughness = 0.95
-		_wood.cull_mode = BaseMaterial3D.CULL_DISABLED
+		_wood = Look.surface(true, 1.0, 0.95)
 	return _wood

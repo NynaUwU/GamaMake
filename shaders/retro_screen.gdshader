@@ -1,15 +1,17 @@
 shader_type canvas_item;
 // Pós-processamento "PC anos 2000": a imagem já é renderizada em 960x540
 // (stretch mode = viewport); aqui reduzimos as cores (estilo 16 bits) com
-// dithering ordenado, e ajustamos contraste/saturação e vinheta.
+// dithering ordenado, e ajustamos contraste/saturação, cor (luz quente, sombra
+// levemente azulada) e vinheta.
 
 uniform sampler2D screen_texture : hint_screen_texture, filter_nearest;
 uniform float color_levels : hint_range(4.0, 256.0) = 32.0; // 32 = 5 bits por canal
 uniform float dither_strength : hint_range(0.0, 1.0) = 0.7;
-uniform float saturation : hint_range(0.0, 2.0) = 0.85;
+uniform float saturation : hint_range(0.0, 2.0) = 1.06;
 uniform float contrast : hint_range(0.5, 2.0) = 1.08;
 uniform float vignette : hint_range(0.0, 1.0) = 0.35;
-uniform vec3 tint = vec3(1.0, 0.97, 0.9);
+uniform vec3 tint = vec3(1.0, 0.985, 0.95);
+uniform float grade : hint_range(0.0, 2.0) = 1.0;
 
 const float BAYER[16] = float[16](
 	0.0, 8.0, 2.0, 10.0,
@@ -24,6 +26,9 @@ void fragment() {
 	c = mix(vec3(luma), c, saturation);
 	c = (c - 0.5) * contrast + 0.5;
 	c *= tint;
+	// Luz quente e sombra fria (bem de leve).
+	float l = dot(c, vec3(0.299, 0.587, 0.114));
+	c += (vec3(0.03, 0.012, -0.025) * smoothstep(0.45, 1.0, l) + vec3(-0.015, 0.0, 0.03) * (1.0 - smoothstep(0.0, 0.4, l))) * grade;
 
 	vec2 centered = SCREEN_UV - 0.5;
 	c *= 1.0 - dot(centered, centered) * vignette * 2.0;

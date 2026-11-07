@@ -67,7 +67,7 @@ var _chunks := {} # Vector2i -> Node3D
 var _tasks := {} # Vector2i -> id da tarefa em andamento
 var _results := {} # Vector2i -> dados prontos (escrito pelas threads)
 var _mutex := Mutex.new()
-var _material: StandardMaterial3D
+var _material: Material
 var _props: TerrainProps
 var _player: Node3D
 
@@ -584,20 +584,7 @@ func _color_for(x: float, z: float, h: float, biome: Dictionary) -> Color:
 	return Color(color.r + jitter, color.g + jitter, color.b + jitter)
 
 
-func _make_material() -> StandardMaterial3D:
-	var noise := FastNoiseLite.new()
-	noise.frequency = 0.25
-	var gradient := Gradient.new()
-	gradient.colors = PackedColorArray([Color(0.78, 0.78, 0.78), Color(1, 1, 1)])
-	var texture := NoiseTexture2D.new()
-	texture.width = 32
-	texture.height = 32
-	texture.seamless = true
-	texture.noise = noise
-	texture.color_ramp = gradient
-	var material := StandardMaterial3D.new()
-	material.vertex_color_use_as_albedo = true
-	material.albedo_texture = texture
-	material.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST_WITH_MIPMAPS
-	material.roughness = 0.95
-	return material
+## Chão: superfície PS2 em coordenadas do mundo (grão fino na grama/areia, de
+## pedra nas encostas, manchas que quebram o verde liso). Ver Look.surface.
+func _make_material() -> Material:
+	return Look.surface(false, 1.0, 0.95, 0.0, true)

@@ -12,7 +12,7 @@ const FOLIAGE := ["grass", "leafy_bush"]
 const CACTUS_KINDS := ["cactus_a", "cactus_b", "cactus_c"]
 
 static var _meshes := {}
-static var _foliage_material: StandardMaterial3D
+static var _foliage_material: Material
 
 
 ## Parte pesada (roda na thread do terreno): sorteia onde fica cada planta.
@@ -290,10 +290,9 @@ static func _mesh(kind: String) -> Mesh:
 			_box(st, Vector3(0.1, 1.15, -0.1), Vector3(0.3, 0.2, 0.3), ore)
 	st.generate_normals()
 	var mesh := st.commit()
-	var material := StandardMaterial3D.new()
-	material.vertex_color_use_as_albedo = true
-	material.roughness = 0.9
-	mesh.surface_set_material(0, material)
+	# Copas balançam no vento; rochas e minérios com grão de pedra mais forte.
+	var sway: float = {"tree": 1.0, "crooked_tree": 1.0, "fruit_tree": 0.8, "pine": 0.7, "giant_tree": 0.35}.get(kind, 0.0)
+	mesh.surface_set_material(0, Look.surface(false, 1.1 if kind == "rock" or kind.begins_with("ore") else 0.8, 0.9, sway))
 	_meshes[kind] = mesh
 	return mesh
 
@@ -352,7 +351,7 @@ static func _foliage_mesh(kind: String) -> Mesh:
 	return mesh
 
 
-static func _foliage_mat() -> StandardMaterial3D:
+static func _foliage_mat() -> Material:
 	if _foliage_material:
 		return _foliage_material
 	# Textura gerada: folhinhas/lâminas brancas (a cor vem da instância) com fundo transparente.
@@ -370,15 +369,10 @@ static func _foliage_mat() -> StandardMaterial3D:
 			image.set_pixel(px, 31 - y, Color(shade, shade, shade, 1))
 			if y < height * 0.4 and px + 1 < 32:
 				image.set_pixel(px + 1, 31 - y, Color(shade * 0.85, shade * 0.85, shade * 0.85, 1))
-	var material := StandardMaterial3D.new()
-	material.albedo_texture = ImageTexture.create_from_image(image)
-	material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA_SCISSOR
-	material.alpha_scissor_threshold = 0.5
-	material.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST_WITH_MIPMAPS
-	material.vertex_color_use_as_albedo = true
-	material.roughness = 1.0
-	_foliage_material = material
-	return material
+	image.generate_mipmaps()
+	# Recortada, com vento e pé mais escuro (shaders/foliage.gdshader).
+	_foliage_material = Look.foliage(ImageTexture.create_from_image(image))
+	return _foliage_material
 
 
 ## Sequência de gomos tortos: cada passo é um bloco do ponto atual até +passo.

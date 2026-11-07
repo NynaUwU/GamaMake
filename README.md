@@ -62,6 +62,29 @@ Martelo → aba **Vapor**. Ordem natural: torno (ferro) → parafusos/engrenagen
   - **Antisséptico:** bandagem + álcool (mesa) = **bandagem com álcool** (+60 vida e cura a doença).
 - **Itens novos:** barra de aço, parafusos, engrenagem, eixo torneado, cano, suco, óleo, álcool, bandagem com álcool (modelos próprios).
 
+## Visual novo e qualidade gráfica (Baixa / Média / Alta)
+- **Cor certa no Forward+:** as cores por vértice (construções, máquinas, cidade, árvores, chão, zumbis, bichos) eram lidas como "lineares" e ficavam **pálidas/lavadas** no renderizador de verdade (marrom 0,50/0,35/0,20 saía 0,73/0,62/0,49). Agora são sRGB: a cor que aparece é a escolhida, igual no Forward+ e no Compatibility/OpenGL (que já converte sozinho). `tests/color_probe.gd` e `tests/surface_probe.gd` medem isso nos dois.
+- **Textura PS2 sem UV** (`shaders/ps2_surface.gdshaderinc`, `scripts/util/look.gd`): uma textura 64×64 pixelada gerada no código, projetada nos 3 eixos. O tipo sai da cor: marrom = **veio de madeira**, cinza = **grão de pedra/metal**, verde e o resto = grão fino, mais **manchas grandes** de sujeira. Pilar em pé tem o veio na vertical. Chão com grão e manchas que quebram o verde liso.
+- **Sombra pintada nas malhas** (`MeshBuilder`): faces viradas para baixo mais escuras, pé dos objetos escurecido perto do chão e leve variação de tom por face. Feito uma vez ao montar o modelo (zero custo por quadro).
+- **Céu novo** (`shaders/sky.gdshader`): degradê azul, horizonte na cor da neblina (o longe some no céu sem faixa), **sol com halo**, **lua**, **estrelas** de pixel à noite e **nuvens** que andam com o vento (chuva fecha o céu). Neblina forte (nevasca, debaixo d'água) cobre tudo.
+- **Pós-processamento:** tonemap AgX, brilho (glow) só no que é bem claro (fogo, tocha, lâmpadas, olhos, sol), luz ambiente menos azulada, e o filtro retrô agora com saturação cheia, luz quente e sombra levemente fria.
+- **SSAO** (Média/Alta): cantos, pé das paredes e embaixo das máquinas escurecem.
+- **Sombras** por qualidade (tamanho, divisões, distância e suavidade).
+- **Grama densa com vento** (Média/Alta, `scripts/world/grass_field.gd`): moitinhas de lâminas em quadrados de 16 m em volta do jogador, geradas em thread com as mesmas alturas e cores do chão. Só nasce em chão de grama (nada em rua, cidade, areia, pedra, neve, água, encosta ou no asfalto da área inicial); **piso construído e objetos tiram a grama de baixo**. Encolhe até sumir na borda. Tufos antigos e copas das árvores também balançam no vento.
+- **Partículas do clima** (`scripts/world/ambient_fx.gd`): **respingos** onde a gota bate de verdade (chão, telhado, máquinas); **debaixo de telhado a chuva some em volta** e o barulho abafa (toda qualidade); ciscos de poeira no sol; areia soprada no deserto com vento.
+- **Desempenho:** a câmera não desenha mais o que a neblina já escondeu (distância de desenho = fim da neblina + margem: 158 m na planície, ~70 m na nevasca). Na foto do campo caiu de 794 para 540 chamadas de desenho.
+- **Gráficos: Baixa / Média / Alta** no menu de pausa e no menu principal (salvo em `user://graphics.cfg`; padrão Média):
+
+| | Baixa | Média | Alta |
+|---|---|---|---|
+| Sombras | 2048, 2 divisões, 45 m, dura | 4096, 4 divisões, 70 m, suave | 4096, 4 divisões, 100 m, mais suave |
+| SSAO | não | meia resolução | resolução cheia |
+| Brilho (glow) | não | sim | sim |
+| Grama densa | não (só os tufos) | 26 m | 38 m, mais densa |
+| Respingos / poeira | não | sim | mais |
+
+- Testes: `tests/test_look.gd`. Fotos e medição: `tests/shot_visual.gd` (`SHOT=pasta BENCH=1 QUALITY=0/1/2`, com `--rendering-driver vulkan` para ver como no jogo).
+
 ## Telhado inclinado, plantas mais lentas, mão secundária e receitas na fornalha (rodada de feedback)
 - **Telhado inclinado (45°):** com o **Teto** no martelo, **[R]** troca para "Teto (inclinado)". Ele sobe na direção para onde você olha (a parte baixa fica do seu lado). Em cima de uma parede cobre o lado para onde sobe; ao lado de outro telhado inclinado ele **continua a rampa** (de lado na mesma altura, para cima ou para baixo na diagonal). Dois lados virados um para o outro fazem um telhado de **duas águas**. Fantasma inclinado, colisão inclinada (dá para andar em cima), talhadeira funciona, salva e sincroniza.
 - **Pilar uniforme:** sem a base e o topo de pedra; agora é uma viga de madeira de ponta a ponta (cantos chanfrados, 3 cintas de ferro com cravos), então **deitado emenda certinho** com outro pilar.

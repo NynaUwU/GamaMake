@@ -214,6 +214,7 @@ func _reeds(count: int) -> void:
 			mb.box(off + Vector3(0, h - 0.12, 0), Vector3(0.05, 0.22, 0.05))
 	var material := StandardMaterial3D.new()
 	material.vertex_color_use_as_albedo = true
+	material.vertex_color_is_srgb = true
 	material.roughness = 1.0
 	var mesh := mb.finish(material, false)
 	var transforms := []
@@ -241,6 +242,7 @@ func _lilies(count: int) -> void:
 	flower.box(Vector3(0, 0.12, 0), Vector3(0.05, 0.03, 0.05))
 	var material := StandardMaterial3D.new()
 	material.vertex_color_use_as_albedo = true
+	material.vertex_color_is_srgb = true
 	material.roughness = 0.6
 	var plain := []
 	var flowered := []
@@ -262,6 +264,7 @@ func _rocks(count: int) -> void:
 	mb.box(Vector3(0.05, 0.33, 0), Vector3(0.5, 0.05, 0.4))
 	var material := StandardMaterial3D.new()
 	material.vertex_color_use_as_albedo = true
+	material.vertex_color_is_srgb = true
 	material.roughness = 1.0
 	var transforms := []
 	for k in count:

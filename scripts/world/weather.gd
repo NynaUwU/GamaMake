@@ -82,12 +82,15 @@ func _update_fx() -> void:
 	var camera := get_viewport().get_camera_3d() if is_inside_tree() else null
 	if camera:
 		_drops.global_position = camera.global_position + Vector3.UP * 7.0
-	_drops.emitting = rain > 0.05
+	# Debaixo de telhado a chuva some em volta (e o barulho fica abafado).
+	var sheltered := AmbientFX.i != null and AmbientFX.i.sheltered
+	_drops.emitting = rain > 0.05 and not sheltered
 	_drop_mat.albedo_color.a = 0.15 + 0.35 * rain # garoa quase some; temporal fica bem visível
+	Look.set_wind(wind)
 	if rain > 0.02:
 		if not _sound.playing:
 			_sound.play()
-		_sound.volume_db = linear_to_db(rain) - 8.0
+		_sound.volume_db = linear_to_db(rain) - (14.0 if sheltered else 8.0)
 	elif _sound.playing:
 		_sound.stop()
 

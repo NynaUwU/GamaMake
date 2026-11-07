@@ -12,7 +12,7 @@ var table := "casa"
 var _lid: Node3D
 var _opened := false
 
-static var _material: StandardMaterial3D
+static var _material: Material
 
 
 func setup(key_: String, style_: String, table_: String) -> void:
@@ -183,10 +183,7 @@ func _shape(center: Vector3, size: Vector3) -> void:
 	add_child(shape)
 
 
-static func _mat() -> StandardMaterial3D:
+static func _mat() -> Material:
 	if _material == null:
-		_material = StandardMaterial3D.new()
-		_material.vertex_color_use_as_albedo = true
-		_material.roughness = 1.0
-		_material.cull_mode = BaseMaterial3D.CULL_DISABLED
+		_material = Look.surface(true, 0.8, 0.95)
 	return _material

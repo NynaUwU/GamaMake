@@ -246,6 +246,7 @@ static func _mat() -> StandardMaterial3D:
 	if _material == null:
 		_material = StandardMaterial3D.new()
 		_material.vertex_color_use_as_albedo = true
+		_material.vertex_color_is_srgb = true # cor escolhida em sRGB (sem isso fica pálida no Forward+)
 		_material.roughness = 0.85
 		_material.cull_mode = BaseMaterial3D.CULL_DISABLED
 	return _material

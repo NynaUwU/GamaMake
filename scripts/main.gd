@@ -56,11 +56,21 @@ func _ready() -> void:
 	var pings := PingMarkers.new()
 	pings.name = "Pings"
 	add_child(pings)
+	# Visual: grama densa, partículas do clima e qualidade gráfica (Look).
+	var terrain := get_node_or_null("Terrain") as TerrainWorld
+	var grass := GrassField.new()
+	grass.name = "Grass"
+	grass.terrain = terrain
+	add_child(grass)
+	var fx := AmbientFX.new()
+	fx.name = "AmbientFX"
+	fx.terrain = terrain
+	add_child(fx)
+	Look.apply(self)
 	_add_start_crate()
 	Net.i.message.connect(_on_net_message)
 	# Vento de fundo baixinho (preso no jogador).
 	Sfx.loop_player("wind", player).play()
-	var terrain := get_node_or_null("Terrain") as TerrainWorld
 	if terrain:
 		CityCars.spawn(self, terrain) # antes do save: ele guarda onde cada um ficou
 	Net.i.register_world(self)

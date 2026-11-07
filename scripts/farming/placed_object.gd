@@ -26,7 +26,7 @@ var extra := {} ## estado salvo de armadilhas (usos, armada, vida)
 var trap: Trap
 var board: DrawBoard
 
-static var _material: StandardMaterial3D
+static var _material: Material
 
 
 func setup(kind_: String) -> void:
@@ -528,10 +528,7 @@ func _shape(center: Vector3, size: Vector3) -> void:
 	add_child(shape)
 
 
-static func _mat() -> StandardMaterial3D:
+static func _mat() -> Material:
 	if _material == null:
-		_material = StandardMaterial3D.new()
-		_material.vertex_color_use_as_albedo = true
-		_material.roughness = 1.0
-		_material.cull_mode = BaseMaterial3D.CULL_DISABLED
+		_material = Look.surface(true, 0.8, 0.92) # máquinas, estações, armadilhas: textura um pouco mais leve
 	return _material

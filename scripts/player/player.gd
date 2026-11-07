@@ -1133,6 +1133,7 @@ func _setup_trail() -> void:
 	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	material.vertex_color_use_as_albedo = true
+	material.vertex_color_is_srgb = true
 	material.cull_mode = BaseMaterial3D.CULL_DISABLED
 	var trail := MeshInstance3D.new()
 	trail.name = "SwingTrail"

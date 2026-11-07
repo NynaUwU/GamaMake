@@ -41,7 +41,7 @@ var _fill_nodes: Array = []
 
 var _mesh: MeshInstance3D
 var _shape: CollisionShape3D
-static var _material: StandardMaterial3D
+static var _material: Material
 
 
 func setup(kind_: Kind, cell_: Vector3i, rot_: int) -> void:
@@ -208,7 +208,8 @@ func rebuild() -> void:
 		_panel(st, faces)
 	st.generate_normals()
 	_mesh.mesh = st.commit()
-	_mesh.material_override = _get_material()
+	# Pilar em pé: material com o veio da madeira na vertical (deitado/viga fica na horizontal).
+	_mesh.material_override = Look.surface(true, 1.0, 0.95, 0.0, false, 0.0, true) if kind == Kind.PILLAR and rot == 0 else _get_material()
 	var shape := ConcavePolygonShape3D.new()
 	shape.backface_collision = true
 	shape.set_faces(faces)
@@ -462,10 +463,7 @@ func _tri(st: SurfaceTool, faces: PackedVector3Array, a: Vector3, b: Vector3, c:
 	faces.append_array(PackedVector3Array([a, c, b]))
 
 
-static func _get_material() -> StandardMaterial3D:
+static func _get_material() -> Material:
 	if _material == null:
-		_material = StandardMaterial3D.new()
-		_material.vertex_color_use_as_albedo = true
-		_material.roughness = 0.95
-		_material.cull_mode = BaseMaterial3D.CULL_DISABLED # buracos: dá para ver por dentro
+		_material = Look.surface(true, 1.0, 0.95) # dois lados: buracos da talhadeira mostram o lado de dentro
 	return _material

@@ -32,12 +32,21 @@ func _ready() -> void:
 	_save_button = LegacyGUI.button(column, "Salvar", _save)
 	_lan_button = LegacyGUI.button(column, "Abrir para LAN", _open_to_lan)
 	_restart_button = LegacyGUI.button(column, "Recomeçar", _restart)
+	# Qualidade gráfica: cada clique passa para a próxima (Baixa → Média → Alta).
+	var graphics: Button
+	graphics = LegacyGUI.button(column, _graphics_text(), func():
+		Look.set_quality((Look.quality() + 1) % 3)
+		graphics.text = _graphics_text())
 	LegacyGUI.button(column, "Sair para o menu", func():
 		if Net.i.is_host():
 			_save()
 		Net.i.leave())
 	LegacyGUI.button(column, "Sair do jogo", func(): get_tree().quit())
 	visible = false
+
+
+static func _graphics_text() -> String:
+	return "Gráficos: %s" % Look.NAMES[Look.quality()]
 
 
 ## Como no Minecraft: a partida solo vira servidor na hora (os outros entram pelo menu).

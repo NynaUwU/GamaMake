@@ -26,13 +26,14 @@ var sun_factor := 1.0
 var _sun: DirectionalLight3D
 var _moon: DirectionalLight3D
 var _env: Environment
-var _sky: ProceduralSkyMaterial
+var _sky: ShaderMaterial
+var _cloud_offset := Vector2.ZERO
 var _broadcast := 0.0
 var _was_night := false
 
-const DAY := {"top": Color(0.33, 0.42, 0.55), "horizon": Color(0.72, 0.62, 0.52), "ambient": 0.7, "sun": Color(1.0, 0.88, 0.72)}
-const DUSK := {"top": Color(0.16, 0.18, 0.26), "horizon": Color(0.62, 0.42, 0.3), "ambient": 0.5, "sun": Color(1.0, 0.6, 0.4)}
-const NIGHT := {"top": Color(0.015, 0.02, 0.04), "horizon": Color(0.05, 0.06, 0.09), "ambient": 0.14, "sun": Color(0.5, 0.6, 0.9)}
+const DAY := {"top": Color(0.3, 0.45, 0.68), "horizon": Color(0.74, 0.7, 0.62), "ambient": 0.7, "sun": Color(1.0, 0.9, 0.76)}
+const DUSK := {"top": Color(0.2, 0.2, 0.34), "horizon": Color(0.86, 0.5, 0.32), "ambient": 0.5, "sun": Color(1.0, 0.58, 0.36)}
+const NIGHT := {"top": Color(0.012, 0.018, 0.04), "horizon": Color(0.05, 0.06, 0.1), "ambient": 0.14, "sun": Color(0.5, 0.6, 0.9)}
 
 
 func _enter_tree() -> void:
@@ -51,7 +52,10 @@ func _ready() -> void:
 	var world_env := main.get_node_or_null("WorldEnvironment") as WorldEnvironment
 	if world_env:
 		_env = world_env.environment
-		_sky = _env.sky.sky_material as ProceduralSkyMaterial if _env.sky else null
+		if _env.sky:
+			# Céu próprio (shaders/sky.gdshader): sol, lua, estrelas e nuvens.
+			_sky = Look.sky_material()
+			_env.sky.sky_material = _sky
 	_moon = DirectionalLight3D.new()
 	_moon.name = "Moon"
 	_moon.light_color = Color(0.55, 0.65, 1.0)
@@ -84,6 +88,9 @@ func _process(delta: float) -> void:
 		else:
 			dawn.emit()
 			_notify("Amanheceu. Sobreviveu à noite %d." % (day - 1 if hour < 12.0 else day))
+	# Nuvens andam com o vento.
+	var wind := Weather.i.wind if Weather.i else 0.3
+	_cloud_offset += Vector2(1.0, 0.35) * (0.0015 + wind * 0.006) * delta
 	_apply()
 	# Host: acerta o relógio de todo mundo de vez em quando.
 	if Net.i.online() and Net.i.is_host():
@@ -115,11 +122,18 @@ func _apply() -> void:
 	sun_factor = (1.0 - night) * lerpf(1.0, 0.6, dusk) * lerpf(1.0, 0.35, wet)
 	fog_tint = Color(1, 1, 1).lerp(Color(1.0, 0.75, 0.6), dusk).lerp(Color(0.1, 0.11, 0.16), night)
 	if _sky:
-		_sky.sky_top_color = palette.top
-		_sky.sky_horizon_color = palette.horizon
-		_sky.ground_horizon_color = palette.horizon
+		_sky.set_shader_parameter("top_color", palette.top)
+		_sky.set_shader_parameter("horizon_color", palette.horizon)
+		_sky.set_shader_parameter("ground_color", palette.horizon.darkened(0.6))
+		_sky.set_shader_parameter("sun_color", palette.sun)
+		_sky.set_shader_parameter("sun_power", lerpf(1.0, 0.25, wet))
+		_sky.set_shader_parameter("night", night)
+		_sky.set_shader_parameter("cloud_offset", _cloud_offset)
+		_sky.set_shader_parameter("cloud_cover", lerpf(0.34, 0.92, wet))
+		_sky.set_shader_parameter("cloud_color", Color(0.96, 0.95, 0.93).lerp(Color(0.48, 0.5, 0.53), wet))
 	if _env:
 		_env.ambient_light_energy = palette.ambient
+		_env.ambient_light_color = palette.horizon.lerp(Color(0.5, 0.5, 0.5), 0.4)
 	if _sun:
 		# Sol nasce no leste (6h), passa alto ao meio-dia e se põe no oeste (18h+).
 		var a := (hour - 6.0) / 12.0 * PI
@@ -127,11 +141,15 @@ func _apply() -> void:
 		if dir.y < 0.05:
 			dir = Vector3(dir.x, 0.05, dir.z).normalized()
 		_sun.global_basis = Basis.looking_at(-dir, Vector3.UP)
+		if _sky:
+			_sky.set_shader_parameter("sun_dir", dir)
 		_sun.light_color = palette.sun
 		_sun.light_energy = lerpf(1.0, 0.35, wet)
 		_sun.visible = sun_factor > 0.02
 		_sun.shadow_enabled = sun_factor > 0.15 and wet < 0.6
 	if _moon:
+		if _sky and _moon.is_inside_tree():
+			_sky.set_shader_parameter("moon_dir", _moon.global_basis.z)
 		_moon.light_energy = 0.22 * night
 		_moon.visible = night > 0.02
 

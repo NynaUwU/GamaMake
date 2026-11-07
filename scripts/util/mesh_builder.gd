@@ -26,7 +26,11 @@ func finish(material: Material = null, smooth := true) -> ArrayMesh:
 	if smooth:
 		st.index()
 		st.generate_normals()
-		mesh = st.commit()
+		var arrays := st.commit_to_arrays()
+		mesh = ArrayMesh.new()
+		if not arrays.is_empty() and arrays[Mesh.ARRAY_VERTEX] != null and not (arrays[Mesh.ARRAY_VERTEX] as PackedVector3Array).is_empty():
+			_bake(arrays, false)
+			mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
 	else:
 		mesh = _flat_mesh()
 	if material and mesh.get_surface_count() > 0:
@@ -52,8 +56,50 @@ func _flat_mesh() -> ArrayMesh:
 	arrays[Mesh.ARRAY_NORMAL] = normals
 	var mesh := ArrayMesh.new()
 	if not verts.is_empty():
+		_bake(arrays, true)
 		mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
 	return mesh
+
+
+## Sombra "pintada" na cor por vértice na hora de montar (não custa nada por quadro):
+##   - faces viradas para baixo mais escuras (embaixo de tampas, beirais, mesas);
+##   - modelo em pé no chão (origem no pé): escurece perto do chão (contato);
+##   - cada face (ou vértice, nas suaves) varia um pouquinho de tom.
+## Só aparece em material com cor por vértice (Look.surface); os itens usam cor
+## do material e não mudam.
+static var bake_shading := true
+
+static func _bake(arrays: Array, flat: bool) -> void:
+	if not bake_shading or arrays[Mesh.ARRAY_COLOR] == null:
+		return
+	var verts: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
+	var normals: PackedVector3Array = arrays[Mesh.ARRAY_NORMAL]
+	var colors: PackedColorArray = arrays[Mesh.ARRAY_COLOR]
+	if colors.size() != verts.size() or normals.size() != verts.size():
+		return
+	var lo := INF
+	var hi := -INF
+	for v in verts:
+		lo = minf(lo, v.y)
+		hi = maxf(hi, v.y)
+	var grounded := absf(lo) < 0.06 and hi - lo > 0.15
+	var band := clampf((hi - lo) * 0.35, 0.12, 0.5)
+	for i in verts.size():
+		var v := verts[i]
+		var n := normals[i]
+		var k := 1.0
+		if n.y < -0.5:
+			k = 0.8
+		if grounded:
+			k *= lerpf(0.76, 1.0, smoothstep(lo, lo + band, v.y))
+		var key := v
+		if flat:
+			var t := i - i % 3
+			key = (verts[t] + verts[t + 1] + verts[t + 2]) / 3.0
+		k *= 1.0 + (fposmod(sin(key.x * 12.9898 + key.y * 78.233 + key.z * 37.719) * 43758.5453, 1.0) - 0.5) * 0.07
+		var c := colors[i]
+		colors[i] = Color(c.r * k, c.g * k, c.b * k, c.a)
+	arrays[Mesh.ARRAY_COLOR] = colors
 
 
 func tri(a: Vector3, b: Vector3, c: Vector3) -> void:

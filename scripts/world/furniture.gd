@@ -16,10 +16,10 @@ var key := ""
 var kind := "mesa"
 var hp := 40.0
 var _done := false
-var _material: StandardMaterial3D
+var _material: Material
 
 
-func setup(key_: String, kind_: String, material: StandardMaterial3D) -> void:
+func setup(key_: String, kind_: String, material: Material) -> void:
 	key = key_
 	kind = kind_
 	hp = HP.get(kind, 40.0)
