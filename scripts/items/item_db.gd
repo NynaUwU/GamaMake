@@ -179,8 +179,16 @@ const ITEMS := {
 	&"peixe_defumado": {"name": "Peixe defumado", "short": "Defumado", "kind": "food", "hunger": 50, "heal": 10, "stack": 100,
 		"size": Vector3(0.28, 0.05, 0.12), "desc": "Do defumador. Enche muito e nunca estraga.", "controls": ["Clique: come (+50 fome)"]},
 	&"tocha": {"name": "Tocha", "kind": "tool", "slot": "offhand", "durability": 600, "stack": 1, "size": Vector3(0.06, 0.45, 0.06),
-		"desc": "Ilumina em volta enquanto está na mão (ou na mão secundária, sem largar a arma). Queima por meio dia (10 min) e acaba.",
-		"controls": ["Arraste para o slot da mão (ao lado da roupa): fica acesa na mão esquerda"]},
+		"desc": "Ilumina em volta enquanto está na mão (ou na mão secundária, sem largar a arma). Queima por meio dia (10 min) e acaba. Dá para pôr no chão ou na parede: continua queimando o que tinha.",
+		"controls": ["Arraste para o slot da mão (ao lado da roupa): fica acesa na mão esquerda",
+			"Na mão, clique mirando o chão ou uma parede: põe a tocha ali", "[E] na tocha posta: reabastece (outra tocha, ou pano + graveto)"]},
+	&"cabo": {"name": "Cabo elétrico", "short": "Cabo", "kind": "material", "stack": 100, "size": Vector3(0.22, 0.08, 0.22),
+		"desc": "Fio de cobre encapado em pano. Liga duas peças elétricas (borne de latão) a até 12 m: cada 4 m gasta 1. Pendura entre os bornes.",
+		"controls": ["Clique numa peça elétrica e depois na outra: liga", "Ligar o mesmo par de novo: tira o cabo (volta)"]},
+	&"lampada": {"name": "Lâmpada", "kind": "material", "stack": 100, "size": Vector3(0.08, 0.12, 0.08),
+		"desc": "Bulbo de vidro com filamento de cobre. Vai nas lâmpadas e nas válvulas do rádio."},
+	&"bobina": {"name": "Bobina de cobre", "short": "Bobina", "kind": "material", "stack": 100, "size": Vector3(0.14, 0.14, 0.18),
+		"desc": "Fio de cobre enrolado num núcleo de ferro (torno). Peça do dínamo, do painel solar, da geladeira, do rádio e da bomba elétrica."},
 	&"correia": {"name": "Esteira de couro", "short": "Esteira", "kind": "material", "stack": 100, "size": Vector3(0.2, 0.05, 0.2),
 		"desc": "Liga uma polia a outra polia (ou à polia de latão de uma máquina) a até 10 m, com as duas paralelas. Serve para levar a força do meio de um eixo até uma máquina.",
 		"controls": ["Clique numa polia e depois na outra polia ou máquina: liga", "Ligar o mesmo par de novo: tira a esteira"]},
@@ -321,6 +329,38 @@ const SPOIL := {
 	&"pao_fresco": 1200.0, &"torrada": 1500.0, &"carne_crua": 480.0, &"carne_assada": 900.0,
 	&"ovo": 1800.0, &"ovo_frito": 900.0, &"leite": 600.0,
 }
+
+
+## Comida estragando numa lista de vagas (mochila, baú, geladeira...): o frescor
+## (dur) cai; o que zera vira "comida estragada" (uma pilha só).
+## Devolve {any: tinha comida que estraga, rotted: algo apodreceu, rotten: quantos}.
+static func spoil_slots(slots: Array, seconds: float) -> Dictionary:
+	var any := false
+	var rotten := 0
+	for i in slots.size():
+		if not slots[i].is_empty() and spoils(slots[i].id):
+			slots[i].dur = slots[i].get("dur", 1.0) - seconds / SPOIL[slots[i].id]
+			any = true
+			if slots[i].dur <= 0.0:
+				rotten += slots[i].amount
+				slots[i] = {}
+	if rotten > 0:
+		var first := -1
+		for i in slots.size():
+			if not slots[i].is_empty() and slots[i].id == &"comida_estragada":
+				if first < 0:
+					first = i
+				else:
+					slots[first].amount += slots[i].amount
+					slots[i] = {}
+		if first >= 0:
+			slots[first].amount += rotten
+		else:
+			for i in slots.size():
+				if slots[i].is_empty():
+					slots[i] = {"id": &"comida_estragada", "amount": rotten}
+					break
+	return {"any": any, "rotted": rotten > 0, "rotten": rotten}
 
 
 static func spoils(id: StringName) -> bool:

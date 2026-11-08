@@ -75,6 +75,30 @@ const ENTRIES := {
 		{"id": "press", "name": "Prensa", "place": "press", "desc": "Com eixo girando: fruta = suco; sementes de algodão ou gordura = óleo", "cost": {&"tabua": 6, &"barra_ferro": 3, &"parafuso": 2}},
 		{"id": "distillery", "name": "Destilaria", "place": "distillery", "desc": "Fogo + água + trigo, fruta ou batata = álcool (combustível dos carros e antisséptico)", "cost": {&"barra_cobre": 6, &"tijolo": 6, &"cano": 2}},
 	],
+	"Elétrica": [
+		{"id": "connector", "name": "Conector", "place": "connector", "desc": "Poste com isolador para emendar cabos. Mirando uma parede, vai na parede", "cost": {&"tabua": 2, &"argila": 1}},
+		{"id": "dynamo", "name": "Dínamo", "place": "dynamo", "desc": "Eixo com força na porta de latão (carga 2) vira 6 de energia. Borne em cima: ligue o cabo", "cost": {&"bobina": 2, &"barra_ferro": 4, &"barra_cobre": 2, &"parafuso": 4}},
+		{"id": "solar_panel", "name": "Painel solar", "place": "solar_panel", "desc": "Até 3 de energia com sol (nublado e chuva rendem menos, noite nada)", "cost": {&"vidro": 4, &"barra_cobre": 3, &"bobina": 1, &"barra_ferro": 2}},
+		{"id": "battery", "name": "Bateria", "place": "battery", "desc": "Jarros que guardam 600: a sobra da rede carrega, a falta descarrega (até 5 por segundo)", "cost": {&"vidro": 6, &"barra_cobre": 4, &"sucata": 4, &"tabua": 3}},
+		{"id": "lamp", "name": "Lâmpada", "place": "lamp", "desc": "Luz elétrica (gasta 0,5). No chão vira lampadário; mirando uma parede, arandela. [E] liga/desliga", "cost": {&"lampada": 1, &"barra_ferro": 1, &"barra_cobre": 1}},
+		{"id": "electric_fence", "name": "Cerca elétrica", "place": "electric_fence", "desc": "2,4 m de fios: com energia (gasta 1) dá choque em quem encosta (dano e tontura). Shift alinha na grade", "cost": {&"tabua": 3, &"barra_cobre": 2, &"cabo": 2, &"argila": 2}},
+		{"id": "fridge", "name": "Geladeira", "place": "fridge", "desc": "Guarda 21 itens; ligada (gasta 1,5) a comida quase não estraga. Desligada estraga como num baú", "cost": {&"tabua": 8, &"barra_ferro": 4, &"cano": 2, &"bobina": 1, &"barra_cobre": 2}},
+		{"id": "radio", "name": "Rádio", "place": "radio", "desc": "Ligado (gasta 0,5) pega transmissões: direção da horda, airdrops no mapa e pedidos de sobreviventes (com recompensa)", "cost": {&"tabua": 4, &"vidro": 2, &"barra_cobre": 3, &"bobina": 1, &"lampada": 2}},
+		{"id": "electric_pump", "name": "Bomba elétrica", "place": "electric_pump", "desc": "Poço: com energia (gasta 2) põe 1,5 de água por segundo no cano, em qualquer lugar", "cost": {&"barra_ferro": 4, &"bobina": 1, &"cano": 2, &"parafuso": 2}},
+	],
+	"Decoração": [
+		{"id": "deco_table", "name": "Mesa", "place": "deco_table", "desc": "Mesa de madeira (enfeite)", "cost": {&"tabua": 4}},
+		{"id": "deco_chair", "name": "Cadeira", "place": "deco_chair", "desc": "Cadeira de madeira (enfeite)", "cost": {&"tabua": 2, &"graveto": 2}},
+		{"id": "deco_stool", "name": "Banquinho", "place": "deco_stool", "desc": "Banquinho de três pés", "cost": {&"tabua": 1, &"graveto": 3}},
+		{"id": "deco_rug", "name": "Tapete", "place": "deco_rug", "desc": "Tapete de pano com franja (dá para pisar)", "cost": {&"pano": 4}},
+		{"id": "deco_vase", "name": "Vaso", "place": "deco_vase", "desc": "Vaso de barro com flores", "cost": {&"argila": 2}},
+		{"id": "deco_plant", "name": "Planta", "place": "deco_plant", "desc": "Planta grande num vaso de barro", "cost": {&"argila": 3, &"graveto": 1}},
+		{"id": "deco_barrel", "name": "Barril", "place": "deco_barrel", "desc": "Barril de madeira com cintas de ferro", "cost": {&"tabua": 4, &"barra_ferro": 1}},
+		{"id": "deco_crates", "name": "Caixotes", "place": "deco_crates", "desc": "Pilha de caixotes", "cost": {&"tabua": 5}},
+		{"id": "deco_painting", "name": "Quadro", "place": "deco_painting", "desc": "Quadro com paisagem: mire uma parede", "cost": {&"tabua": 2, &"pano": 1}},
+		{"id": "deco_shelf", "name": "Prateleira", "place": "deco_shelf", "desc": "Prateleira com livros e potes: mire uma parede", "cost": {&"tabua": 2, &"graveto": 2}},
+		{"id": "deco_clock", "name": "Relógio", "place": "deco_clock", "desc": "Relógio de parede que marca a hora do jogo: mire uma parede", "cost": {&"tabua": 1, &"barra_cobre": 1, &"vidro": 1}},
+	],
 	"Fazenda": [
 		{"id": "trough", "name": "Cocho", "place": "trough", "desc": "Ponha a comida dos bichos mansos: sementes (galinha), trigo (ovelha, vaca, porco) ou legumes (porco). [E] abre", "cost": {&"tabua": 4, &"graveto": 2}},
 		{"id": "water_trough", "name": "Bebedouro", "place": "water_trough", "desc": "Água para os bichos (até 12). Encha com garrafa, chuva ou cano. Comida + água = filhotes", "cost": {&"tabua": 4, &"barra_ferro": 1}},
@@ -102,10 +126,19 @@ const PLACE_SIZE := {"pot_small": Vector3(0.46, 0.31, 0.46), "pot_wide": Vector3
 	"blast_furnace": Vector3(1.6, 1.3, 1.6), "blast_stack": Vector3(1.4, 1.05, 1.4), "boiler": Vector3(2.3, 2.9, 1.15),
 	"steam_engine": Vector3(1.6, 1.4, 1.4), "water_tank": Vector3(1.1, 1.45, 1.1), "sprinkler": Vector3(0.36, 0.8, 0.36),
 	"lathe": Vector3(2.0, 1.1, 0.6), "press": Vector3(1.3, 1.7, 0.8), "distillery": Vector3(1.7, 1.45, 0.9), "pipe": Vector3(0.18, 0.18, 1.0),
-	"trough": Vector3(1.5, 0.6, 0.5), "water_trough": Vector3(1.32, 0.5, 0.55), "fence": Vector3(2.4, 1.15, 0.14), "gate": Vector3(2.4, 1.15, 0.14)}
+	"trough": Vector3(1.5, 0.6, 0.5), "water_trough": Vector3(1.32, 0.5, 0.55), "fence": Vector3(2.4, 1.15, 0.14), "gate": Vector3(2.4, 1.15, 0.14),
+	"connector": Vector3(0.24, 1.3, 0.24), "connector_wall": Vector3(0.14, 0.22, 0.2), "dynamo": Vector3(1.0, 0.9, 0.6), "solar_panel": Vector3(1.3, 1.25, 0.9),
+	"battery": Vector3(0.9, 0.8, 0.55), "lamp": Vector3(0.36, 1.7, 0.36), "lamp_wall": Vector3(0.2, 0.3, 0.32), "electric_fence": Vector3(2.5, 1.35, 0.16),
+	"fridge": Vector3(0.8, 1.75, 0.7), "radio": Vector3(0.7, 0.7, 0.45), "electric_pump": Vector3(0.6, 0.95, 0.6),
+	"deco_table": Vector3(1.2, 0.78, 0.7), "deco_chair": Vector3(0.44, 0.98, 0.44), "deco_stool": Vector3(0.38, 0.54, 0.38), "deco_rug": Vector3(1.8, 0.03, 1.2),
+	"deco_vase": Vector3(0.3, 0.7, 0.3), "deco_plant": Vector3(0.6, 0.9, 0.6), "deco_barrel": Vector3(0.64, 0.9, 0.64), "deco_crates": Vector3(1.1, 0.96, 0.55),
+	"deco_painting": Vector3(0.9, 0.7, 0.06), "deco_shelf": Vector3(1.0, 0.3, 0.26), "deco_clock": Vector3(0.48, 0.48, 0.08),
+	"torch": Vector3(0.14, 0.8, 0.14), "torch_wall": Vector3(0.14, 0.35, 0.2)}
 ## Centro da caixa (vermelha, ao desmontar) quando não é logo acima da origem.
 const PLACE_CENTER := {"bed": Vector3(1.4, 0.1, 1.4), "stairs": Vector3(0, 1.4, -1.4), "steam_engine": Vector3(0.45, 0.7, -0.3),
-	"distillery": Vector3(0.15, 0.72, 0), "boiler": Vector3(0, 1.45, 0), "pipe": Vector3(0, 0, 0.5)}
+	"distillery": Vector3(0.15, 0.72, 0), "boiler": Vector3(0, 1.45, 0), "pipe": Vector3(0, 0, 0.5),
+	"connector_wall": Vector3(0, 0, 0.1), "lamp_wall": Vector3(0, 0, 0.16), "deco_painting": Vector3(0, 0, 0.03), "deco_shelf": Vector3(0, 0.05, 0.13),
+	"deco_clock": Vector3(0, 0, 0.04), "torch_wall": Vector3(0, -0.05, 0.1)}
 ## Shift: deslocamento da origem na grade (a escada tem 3 quadrados de largura: borda na linha da grade).
 const GRID_OFFSET := {"stairs": Vector3(0.2, 0, 0)}
 const PLACE_RADIUS := {"pot_small": 0.35, "pot_wide": 0.7, "bench": 0.9, "campfire": 0.6, "furnace": 0.8, "workbench": 1.0,
@@ -113,7 +146,10 @@ const PLACE_RADIUS := {"pot_small": 0.35, "pot_wide": 0.7, "bench": 0.9, "campfi
 	"quern": 0.5, "oven": 0.7, "pump": 0.35, "filter": 0.45, "stone_furnace": 0.9, "spinning": 0.55, "loom": 0.7, "smoker": 0.5, "compost": 0.6, "sieve": 0.55,
 	"water_wheel": 0.6, "windmill": 0.9, "shaft": 0.3, "sawmill": 1.0, "ram_pump": 0.4, "stairs": 0.6,
 	"blast_furnace": 0.9, "blast_stack": 0.1, "boiler": 1.1, "steam_engine": 0.9, "water_tank": 0.6, "sprinkler": 0.25,
-	"lathe": 1.0, "press": 0.7, "distillery": 0.9, "trough": 0.8, "water_trough": 0.7, "fence": 0.15, "gate": 0.15}
+	"lathe": 1.0, "press": 0.7, "distillery": 0.9, "trough": 0.8, "water_trough": 0.7, "fence": 0.15, "gate": 0.15,
+	"connector": 0.2, "dynamo": 0.7, "solar_panel": 0.7, "battery": 0.6, "lamp": 0.25, "electric_fence": 0.15, "fridge": 0.5, "radio": 0.45, "electric_pump": 0.4,
+	"deco_table": 0.7, "deco_chair": 0.3, "deco_stool": 0.25, "deco_rug": 0.3, "deco_vase": 0.2, "deco_plant": 0.3, "deco_barrel": 0.4, "deco_crates": 0.6,
+	"deco_painting": 0.12, "deco_shelf": 0.12, "deco_clock": 0.12}
 
 var player: Player
 var selection: Dictionary = ENTRIES["Estrutura"][0]
@@ -393,6 +429,7 @@ func update(tool: String) -> void:
 			target = _compute_place()
 			if target.is_empty():
 				return
+			_build_model_ghost(target.get("kind", selection.place)) # parede: a variante de parede
 			_ghost.visible = true
 			_ghost.global_transform = target.xform
 			_tint(target.valid)
@@ -447,7 +484,7 @@ func use(tool: String) -> bool:
 				Sfx.play("click", -6.0, 0.6) # bomba só na beira do lago
 				return false
 			if not target.is_empty() and target.valid and _paid(selection):
-				_placed().request("place", [selection.place, target.xform])
+				_placed().request("place", [target.get("kind", selection.place), target.xform])
 				return true
 			return false
 		if selection.has("fill"):
@@ -540,8 +577,16 @@ func dismantle() -> bool:
 			pass # tripé vem junto com o eixo
 		elif hit.collider.kind == "shaft":
 			player.inventory.add(PowerParts.AXLE_ITEM, 1) # eixo antigo vira eixo novo
+		elif PlacedTorch.has(hit.collider.kind):
+			pass # a tocha volta pelo host, com o que sobrou
 		else:
-			_refund(entry_for("place", hit.collider.kind).get("cost", {}))
+			var base := _base_kind(hit.collider.kind)
+			_refund(entry_for("place", base).get("cost", {}))
+			if Electric.has(base):
+				for other_id in hit.collider.extra.get("cables", []):
+					var other: PlacedObject = _placed().objects.get(other_id)
+					if other:
+						player.inventory.add(Electric.CABLE_ITEM, Electric.cable_cost(Electric.terminal(other).distance_to(Electric.terminal(hit.collider)))) # cabos voltam junto
 		_placed().request("remove", [hit.collider.net_id])
 		return true
 	return false
@@ -632,6 +677,15 @@ func _compute_place() -> Dictionary:
 	var hit := _ray()
 	if selection.place == "blast_stack":
 		return _compute_stack(placed, hit)
+	# Conector, lâmpada e enfeites de parede: mirando uma parede, vão na parede.
+	var wall := wall_kind(selection.place)
+	if wall != "" and not hit.is_empty() and absf(hit.normal.y) < 0.35:
+		var flat := Vector3(hit.normal.x, 0, hit.normal.z).normalized()
+		var on_wall := Transform3D(Basis.looking_at(-flat, Vector3.UP), hit.position + flat * 0.005)
+		var ok := not placed.occupied(on_wall.origin, 0.12) and player.global_position.distance_to(on_wall.origin) > 0.4
+		return {"xform": on_wall, "valid": ok, "kind": wall}
+	if selection.place in Decor.WALL_KINDS:
+		return {} # quadro, prateleira e relógio: só na parede
 	if hit.is_empty() or hit.normal.y < 0.7 or hit.collider is PlacedObject and hit.collider.kind != "bed":
 		return {}
 	var xform := Transform3D(Basis(Vector3.UP, player.rotation.y), hit.position)
@@ -644,6 +698,21 @@ func _compute_place() -> Dictionary:
 	var valid := not placed.occupied(xform.origin, PLACE_RADIUS[selection.place]) \
 			and player.global_position.distance_to(xform.origin) > 0.6
 	return {"xform": xform, "valid": valid}
+
+
+## Variante de parede do que está no martelo ("" = não vai na parede).
+static func wall_kind(place: String) -> String:
+	if Electric.WALL_VARIANT.has(place):
+		return Electric.WALL_VARIANT[place]
+	return place if place in Decor.WALL_KINDS else ""
+
+
+## Tipo do menu de um objeto (a lâmpada de parede é a "lamp" do menu).
+static func _base_kind(kind: String) -> String:
+	for base in Electric.WALL_VARIANT:
+		if Electric.WALL_VARIANT[base] == kind:
+			return base
+	return kind
 
 
 ## Anel do alto-forno: vai em cima da base ou do anel mirado, alinhado com ele.

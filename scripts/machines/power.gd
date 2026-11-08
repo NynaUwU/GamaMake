@@ -24,7 +24,8 @@ const MOUNT := 0.12 ## centro da engrenagem/polia a até isso da linha do eixo =
 ## Geradores: força máxima.
 const OUTPUT := {"water_wheel": 4.0, "windmill": 6.0, "steam_engine": 10.0}
 ## Consumidores: carga quando têm trabalho.
-const DEMAND := {"sawmill": 3.0, "quern": 1.0, "spinning": 1.0, "loom": 1.5, "blast_furnace": 2.0, "lathe": 2.0, "press": 1.5}
+const DEMAND := {"sawmill": 3.0, "quern": 1.0, "spinning": 1.0, "loom": 1.5, "blast_furnace": 2.0, "lathe": 2.0, "press": 1.5,
+	"dynamo": 2.0} # = Electric.DYNAMO_LOAD
 ## Bancadas com energia (torno, prensa): giram sempre que a rede tem força, mas só
 ## pedem carga nos segundos depois de fabricar algo (extra.used).
 const STATIONS := ["lathe", "press"]
@@ -41,6 +42,7 @@ const PORTS := {
 	"blast_furnace": [[Vector3(-1.0, 0.6, 0), Vector3.LEFT]],
 	"lathe": [[Vector3(-0.98, 0.6, 0), Vector3.LEFT]], # na polia de latão do modelo
 	"press": [[Vector3(-0.84, 0.6, 0), Vector3.LEFT]],
+	"dynamo": [[Vector3(-0.7, 0.6, 0), Vector3.LEFT]], # na polia de latão do eixo
 }
 const PARTS := ["axle", "tripod", "cog", "pulley"]
 const COG_RADIUS := {"cog": 0.3}
@@ -163,6 +165,8 @@ static func busy(obj: PlacedObject) -> bool:
 	if obj.kind in STATIONS:
 		var manager := obj.get_parent() as PlacedManager
 		return manager != null and obj.extra.get("used", 0.0) > manager.clock
+	if obj.kind == "dynamo":
+		return obj.extra.get("draw", false) # gerando para a rede elétrica (Electric.tick)
 	if obj.kind == "blast_furnace" and ContainerManager.i:
 		var slots: Array = ContainerManager.i.contents.get(Smelting.key_of(obj), [])
 		return slots.size() > 0 and not slots[Smelting.INPUT].is_empty() # tem ferro para virar aço

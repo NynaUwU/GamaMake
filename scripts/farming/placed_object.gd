@@ -136,7 +136,7 @@ func aiming_basket(player: Node) -> bool:
 
 # --- Fogo (acende só em uso) -----------------------------------------------------
 
-const LIT_KINDS := ["campfire", "furnace", "stone_furnace", "oven", "smoker", "blast_furnace", "boiler", "distillery"]
+const LIT_KINDS := ["campfire", "furnace", "stone_furnace", "oven", "smoker", "blast_furnace", "boiler", "distillery", "torch", "torch_wall"]
 
 
 ## Está acesa agora? Fogueira: tem lenha queimando. Fornalhas: combustível
@@ -146,7 +146,7 @@ func is_lit(clock := -1.0) -> bool:
 		var manager := get_parent() as PlacedManager
 		clock = manager.clock if manager else 0.0
 	match kind:
-		"campfire":
+		"campfire", "torch", "torch_wall":
 			return extra.get("fuel_until", 0.0) > clock
 		"furnace", "stone_furnace", "blast_furnace", "boiler", "distillery":
 			return extra.get("burn", 0.0) > 0.0
@@ -268,6 +268,17 @@ func refresh(clock: float) -> void:
 		PowerParts.refresh_lamp(self)
 	if kind in LIT_KINDS:
 		StationModels.set_lit(self, is_lit(clock))
+	if PlacedTorch.has(kind):
+		return
+	if Electric.has(kind):
+		if kind == "radio":
+			Radio.refresh(self)
+		else:
+			ElectricModels.refresh(self)
+		return
+	if Decor.has(kind):
+		Decor.refresh(self)
+		return
 	if kind in SteamModels.KINDS:
 		SteamModels.refresh(self)
 		return
@@ -333,6 +344,12 @@ func get_interact_text() -> String:
 		return Ranch.text(self)
 	if PowerParts.has(kind):
 		return PowerParts.text(self)
+	if Electric.has(kind):
+		return Electric.text(self)
+	if Decor.has(kind):
+		return Decor.text(self)
+	if PlacedTorch.has(kind):
+		return PlacedTorch.text(self, clock)
 	match kind:
 		"rain_collector":
 			var water: float = extra.get("water", 0.0)
@@ -393,6 +410,14 @@ func interact(player: Node) -> void:
 	if PowerParts.has(kind):
 		Sfx.play("click", -6.0, 0.6)
 		return
+	if Electric.has(kind):
+		Electric.interact(player, self)
+		return
+	if PlacedTorch.has(kind):
+		PlacedTorch.interact(player, self)
+		return
+	if Decor.has(kind):
+		return
 	if kind == "ram_pump":
 		var bottle := Cooking.find_any(player.inventory, {&"garrafa": true})
 		if bottle < 0:
@@ -449,6 +474,15 @@ func _build() -> void:
 		return
 	if PowerParts.has(kind):
 		PowerParts.build(self) # eixo, tripé, engrenagem, polia
+		return
+	if Electric.has(kind):
+		ElectricModels.build(kind, self) # Tier 4: cabos, geradores, lâmpadas, rádio...
+		return
+	if Decor.has(kind):
+		Decor.build(kind, self)
+		return
+	if PlacedTorch.has(kind):
+		PlacedTorch.build(kind, self)
 		return
 	if ObjectModels.has(kind):
 		ObjectModels.build(kind, self) # plantadores, estações e máquinas (Tier 0-2)

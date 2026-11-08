@@ -62,6 +62,24 @@ Martelo → aba **Vapor**. Ordem natural: torno (ferro) → parafusos/engrenagen
   - **Antisséptico:** bandagem + álcool (mesa) = **bandagem com álcool** (+60 vida e cura a doença).
 - **Itens novos:** barra de aço, parafusos, engrenagem, eixo torneado, cano, suco, óleo, álcool, bandagem com álcool (modelos próprios).
 
+## Tier 4: eletricidade, rádio, decorações e tocha na parede
+- **Cabos** (item **cabo**, mesa: 1 barra de cobre + 1 pano = 4): clique numa peça elétrica e depois na outra (até 12 m; cada 4 m gasta 1 cabo). O fio aparece pendurado até a mira antes de ligar (verde = alcança) e fica em **catenária** entre os bornes de latão. Ligar o mesmo par de novo tira o cabo; desmontar uma peça devolve os cabos dela. `scripts/machines/electric.gd`.
+- **Rede elétrica** (host, 1x por segundo, por rede ligada): o que sobra **carrega as baterias**; o que falta elas **descarregam**; se nem assim dá, **falta luz na rede inteira** (nada liga e as baterias guardam o que têm). Painel de cada peça: "rede: consumo 2 de 6 · baterias 300 de 600".
+- **Geram:** **dínamo** (eixo com força na porta de latão vira **6** de energia; pesa **2** no eixo só quando a rede precisa) e **painel solar** (até **3** ao meio-dia; nublado e chuva rendem menos; noite nada). **Guarda:** **bateria** de jarros (**600**, até 5 por segundo; o líquido sobe nos jarros e o ponteiro mostra a carga).
+- **Gastam** (todos com interruptor: **[E]** liga/desliga; geladeira e rádio: **Shift+E**):
+  - **Lâmpada** (0,5): no chão vira **lampadário**; mirando uma parede, **arandela**. Luz quente de verdade, com brilho.
+  - **Cerca elétrica** (1): 2,4 m de fios com isoladores; quem encosta leva **choque** (dano, fica tonto, é empurrado), com faísca e estalo; no máximo 1 choque por segundo por zumbi.
+  - **Geladeira** (1,5): guarda 21 itens; **ligada, a comida quase não estraga** (8% da velocidade da mochila).
+  - **Bomba elétrica** (2): poço em qualquer lugar; põe **1,5 de água por segundo** no cano.
+  - **Rádio** (0,5): a cada 4-7 h de jogo pega uma transmissão: **de onde vem a horda desta noite** (de tarde), **airdrop** a 120-260 m (aparece no mapa) ou **pedido de sobreviventes** (ex.: "8 tijolos e 1 óleo"); [E] com tudo na mochila entrega e a recompensa (2 sorteios de airdrop) vai para a mochila. A mensagem vai para o chat de todos e aparece na tela de quem está perto, com chiado; [E] repete.
+  - **Conector** (poste com isolador, ou na parede): só emenda cabos.
+- **Peças novas:** cabo, **lâmpada** (mesa: 1 vidro + 1 cobre = 2) e **bobina de cobre** (torno com força: 3 cobre + 1 ferro). Martelo, aba **Elétrica**: conector, dínamo, painel solar, bateria, lâmpada, cerca elétrica, geladeira, rádio, bomba elétrica.
+- **Comida guardada também estraga** (antes só na mochila): baú, cesto do canteiro, cocho e airdrop na **metade** da velocidade; geladeira desligada igual ao baú; ligada quase parada.
+- **Tocha no chão ou na parede:** com a tocha na mão, clique mirando o chão (estaca de ferro) ou uma parede (argola). Ela **continua queimando o que tinha** (até 20 min) e apaga no fim. **[E]** reabastece: outra tocha da mochila (soma o que ela tinha) ou 1 pano + 1 graveto (+10 min). Desmontar com o martelo devolve a tocha com o que sobrou. Mirando longe, o clique continua sendo soco.
+- **Decorações** (martelo, aba **Decoração**, lista provisória): mesa, cadeira, banquinho, tapete (pisável), vaso de flores, planta, barril, caixotes; de parede: **quadro**, **prateleira** com livros e potes e **relógio** que marca a hora do jogo. Coisas de parede: mire uma parede (o fantasma muda sozinho para a versão de parede).
+- **Sons novos:** estalo do choque e chiado do rádio. A horda da próxima noite já é sorteada de dia (o rádio avisa); vai no save.
+- Testes: `tests/test_tier4.gd`. Fotos: `tests/shot_tier4.gd`.
+
 ## Visual novo e qualidade gráfica (Baixa / Média / Alta)
 - **Cor certa no Forward+:** as cores por vértice (construções, máquinas, cidade, árvores, chão, zumbis, bichos) eram lidas como "lineares" e ficavam **pálidas/lavadas** no renderizador de verdade (marrom 0,50/0,35/0,20 saía 0,73/0,62/0,49). Agora são sRGB: a cor que aparece é a escolhida, igual no Forward+ e no Compatibility/OpenGL (que já converte sozinho). `tests/color_probe.gd` e `tests/surface_probe.gd` medem isso nos dois.
 - **Textura PS2 sem UV** (`shaders/ps2_surface.gdshaderinc`, `scripts/util/look.gd`): uma textura 64×64 pixelada gerada no código, projetada nos 3 eixos. O tipo sai da cor: marrom = **veio de madeira**, cinza = **grão de pedra/metal**, verde e o resto = grão fino, mais **manchas grandes** de sujeira. Pilar em pé tem o veio na vertical. Chão com grão e manchas que quebram o verde liso.

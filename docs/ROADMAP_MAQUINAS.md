@@ -57,7 +57,7 @@ Cada fase só usa o que as anteriores já entregaram.
   mandam entre quem precisa; a sobra vai para as caixas d'água e, faltando, elas soltam. Vapor sai da pressão
   guardada na caldeira e vira força no motor a vapor.
 
-### Cabos elétricos (Tier 4)
+### Cabos elétricos (Tier 4) *(feito: `scripts/machines/electric.gd`)*
 - **Conectores** colocáveis em parede, pilar ou máquina.
 - O cabo liga dois conectores e é desenhado como **catenária** (barriga para baixo, proporcional ao comprimento), sem física.
 - Malha simples: um tubo fino seguindo a curva `y = a·cosh(x/a)` aproximada por 12 pontos.
@@ -96,7 +96,7 @@ Cada fase só usa o que as anteriores já entregaram.
    - Caldeira (explode sem água), motor a vapor.
    - Torno (eixo, parafuso, engrenagem), prensa (óleo, suco).
    - Destilaria (álcool: antisséptico e combustível dos carros).
-6. **Tier 4**
+6. **Tier 4** *(feito: `scripts/machines/electric.gd`, `radio.gd`)*
    - Cabos com catenária e conectores de parede.
    - Dínamo, bateria, painel solar.
    - Bomba elétrica, cerca elétrica, iluminação.

@@ -450,6 +450,8 @@ func _unhandled_input(event: InputEvent) -> void:
 			power_tool.press() # eixo (arrastar), engrenagem/polia (montar), esteira (ligar)
 		elif event.is_action_pressed("attack") and inventory.selected_id() in [&"alcool", &"oleo"] and _aimed_car() != null:
 			_refuel(_aimed_car())
+		elif event.is_action_pressed("attack") and inventory.selected_id() == &"tocha" and _place_torch():
+			pass # tocha posta no chão/parede (senão o clique segue como soco)
 		elif event.is_action_pressed("attack") and ItemDB.def(inventory.selected_id()).kind == "food":
 			_eat_selected()
 		elif event.is_action_pressed("attack") and ItemDB.def(inventory.selected_id()).kind == "seed":
@@ -2348,6 +2350,23 @@ func _fertilize() -> void:
 	inventory.take(inventory.selected, 1)
 	(get_parent().get_node("Placed") as PlacedManager).request("extra", [hit.collider.net_id, {"fert": 3}])
 	Sfx.play_at("step_soft", hit.position, 2.0, 0.9)
+
+
+## Tocha na mão mirando chão ou parede (até 3,5 m): põe ali, com o que ela ainda tinha
+## para queimar. Devolve false se não deu (aí o clique vira soco).
+func _place_torch() -> bool:
+	var origin := camera.global_position
+	var query := PhysicsRayQueryParameters3D.create(origin, origin - camera.global_basis.z * 3.5, 1, [get_rid()])
+	var hit := get_world_3d().direct_space_state.intersect_ray(query)
+	var placed: PlacedManager = get_parent().get_node_or_null("Placed")
+	var spot := PlacedTorch.spot(hit, rotation.y)
+	if placed == null or spot.is_empty() or placed.occupied(spot.xform.origin, 0.15):
+		return false
+	var slot: Dictionary = inventory.slots[inventory.selected]
+	placed.request("place", [spot.kind, spot.xform, {"fuel": PlacedTorch.BURN * float(slot.get("dur", 1.0))}])
+	inventory.take(inventory.selected, 1)
+	Sfx.play_at("knock", spot.xform.origin, -2.0, 1.5)
+	return true
 
 
 ## Bandeira (e o que mais for "placeable"): finca onde a mira bate no chão.

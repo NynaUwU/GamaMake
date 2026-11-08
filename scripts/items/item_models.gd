@@ -45,6 +45,22 @@ static func build(id: StringName) -> Node3D:
 		ItemDetail.build(id, parts) # versão mais elaborada
 		return _assemble(parts)
 	match id:
+		&"cabo":
+			# Rolo de fio encapado (pano escuro) com as pontas de cobre aparecendo.
+			for k in 3:
+				_mb(parts, Color(0.16, 0.13, 0.11)).torus(0.085 - k * 0.006, 0.018, 14, 5, Basis.IDENTITY, Vector3(0, 0.02 + k * 0.03, 0))
+			_mb(parts, COPPER).tube(PackedVector3Array([Vector3(0.08, 0.08, 0), Vector3(0.13, 0.1, 0.02), Vector3(0.16, 0.09, 0.05)]), 0.006, 4)
+		&"lampada":
+			_mb(parts, Color(0.86, 0.83, 0.72)).lathe(PackedVector2Array([Vector2(0.0, 0.03), Vector2(0.025, 0.035), Vector2(0.04, 0.06), Vector2(0.042, 0.08),
+				Vector2(0.032, 0.11), Vector2(0.0, 0.12)]), 10)
+			_mb(parts, BRASS).lathe(PackedVector2Array([Vector2(0.0, 0.0), Vector2(0.014, 0.0), Vector2(0.018, 0.01), Vector2(0.016, 0.02),
+				Vector2(0.019, 0.03), Vector2(0.02, 0.036), Vector2(0.0, 0.036)]), 8)
+			_mb(parts, COPPER).tube(PackedVector3Array([Vector3(-0.008, 0.04, 0), Vector3(0, 0.08, 0), Vector3(0.008, 0.04, 0)]), 0.002, 3, false)
+		&"bobina":
+			_mb(parts, IRON).lathe(PackedVector2Array([Vector2(0.0, -0.09), Vector2(0.07, -0.09), Vector2(0.07, -0.075), Vector2(0.03, -0.075),
+				Vector2(0.03, 0.075), Vector2(0.07, 0.075), Vector2(0.07, 0.09), Vector2(0.0, 0.09)]), 10, Basis(Vector3.RIGHT, PI / 2))
+			for k in 6:
+				_mb(parts, COPPER.lightened(0.04 * (k % 2))).torus(0.045, 0.012, 12, 4, Basis(Vector3.RIGHT, PI / 2), Vector3(0, 0, -0.06 + k * 0.024))
 		&"lanca":
 			_spear(parts)
 		&"muda":

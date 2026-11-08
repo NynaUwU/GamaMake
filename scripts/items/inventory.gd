@@ -181,36 +181,12 @@ func sort_backpack() -> void:
 
 ## Comida estragando (chamado pelo jogador a cada poucos segundos). true = mudou algo.
 func spoil(seconds: float) -> bool:
-	var any := false
-	var rotten := 0
-	for i in slots.size():
-		if not slots[i].is_empty() and ItemDB.spoils(slots[i].id):
-			slots[i].dur = slots[i].get("dur", 1.0) - seconds / ItemDB.SPOIL[slots[i].id]
-			any = true
-			if slots[i].dur <= 0.0:
-				rotten += slots[i].amount
-				slots[i] = {}
-	if rotten > 0:
-		# Junta com a comida estragada que já tinha (uma pilha só).
-		var first := -1
-		for i in slots.size():
-			if not slots[i].is_empty() and slots[i].id == &"comida_estragada":
-				if first < 0:
-					first = i
-				else:
-					slots[first].amount += slots[i].amount
-					slots[i] = {}
-		if first >= 0:
-			slots[first].amount += rotten
-		else:
-			for i in slots.size():
-				if slots[i].is_empty():
-					slots[i] = {"id": &"comida_estragada", "amount": rotten}
-					break
-		gained.emit(&"comida_estragada", rotten)
-	if any:
+	var result := ItemDB.spoil_slots(slots, seconds)
+	if result.rotten > 0:
+		gained.emit(&"comida_estragada", result.rotten)
+	if result.any:
 		changed.emit()
-	return any
+	return result.any
 
 
 ## Tira "amount" do slot; devolve o que saiu ({} se vazio).

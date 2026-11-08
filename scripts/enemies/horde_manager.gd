@@ -41,6 +41,7 @@ var _broadcast := 0.0
 var _spawn_queue: Array = [] # [horde, quantos faltam]
 ## Direção da onda desta noite (ângulo no plano XZ; o host sorteia ao anoitecer).
 var wave_angle := 0.0
+var next_angle := randf() * TAU ## direção da próxima noite (sorteada antes: o rádio avisa de tarde)
 var _cue_angle := INF # cliente/host: direção que já foi avisada com o som
 var _mob_at := {} # jogador -> quando a bile chamou zumbis pela última vez (ms)
 const WAVE_SHARE := 0.75 ## parte da onda que vem da direção da noite
@@ -297,7 +298,13 @@ func _on_nightfall() -> void:
 	wave_done = false
 	wave_quota = quota_for(DayNight.i.day if DayNight.i else 1)
 	if Net.i.is_host():
-		wave_angle = randf() * TAU
+		wave_angle = next_angle
+		next_angle = randf() * TAU
+
+
+## De onde vem a onda desta noite (de dia: a da próxima noite, já sorteada).
+func upcoming_angle() -> float:
+	return wave_angle if DayNight.i and DayNight.i.is_night() else next_angle
 
 
 ## Ângulo de onde nasce o próximo zumbi da onda: quase sempre da direção da noite.
@@ -412,7 +419,7 @@ func save_data() -> Dictionary:
 			size = horde.zombies.filter(func(z): return is_instance_valid(z) and z.state != Zombie.State.DEAD).size() + _queued(horde)
 		if size > 0:
 			list.append([horde.pos, horde.dest, size])
-	return {"list": list, "next": _next_id, "map": _make_map_list()}
+	return {"list": list, "next": _next_id, "map": _make_map_list(), "next_angle": next_angle}
 
 
 ## Save (host) ou lista do mapa (clientes).
@@ -426,6 +433,7 @@ func load_data(data: Dictionary) -> void:
 			_next_id += 1
 		_next_id = maxi(_next_id, data.get("next", 1))
 	map_list = data.get("map", map_list)
+	next_angle = data.get("next_angle", next_angle)
 	if data.has("wave"):
 		wave_alive = data.wave[0]
 		wave_killed = data.wave[1]

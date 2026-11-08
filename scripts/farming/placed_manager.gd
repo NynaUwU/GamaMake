@@ -25,6 +25,8 @@ func _process(delta: float) -> void:
 	_refresh -= delta
 	if _belts_dirty:
 		_rebuild_belts()
+	if _cables_dirty:
+		_rebuild_cables()
 	if _refresh <= 0.0:
 		_refresh = 1.0
 		_collect_rain()
@@ -32,7 +34,12 @@ func _process(delta: float) -> void:
 		_smelt()
 		_fluids()
 		_power()
+		_electric()
 		_expire_airdrops()
+		_spoil_tick -= 1.0
+		if _spoil_tick <= 0.0:
+			_spoil_tick = SPOIL_EVERY
+			_spoil_containers()
 		for obj: PlacedObject in objects.values():
 			obj.refresh(clock)
 
@@ -68,6 +75,48 @@ func _fluids() -> void:
 		request("extra", [id, changed[id]])
 
 
+## Host, 1x por segundo: a rede elétrica (Electric) divide a energia; o rádio transmite.
+func _electric() -> void:
+	if not Net.i.is_host():
+		return
+	var changed := Electric.tick(objects, clock)
+	for id in changed:
+		request("extra", [id, changed[id]])
+	Radio.host_tick(self)
+
+
+# --- Comida estragando nos baús e na geladeira -------------------------------------
+
+const SPOIL_EVERY := 10.0
+## Quanto mais devagar que na mochila: baú/cesto/cocho na metade; geladeira ligada quase parada.
+const SPOIL_RATE := {"chest": 0.5, "bed": 0.5, "trough": 0.5, "airdrop": 0.5, "fridge": 0.5}
+const FRIDGE_RATE := 0.08
+var _spoil_tick := SPOIL_EVERY
+
+
+## Host: comida guardada também estraga (mais devagar). Manda para todos só quando
+## algo apodrece ou de minuto em minuto (o frescor anda devagar).
+func _spoil_containers() -> void:
+	if not Net.i.is_host() or ContainerManager.i == null:
+		return
+	var minute := int(clock / 60.0) != int((clock - SPOIL_EVERY) / 60.0)
+	for obj: PlacedObject in objects.values():
+		if not SPOIL_RATE.has(obj.kind):
+			continue
+		var rate: float = SPOIL_RATE[obj.kind]
+		if obj.kind == "fridge" and Electric.powered(obj):
+			rate = FRIDGE_RATE
+		var key := "placed_%d" % obj.net_id
+		var slots: Array = ContainerManager.i.contents.get(key, [])
+		if slots.is_empty():
+			continue
+		var result := ItemDB.spoil_slots(slots, SPOIL_EVERY * rate)
+		if result.rotted or (result.any and minute):
+			ContainerManager.i.changed.emit(key)
+			if Net.i.online():
+				Net.i._system.rpc("Containers", "sync", [key, slots])
+
+
 ## Host, 1x por segundo: a rede de energia (Power) divide a força e avança as máquinas.
 func _power() -> void:
 	if not Net.i.is_host():
@@ -92,6 +141,20 @@ func _rebuild_belts() -> void:
 		_belt_node.name = "Belts"
 		add_child(_belt_node)
 	_belt_node.mesh = Power.belt_mesh(objects)
+
+
+var _cables_dirty := true
+var _cable_node: MeshInstance3D
+
+
+func _rebuild_cables() -> void:
+	_cables_dirty = false
+	if _cable_node == null:
+		_cable_node = MeshInstance3D.new()
+		_cable_node.name = "Cables"
+		_cable_node.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		add_child(_cable_node)
+	_cable_node.mesh = Electric.cable_mesh(objects)
 
 
 ## Altura do ponto até o chão logo abaixo (pernas do tripé).
@@ -184,6 +247,10 @@ func _collect_rain() -> void:
 			request("extra", [obj.net_id, {"water": water}])
 
 
+## Coisas que vão na parede (o martelo/tocha escolhe a variante mirando uma parede).
+const WALL_KINDS := ["connector_wall", "lamp_wall", "torch_wall", "deco_painting", "deco_shelf", "deco_clock"]
+
+
 ## Pedido de qualquer jogador (vai para o host).
 func request(action: String, args: Array) -> void:
 	Net.i.system_request(name, action, args)
@@ -219,7 +286,8 @@ func host_apply(action: String, args: Array) -> Array:
 					"grindstone", "quern", "pump", "spinning", "loom", "stone_furnace", "oven", "filter", "smoker", "compost", "sieve",
 					"shaft", "water_wheel", "windmill", "sawmill", "ram_pump", "stairs",
 					"blast_furnace", "blast_stack", "boiler", "steam_engine", "water_tank", "sprinkler", "lathe", "press", "distillery",
-					"trough", "water_trough", "fence", "gate"]:
+					"trough", "water_trough", "fence", "gate"] \
+					and not Electric.has(kind) and not Decor.has(kind) and not PlacedTorch.has(kind):
 				return []
 			if kind in ["water_wheel", "ram_pump"] and not river_bank(xform.origin):
 				return [] # só na beira de um rio
@@ -232,15 +300,64 @@ func host_apply(action: String, args: Array) -> Array:
 			elif kind == "blast_stack":
 				if not stack_spot_free(xform.origin):
 					return [] # anel do alto-forno: empilhado em cima da base/de outro anel
-			elif kind in ["fence", "gate"]:
+			elif kind in ["fence", "gate", "electric_fence"]:
 				if occupied(xform.origin, 0.15):
 					return [] # cercas encostam umas nas outras (só não no mesmo lugar)
+			elif kind in WALL_KINDS:
+				if occupied(xform.origin, 0.12):
+					return [] # coisas de parede: só não no mesmo ponto
 			elif occupied(xform.origin, 0.3):
 				return []
 			var id := _next_id
 			_next_id += 1
 			_spawn(id, kind, xform)
-			return [id, kind, xform]
+			var start := {}
+			if args.size() > 2 and args[2] is Dictionary and args[2].has("fuel"):
+				start.fuel_until = clock + clampf(float(args[2].fuel), 0.0, PlacedTorch.MAX) # tocha: o que ela ainda tinha
+			if not start.is_empty():
+				objects[id].extra.merge(start, true)
+				objects[id].refresh(clock)
+			return [id, kind, xform, start]
+		"cable":
+			# Cabo entre dois bornes (os cabos já saíram da mochila de quem ligou). Ligar
+			# de novo o mesmo par tira o cabo (e devolve os dois).
+			var a: PlacedObject = objects.get(args[0])
+			var b: PlacedObject = objects.get(args[1])
+			if a == null or b == null or not Electric.cable_ok(a, b):
+				if a and b:
+					Net.i.give_to(Net.i.request_peer, Electric.CABLE_ITEM, Electric.cable_cost(Electric.terminal(a).distance_to(Electric.terminal(b))))
+				return []
+			var cost := Electric.cable_cost(Electric.terminal(a).distance_to(Electric.terminal(b)))
+			var cables_a: Array = a.extra.get("cables", []).duplicate()
+			var cables_b: Array = b.extra.get("cables", []).duplicate()
+			if Electric.linked(a, b):
+				cables_a.erase(b.net_id)
+				cables_b.erase(a.net_id)
+				Net.i.give_to(Net.i.request_peer, Electric.CABLE_ITEM, cost * 2)
+			else:
+				cables_a.append(b.net_id)
+			a.extra.cables = cables_a
+			b.extra.cables = cables_b
+			_cables_dirty = true
+			Electric.dirty = true
+			Sfx.play_at("click", Electric.terminal(b), 0.0, 1.3)
+			return [a.net_id, cables_a, b.net_id, cables_b]
+		"zap":
+			var obj: PlacedObject = objects.get(args[0])
+			if obj == null or Net.i.request_peer != Net.i.my_id():
+				return [] # só o host dá choque
+			ElectricFence.spark(obj, args[1])
+			return args
+		"radio_deliver":
+			var obj: PlacedObject = objects.get(args[0])
+			if obj == null or obj.kind != "radio":
+				return []
+			var update := Radio.host_deliver(self, obj)
+			if update.is_empty():
+				return []
+			obj.extra.merge(update, true)
+			obj.refresh(clock)
+			return [args[0], update]
 		"belt":
 			# Esteira polia <-> polia ou polia <-> máquina (a esteira já saiu da mochila de quem
 			# ligou). Ligar de novo o mesmo par tira a esteira (e devolve).
@@ -402,7 +519,10 @@ func host_apply(action: String, args: Array) -> Array:
 			var obj: PlacedObject = objects[args[0]]
 			if obj.kind == "flag":
 				Net.i.give_to(Net.i.request_peer, &"bandeira", 1) # recolheu: volta para a mochila
-			if obj.kind in ["chest", "airdrop", "trough", "bed"] and ContainerManager.i:
+			if PlacedTorch.has(obj.kind) and PlacedTorch.left(obj, clock) > 20.0:
+				# A tocha volta com o que ainda tinha para queimar.
+				Net.i.give_to(Net.i.request_peer, &"tocha", 1, -1, minf(PlacedTorch.left(obj, clock) / PlacedTorch.BURN, 1.0))
+			if obj.kind in ["chest", "airdrop", "trough", "bed", "fridge"] and ContainerManager.i:
 				ContainerManager.i.dump("placed_%d" % obj.net_id, obj.global_position) # o que tinha dentro cai
 			if obj.kind in Smelting.KINDS and ContainerManager.i:
 				ContainerManager.i.dump(Smelting.key_of(obj), obj.global_position)
@@ -657,7 +777,18 @@ func apply_remote(action: String, args: Array) -> void:
 			if obj:
 				obj.crops[args[1]] = {}
 				obj.refresh(clock)
-		"extra", "gate", "fence_hit":
+		"cable":
+			for k in [0, 2]:
+				var obj: PlacedObject = objects.get(args[k])
+				if obj:
+					obj.extra.cables = args[k + 1]
+			_cables_dirty = true
+			Electric.dirty = true
+		"zap":
+			var obj: PlacedObject = objects.get(args[0])
+			if obj:
+				ElectricFence.spark(obj, args[1])
+		"extra", "gate", "fence_hit", "radio_deliver":
 			var obj: PlacedObject = objects.get(args[0])
 			if obj and args[1].get("gone", false):
 				_remove(args[0])
@@ -735,6 +866,9 @@ func apply_remote(action: String, args: Array) -> void:
 		"place", "airdrop":
 			if not objects.has(args[0]):
 				_spawn(args[0], args[1], args[2])
+				if args.size() > 3 and args[3] is Dictionary and not args[3].is_empty():
+					objects[args[0]].extra.merge(args[3], true)
+					objects[args[0]].refresh(clock)
 		"remove":
 			_remove(args[0])
 		"plant":
@@ -754,6 +888,9 @@ func apply_remote(action: String, args: Array) -> void:
 func _spawn(id: int, kind: String, xform: Transform3D, quiet := false) -> void:
 	if Power.is_power(kind):
 		Power.dirty = true # forma da rede de força mudou
+	if Electric.has(kind):
+		Electric.dirty = true
+		_cables_dirty = true
 	var obj := PlacedObject.new()
 	obj.name = "Placed_%d" % id
 	obj.net_id = id
@@ -771,6 +908,8 @@ func _spawn(id: int, kind: String, xform: Transform3D, quiet := false) -> void:
 func _remove(id: int) -> void:
 	_belts_dirty = true
 	Power.dirty = true
+	Electric.dirty = true
+	_cables_dirty = true
 	var obj: PlacedObject = objects.get(id)
 	objects.erase(id)
 	if is_instance_valid(obj):

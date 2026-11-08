@@ -8,6 +8,8 @@ extends Node3D
 ##   engrenagem / engrenagem grande / polia: clique num eixo (monta no ponto mirado,
 ##                de 0,2 em 0,2 m), num tripé ou numa porta de máquina.
 ##   esteira      clique numa polia (ou máquina) e depois na outra ponta.
+##   cabo         clique numa peça elétrica e depois na outra (até 12 m; 1 cabo a cada 4 m):
+##                o fio aparece pendurado até a mira antes de ligar.
 ## Fantasma: verde = cabe, vermelho = não dá; bolinha amarela = ponta encaixada,
 ## cinza = ali nasce um tripé. A primeira ponta da esteira fica marcada.
 
@@ -23,6 +25,8 @@ var _ghost_mat: StandardMaterial3D
 var _tips: Array[MeshInstance3D] = []
 var _belt_from: PlacedObject
 var _belt_mark: MeshInstance3D
+var _cable_ghost: MeshInstance3D
+var _cable_mat: StandardMaterial3D
 
 
 func _ready() -> void:
@@ -46,6 +50,15 @@ func _ready() -> void:
 		_tips.append(_ball(0.08))
 	_belt_mark = _ball(0.1)
 	(_belt_mark.material_override as StandardMaterial3D).albedo_color = Color(1.0, 0.6, 0.15)
+	_cable_mat = StandardMaterial3D.new()
+	_cable_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	_cable_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	_cable_ghost = MeshInstance3D.new()
+	_cable_ghost.material_override = _cable_mat
+	_cable_ghost.top_level = true
+	_cable_ghost.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	_cable_ghost.visible = false
+	add_child(_cable_ghost)
 
 
 func _ball(radius: float) -> MeshInstance3D:
@@ -72,7 +85,7 @@ func _placed() -> PlacedManager:
 
 
 static func handles(item: StringName) -> bool:
-	return item == PowerParts.AXLE_ITEM or item == &"correia" or PowerParts.mount_kind(item) != ""
+	return item == PowerParts.AXLE_ITEM or item == &"correia" or item == Electric.CABLE_ITEM or PowerParts.mount_kind(item) != ""
 
 
 ## Clique com a peça na mão.
@@ -91,6 +104,8 @@ func press() -> void:
 		Sfx.play_at("knock", _start, -8.0, 1.6)
 	elif item == &"correia":
 		_belt_click(placed)
+	elif item == Electric.CABLE_ITEM:
+		_cable_click(placed)
 	else:
 		_mount_click(placed, PowerParts.mount_kind(item))
 
@@ -107,11 +122,15 @@ func _process(_delta: float) -> void:
 		return
 	var item := player.inventory.selected_id()
 	var usable := not player.ui_blocked and player.vehicle == null
-	if item != &"correia" or not usable:
+	var wired := item == Electric.CABLE_ITEM
+	if (item != &"correia" and not wired) or not usable:
 		_belt_from = null
+	if is_instance_valid(_belt_from) and Electric.has(_belt_from.kind) != wired:
+		_belt_from = null # trocou de esteira para cabo (ou o contrário)
 	_belt_mark.visible = is_instance_valid(_belt_from)
 	if _belt_mark.visible:
-		_belt_mark.global_position = Power.belt_anchor(_belt_from)[0]
+		_belt_mark.global_position = Electric.terminal(_belt_from) if wired else Power.belt_anchor(_belt_from)[0]
+	_show_cable(wired and _belt_mark.visible)
 	_show_mount(item, usable)
 	if item != PowerParts.AXLE_ITEM or not usable:
 		cancel()
@@ -322,6 +341,46 @@ func _mount_click(placed: PlacedManager, kind: String) -> void:
 
 
 # --- Esteira --------------------------------------------------------------------------
+
+## Cabo: primeiro clique marca a peça, o segundo liga (o host confere a distância).
+func _cable_click(placed: PlacedManager) -> void:
+	var hit := _ray()
+	var target: PlacedObject = hit.collider as PlacedObject if hit and hit.collider is PlacedObject else null
+	if target == null or not Electric.has(target.kind):
+		Sfx.play("click", -6.0, 0.6)
+		return
+	if not is_instance_valid(_belt_from) or _belt_from == target:
+		_belt_from = target if _belt_from != target else null
+		Sfx.play_at("knock", Electric.terminal(target), -4.0, 1.7)
+		return
+	if not Electric.cable_ok(_belt_from, target):
+		Sfx.play("click", -6.0, 0.6) # longe demais
+		return
+	var cost := Electric.cable_cost(Electric.terminal(_belt_from).distance_to(Electric.terminal(target)))
+	if player.inventory.count(Electric.CABLE_ITEM) < cost and not Electric.linked(_belt_from, target):
+		Sfx.play("click", -6.0, 0.6) # não tem cabo que chegue
+		return
+	_take(Electric.CABLE_ITEM, mini(cost, player.inventory.count(Electric.CABLE_ITEM)))
+	placed.request("cable", [_belt_from.net_id, target.net_id])
+	_belt_from = null
+
+
+## Fio de prévia pendurado do primeiro borne até a mira (verde = alcança).
+func _show_cable(show: bool) -> void:
+	_cable_ghost.visible = show
+	if not show:
+		return
+	var a := Electric.terminal(_belt_from)
+	var hit := _ray()
+	var b: Vector3 = hit.position if hit else a
+	if hit and hit.collider is PlacedObject and Electric.has(hit.collider.kind):
+		b = Electric.terminal(hit.collider)
+	var ok := a.distance_to(b) <= Electric.CABLE_RANGE
+	_cable_mat.albedo_color = Color(0.4, 1.0, 0.45, 0.7) if ok else Color(1.0, 0.3, 0.25, 0.7)
+	var mb := MeshBuilder.new()
+	mb.tube(Electric.catenary(a, b), 0.012, 4)
+	_cable_ghost.mesh = mb.finish(null, false)
+
 
 func _belt_click(placed: PlacedManager) -> void:
 	var hit := _ray()
