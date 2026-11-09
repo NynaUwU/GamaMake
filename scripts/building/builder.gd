@@ -29,11 +29,16 @@ const ENTRIES := {
 		{"id": "floor", "name": "Piso", "kind": BuildPiece.Kind.FLOOR, "desc": "Topo na altura da grade", "cost": {&"tabua": 4}},
 		{"id": "roof", "name": "Teto", "kind": BuildPiece.Kind.ROOF, "desc": "Apoia no topo das paredes. R: telhado inclinado (45°), subindo para o seu lado: de dentro da casa, sobe da parede para o meio", "cost": {&"tabua": 4}},
 		{"id": "pillar", "name": "Pilar", "kind": BuildPiece.Kind.PILLAR, "desc": "0,4 m de lado, 2,8 m de altura. R deita (viga): em cima de uma parede cobre o topo dela", "cost": {&"tabua": 1, &"pedra": 1}},
+		{"id": "wall_metal", "name": "Parede de chapa", "kind": BuildPiece.Kind.WALL, "metal": true, "desc": "Chapas de aço soldadas (bancada de solda): zumbi precisa de 3x mais golpes para abrir buraco. R gira", "cost": {&"chapa": 2}},
+		{"id": "floor_metal", "name": "Piso de chapa", "kind": BuildPiece.Kind.FLOOR, "metal": true, "desc": "Chapa xadrez soldada", "cost": {&"chapa": 2}},
+		{"id": "roof_metal", "name": "Telhado de chapa", "kind": BuildPiece.Kind.ROOF, "metal": true, "desc": "Chapa ondulada. R: inclinado (45°)", "cost": {&"chapa": 1}},
+		{"id": "pillar_metal", "name": "Viga de aço", "kind": BuildPiece.Kind.PILLAR, "metal": true, "desc": "Viga em I de chapa soldada. R deita", "cost": {&"chapa": 1}},
 		{"id": "stairs", "name": "Escada", "place": "stairs", "desc": "Sobe um andar (2,8 m) para a frente. Segure Shift para alinhar com a grade", "cost": {&"tabua": 6, &"graveto": 2}},
 	],
 	"Aberturas": [
 		{"id": "window", "name": "Janela", "fill": "window", "desc": "Preenche um buraco feito pela talhadeira", "cost": {&"graveto": 2, &"vidro": 1}},
 		{"id": "door", "name": "Porta", "fill": "door", "desc": "Buraco que encoste no chão; [E] abre", "cost": {&"tabua": 3, &"sucata": 1}},
+		{"id": "door_metal", "name": "Porta de chapa", "fill": "door", "metal": true, "desc": "Folha de aço soldada com reforços: zumbi demora quase 3x mais para arrombar. [E] abre", "cost": {&"chapa": 2, &"barra_ferro": 1}},
 	],
 	"Outros": [
 		{"id": "pot_small", "name": "Pote", "place": "pot_small", "desc": "Pote de barro: 1 planta (não cabe abóbora)", "cost": {&"pedra": 2}},
@@ -56,6 +61,7 @@ const ENTRIES := {
 		{"id": "stone_furnace", "name": "Forn. pedra", "place": "stone_furnace", "desc": "Fornalha de tijolo com fole: a única que funde minério de ferro. Segure E para esquentar no fole. Com eixo ou motor na porta de latão: o fole sopra sozinho", "cost": {&"tijolo": 12, &"pedra": 6, &"pano": 2}},
 		{"id": "forge", "name": "Forja", "place": "forge", "desc": "Forja a carvão com bigorna (Era 1). Ponha barras e carvão, escolha a peça e martele no minigame: bata só com o metal na cor certa (fora dela racha). A peça sai com qualidade: mais dano e menos desgaste", "cost": {&"pedra": 12, &"barra_ferro": 4, &"tronco": 1, &"pano": 1}},
 		{"id": "foundry", "name": "Fundição", "place": "foundry", "desc": "Fornalhinha com cadinho e caixa de areia com molde (Era 2). Metais + carvão: despeje no molde com a inclinação certa (rápido transborda, devagar esfria antes de encher). Bronze = 3 cobre + 1 estanho; engrenagens, polias, canos e machado fundidos", "cost": {&"tijolo": 8, &"areia": 6, &"barra_ferro": 2, &"pedra": 4}},
+		{"id": "torch_bench", "name": "Maçarico", "place": "torch_bench", "manual": &"manual_soldagem", "desc": "Bancada de maçarico a álcool, óleo ou gás (botijão = 8 soldas): solda cobre com estanho. Serpentina, células de bateria (2 por vez) e lâmpadas (4 por vez)", "cost": {&"tabua": 4, &"tijolo": 4, &"barra_ferro": 2, &"cano": 2}},
 		{"id": "sieve", "name": "Peneira", "place": "sieve", "desc": "Ponha argila e segure E: cada argila peneirada tem 50% de chance de dar uma pedra. Com eixo ou motor na porta de latão: peneira sozinha", "cost": {&"tabua": 3, &"graveto": 4, &"pano": 1}},
 		{"id": "spinning", "name": "Roca", "place": "spinning", "desc": "Fibra de algodão vira fio (segure E)", "cost": {&"tabua": 4, &"graveto": 4, &"sucata": 1}},
 		{"id": "loom", "name": "Tear", "place": "loom", "desc": "Fio vira tecido (segure E)", "cost": {&"tabua": 6, &"graveto": 6}},
@@ -144,14 +150,14 @@ const PLACE_SIZE := {"pot_small": Vector3(0.46, 0.31, 0.46), "pot_wide": Vector3
 	"torch": Vector3(0.14, 0.8, 0.14), "torch_wall": Vector3(0.14, 0.35, 0.2),
 	"insulator": Vector3(0.08, 0.08, 0.08), "switch": Vector3(0.26, 1.1, 0.26), "switch_wall": Vector3(0.24, 0.26, 0.08),
 	"electric_motor": Vector3(0.7, 0.8, 0.42), "rotisserie": Vector3(1.6, 1.0, 0.9), "forge": Vector3(2.5, 2.65, 1.05), "wire_drawer": Vector3(2.0, 1.0, 0.7),
-	"foundry": Vector3(2.2, 1.7, 1.2), "weld_bench": Vector3(1.9, 1.5, 0.85)}
+	"foundry": Vector3(2.2, 1.7, 1.2), "weld_bench": Vector3(1.9, 1.5, 0.85), "torch_bench": Vector3(1.9, 1.3, 0.85)}
 ## Centro da caixa (vermelha, ao desmontar) quando não é logo acima da origem.
 const PLACE_CENTER := {"bed": Vector3(1.4, 0.1, 1.4), "stairs": Vector3(0, 1.4, -1.4), "steam_engine": Vector3(0.45, 0.7, -0.3),
 	"distillery": Vector3(0.15, 0.72, 0), "boiler": Vector3(0, 1.45, 0), "pipe": Vector3(0, 0, 0.5),
 	"connector_wall": Vector3(0, 0, 0.1), "lamp_wall": Vector3(0, 0, 0.16), "deco_painting": Vector3(0, 0, 0.03), "deco_shelf": Vector3(0, 0.05, 0.13),
 	"deco_clock": Vector3(0, 0, 0.04), "torch_wall": Vector3(0, -0.05, 0.1), "insulator": Vector3(0, 0, 0.04),
 	"switch_wall": Vector3(0, 0, 0.04), "electric_motor": Vector3(0.38, -0.2, 0), "forge": Vector3(-0.2, 1.32, 0), "wire_drawer": Vector3(-0.05, 0.5, 0),
-	"foundry": Vector3(0.1, 0.85, 0), "weld_bench": Vector3(-0.05, 0.75, 0)}
+	"foundry": Vector3(0.1, 0.85, 0), "weld_bench": Vector3(-0.05, 0.75, 0), "torch_bench": Vector3(0.05, 0.65, 0)}
 ## Shift: deslocamento da origem na grade (a escada tem 3 quadrados de largura: borda na linha da grade).
 const GRID_OFFSET := {"stairs": Vector3(0.2, 0, 0)}
 const PLACE_RADIUS := {"pot_small": 0.35, "pot_wide": 0.7, "bench": 0.9, "campfire": 0.6, "furnace": 0.8, "workbench": 1.0,
@@ -163,7 +169,7 @@ const PLACE_RADIUS := {"pot_small": 0.35, "pot_wide": 0.7, "bench": 0.9, "campfi
 	"connector": 0.2, "dynamo": 0.7, "solar_panel": 0.7, "battery": 0.6, "lamp": 0.25, "electric_fence": 0.15, "fridge": 0.5, "radio": 0.45, "electric_pump": 0.4,
 	"deco_table": 0.7, "deco_chair": 0.3, "deco_stool": 0.25, "deco_rug": 0.3, "deco_vase": 0.2, "deco_plant": 0.3, "deco_barrel": 0.4, "deco_crates": 0.6,
 	"deco_painting": 0.12, "deco_shelf": 0.12, "deco_clock": 0.12, "insulator": 0.06, "switch": 0.15, "electric_motor": 0.1,
-	"rotisserie": 0.8, "forge": 1.1, "wire_drawer": 0.95, "foundry": 1.0, "weld_bench": 0.9}
+	"rotisserie": 0.8, "forge": 1.1, "wire_drawer": 0.95, "foundry": 1.0, "weld_bench": 0.9, "torch_bench": 0.9}
 
 var player: Player
 var selection: Dictionary = ENTRIES["Estrutura"][0]
@@ -247,7 +253,7 @@ static func preview_model(entry: Dictionary) -> Node3D:
 		return obj
 	var piece := BuildPiece.new()
 	if entry.has("kind"):
-		piece.setup(entry.kind, Vector3i.ZERO, 0)
+		piece.setup(entry.kind, Vector3i.ZERO, 0, entry.get("metal", false))
 		return piece
 	piece.setup(BuildPiece.Kind.WALL, Vector3i.ZERO, 0)
 	var parts := PackedInt32Array()
@@ -258,7 +264,7 @@ static func preview_model(entry: Dictionary) -> Node3D:
 				parts.append((j * BuildPiece.N + i) * 4 + q)
 	for t in parts:
 		piece.removed[t] = 1
-	piece.add_fill(entry.fill, parts)
+	piece.add_fill(entry.fill, parts, false, entry.get("metal", false))
 	return piece
 
 
@@ -291,6 +297,8 @@ static func cost_text(cost: Dictionary, inventory: Inventory = null) -> String:
 
 ## Consertar: 1 tábua a cada 2 quadradinhos quebrados.
 static func repair_cost(piece: BuildPiece) -> Dictionary:
+	if piece.metal:
+		return {&"chapa": maxi(1, ceili(piece.damaged.size() / 16.0))} # chapa: remenda com chapa nova
 	return {&"tabua": maxi(1, ceili(piece.damaged.size() / 8.0))}
 
 
@@ -329,9 +337,17 @@ func _paid(entry: Dictionary) -> bool:
 	return true
 
 
-static func entry_for_kind(kind_: int) -> Dictionary:
+static func entry_for_kind(kind_: int, metal := false) -> Dictionary:
 	for entry in ENTRIES["Estrutura"]:
-		if entry.get("kind", -1) == kind_:
+		if entry.get("kind", -1) == kind_ and entry.get("metal", false) == metal:
+			return entry
+	return {}
+
+
+## Janela/porta (de madeira ou de chapa).
+static func entry_for_fill(type: String, metal := false) -> Dictionary:
+	for entry in ENTRIES["Aberturas"]:
+		if entry.get("fill", "") == type and entry.get("metal", false) == metal:
 			return entry
 	return {}
 
@@ -504,11 +520,12 @@ func use(tool: String) -> bool:
 			return false
 		if selection.has("fill"):
 			if not fill_target.is_empty() and fill_target.valid and _paid(selection):
-				manager.request_fill(fill_target.piece, selection.fill, fill_target.tris)
+				manager.request_fill(fill_target.piece, selection.fill, fill_target.tris, selection.get("metal", false))
 				return true
 			return false
 		if not target.is_empty() and target.valid and _paid(selection):
-			manager.request_place(target.kind, target.cell, target.rot)
+			manager.request_place(target.kind, target.cell, target.rot, selection.get("metal", false))
+			Progress.event("place", String(selection.id))
 			return true
 	elif tool == "chisel" and not cut_target.is_empty():
 		var piece: BuildPiece = cut_target.piece
@@ -572,11 +589,11 @@ func dismantle() -> bool:
 		return false
 	var hit := _ray()
 	if hit and hit.collider is BuildFill:
-		_refund(entry_for("fill", hit.collider.type).get("cost", {}))
+		_refund(entry_for_fill(hit.collider.type, hit.collider.metal).get("cost", {}))
 		manager.request_unfill(hit.collider.piece, hit.collider.fill_index)
 		return true
 	if hit and hit.collider is BuildPiece:
-		_refund(entry_for_kind(hit.collider.kind).get("cost", {}))
+		_refund(entry_for_kind(hit.collider.kind, hit.collider.metal).get("cost", {}))
 		manager.request_remove(hit.collider)
 		return true
 	if hit and hit.collider is PlacedObject and not hit.collider.kind in ["ground", "tree", "airdrop"]:

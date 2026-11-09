@@ -19,9 +19,9 @@ const SMELT_TIME := {"furnace": 8.0, "stone_furnace": 5.0, "blast_furnace": 10.0
 const KINDS := ["furnace", "stone_furnace", "blast_furnace", "distillery", "boiler", "wire_drawer"]
 ## Têm os 3 lugares (a forja também: metal, carvão e a peça do minigame).
 ## Têm os lugares (as estações de minigame também: Smithing).
-const SLOT_KINDS := KINDS + ["forge", "foundry", "weld_bench"]
+const SLOT_KINDS := KINDS + ["forge", "foundry", "weld_bench", "torch_bench"]
 const STATIONS := {"stone_furnace": "fornalha_pedra", "blast_furnace": "alto_forno", "distillery": "destilaria", "wire_drawer": "trefiladora",
-	"forge": "forja", "foundry": "fundicao", "weld_bench": "solda"}
+	"forge": "forja", "foundry": "fundicao", "weld_bench": "solda", "torch_bench": "macarico"}
 ## Sem fogo: o lugar do combustível fica de fora.
 const NO_FUEL := ["wire_drawer"]
 
@@ -58,13 +58,18 @@ static func is_fuel(id: StringName) -> bool:
 
 
 ## Pode ir neste lugar? (o resultado não aceita nada de fora)
-## Quantos lugares (a fundição tem um 4º: o segundo metal da liga).
+## Quantos lugares (a fundição tem um 4º: o segundo metal da liga; o maçarico, 5).
 static func slot_count(kind: String) -> int:
-	return 4 if kind == "foundry" else 3
+	match kind:
+		"foundry":
+			return 4
+		"torch_bench":
+			return 5
+	return 3
 
 
 static func accepts(slot_index: int, id: StringName, kind := "") -> bool:
-	if kind in ["forge", "foundry", "weld_bench"]:
+	if Smithing.STATION.has(kind):
 		return Smithing.accepts(slot_index, id, kind)
 	match slot_index:
 		FUEL:

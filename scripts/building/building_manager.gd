@@ -20,8 +20,8 @@ func can_place(kind: int, cell: Vector3i, rot: int) -> bool:
 
 # --- Pedidos (qualquer jogador) -------------------------------------------------
 
-func request_place(kind: int, cell: Vector3i, rot: int) -> void:
-	Net.i.build_request("place", [kind, cell, rot])
+func request_place(kind: int, cell: Vector3i, rot: int, metal := false) -> void:
+	Net.i.build_request("place", [kind, cell, rot, metal])
 
 
 func request_cut(piece: BuildPiece, triangle: int) -> void:
@@ -37,8 +37,8 @@ func request_cut_many(piece: BuildPiece, triangles: PackedInt32Array) -> void:
 	Net.i.build_request("cut_many", [piece.net_id, triangles])
 
 
-func request_fill(piece: BuildPiece, type: String, triangles: PackedInt32Array) -> void:
-	Net.i.build_request("fill", [piece.net_id, type, triangles])
+func request_fill(piece: BuildPiece, type: String, triangles: PackedInt32Array, metal := false) -> void:
+	Net.i.build_request("fill", [piece.net_id, type, triangles, metal])
 
 
 func request_door(piece: BuildPiece, index: int, open: bool) -> void:
@@ -64,11 +64,12 @@ func host_apply(action: String, args: Array) -> Array:
 				return []
 			if not can_place(kind, cell, rot):
 				return []
+			var metal: bool = args.size() > 3 and args[3]
 			var id := _next_id
 			_next_id += 1
-			_spawn(id, kind, cell, rot, PackedByteArray())
+			_spawn(id, kind, cell, rot, PackedByteArray(), metal)
 			_sound(pieces[id], "knock")
-			return [id, kind, cell, rot]
+			return [id, kind, cell, rot, metal]
 		"cut":
 			var piece: BuildPiece = pieces.get(args[0])
 			if piece == null or args[1] < 0 or args[1] >= BuildPiece.TRIS or piece.removed[args[1]] == 1:
@@ -125,7 +126,7 @@ func host_apply(action: String, args: Array) -> Array:
 					return []
 			if args[1] == "door" and (piece.kind != BuildPiece.Kind.WALL or not BuildPiece.touches_bottom(tris)):
 				return []
-			piece.add_fill(args[1], tris)
+			piece.add_fill(args[1], tris, false, args.size() > 3 and args[3] and args[1] == "door")
 			_sound(piece, "knock")
 			return args
 		"door":
@@ -171,7 +172,7 @@ func apply_remote(action: String, args: Array) -> void:
 				_repair(piece)
 		"place":
 			if not pieces.has(args[0]):
-				_spawn(args[0], args[1], args[2], args[3], PackedByteArray())
+				_spawn(args[0], args[1], args[2], args[3], PackedByteArray(), args.size() > 4 and args[4])
 				_sound(pieces[args[0]], "knock")
 		"cut":
 			var piece: BuildPiece = pieces.get(args[0])
@@ -189,7 +190,7 @@ func apply_remote(action: String, args: Array) -> void:
 		"fill":
 			var piece: BuildPiece = pieces.get(args[0])
 			if piece:
-				piece.add_fill(args[1], args[2])
+				piece.add_fill(args[1], args[2], false, args.size() > 3 and args[3] and args[1] == "door")
 		"door":
 			var piece: BuildPiece = pieces.get(args[0])
 			if piece:
@@ -204,17 +205,17 @@ func state() -> Array:
 	var list := []
 	for id in pieces:
 		var piece: BuildPiece = pieces[id]
-		list.append([id, piece.kind, piece.cell, piece.rot, piece.removed, piece.fills, PackedInt32Array(piece.damaged.keys())])
+		list.append([id, piece.kind, piece.cell, piece.rot, piece.removed, piece.fills, PackedInt32Array(piece.damaged.keys()), piece.metal])
 	return list
 
 
 func load_state(list: Array) -> void:
 	for entry in list:
 		if not pieces.has(entry[0]):
-			_spawn(entry[0], entry[1], entry[2], entry[3], entry[4])
+			_spawn(entry[0], entry[1], entry[2], entry[3], entry[4], entry.size() > 7 and entry[7])
 			if entry.size() > 5:
 				for fill in entry[5]:
-					pieces[entry[0]].add_fill(fill.type, fill.tris, fill.open)
+					pieces[entry[0]].add_fill(fill.type, fill.tris, fill.open, fill.get("metal", false))
 			if entry.size() > 6:
 				for t in entry[6]:
 					pieces[entry[0]].damaged[t] = true
@@ -227,11 +228,11 @@ func _sound(piece: BuildPiece, name: String) -> void:
 		Sfx.play_at(name, piece.global_position + piece.global_basis * Vector3(1.4, 1.2, 0))
 
 
-func _spawn(id: int, kind: int, cell: Vector3i, rot: int, removed: PackedByteArray) -> void:
+func _spawn(id: int, kind: int, cell: Vector3i, rot: int, removed: PackedByteArray, metal := false) -> void:
 	var piece := BuildPiece.new()
 	piece.name = "Piece_%d" % id
 	piece.net_id = id
-	piece.setup(kind, cell, rot)
+	piece.setup(kind, cell, rot, metal)
 	if removed.size() == BuildPiece.TRIS:
 		piece.removed = removed
 	add_child(piece)

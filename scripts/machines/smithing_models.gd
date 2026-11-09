@@ -16,6 +16,8 @@ static func build(kind: String, obj: PlacedObject) -> void:
 			_foundry(obj)
 		"weld_bench":
 			_weld_bench(obj)
+		"torch_bench":
+			_torch_bench(obj)
 
 
 ## Forja de tijolo (esquerda) com leito de carvão, coifa de chapa em pirâmide e
@@ -355,3 +357,81 @@ static func _wire_drawer(obj: PlacedObject) -> void:
 	spinner.axis = Vector3.UP
 	obj.add_child(spinner)
 	obj._shape(Vector3(0, 0.45, 0), Vector3(1.9, 0.9, 0.65))
+
+
+## Bancada de maçarico: bancada de madeira com tampo de tijolo refratário, o botijão
+## de gás no chão com a mangueira até o maçarico deitado na bancada, a lamparina de
+## álcool, canos de cobre sendo emendados, a serpentina pronta e o rolo de estanho.
+static func _torch_bench(obj: PlacedObject) -> void:
+	var mb := MeshBuilder.new()
+	mb.color(ObjectModels.WOOD)
+	mb.box(Vector3(0, 0.78, 0), Vector3(1.5, 0.06, 0.7))
+	mb.color(ObjectModels.WOOD_DARK)
+	for x in [-0.68, 0.68]:
+		for z in [-0.29, 0.29]:
+			mb.box(Vector3(x, 0.38, z), Vector3(0.07, 0.76, 0.07))
+	mb.box(Vector3(0, 0.15, 0), Vector3(1.4, 0.04, 0.6)) # prateleira
+	for k in 3: # tampo de tijolo refratário
+		for m in 2:
+			mb.color(Color(0.78, 0.68, 0.52).darkened(0.06 * ((k + m) % 2)))
+			mb.box(Vector3(-0.1 + k * 0.24, 0.825, -0.08 + m * 0.24), Vector3(0.23, 0.035, 0.23))
+	# Canos de cobre emendados no tijolo e a junta brilhando de estanho.
+	mb.color(ObjectModels.COPPER)
+	mb.tube(PackedVector3Array([Vector3(-0.18, 0.86, 0.04), Vector3(0.12, 0.86, 0.04)]), 0.022, 8)
+	mb.tube(PackedVector3Array([Vector3(0.14, 0.86, 0.04), Vector3(0.4, 0.86, 0.04)]), 0.022, 8)
+	mb.color(Color(0.75, 0.75, 0.72))
+	mb.lathe(PackedVector2Array([Vector2(0.024, -0.015), Vector2(0.028, 0.0), Vector2(0.024, 0.015)]), 8, Basis(Vector3.BACK, PI / 2), Vector3(0.13, 0.86, 0.04))
+	# Serpentina pronta na ponta esquerda.
+	for k in 5:
+		mb.color(ObjectModels.COPPER.lightened(0.05 * (k % 2)))
+		mb.torus(0.1, 0.014, 14, 4, Basis.IDENTITY, Vector3(-0.52, 0.85 + k * 0.032, 0.1))
+	mb.color(ObjectModels.COPPER)
+	mb.tube(PackedVector3Array([Vector3(-0.42, 1.0, 0.1), Vector3(-0.42, 1.08, 0.1)]), 0.014, 5)
+	# Rolo de estanho e lamparina de álcool.
+	mb.color(Color(0.72, 0.72, 0.7))
+	mb.torus(0.04, 0.012, 10, 4, Basis(Vector3.RIGHT, PI / 2), Vector3(0.52, 0.86, -0.2))
+	mb.color(Color(0.62, 0.74, 0.72))
+	mb.lathe(PackedVector2Array([Vector2(0.002, 0.81), Vector2(0.05, 0.81), Vector2(0.05, 0.87), Vector2(0.02, 0.9), Vector2(0.002, 0.9)]), 8, Basis.IDENTITY, Vector3(0.3, 0, -0.22))
+	mb.color(ObjectModels.CLOTH)
+	mb.box(Vector3(0.3, 0.915, -0.22), Vector3(0.012, 0.03, 0.012)) # pavio
+	# Botijão de gás no chão (vermelho, com alça e registro) e a mangueira até o maçarico.
+	var gx := -0.95
+	mb.color(Color(0.62, 0.12, 0.1))
+	mb.lathe(PackedVector2Array([Vector2(0.002, 0.03), Vector2(0.15, 0.03), Vector2(0.17, 0.1), Vector2(0.17, 0.36), Vector2(0.13, 0.46), Vector2(0.05, 0.5), Vector2(0.002, 0.5)]), 12,
+		Basis.IDENTITY, Vector3(gx, 0, 0.05))
+	mb.color(ObjectModels.IRON)
+	mb.lathe(PackedVector2Array([Vector2(0.14, 0.0), Vector2(0.16, 0.0), Vector2(0.16, 0.04), Vector2(0.14, 0.04)]), 12, Basis.IDENTITY, Vector3(gx, 0, 0.05)) # base
+	mb.torus(0.09, 0.012, 12, 4, Basis.IDENTITY, Vector3(gx, 0.58, 0.05)) # alça
+	for k in 3:
+		var a := TAU * k / 3.0
+		mb.box(Vector3(gx + cos(a) * 0.08, 0.53, 0.05 + sin(a) * 0.08), Vector3(0.015, 0.08, 0.015))
+	mb.color(ItemModels.BRASS)
+	mb.box(Vector3(gx, 0.53, 0.05), Vector3(0.05, 0.05, 0.05)) # registro
+	mb.color(Color(0.1, 0.1, 0.11))
+	mb.tube(PackedVector3Array([Vector3(gx + 0.03, 0.53, 0.05), Vector3(gx + 0.25, 0.45, 0.25), Vector3(-0.55, 0.7, 0.33), Vector3(-0.2, 0.84, 0.28)]), 0.012, 5)
+	mb.color(ItemModels.BRASS)
+	mb.tube(PackedVector3Array([Vector3(-0.2, 0.84, 0.28), Vector3(0.02, 0.86, 0.2)]), 0.016, 6) # maçarico
+	mb.color(ItemModels.STEEL)
+	mb.tube(PackedVector3Array([Vector3(0.02, 0.86, 0.2), Vector3(0.08, 0.875, 0.14)]), 0.008, 5) # bico
+	var mesh := MeshInstance3D.new()
+	mesh.mesh = mb.finish(PlacedObject._mat(), false)
+	obj.add_child(mesh)
+	# Chama do maçarico (só logo depois de soldar): azul por dentro, laranja na ponta.
+	var flame := MeshBuilder.new()
+	flame.color(Color(0.45, 0.65, 1.0))
+	flame.lathe(PackedVector2Array([Vector2(0.002, 0.0), Vector2(0.012, 0.02), Vector2(0.002, 0.07)]), 6, Basis(Vector3.BACK, -1.2), Vector3(0.09, 0.878, 0.13))
+	flame.color(Color(1.0, 0.6, 0.2))
+	flame.lathe(PackedVector2Array([Vector2(0.002, 0.05), Vector2(0.01, 0.07), Vector2(0.002, 0.12)]), 6, Basis(Vector3.BACK, -1.2), Vector3(0.09, 0.878, 0.13))
+	var cone := MeshInstance3D.new()
+	cone.mesh = flame.finish(StationModels._glow_mat(), false)
+	obj.add_child(cone)
+	StationModels._register_fire(obj, cone)
+	var light := OmniLight3D.new()
+	light.position = Vector3(0.15, 0.95, 0.1)
+	light.light_color = Color(0.8, 0.75, 1.0)
+	light.omni_range = 2.5
+	light.light_energy = 0.7
+	obj.add_child(light)
+	StationModels._register_fire(obj, light)
+	_hot_piece(obj, Vector3(0.05, 0.05, 0.05), Vector3(0.13, 0.86, 0.04)) # emenda quente
+	obj._shape(Vector3(0, 0.45, 0), Vector3(1.6, 0.9, 0.75))

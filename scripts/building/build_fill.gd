@@ -5,20 +5,23 @@ extends StaticBody3D
 ## janela/porta: quadrada, em L, em diamante...
 ##   janela: vidro no meio da espessura + moldura de madeira na borda do buraco.
 ##   porta:  folha de madeira com maçaneta; gira na dobradiça (lado esquerdo do
-##           buraco). [E] abre/fecha.
+##           buraco). [E] abre/fecha. De chapa (metal): folha de aço com reforços,
+##           sem vidro; zumbi demora bem mais para arrombar.
 
 var piece: BuildPiece
 var fill_index := 0
 var type := "window"
 var open := false
+var metal := false
 
 static var _glass: StandardMaterial3D
 static var _wood: Material
 
 
-func build(type_: String, tris: PackedInt32Array, open_: bool) -> void:
+func build(type_: String, tris: PackedInt32Array, open_: bool, metal_ := false) -> void:
 	type = type_
 	open = open_
+	metal = metal_
 	collision_layer = 1
 	collision_mask = 0
 	if type == "door":
@@ -43,7 +46,7 @@ func build(type_: String, tris: PackedInt32Array, open_: bool) -> void:
 	var faces := PackedVector3Array()
 	var max_u := -INF
 	var max_v := -INF
-	var pane := _door_pane(set) if type == "door" else {}
+	var pane := _door_pane(set) if type == "door" and not metal else {}
 	for index in tris:
 		var c := BuildPiece.triangle_uv(index)
 		for p in c:
@@ -61,6 +64,11 @@ func build(type_: String, tris: PackedInt32Array, open_: bool) -> void:
 			# Vidro fininho no meio.
 			_tri(glass, faces, _p(c[0], mid + 0.015, origin), _p(c[1], mid + 0.015, origin), _p(c[2], mid + 0.015, origin), Color.WHITE)
 			_tri(glass, faces, _p(c[0], mid - 0.015, origin), _p(c[2], mid - 0.015, origin), _p(c[1], mid - 0.015, origin), Color.WHITE)
+		elif metal:
+			var row: int = (index / 4) / BuildPiece.N
+			var shade := Color(0.4, 0.42, 0.44).darkened(0.15 if row in [1, 4] else 0.0) # reforços
+			_tri(wood, faces, _p(c[0], mid + 0.05, origin), _p(c[1], mid + 0.05, origin), _p(c[2], mid + 0.05, origin), shade)
+			_tri(wood, faces, _p(c[0], mid - 0.05, origin), _p(c[2], mid - 0.05, origin), _p(c[1], mid - 0.05, origin), shade)
 		else:
 			var shade := Color(0.36, 0.22, 0.12).darkened(0.08 * ((index / 4) / BuildPiece.N % 2))
 			_tri(wood, faces, _p(c[0], mid + 0.05, origin), _p(c[1], mid + 0.05, origin), _p(c[2], mid + 0.05, origin), shade)
@@ -76,7 +84,7 @@ func build(type_: String, tris: PackedInt32Array, open_: bool) -> void:
 			if type == "window":
 				_window_frame(wood, faces, a, b, center, w, origin)
 			else:
-				var side := Color(0.28, 0.17, 0.09)
+				var side := Color(0.26, 0.27, 0.29) if metal else Color(0.28, 0.17, 0.09)
 				_tri(wood, faces, _p(a, mid - 0.05, origin), _p(b, mid - 0.05, origin), _p(b, mid + 0.05, origin), side)
 				_tri(wood, faces, _p(a, mid - 0.05, origin), _p(b, mid + 0.05, origin), _p(a, mid + 0.05, origin), side)
 	if type == "window":
@@ -85,10 +93,10 @@ func build(type_: String, tris: PackedInt32Array, open_: bool) -> void:
 		# Maçaneta de latão do lado oposto à dobradiça, a ~1 m do chão.
 		var at := Vector2(max_u - 0.12, minf(1.0, max_v * 0.45))
 		for side in [1.0, -1.0]:
-			wood.color(Color(0.6, 0.48, 0.25))
+			wood.color(Color(0.2, 0.2, 0.21) if metal else Color(0.6, 0.48, 0.25))
 			wood.box(_p(at, mid + side * 0.08, origin), Vector3(0.05, 0.05, 0.06))
 	var wood_instance := MeshInstance3D.new()
-	wood_instance.mesh = wood.finish(_wood_material(), false)
+	wood_instance.mesh = wood.finish(BuildPiece._get_metal_material() if metal else _wood_material(), false)
 	add_child(wood_instance)
 	var glass_instance := MeshInstance3D.new()
 	glass_instance.mesh = glass.finish(_glass_material(), false)
@@ -222,7 +230,7 @@ func _quad(mb: MeshBuilder, a: Vector3, b: Vector3, c: Vector3, d: Vector3, colo
 
 
 func get_interact_text() -> String:
-	return "[E] %s porta" % ("Fechar" if open else "Abrir")
+	return "[E] %s porta%s" % ["Fechar" if open else "Abrir", " de chapa" if metal else ""]
 
 
 func interact(_player: Node) -> void:

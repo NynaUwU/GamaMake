@@ -107,11 +107,15 @@ const STATION_UI := {
 		"title": "Forjar (clique: começa o minigame · 1 carvão por peça)", "hint": "Arraste barras de metal e carvão da mochila para os lugares"},
 	"foundry": {"slots": [["metal", Smelting.INPUT], ["liga", Smithing.ALLOY], ["carvão", Smelting.FUEL]], "arrow": "→ cadinho → molde →",
 		"title": "Fundir (clique: começa o minigame · 1 carvão por peça)", "hint": "Bronze: 3 barras de cobre no metal e 1 de estanho na liga, mais carvão"},
-	"weld_bench": {"slots": [["chapas", Smelting.INPUT], ["eletrodos", Smelting.FUEL]], "arrow": "→ solda →",
-		"title": "Soldar armadura (clique: começa o minigame)", "hint": "Arraste barras de aço e eletrodos (mesa) para os lugares"},
+	"weld_bench": {"slots": [["metal", Smelting.INPUT], ["eletrodos", Smelting.FUEL]], "arrow": "→ solda →",
+		"title": "Soldar armaduras e chapas (clique: começa o minigame)", "hint": "Barras (aço para armadura, ferro para chapa) e eletrodos (mesa) nos lugares"},
+	"torch_bench": {"slots": [["cobre", Smelting.INPUT], ["solda", Smithing.ALLOY], ["outro", Smithing.EXTRA_SLOT], ["combustível", Smelting.FUEL]],
+		"arrow": "→ maçarico →", "title": "Soldar cobre (clique: começa o minigame · 1 solda de combustível)",
+		"hint": "Cobre/cano/fio, estanho (solda) e vidro nos lugares; álcool, óleo ou botijão de gás (8 soldas) no combustível"},
 }
 const METAL_SHORT := {&"barra_aco": "aço", &"barra_cobre": "cobre", &"barra_ferro": "ferro", &"barra_bronze": "bronze", &"barra_estanho": "estanho"}
-const METAL_SYMBOL := {&"barra_aco": "aço", &"barra_cobre": "Cu", &"barra_ferro": "Fe", &"barra_bronze": "bz", &"barra_estanho": "Sn"}
+const METAL_SYMBOL := {&"barra_aco": "aço", &"barra_cobre": "Cu", &"barra_ferro": "Fe", &"barra_bronze": "bz", &"barra_estanho": "Sn",
+	&"vidro": "vd", &"fio_cobre": "fio", &"cano": "cano"}
 
 
 ## Custo curto no botão da peça: "2x ferro"; liga: "3 Cu + 1 Sn" (eletrodos ficam de fora).
@@ -119,7 +123,8 @@ static func _cost_label(r: Dictionary) -> String:
 	var metals: Array = r.cost.keys().filter(func(id): return id != &"eletrodo")
 	if metals.size() == 1:
 		return "%dx %s" % [r.cost[metals[0]], METAL_SHORT.get(metals[0], ItemDB.short_name(metals[0]))]
-	return " + ".join(metals.map(func(id): return "%d %s" % [r.cost[id], METAL_SYMBOL.get(id, ItemDB.short_name(id))]))
+	var sep := " + " if metals.size() == 2 else "+"
+	return sep.join(metals.map(func(id): return ("%d %s" if metals.size() == 2 else "%d%s") % [r.cost[id], METAL_SYMBOL.get(id, ItemDB.short_name(id))]))
 var _forge_box: HFlowContainer
 func _build_forge(column: VBoxContainer) -> void:
 	var ui: Dictionary = STATION_UI[source.kind]
@@ -186,7 +191,7 @@ func _fill_forge() -> void:
 		var why := Smithing.missing(r, slots, source)
 		var button := Button.new()
 		button.focus_mode = Control.FOCUS_NONE
-		button.custom_minimum_size = Vector2(56, 44)
+		button.custom_minimum_size = Vector2(62, 44)
 		var fuel: int = Smithing.FUEL_COST.get(r.station, 0)
 		button.tooltip_text = "%s%s%s: %s%s%s" % [ItemDB.display_name(r.id), " x%d" % r.amount if r.get("amount", 1) > 1 else "",
 			" (%s)" % r.note if r.has("note") else "", Builder.cost_text(r.cost, null), " + %d carvão" % fuel if fuel > 0 else "",
@@ -616,7 +621,8 @@ func _furnace_target(id: StringName, slots: Array) -> int:
 		return slots.size() > k and (slots[k].is_empty() or (slots[k].id == id and slots[k].amount < ItemDB.max_stack(id)))
 	if Smithing.STATION.has(kind):
 		# Estação de minigame: o mesmo item que já está num lugar, senão o primeiro que aceita.
-		var order := [Smelting.INPUT, Smithing.ALLOY, Smelting.FUEL] if kind == "foundry" else [Smelting.INPUT, Smelting.FUEL]
+		var order: Array = {"foundry": [Smelting.INPUT, Smithing.ALLOY, Smelting.FUEL],
+			"torch_bench": [Smelting.INPUT, Smithing.ALLOY, Smithing.EXTRA_SLOT, Smelting.FUEL]}.get(kind, [Smelting.INPUT, Smelting.FUEL])
 		for k in order:
 			if slots.size() > k and not slots[k].is_empty() and slots[k].id == id and fits.call(k):
 				return k

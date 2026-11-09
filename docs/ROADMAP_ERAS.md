@@ -46,6 +46,12 @@ Plano em fases do pacote "eras + minigames". Cada fase fecha uma rodada jogável
   verde. Rápido = cordão fino (solda fraca), devagar = grosso, parado = fura a chapa,
   longe da junta = só respinga. Máscara de solda escurece a tela com o arco aceso.
 - Qualidade da armadura muda a proteção (x0,85…1,2) e quanto ela aguenta.
+- **Chapas soldadas** (bancada de solda: 3 ferro + 1 eletrodo = 2 chapas): parede,
+  piso, telhado e viga de chapa e porta de chapa. Zumbi precisa de 6 golpes por
+  pedaço (madeira: 2); porta de chapa aguenta 16 (madeira: 6). Conserto com chapa.
+- **Bancada de maçarico** (Manual de soldagem): solda cobre com estanho, a álcool,
+  óleo ou gás (botijão achado nas casas = 8 soldas). Serpentina de cobre, células de
+  bateria (2 por vez) e lâmpadas (4 por vez). Minigame de solda no modo maçarico.
 - Ficou para depois: tornos e serras manuais com qualidade.
 
 ## Fase 3 — Elétrica 2 (Era 3)

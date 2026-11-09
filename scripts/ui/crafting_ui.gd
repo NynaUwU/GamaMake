@@ -111,6 +111,12 @@ const RECIPES := [
 	{"id": &"capacete_soldado", "station": "solda", "seams": 2, "manual": &"manual_soldagem", "cost": {&"barra_aco": 2, &"eletrodo": 2}},
 	{"id": &"couraca", "station": "solda", "seams": 3, "manual": &"manual_soldagem", "cost": {&"barra_aco": 4, &"eletrodo": 3}},
 	{"id": &"grevas", "station": "solda", "seams": 2, "manual": &"manual_soldagem", "cost": {&"barra_aco": 3, &"eletrodo": 2}},
+	{"id": &"chapa", "amount": 2, "station": "solda", "seams": 1, "manual": &"manual_soldagem", "cost": {&"barra_ferro": 3, &"eletrodo": 1}},
+	# Bancada de maçarico (manual de soldagem): solda de cobre com estanho; gasta combustível
+	# (álcool, óleo ou botijão de gás: Smithing.TORCH_FUEL).
+	{"id": &"serpentina", "station": "macarico", "seams": 2, "manual": &"manual_soldagem", "cost": {&"cano": 3, &"barra_estanho": 1}},
+	{"id": &"celula", "amount": 2, "station": "macarico", "seams": 1, "manual": &"manual_soldagem", "cost": {&"barra_cobre": 1, &"barra_estanho": 1, &"vidro": 2}},
+	{"id": &"lampada", "amount": 4, "station": "macarico", "seams": 1, "manual": &"manual_soldagem", "cost": {&"fio_cobre": 2, &"barra_estanho": 1, &"vidro": 2}},
 	# Trefiladora (eixo girando, sem minigame): barra de cobre vira fio.
 	{"id": &"fio_cobre", "amount": 8, "station": "trefiladora", "power": true, "cost": {&"barra_cobre": 1}},
 	# Prensa (precisa de energia).
@@ -133,7 +139,7 @@ const RECIPES := [
 	{"id": &"tocha", "station": "mao", "cost": {&"graveto": 1, &"pano": 1}},
 ]
 const TITLES := {"mesa": "Mesa de trabalho", "fornalha": "Fornalha", "mao": "Fabricar", "forno": "Forno de tijolo",
-	"fornalha_pedra": "Fornalha de pedra", "torno": "Torno", "prensa": "Prensa", "forja": "Forja e bigorna", "trefiladora": "Trefiladora", "fundicao": "Fundição", "solda": "Bancada de solda",
+	"fornalha_pedra": "Fornalha de pedra", "torno": "Torno", "prensa": "Prensa", "forja": "Forja e bigorna", "trefiladora": "Trefiladora", "fundicao": "Fundição", "solda": "Bancada de solda", "macarico": "Bancada de maçarico",
 	"alto_forno": "Alto-forno", "destilaria": "Destilaria"}
 ## Fornalha de pedra aberta agora (o calor do fole libera as receitas "heat").
 static var heat_source: PlacedObject

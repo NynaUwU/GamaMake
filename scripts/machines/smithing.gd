@@ -10,17 +10,24 @@ extends RefCounted
 ##   weld_bench   bancada de solda elétrica (Era 3, Manual de soldagem; 300 W ligada).
 ##                Lugares: chapas de aço, eletrodos, peça. Só armaduras. Minigame
 ##                "welding": seguir a junta com velocidade constante.
+##   torch_bench  bancada de maçarico (Manual de soldagem): solda cobre com estanho
+##                (brasagem). Lugares: cobre, solda (estanho), outro (vidro), combustível
+##                (álcool, óleo ou botijão de gás), peça. Minigame "welding" no modo
+##                "brazing": chama em vez de arco, mais devagar, sem máscara.
 ##   wire_drawer  trefiladora: com eixo/motor, barra de cobre vira fio (sem minigame;
 ##                funde sozinha como as fornalhas: Smelting).
 ## A peça sai com qualidade ("q" no item: dano/proteção e desgaste); pilhas (barras,
 ## engrenagens) saem em menor quantidade quando a qualidade é baixa. Peça perdida
 ## (qualidade 0) vira 1 sucata. Os lugares são o "baú" furnace_<id> (Smelting).
 
-const KINDS := ["forge", "wire_drawer", "foundry", "weld_bench"]
-const STATION := {"forge": "forja", "foundry": "fundicao", "weld_bench": "solda"}
-const MINIGAME := {"forja": "forge", "fundicao": "casting", "solda": "welding"}
-## Evento das conquistas ao terminar (Progress): forge:<item>, cast:<item>, weld:<item>.
-const EVENT := {"forja": "forge", "fundicao": "cast", "solda": "weld"}
+const KINDS := ["forge", "wire_drawer", "foundry", "weld_bench", "torch_bench"]
+const STATION := {"forge": "forja", "foundry": "fundicao", "weld_bench": "solda", "torch_bench": "macarico"}
+const MINIGAME := {"forja": "forge", "fundicao": "casting", "solda": "welding", "macarico": "welding"}
+## Evento das conquistas ao terminar (Progress): forge:<item>, cast:<item>, weld:<item>, braze:<item>.
+const EVENT := {"forja": "forge", "fundicao": "cast", "solda": "weld", "macarico": "braze"}
+## Maçarico: quantas soldas cada combustível rende.
+const TORCH_FUEL := {&"alcool": 1, &"oleo": 1, &"botijao": 8}
+const EXTRA_SLOT := 4 ## 5º lugar do maçarico (vidro e outros)
 ## Combustível gasto por peça (a solda gasta eletrodo, que já está no custo).
 const FUEL_COST := {"forja": 1, "fundicao": 1}
 const ALLOY := 3 ## 4º lugar da fundição: o segundo metal (liga)
@@ -50,6 +57,8 @@ static func input_slots(kind: String) -> Array:
 			return [Smelting.INPUT, ALLOY]
 		"weld_bench":
 			return [Smelting.INPUT, Smelting.FUEL] # aço + eletrodos
+		"torch_bench":
+			return [Smelting.INPUT, ALLOY, EXTRA_SLOT] # cobre, estanho, vidro
 	return [Smelting.INPUT]
 
 
@@ -62,6 +71,12 @@ static func accepts(slot_index: int, id: StringName, kind: String) -> bool:
 		if slot_index == Smelting.FUEL:
 			return id == &"eletrodo"
 		return id != &"eletrodo" and _used_by(station, id)
+	if kind == "torch_bench":
+		if slot_index == Smelting.FUEL:
+			return TORCH_FUEL.has(id)
+		if slot_index == ALLOY:
+			return id == &"barra_estanho" # a solda
+		return id != &"barra_estanho" and _used_by(station, id)
 	if slot_index == Smelting.FUEL:
 		return id == &"carvao"
 	return _used_by(station, id)
@@ -95,11 +110,29 @@ static func missing(recipe: Dictionary, slots: Array, obj: PlacedObject = null) 
 	var fuel: int = FUEL_COST.get(recipe.station, 0)
 	if fuel > 0 and (slots.size() <= Smelting.FUEL or slots[Smelting.FUEL].is_empty() or slots[Smelting.FUEL].amount < fuel):
 		return "Ponha carvão no lugar do fogo"
+	if kind == "torch_bench" and not torch_ready(obj, slots):
+		return "Ponha combustível: álcool, óleo ou botijão de gás"
 	if slots.size() > Smelting.OUTPUT and not slots[Smelting.OUTPUT].is_empty():
 		return "Tire a peça pronta primeiro"
 	if kind == "weld_bench" and obj and not Electric.powered(obj):
 		return "Sem energia: ligue a bancada na rede elétrica (%d W)" % int(WELD_POWER)
 	return ""
+
+
+## Maçarico tem chama para mais uma solda? (gás que sobrou do botijão, ou combustível no lugar)
+static func torch_ready(obj: PlacedObject, slots: Array) -> bool:
+	if obj and float(obj.extra.get("gas", 0.0)) >= 1.0:
+		return true
+	return slots.size() > Smelting.FUEL and not slots[Smelting.FUEL].is_empty() and TORCH_FUEL.has(slots[Smelting.FUEL].id)
+
+
+## Host: gasta uma solda de combustível (abre outro álcool/óleo/botijão se precisar).
+static func _burn_torch(obj: PlacedObject, slots: Array) -> void:
+	var gas: float = obj.extra.get("gas", 0.0)
+	if gas < 1.0 and not slots[Smelting.FUEL].is_empty():
+		gas += TORCH_FUEL.get(slots[Smelting.FUEL].id, 0)
+		_use(slots, Smelting.FUEL, 1)
+	obj.extra.gas = maxf(gas - 1.0, 0.0)
 
 
 ## Metal principal da receita (o que dá a cor/temperatura no minigame).
@@ -120,7 +153,8 @@ static func start(player: Player, obj: PlacedObject, index: int) -> bool:
 		Sfx.play("click", -6.0, 0.6)
 		return false
 	var context := {"item": recipe.id, "metal": metal_of(recipe), "hits": recipe.get("hits", 8), "seams": recipe.get("seams", 2),
-		"mold": recipe.get("mold", "ingot"), "chart": Progress.knows(&"manual_ferreiro") and Progress.i != null}
+		"mold": recipe.get("mold", "ingot"), "chart": Progress.knows(&"manual_ferreiro") and Progress.i != null,
+		"mode": "brazing" if recipe.station == "macarico" else "arc"}
 	var manager := obj.get_parent() as PlacedManager
 	var net_id := obj.net_id
 	var event: String = EVENT[recipe.station]
@@ -159,6 +193,8 @@ static func host_make(manager: PlacedManager, obj: PlacedObject, index: int, qua
 	var fuel: int = FUEL_COST.get(recipe.station, 0)
 	if fuel > 0 and (slots[Smelting.FUEL].is_empty() or slots[Smelting.FUEL].amount < fuel):
 		return {}
+	if obj.kind == "torch_bench" and not torch_ready(obj, slots):
+		return {}
 	for id in recipe.cost:
 		var need: int = recipe.cost[id]
 		for k in input_slots(obj.kind):
@@ -168,6 +204,8 @@ static func host_make(manager: PlacedManager, obj: PlacedObject, index: int, qua
 				need -= take
 	if fuel > 0:
 		_use(slots, Smelting.FUEL, fuel)
+	if obj.kind == "torch_bench":
+		_burn_torch(obj, slots)
 	var piece := piece_for(recipe, quality)
 	if slots[Smelting.OUTPUT].is_empty():
 		slots[Smelting.OUTPUT] = piece
@@ -177,7 +215,7 @@ static func host_make(manager: PlacedManager, obj: PlacedObject, index: int, qua
 	Net.i.system_request("Containers", "sync", [key])
 	obj.extra.hot_until = manager.clock + HOT_TIME
 	obj.refresh(manager.clock)
-	return {"hot_until": obj.extra.hot_until}
+	return {"hot_until": obj.extra.hot_until, "gas": obj.extra.get("gas", 0.0)}
 
 
 ## O que sai: peça única com qualidade "q"; pilha (barras, engrenagens) com menos
@@ -208,6 +246,9 @@ static func text(obj: PlacedObject) -> String:
 			return "[E] Fundição (metais + carvão: bronze e peças fundidas)"
 		"weld_bench":
 			return "[E] Bancada de solda%s" % ("" if Electric.powered(obj) else " (sem energia)")
+		"torch_bench":
+			var gas := int(obj.extra.get("gas", 0.0))
+			return "[E] Bancada de maçarico (cobre + estanho)%s" % (" · gás para %d solda%s" % [gas, "s" if gas > 1 else ""] if gas > 0 else "")
 		"wire_drawer":
 			if obj.extra.get("pstate", "") != "ok":
 				return "[E] Trefiladora (precisa de eixo ou motor na porta de latão)"
@@ -220,7 +261,7 @@ static func interact(player: Node, obj: PlacedObject) -> void:
 
 
 static func is_lit(obj: PlacedObject, clock: float) -> bool:
-	return obj.kind in ["forge", "foundry", "weld_bench"] and obj.extra.get("hot_until", 0.0) > clock
+	return obj.kind in ["forge", "foundry", "weld_bench", "torch_bench"] and obj.extra.get("hot_until", 0.0) > clock
 
 
 ## Peça em brasa na bigorna / metal no molde: esfria pela cor (mesmo shader do minigame).

@@ -140,7 +140,7 @@ func aiming_basket(player: Node) -> bool:
 
 # --- Fogo (acende só em uso) -----------------------------------------------------
 
-const LIT_KINDS := ["campfire", "furnace", "stone_furnace", "oven", "smoker", "blast_furnace", "boiler", "distillery", "torch", "torch_wall", "rotisserie", "forge", "foundry", "weld_bench"]
+const LIT_KINDS := ["campfire", "furnace", "stone_furnace", "oven", "smoker", "blast_furnace", "boiler", "distillery", "torch", "torch_wall", "rotisserie", "forge", "foundry", "weld_bench", "torch_bench"]
 
 
 ## Está acesa agora? Fogueira: tem lenha queimando. Fornalhas: combustível
@@ -158,7 +158,7 @@ func is_lit(clock := -1.0) -> bool:
 			return extra.get("lit_until", 0.0) > clock
 		"smoker":
 			return crops.any(func(c): return Cooking.stage(c, clock) == 0)
-		"forge", "foundry", "weld_bench":
+		"forge", "foundry", "weld_bench", "torch_bench":
 			return Smithing.is_lit(self, clock)
 	return false
 

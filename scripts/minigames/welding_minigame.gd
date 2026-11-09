@@ -11,10 +11,14 @@ extends Minigame
 ## Com o arco aceso a tela escurece (máscara de solda) e só o arco e o metal quente
 ## aparecem. Armaduras têm 2 ou 3 cordões. Qualidade = média dos pedaços - furos.
 ##
-## Contexto: {"item": peça, "seams": cordões}
+## Modo "brazing" (bancada de maçarico): chama em vez de arco, chapas de cobre, cordão
+## de estanho, sem máscara e um pouco mais devagar (o cobre precisa esquentar).
+##
+## Contexto: {"item": peça, "seams": cordões, "mode": "arc"/"brazing"}
 
 const VIEW := Vector2(600, 260)
 const BAND := Vector2(55.0, 105.0) ## velocidade boa (px/s)
+const BRAZE_BAND := Vector2(40.0, 85.0) ## maçarico: mais devagar
 const SPEED_MAX := 180.0 ## fim do medidor
 const SNAP := 14.0 ## distância máxima da ponta à junta para soldar
 const JUMP := 26.0 ## pular mais que isso para a frente não vale
@@ -26,6 +30,8 @@ const HEAT := [[0.0, Color(0.6, 0.61, 0.63)], [0.24, Color(0.3, 0.035, 0.02)], [
 	[0.52, Color(0.95, 0.27, 0.05)], [0.66, Color(1.0, 0.52, 0.1)], [0.8, Color(1.0, 0.83, 0.3)], [0.95, Color(1.0, 0.97, 0.88)]]
 
 var seams := 2
+var brazing := false
+var band := BAND
 var seam := 0
 var path := PackedVector2Array()
 var lengths := PackedFloat32Array() ## comprimento acumulado em cada ponto
@@ -58,10 +64,15 @@ var _info: Label
 
 func _ready() -> void:
 	seams = int(context.get("seams", 2))
+	brazing = context.get("mode", "arc") == "brazing"
+	band = BRAZE_BAND if brazing else BAND
 	_gradient = Gradient.new()
 	_gradient.offsets = PackedFloat32Array(HEAT.map(func(h): return h[0]))
 	_gradient.colors = PackedColorArray(HEAT.map(func(h): return h[1]))
-	var column := frame("Solda: %s" % ItemDB.display_name(StringName(context.get("item", "couraca"))), VIEW.x + 20.0)
+	if brazing:
+		_gradient.set_color(0, Color(0.78, 0.78, 0.75)) # estanho frio: prateado
+	var title := "Solda de cobre: %s" if brazing else "Solda: %s"
+	var column := frame(title % ItemDB.display_name(StringName(context.get("item", "couraca"))), VIEW.x + 20.0)
 	_view = Control.new()
 	_view.custom_minimum_size = VIEW
 	_view.clip_contents = true
@@ -72,7 +83,7 @@ func _ready() -> void:
 	column.add_child(row)
 	row.add_child(_small("Velocidade"))
 	_meter = BandMeter.new()
-	_meter.band = BAND / SPEED_MAX
+	_meter.band = band / SPEED_MAX
 	row.add_child(_meter)
 	row.add_child(_small("Cordão"))
 	_progress = ProgressBar.new()
@@ -90,7 +101,8 @@ func _ready() -> void:
 	_info = _small("")
 	row.add_child(_info)
 	var keys := Label.new()
-	keys.text = "Segure o clique em cima da junta e siga até o fim, devagar e sempre igual (faixa verde) · Esc: desistir"
+	keys.text = ("Segure o clique: a chama esquenta a junta e o estanho escorre. Siga devagar e sempre igual (faixa verde) · Esc: desistir" if brazing
+		else "Segure o clique em cima da junta e siga até o fim, devagar e sempre igual (faixa verde) · Esc: desistir")
 	keys.add_theme_font_size_override("font_size", 10)
 	keys.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	keys.modulate = Color(1, 1, 1, 0.6)
@@ -199,7 +211,7 @@ func drive(at: Vector2, on: bool, delta: float) -> void:
 		_hist.pop_front()
 	var span: float = _time - _hist[0][0]
 	speed = (front - _hist[0][1]) / span if span > 0.05 else speed
-	for k in 3:
+	for k in (1 if brazing else 3):
 		sparks.append({"p": at, "v": Vector2(randf_range(-110, 110), randf_range(-160, -30)), "life": randf_range(0.2, 0.5)})
 	if front - before < 0.2:
 		_still += delta
@@ -221,13 +233,13 @@ func drive(at: Vector2, on: bool, delta: float) -> void:
 ## Deposita um pedaço do cordão em "along": nota pela velocidade e pela mira.
 func _lay(along: float, dist: float) -> void:
 	var q := 1.0
-	if speed > BAND.y:
-		q = clampf(1.0 - (speed - BAND.y) / BAND.y, 0.15, 1.0) # fino: fraco
-	elif speed < BAND.x:
-		q = clampf(1.0 - (BAND.x - speed) / BAND.x * 0.7, 0.3, 1.0) # grosso: queimado
+	if speed > band.y:
+		q = clampf(1.0 - (speed - band.y) / band.y, 0.15, 1.0) # fino: fraco
+	elif speed < band.x:
+		q = clampf(1.0 - (band.x - speed) / band.x * 0.7, 0.3, 1.0) # grosso: queimado
 	q *= 1.0 - clampf((dist - 3.0) / 11.0, 0.0, 0.4)
 	scores.append(q)
-	var r := clampf(5.5 * ((BAND.x + BAND.y) * 0.5) / maxf(speed, 20.0), 2.2, 9.0)
+	var r := clampf(5.5 * ((band.x + band.y) * 0.5) / maxf(speed, 20.0), 2.2, 9.0)
 	beads.append({"p": point_at(along), "r": r, "t": _time})
 
 
@@ -321,8 +333,8 @@ func _draw_view() -> void:
 		bottom.append(p + Vector2(0, 2))
 	bottom.append(Vector2(VIEW.x, last.y))
 	bottom.append(Vector2(VIEW.x, VIEW.y))
-	v.draw_colored_polygon(top, Color(0.42, 0.43, 0.45))
-	v.draw_colored_polygon(bottom, Color(0.36, 0.37, 0.4))
+	v.draw_colored_polygon(top, Color(0.72, 0.43, 0.26) if brazing else Color(0.42, 0.43, 0.45))
+	v.draw_colored_polygon(bottom, Color(0.64, 0.37, 0.22) if brazing else Color(0.36, 0.37, 0.4))
 	for k in 9: # riscos de esmeril nas chapas
 		var y := 18.0 + k * 27.0
 		v.draw_line(Vector2(10, y), Vector2(VIEW.x - 10, y + 6), Color(1, 1, 1, 0.04), 2.0)
@@ -337,7 +349,15 @@ func _draw_view() -> void:
 		v.draw_circle(b.p, b.r + 1.0, c.darkened(0.45))
 		v.draw_circle(b.p, b.r, c)
 		v.draw_circle(b.p + Vector2(-b.r * 0.3, -b.r * 0.3), b.r * 0.35, c.lightened(0.25))
-	if arc_on:
+	if arc_on and brazing:
+		# Chama do maçarico vindo de cima à direita: azul no bico, laranja na ponta, e o
+		# cobre em volta escurecendo de calor.
+		for k in 4:
+			v.draw_circle(tip, 22.0 - k * 4.0, Color(1.0, 0.5, 0.15, 0.06 + k * 0.04))
+		var from := tip + Vector2(34, -46)
+		v.draw_colored_polygon(PackedVector2Array([from + Vector2(-5, -3), from + Vector2(5, 3), tip]), Color(1.0, 0.65, 0.25, 0.85))
+		v.draw_colored_polygon(PackedVector2Array([from + Vector2(-3, -2), from + Vector2(3, 2), from.lerp(tip, 0.55)]), Color(0.45, 0.65, 1.0, 0.95))
+	elif arc_on:
 		v.draw_rect(Rect2(Vector2.ZERO, VIEW), Color(0.02, 0.06, 0.03, 0.62)) # máscara de solda
 		for k in 5:
 			v.draw_circle(tip, 26.0 - k * 5.0, Color(0.7, 0.85, 1.0, 0.08 + k * 0.05))
@@ -345,10 +365,15 @@ func _draw_view() -> void:
 	for s in sparks:
 		v.draw_rect(Rect2(s.p - Vector2(1.5, 1.5), Vector2(3, 3)), Color(1.0, 0.75, 0.35, clampf(s.life * 3.0, 0.0, 1.0)))
 	if Rect2(Vector2.ZERO, VIEW).has_point(tip):
-		var used := clampf(front / length(), 0.0, 1.0)
-		var stick := tip + Vector2(26, -40) * (1.0 - used * 0.4)
-		v.draw_line(tip, stick, Color(0.65, 0.6, 0.48), 3.0) # eletrodo (gasta)
-		v.draw_line(stick, stick + Vector2(30, -26), Color(0.75, 0.6, 0.15), 8.0) # porta-eletrodo
+		if brazing:
+			var nozzle := tip + Vector2(34, -46)
+			v.draw_line(nozzle, nozzle + Vector2(40, -30), Color(0.72, 0.58, 0.26), 7.0) # maçarico de latão
+			v.draw_line(tip + Vector2(-30, -50), tip + Vector2(-4, -6), Color(0.78, 0.78, 0.75), 2.0) # vareta de estanho
+		else:
+			var used := clampf(front / length(), 0.0, 1.0)
+			var stick := tip + Vector2(26, -40) * (1.0 - used * 0.4)
+			v.draw_line(tip, stick, Color(0.65, 0.6, 0.48), 3.0) # eletrodo (gasta)
+			v.draw_line(stick, stick + Vector2(30, -26), Color(0.75, 0.6, 0.15), 8.0) # porta-eletrodo
 	if _msg_time > 0.0 and _msg != "":
 		var font := v.get_theme_default_font()
 		var width := font.get_string_size(_msg, HORIZONTAL_ALIGNMENT_LEFT, -1, 14).x

@@ -1302,7 +1302,7 @@ func _damage_wall() -> void:
 			return
 		if hit.collider is BuildFill:
 			var fill: BuildFill = hit.collider
-			var hp: int = fill.get_meta("hp", 3 if fill.type == "window" else 6) - 1
+			var hp: int = fill.get_meta("hp", 3 if fill.type == "window" else (16 if fill.metal else 6)) - 1
 			fill.set_meta("hp", hp)
 			Sfx.play_at("knock", hit.position, 3.0, 0.7)
 			if hp <= 0:
@@ -1315,13 +1315,13 @@ func _damage_wall() -> void:
 			var square := piece.square_at(hit.position, normal, 1)
 			if square.is_empty():
 				continue
-			# Cada pedaço aguenta 2 golpes (uma horda passa rápido; um zumbi sozinho demora).
+			# Cada pedaço aguenta 2 golpes de madeira, 6 de chapa (uma horda passa rápido; um zumbi sozinho demora).
 			var key := square[0] / 4
 			var hits: Dictionary = piece.get_meta("hits", {})
 			hits[key] = hits.get(key, 0) + wall_power
 			piece.set_meta("hits", hits)
 			Sfx.play_at("knock", hit.position, 3.0, 0.75)
-			if hits[key] >= 2:
+			if hits[key] >= (BuildPiece.METAL_HITS if piece.metal else BuildPiece.HITS):
 				Sfx.play_at("crunch", hit.position, 5.0, 0.7)
 				Net.i.build_request("break", [piece.net_id, square])
 			return

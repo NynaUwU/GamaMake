@@ -28,13 +28,21 @@ const TRIS := N * N * 4 ## partes removíveis (4 quartos por quadrado)
 const NAMES := {Kind.WALL: "Parede", Kind.FLOOR: "Piso", Kind.ROOF: "Teto", Kind.PILLAR: "Pilar"}
 const COLORS := {Kind.WALL: Color(0.46, 0.33, 0.2), Kind.FLOOR: Color(0.4, 0.29, 0.18),
 	Kind.ROOF: Color(0.45, 0.2, 0.15), Kind.PILLAR: Color(0.3, 0.2, 0.12)}
+## De chapa soldada (bancada de solda): parede de chapas com cordões, piso de chapa
+## xadrez, telhado de zinco ondulado, viga de aço. Aguenta 3x mais golpe de zumbi.
+const METAL_COLORS := {Kind.WALL: Color(0.42, 0.44, 0.46), Kind.FLOOR: Color(0.38, 0.39, 0.4),
+	Kind.ROOF: Color(0.56, 0.58, 0.6), Kind.PILLAR: Color(0.3, 0.31, 0.33)}
+const METAL_NAMES := {Kind.WALL: "Parede de chapa", Kind.FLOOR: "Piso de chapa", Kind.ROOF: "Telhado de chapa", Kind.PILLAR: "Viga de aço"}
+const HITS := 2 ## golpes de zumbi que cada quadrado de madeira aguenta
+const METAL_HITS := 6
 
 var kind := Kind.WALL
+var metal := false ## de chapa soldada (senão madeira)
 var cell := Vector3i.ZERO ## origem na grade (em quadrados)
 var rot := 0 ## 0 = ao longo de +X; 1 = ao longo de +Z (teto: 2..5 = inclinado)
 var net_id := 0
 var removed := PackedByteArray() ## 1 = quarto tirado (índice: (j * N + i) * 4 + q; q: 0 baixo, 1 direita, 2 cima, 3 esquerda)
-## Janelas e portas encaixadas nos buracos: [{"type": "window"/"door", "tris": PackedInt32Array, "open": bool}]
+## Janelas e portas encaixadas nos buracos: [{"type": "window"/"door", "tris": PackedInt32Array, "open": bool, "metal": bool}]
 var fills: Array = []
 var damaged := {} ## quartos quebrados por zumbi (o martelo conserta; talhadeira não conta)
 var _fill_nodes: Array = []
@@ -42,10 +50,12 @@ var _fill_nodes: Array = []
 var _mesh: MeshInstance3D
 var _shape: CollisionShape3D
 static var _material: Material
+static var _metal_material: Material
 
 
-func setup(kind_: Kind, cell_: Vector3i, rot_: int) -> void:
+func setup(kind_: Kind, cell_: Vector3i, rot_: int, metal_ := false) -> void:
 	kind = kind_
+	metal = metal_
 	cell = cell_
 	rot = rot_
 	removed.resize(TRIS)
@@ -209,7 +219,10 @@ func rebuild() -> void:
 	st.generate_normals()
 	_mesh.mesh = st.commit()
 	# Pilar em pé: material com o veio da madeira na vertical (deitado/viga fica na horizontal).
-	_mesh.material_override = Look.surface(true, 1.0, 0.95, 0.0, false, 0.0, true) if kind == Kind.PILLAR and rot == 0 else _get_material()
+	if metal:
+		_mesh.material_override = _get_metal_material()
+	else:
+		_mesh.material_override = Look.surface(true, 1.0, 0.95, 0.0, false, 0.0, true) if kind == Kind.PILLAR and rot == 0 else _get_material()
 	var shape := ConcavePolygonShape3D.new()
 	shape.backface_collision = true
 	shape.set_faces(faces)
@@ -251,8 +264,16 @@ func _panel(st: SurfaceTool, faces: PackedVector3Array) -> void:
 ## Cor de cada quadrado: parede de tábuas deitadas, piso de tábuas com emendas
 ## desencontradas, teto de telhas em fiadas.
 func _tone(i: int, j: int) -> Color:
-	var base: Color = COLORS[kind]
+	var base: Color = METAL_COLORS[kind] if metal else COLORS[kind]
 	var noise := fposmod(sin(i * 3.7 + j * 12.9898 + cell.x * 3.1 + cell.z * 7.7 + cell.y * 1.3) * 43758.5453, 1.0)
+	if metal:
+		match kind:
+			Kind.WALL: # chapas de 1,2 m de largura, cada uma com um tom
+				var plate := fposmod(sin(floori(i / 3.0) * 7.31 + cell.x * 3.1 + cell.z * 7.7 + cell.y) * 43758.5453, 1.0)
+				return base.darkened(plate * 0.1 + noise * 0.025)
+			Kind.ROOF: # zinco ondulado: claro/escuro alternando
+				return base.darkened(0.12 if i % 2 == 1 else 0.0).darkened(noise * 0.03)
+		return base.darkened(noise * 0.04)
 	match kind:
 		Kind.WALL:
 			# Tábuas deitadas: cada fileira com um tom, quase sem variar no meio dela.
@@ -273,6 +294,9 @@ func _square_details(st: SurfaceTool, i: int, j: int, w: Vector2) -> void:
 	var v0 := j * SEG
 	var seam: Color = (COLORS[kind] as Color).darkened(0.55)
 	var nail := Color(0.28, 0.27, 0.26)
+	if metal:
+		_metal_details(st, i, j, w)
+		return
 	match kind:
 		Kind.WALL:
 			for face in [w.x - 0.003, w.y + 0.003]:
@@ -295,6 +319,34 @@ func _square_details(st: SurfaceTool, i: int, j: int, w: Vector2) -> void:
 			# Beiral de cada fiada: degrau de telha sobreposta na borda de baixo do quadrado.
 			_box(st, uvw(u0 + SEG * 0.5, v0 + 0.04, top + 0.02), Vector3(SEG - 0.01, 0.04, 0.08), _tone(i, j).darkened(0.15))
 			_box(st, uvw(u0 + 0.005, v0 + SEG * 0.5, top + 0.01), Vector3(0.01, 0.02, SEG), _tone(i, j).darkened(0.3)) # junta
+
+
+## Chapa: cordões de solda nas emendas e parafusos (parede), chapa xadrez (piso),
+## ondas do zinco (telhado).
+func _metal_details(st: SurfaceTool, i: int, j: int, w: Vector2) -> void:
+	var u0 := i * SEG
+	var v0 := j * SEG
+	var base: Color = METAL_COLORS[kind]
+	var bead := base.lightened(0.18)
+	match kind:
+		Kind.WALL:
+			for face in [w.x - 0.004, w.y + 0.004]:
+				if i % 3 == 0 and i > 0:
+					for k in 4: # cordão vertical entre duas chapas
+						_box(st, uvw(u0, v0 + SEG * (k + 0.5) / 4.0, face), Vector3(0.03, 0.07, 0.008), bead)
+				if j == 3:
+					for k in 4: # cordão horizontal no meio da altura
+						_box(st, uvw(u0 + SEG * (k + 0.5) / 4.0, v0, face), Vector3(0.07, 0.03, 0.008), bead)
+				if i % 3 == 1 and j % 3 == 1:
+					_box(st, uvw(u0 + SEG * 0.5, v0 + SEG * 0.5, face), Vector3(0.03, 0.03, 0.012), base.darkened(0.35)) # parafuso
+		Kind.FLOOR:
+			var top := w.y + 0.004
+			for k in 2: # chapa xadrez: ressaltos alternando de direção
+				var size := Vector3(0.1, 0.008, 0.025) if (i + j + k) % 2 == 0 else Vector3(0.025, 0.008, 0.1)
+				_box(st, uvw(u0 + SEG * (0.28 + 0.44 * k), v0 + SEG * (0.3 + 0.4 * ((k + i) % 2)), top), size, bead)
+		Kind.ROOF:
+			var top := w.y + 0.012
+			_box(st, uvw(u0 + SEG * 0.5, v0 + SEG * 0.5, top), Vector3(0.03, 0.02, SEG), base.lightened(0.1)) # crista da onda
 
 
 ## Caixa de enfeite (só na malha, sem colisão), em espaço local da peça.
@@ -371,8 +423,8 @@ static func touches_bottom(tris: PackedInt32Array) -> bool:
 	return false
 
 
-func add_fill(type: String, tris: PackedInt32Array, open := false) -> void:
-	fills.append({"type": type, "tris": tris, "open": open})
+func add_fill(type: String, tris: PackedInt32Array, open := false, metal_ := false) -> void:
+	fills.append({"type": type, "tris": tris, "open": open, "metal": metal_})
 	_rebuild_fills()
 
 
@@ -404,7 +456,7 @@ func _rebuild_fills() -> void:
 		node.piece = self
 		node.fill_index = index
 		add_child(node)
-		node.build(fill.type, fill.tris, fill.open)
+		node.build(fill.type, fill.tris, fill.open, fill.get("metal", false))
 		_fill_nodes.append(node)
 
 
@@ -444,6 +496,15 @@ func _pillar(st: SurfaceTool, faces: PackedVector3Array) -> void:
 		var b: Vector3 = corners[(e + 1) % 4]
 		var top := Vector3.UP * SIZE
 		faces.append_array(PackedVector3Array([a, b + top, b, a, a + top, b + top]))
+	if metal:
+		# Viga de aço em I: alma fina e as duas abas, com cordões de solda nas pontas.
+		var steel: Color = METAL_COLORS[kind]
+		_box(st, Vector3(0, SIZE * 0.5, 0), Vector3(0.06, SIZE, 0.3), steel)
+		for x in [-0.17, 0.17]:
+			_box(st, Vector3(x, SIZE * 0.5, 0), Vector3(0.04, SIZE, 0.36), steel.lightened(0.06))
+		for y in [0.05, SIZE - 0.05]:
+			_box(st, Vector3(0, y, 0), Vector3(0.4, 0.1, 0.4), steel.darkened(0.15)) # chapa de base/topo
+		return
 	var wood: Color = COLORS[kind]
 	_box(st, Vector3(0, SIZE * 0.5, 0), Vector3(0.34, SIZE, 0.34), wood)
 	for k in 4: # chanfros (cantos mais escuros), inteiros de ponta a ponta
@@ -461,6 +522,12 @@ func _tri(st: SurfaceTool, faces: PackedVector3Array, a: Vector3, b: Vector3, c:
 		st.set_color(color)
 		st.add_vertex(p)
 	faces.append_array(PackedVector3Array([a, c, b]))
+
+
+static func _get_metal_material() -> Material:
+	if _metal_material == null:
+		_metal_material = Look.surface(true, 0.6, 0.6, 0.0, false, 0.45) # chapa: menos grão, um pouco metálica
+	return _metal_material
 
 
 static func _get_material() -> Material:

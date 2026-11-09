@@ -20,7 +20,8 @@ const IDS := [&"pistola", &"espada", &"taco", &"martelo", &"talhadeira", &"pa", 
 	&"carne_crua", &"carne_assada", &"carne_seca", &"pele", &"couro", &"gordura", &"casaco_pele", &"correia", &"vara",
 	&"ovo", &"ovo_frito", &"leite", &"la", &"pena", &"gorro_la", &"casaco_la", &"casaco_penas",
 	&"eixo", &"engrenagem_madeira", &"polia",
-	&"minerio_estanho", &"barra_estanho", &"barra_bronze", &"eletrodo", &"capacete_soldado", &"couraca", &"grevas"]
+	&"minerio_estanho", &"barra_estanho", &"barra_bronze", &"eletrodo", &"capacete_soldado", &"couraca", &"grevas",
+	&"chapa", &"botijao", &"serpentina"]
 
 
 static func has(id: StringName) -> bool:
@@ -76,6 +77,9 @@ static func build(id: StringName, p: Dictionary) -> void:
 		&"capacete_soldado": _welded_helmet(p)
 		&"couraca": _cuirass(p)
 		&"grevas": _greaves(p)
+		&"chapa": _plate(p)
+		&"botijao": _gas_bottle(p)
+		&"serpentina": _coil(p)
 		&"vidro": _glass(p)
 		&"sucata": _scrap(p)
 		&"pano": _cloth_stack(p)
@@ -908,6 +912,38 @@ static func _greaves(p: Dictionary) -> void:
 		_bead(p, Vector3(x, 0.02, 0.06), Vector3(x, 0.3, 0.066), 6)
 		for y in [0.12, 0.52]:
 			_mb(p, ItemModels.LEATHER).box(Vector3(x, y, -0.06), Vector3(0.1, 0.025, 0.02))
+
+
+## Chapa soldada: duas chapas emendadas com o cordão no meio e furos nos cantos.
+static func _plate(p: Dictionary) -> void:
+	var steel := ItemModels.STEEL.darkened(0.2)
+	_mb(p, steel).box(Vector3(-0.12, 0, 0), Vector3(0.24, 0.012, 0.46))
+	_mb(p, steel.lightened(0.05)).box(Vector3(0.12, 0, 0), Vector3(0.24, 0.012, 0.46))
+	_bead(p, Vector3(0.0, 0.008, -0.22), Vector3(0.0, 0.008, 0.22), 10)
+	for x in [-0.21, 0.21]:
+		for z in [-0.2, 0.2]:
+			_mb(p, ItemModels.DARK).box(Vector3(x, 0.007, z), Vector3(0.016, 0.004, 0.016))
+
+
+## Botijão de gás vermelho com a alça e o registro de latão.
+static func _gas_bottle(p: Dictionary) -> void:
+	_mb(p, Color(0.62, 0.12, 0.1)).lathe(PackedVector2Array([Vector2(0.002, 0.02), Vector2(0.11, 0.02), Vector2(0.125, 0.07), Vector2(0.125, 0.26),
+		Vector2(0.095, 0.33), Vector2(0.035, 0.36), Vector2(0.002, 0.36)]), 12)
+	_mb(p, ItemModels.IRON).lathe(PackedVector2Array([Vector2(0.1, 0.0), Vector2(0.115, 0.0), Vector2(0.115, 0.03), Vector2(0.1, 0.03)]), 12)
+	_mb(p, ItemModels.IRON).torus(0.065, 0.009, 12, 4, Basis.IDENTITY, Vector3(0, 0.42, 0))
+	for k in 3:
+		var a := TAU * k / 3.0
+		_mb(p, ItemModels.IRON).box(Vector3(cos(a) * 0.06, 0.39, sin(a) * 0.06), Vector3(0.012, 0.06, 0.012))
+	_mb(p, ItemModels.BRASS).box(Vector3(0, 0.385, 0), Vector3(0.035, 0.04, 0.035))
+
+
+## Serpentina: cano de cobre em espiral com as duas pontas retas.
+static func _coil(p: Dictionary) -> void:
+	for k in 6:
+		_mb(p, ItemModels.COPPER.lightened(0.1 + 0.05 * (k % 2))).torus(0.08, 0.012, 14, 4, Basis.IDENTITY, Vector3(0, 0.02 + k * 0.035, 0))
+	_mb(p, ItemModels.COPPER.lightened(0.1)).tube(PackedVector3Array([Vector3(0.08, 0.2, 0), Vector3(0.08, 0.28, 0)]), 0.012, 5)
+	_mb(p, ItemModels.COPPER.lightened(0.1)).tube(PackedVector3Array([Vector3(-0.08, 0.02, 0), Vector3(-0.14, 0.0, 0)]), 0.012, 5)
+	_mb(p, Color(0.75, 0.75, 0.72)).box(Vector3(0.08, 0.205, 0), Vector3(0.03, 0.012, 0.03)) # emenda de estanho
 
 
 static func _pants(p: Dictionary) -> void:
