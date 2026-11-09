@@ -85,16 +85,16 @@ uniform float amount = 0.0;
 uniform float fog = 0.0; // filtro acabando: as lentes embaçam
 void fragment() {
 	vec2 p = (UV - 0.5) * vec2(SCREEN_PIXEL_SIZE.y / SCREEN_PIXEL_SIZE.x, 1.0);
-	vec2 l = (p - vec2(-0.3, -0.02)) / vec2(0.36, 0.33);
-	vec2 r = (p - vec2(0.3, -0.02)) / vec2(0.36, 0.33);
+	vec2 l = (p - vec2(-0.27, -0.03)) / vec2(0.47, 0.43);
+	vec2 r = (p - vec2(0.27, -0.03)) / vec2(0.47, 0.43);
 	float dl = length(l);
 	float dr = length(r);
 	float lens = min(dl, dr);
-	float rubber = smoothstep(0.98, 1.02, lens);
-	float rim = smoothstep(0.9, 0.95, lens) * (1.0 - smoothstep(1.0, 1.06, lens));
-	vec3 color = mix(vec3(0.07, 0.08, 0.07), vec3(0.55, 0.43, 0.2), rim);
-	float inside = (1.0 - rubber) * (smoothstep(0.55, 0.98, lens) * 0.35 + fog * 0.5);
-	float a = max(rubber * 0.94, rim * 0.9);
+	float rubber = smoothstep(0.98, 1.03, lens);
+	float rim = smoothstep(0.93, 0.97, lens) * (1.0 - smoothstep(1.0, 1.05, lens));
+	vec3 color = mix(vec3(0.08, 0.09, 0.08), vec3(0.55, 0.43, 0.2), rim);
+	float inside = (1.0 - rubber) * (smoothstep(0.7, 0.98, lens) * 0.18 + fog * 0.45);
+	float a = max(rubber * 0.86, rim * 0.85);
 	COLOR = vec4(mix(vec3(0.8, 0.85, 0.8), color, step(0.5, a)), max(a, inside) * amount);
 }"""
 	mask.material = mask_mat

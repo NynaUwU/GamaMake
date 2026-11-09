@@ -51,9 +51,9 @@ func _travel(to: Vector3) -> void:
 		await process_frame
 
 
-func _hold(pos: Vector3) -> void:
-	player.global_position = pos
-	player.velocity = Vector3.ZERO
+## Câmera parada no alto (sem cair) para as vistas de longe.
+func _fly(on: bool) -> void:
+	player.set_physics_process(not on)
 
 
 func _init() -> void:
@@ -124,8 +124,10 @@ func _init() -> void:
 		var zone: Dictionary = plants[0]
 		var c := Vector3(zone.center.x, zone.base, zone.center.y)
 		await _travel(c + Vector3(0, 2, 70))
-		await _look(c + Vector3(-18, 16, 72), c + Vector3(0, 4, 0))
+		_fly(true)
+		await _look(c + Vector3(-20, 22, 62), c + Vector3(0, 2, 0))
 		await _shot("fabrica_quimica_fora", 60)
+		_fly(false)
 		# Dentro, sem máscara: tosse, tela verde e o medidor.
 		hud.visible = true
 		await _look(c + Vector3(-4, 1.7, 15), c + Vector3(-2, 4, -10))
@@ -152,8 +154,10 @@ func _init() -> void:
 		var c := Vector3(zone.center.x, zone.base, zone.center.y)
 		var edge := c + Vector3(zone.radius + 25.0, 0, 0)
 		await _travel(edge)
-		await _look(edge + Vector3(10, 28, 6), c + Vector3(0, 4, 0))
+		_fly(true)
+		await _look(edge + Vector3(10, 30, 6), c + Vector3(0, 4, 0))
 		await _shot("cidade_contaminada", 90)
+		_fly(false)
 	# --- Mapa com as zonas.
 	hud.visible = true
 	await _travel(o)

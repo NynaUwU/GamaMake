@@ -19,7 +19,7 @@ const EDGE := 22.0 ## metros da borda até o gás ficar cheio
 const CEILING := 14.0 ## acima disso (do chão da zona) o ar é limpo
 const FILTER_TIME := 180.0 ## segundos de um filtro dentro do gás cheio
 const BUILD_DISTANCE := 260.0
-const GAS_COLOR := Color(0.62, 0.68, 0.28)
+const GAS_COLOR := Color(0.6, 0.7, 0.2)
 
 var terrain: TerrainWorld
 var _built := {} # índice da zona -> Node3D
@@ -167,8 +167,8 @@ func _build_zone(k: int, zone: Dictionary) -> Node3D:
 	root.name = "Zone_%d" % k
 	add_child(root)
 	root.global_position = Vector3(zone.center.x, zone.base, zone.center.y)
-	var haze := _haze(zone.radius * 0.92, clampi(int(zone.radius * 1.6), 60, 180), 18.0, Vector2(14.0, 7.0))
-	haze.position = Vector3(0, 3.0, 0)
+	var haze := _haze(zone.radius * 0.92, clampi(int(zone.radius * 2.2), 90, 240), 18.0, Vector2(18.0, 9.0))
+	haze.position = Vector3(0, 3.5, 0)
 	root.add_child(haze)
 	_signs(root, zone)
 	if zone.kind == "plant":
@@ -202,7 +202,7 @@ func _haze(radius: float, amount: int, lifetime: float, size: Vector2) -> GPUPar
 	m.angle_max = 180.0
 	var ramp := Gradient.new()
 	ramp.offsets = PackedFloat32Array([0.0, 0.25, 0.75, 1.0])
-	ramp.colors = PackedColorArray([Color(GAS_COLOR, 0.0), Color(GAS_COLOR, 0.26), Color(GAS_COLOR.darkened(0.15), 0.22), Color(GAS_COLOR, 0.0)])
+	ramp.colors = PackedColorArray([Color(GAS_COLOR, 0.0), Color(GAS_COLOR, 0.42), Color(GAS_COLOR.darkened(0.12), 0.36), Color(GAS_COLOR, 0.0)])
 	var ramp_tex := GradientTexture1D.new()
 	ramp_tex.gradient = ramp
 	m.color_ramp = ramp_tex

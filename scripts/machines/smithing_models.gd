@@ -479,7 +479,7 @@ static func _chem_bench(obj: PlacedObject) -> void:
 		mb.color(ObjectModels.SOOT)
 		mb.box(at + Vector3(0, 0.0, 0.034) + Vector3(sin(needles[k]), cos(needles[k]), 0) * 0.04, Vector3(0.01, 0.08, 0.004), Basis(Vector3.BACK, -needles[k]))
 		# Válvula embaixo de cada relógio: cano curto e o volante vermelho.
-		var valve := Vector3(-0.42 + k * 0.42, 1.0, -0.28)
+		var valve := Vector3(-0.42 + k * 0.42, 1.12, -0.28)
 		mb.color(ObjectModels.COPPER)
 		mb.tube(PackedVector3Array([valve + Vector3(0, 0, -0.04), valve + Vector3(0, 0, 0.06)]), 0.02, 6)
 		mb.color(Color(0.62, 0.12, 0.1))
@@ -487,7 +487,7 @@ static func _chem_bench(obj: PlacedObject) -> void:
 		mb.box(valve + Vector3(0, 0, 0.07), Vector3(0.1, 0.012, 0.012))
 		mb.box(valve + Vector3(0, 0, 0.07), Vector3(0.012, 0.1, 0.012))
 	mb.color(ObjectModels.COPPER) # cano que liga as válvulas
-	mb.tube(PackedVector3Array([Vector3(-0.62, 1.0, -0.3), Vector3(0.62, 1.0, -0.3)]), 0.018, 6)
+	mb.tube(PackedVector3Array([Vector3(-0.62, 1.12, -0.3), Vector3(0.62, 1.12, -0.3)]), 0.018, 6)
 	# Queimador, tripé e balão (esquerda).
 	var bx := -0.48
 	mb.color(ItemModels.BRASS)
@@ -506,16 +506,16 @@ static func _chem_bench(obj: PlacedObject) -> void:
 	mb.lathe(PackedVector2Array([Vector2(0.03, 1.44), Vector2(0.034, 1.47), Vector2(0.002, 1.48)]), 8, Basis.IDENTITY, Vector3(bx, 0, 0.05))
 	# Tubo de vidro do gargalo até a serpentina (meio), na tina d'água, e o frasco que recolhe.
 	mb.color(glass)
-	mb.tube(PackedVector3Array([Vector3(bx, 1.46, 0.05), Vector3(bx + 0.08, 1.5, 0.05), Vector3(0.0, 1.22, 0.06)]), 0.012, 5)
+	mb.tube(PackedVector3Array([Vector3(bx, 1.46, 0.05), Vector3(bx + 0.08, 1.5, 0.05), Vector3(0.0, 1.16, 0.1)]), 0.012, 5)
 	mb.color(ObjectModels.WOOD_DARK)
-	mb.lathe(PackedVector2Array([Vector2(0.002, 0.82), Vector2(0.15, 0.82), Vector2(0.16, 1.1), Vector2(0.145, 1.1), Vector2(0.135, 0.84), Vector2(0.002, 0.84)]), 10, Basis.IDENTITY, Vector3(0.05, 0, 0.06))
+	mb.lathe(PackedVector2Array([Vector2(0.002, 0.82), Vector2(0.15, 0.82), Vector2(0.16, 0.98), Vector2(0.145, 0.98), Vector2(0.135, 0.84), Vector2(0.002, 0.84)]), 10, Basis.IDENTITY, Vector3(0.05, 0, 0.1))
 	mb.color(Color(0.35, 0.5, 0.62))
-	mb.lathe(PackedVector2Array([Vector2(0.002, 1.04), Vector2(0.142, 1.04)]), 10, Basis.IDENTITY, Vector3(0.05, 0, 0.06)) # água da tina
+	mb.lathe(PackedVector2Array([Vector2(0.002, 0.95), Vector2(0.142, 0.95)]), 10, Basis.IDENTITY, Vector3(0.05, 0, 0.1)) # água da tina
 	for k in 5:
 		mb.color(ObjectModels.COPPER.lightened(0.05 * (k % 2)))
-		mb.torus(0.09, 0.013, 12, 4, Basis.IDENTITY, Vector3(0.05, 0.9 + k * 0.045, 0.06))
+		mb.torus(0.09, 0.013, 12, 4, Basis.IDENTITY, Vector3(0.05, 0.93 + k * 0.045, 0.1))
 	mb.color(ObjectModels.COPPER)
-	mb.tube(PackedVector3Array([Vector3(0.14, 0.9, 0.06), Vector3(0.3, 0.9, 0.08), Vector3(0.38, 0.98, 0.1)]), 0.012, 5)
+	mb.tube(PackedVector3Array([Vector3(0.14, 0.93, 0.1), Vector3(0.3, 0.93, 0.1), Vector3(0.38, 0.98, 0.1)]), 0.012, 5)
 	mb.color(glass)
 	mb.lathe(PackedVector2Array([Vector2(0.002, 0.82), Vector2(0.07, 0.82), Vector2(0.075, 0.9), Vector2(0.03, 0.97), Vector2(0.028, 1.0), Vector2(0.002, 1.0)]), 10, Basis.IDENTITY, Vector3(0.4, 0, 0.1))
 	mb.color(Color(0.86, 0.8, 0.4))
