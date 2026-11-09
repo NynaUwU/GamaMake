@@ -292,7 +292,7 @@ func _send_world_state(id: int) -> void:
 	for key in _drops:
 		var item: PickupItem = _pickups.get(key)
 		if is_instance_valid(item):
-			_pspawn.rpc_id(id, key, _drops[key][0], _drops[key][1], item.global_transform, Vector3.ZERO, item.dur)
+			_pspawn.rpc_id(id, key, _drops[key][0], _drops[key][1], item.global_transform, Vector3.ZERO, item.dur, item.extra)
 	if world.get_node_or_null("Building"):
 		_build_state.rpc_id(id, world.get_node("Building").state())
 	# Voltou para um mundo salvo: recebe posição, vida e inventário que tinha.
@@ -657,12 +657,12 @@ func _try_take(peer: int, key: String, item_id: StringName, amount: int) -> void
 
 
 @rpc("authority", "reliable")
-func _give(item_id: StringName, amount: int, where: Transform3D, dur := 1.0) -> void:
+func _give(item_id: StringName, amount: int, where: Transform3D, dur := 1.0, extra := {}) -> void:
 	if world == null or world.player == null:
 		return
-	var left: int = world.player.pick_up(item_id, ItemDB.display_name(item_id), amount, dur)
+	var left: int = world.player.pick_up(item_id, ItemDB.display_name(item_id), amount, dur, extra)
 	if left > 0: # não coube tudo: o resto volta para o chão
-		drop_item(item_id, left, where, Vector3.ZERO, dur)
+		drop_item(item_id, left, where, Vector3.ZERO, dur, extra)
 
 
 @rpc("authority", "reliable")
@@ -709,30 +709,30 @@ func _do_convert(key: String, new_id: StringName, amount: int, where: Transform3
 
 
 ## Solta um item no mundo (player soltando, zumbi largando a arma).
-func drop_item(item_id: StringName, amount: int, where: Transform3D, impulse: Vector3, dur := 1.0) -> void:
+func drop_item(item_id: StringName, amount: int, where: Transform3D, impulse: Vector3, dur := 1.0, extra := {}) -> void:
 	if not online():
 		if world:
-			world.spawn_pickup("", item_id, amount, where, impulse, dur)
+			world.spawn_pickup("", item_id, amount, where, impulse, dur, extra)
 		return
 	if multiplayer.is_server():
 		var key := "d%d" % _next_drop
 		_next_drop += 1
-		_drops[key] = [item_id, amount, dur]
-		_pspawn.rpc(key, item_id, amount, where, impulse, dur)
-		_pspawn(key, item_id, amount, where, impulse, dur)
+		_drops[key] = [item_id, amount, dur, extra]
+		_pspawn.rpc(key, item_id, amount, where, impulse, dur, extra)
+		_pspawn(key, item_id, amount, where, impulse, dur, extra)
 	else:
-		_req_drop.rpc_id(1, item_id, amount, where, impulse, dur)
+		_req_drop.rpc_id(1, item_id, amount, where, impulse, dur, extra)
 
 
 @rpc("any_peer", "reliable")
-func _req_drop(item_id: StringName, amount: int, where: Transform3D, impulse: Vector3, dur := 1.0) -> void:
-	drop_item(item_id, amount, where, impulse, dur)
+func _req_drop(item_id: StringName, amount: int, where: Transform3D, impulse: Vector3, dur := 1.0, extra := {}) -> void:
+	drop_item(item_id, amount, where, impulse, dur, extra)
 
 
 @rpc("authority", "reliable")
-func _pspawn(key: String, item_id: StringName, amount: int, where: Transform3D, impulse: Vector3, dur := 1.0) -> void:
+func _pspawn(key: String, item_id: StringName, amount: int, where: Transform3D, impulse: Vector3, dur := 1.0, extra := {}) -> void:
 	if world and not _pickups.has(key) and not taken.has(key):
-		world.spawn_pickup(key, item_id, amount, where, impulse, dur)
+		world.spawn_pickup(key, item_id, amount, where, impulse, dur, extra)
 
 
 # --- Carros --------------------------------------------------------------------
@@ -881,20 +881,20 @@ func _req_system(system: String, action: String, args: Array) -> void:
 
 ## Host: entrega um item no inventário de um jogador (o que não couber cai no
 ## chão). slot >= 0: tenta pôr naquele slot da mochila (arrastou do baú para lá).
-func give_to(peer: int, item_id: StringName, amount: int, slot := -1, dur := 1.0) -> void:
+func give_to(peer: int, item_id: StringName, amount: int, slot := -1, dur := 1.0, extra := {}) -> void:
 	var where := Transform3D()
 	if world:
 		var who: Node3D = world.player if peer == my_id() else world.puppets.get(peer)
 		if is_instance_valid(who):
 			where = who.global_transform.translated(Vector3.UP)
 	if peer == my_id() or not online():
-		_give_at(item_id, amount, where, slot, dur)
+		_give_at(item_id, amount, where, slot, dur, extra)
 	else:
-		_give_at.rpc_id(peer, item_id, amount, where, slot, dur)
+		_give_at.rpc_id(peer, item_id, amount, where, slot, dur, extra)
 
 
 @rpc("authority", "reliable")
-func _give_at(item_id: StringName, amount: int, where: Transform3D, slot: int, dur := 1.0) -> void:
+func _give_at(item_id: StringName, amount: int, where: Transform3D, slot: int, dur := 1.0, extra := {}) -> void:
 	if world == null or world.player == null:
 		return
 	var inventory: Inventory = world.player.inventory
@@ -905,15 +905,16 @@ func _give_at(item_id: StringName, amount: int, where: Transform3D, slot: int, d
 			inventory.slots[slot] = {"id": item_id, "amount": moved}
 			if dur < 1.0:
 				inventory.slots[slot].dur = dur
+			inventory.slots[slot].merge(extra) # qualidade da forja, fio
 			amount -= moved
 			inventory.changed.emit()
-		elif target.id == item_id:
+		elif target.id == item_id and extra.is_empty():
 			var moved := mini(ItemDB.max_stack(item_id) - target.amount, amount)
 			target.amount += moved
 			amount -= moved
 			inventory.changed.emit()
 	if amount > 0:
-		_give(item_id, amount, where, dur)
+		_give(item_id, amount, where, dur, extra)
 
 
 ## Host: marca uma chave como usada para todos (baú aberto, árvore derrubada...).

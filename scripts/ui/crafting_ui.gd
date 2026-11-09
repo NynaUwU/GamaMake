@@ -37,6 +37,7 @@ const RECIPES := [
 	{"id": &"botas", "station": "mesa", "cost": {&"couro": 2}, "note": "couro"},
 	{"id": &"tocha", "amount": 3, "station": "mesa", "cost": {&"graveto": 2, &"pano": 1, &"carvao": 1}},
 	{"id": &"cabo", "amount": 4, "station": "mesa", "cost": {&"barra_cobre": 1, &"pano": 1}},
+	{"id": &"cabo", "amount": 4, "station": "mesa", "manual": &"manual_eletricista", "cost": {&"fio_cobre": 2, &"pano": 1}, "note": "fio"},
 	{"id": &"lampada", "amount": 2, "station": "mesa", "cost": {&"vidro": 1, &"barra_cobre": 1}},
 	{"id": &"celula", "station": "mesa", "cost": {&"vidro": 1, &"barra_cobre": 1, &"sucata": 1}},
 	{"id": &"bandeira", "station": "mesa", "cost": {&"graveto": 2, &"pano": 2}},
@@ -84,6 +85,20 @@ const RECIPES := [
 	{"id": &"eixo_aco", "station": "torno", "power": true, "cost": {&"barra_aco": 1}},
 	{"id": &"cano", "amount": 4, "station": "torno", "power": true, "cost": {&"barra_cobre": 1}},
 	{"id": &"bobina", "station": "torno", "power": true, "cost": {&"barra_cobre": 3, &"barra_ferro": 1}},
+	# Torno com fio de cobre (manual do eletricista): bobina com bem menos cobre.
+	{"id": &"bobina", "station": "torno", "power": true, "manual": &"manual_eletricista", "cost": {&"fio_cobre": 8, &"barra_ferro": 1}, "note": "fio"},
+	# Forja e bigorna (Era 1): minigame de temperatura por cor (1 carvão por peça); a peça
+	# sai com qualidade (Smithing). "hits" = golpes certos para terminar.
+	{"id": &"machado", "station": "forja", "hits": 8, "cost": {&"barra_ferro": 2}},
+	{"id": &"picareta", "station": "forja", "hits": 8, "cost": {&"barra_ferro": 2}},
+	{"id": &"pa", "station": "forja", "hits": 6, "cost": {&"barra_ferro": 1}},
+	{"id": &"talhadeira", "station": "forja", "hits": 6, "cost": {&"barra_ferro": 1}},
+	{"id": &"espada", "station": "forja", "hits": 12, "manual": &"manual_ferreiro", "cost": {&"barra_ferro": 3}},
+	{"id": &"espada", "station": "forja", "hits": 12, "manual": &"manual_ferreiro", "cost": {&"barra_aco": 2}, "note": "aço"},
+	{"id": &"capacete", "station": "forja", "hits": 10, "manual": &"manual_ferreiro", "cost": {&"barra_ferro": 3}},
+	{"id": &"peitoral", "station": "forja", "hits": 14, "manual": &"manual_ferreiro", "cost": {&"barra_ferro": 5}},
+	# Trefiladora (eixo girando, sem minigame): barra de cobre vira fio.
+	{"id": &"fio_cobre", "amount": 8, "station": "trefiladora", "power": true, "cost": {&"barra_cobre": 1}},
 	# Prensa (precisa de energia).
 	{"id": &"suco", "station": "prensa", "power": true, "cost": {&"fruta": 3, &"garrafa": 1}},
 	{"id": &"oleo", "station": "prensa", "power": true, "cost": {&"semente_algodao": 4, &"garrafa": 1}},
@@ -104,7 +119,8 @@ const RECIPES := [
 	{"id": &"tocha", "station": "mao", "cost": {&"graveto": 1, &"pano": 1}},
 ]
 const TITLES := {"mesa": "Mesa de trabalho", "fornalha": "Fornalha", "mao": "Fabricar", "forno": "Forno de tijolo",
-	"fornalha_pedra": "Fornalha de pedra", "torno": "Torno", "prensa": "Prensa"}
+	"fornalha_pedra": "Fornalha de pedra", "torno": "Torno", "prensa": "Prensa", "forja": "Forja e bigorna", "trefiladora": "Trefiladora",
+	"alto_forno": "Alto-forno", "destilaria": "Destilaria"}
 ## Fornalha de pedra aberta agora (o calor do fole libera as receitas "heat").
 static var heat_source: PlacedObject
 ## Combustível da fornalha, na ordem de preferência: [item, quanto gasta].
@@ -142,6 +158,8 @@ static func fuel_for(inventory: Inventory) -> Array:
 
 
 static func can_craft(inventory: Inventory, recipe: Dictionary) -> bool:
+	if not Progress.knows(recipe.get("manual", "")):
+		return false # receita de manual que ainda não leu
 	if not Builder.can_afford(inventory, recipe.cost):
 		return false
 	if recipe.get("heat", false) and (not is_instance_valid(heat_source) or Machines.heat(heat_source) < Machines.HEAT_NEEDED):
@@ -175,6 +193,8 @@ static func craft(player: Player, recipe: Dictionary, times := 1) -> int:
 		made += recipe.get("amount", 1)
 		done += 1
 	if made > 0:
+		if not player.is_puppet():
+			Progress.event("craft", String(recipe.id))
 		var left := player.inventory.add(recipe.id, made)
 		if left > 0:
 			Net.i.drop_item(recipe.id, left, player.global_transform.translated(Vector3.UP), Vector3.ZERO)

@@ -97,7 +97,7 @@ static func collect(world: Node) -> Dictionary:
 	var drops := []
 	for item in world.get_tree().get_nodes_in_group("interactable"):
 		if item is PickupItem and not item.is_queued_for_deletion() and (item.net_key == "" or item.net_key.begins_with("d")):
-			drops.append([item.item_id, item.amount, item.global_transform])
+			drops.append([item.item_id, item.amount, item.global_transform, item.dur, item.extra])
 	data.drops = drops
 	var building := world.get_node_or_null("Building")
 	data.building = building.state() if building else []
@@ -175,7 +175,7 @@ static func apply(world: Node) -> void:
 		if item is PickupItem and item.net_key != "" and Net.i.taken.has(item.net_key):
 			item.queue_free()
 	for drop in data.get("drops", []):
-		world.spawn_pickup("", drop[0], drop[1], drop[2], Vector3.ZERO)
+		world.spawn_pickup("", drop[0], drop[1], drop[2], Vector3.ZERO, drop[3] if drop.size() > 3 else 1.0, drop[4] if drop.size() > 4 else {})
 	var building := world.get_node_or_null("Building")
 	if building:
 		building.load_state(data.get("building", []))

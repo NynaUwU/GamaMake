@@ -45,6 +45,28 @@ static func build(id: StringName) -> Node3D:
 		ItemDetail.build(id, parts) # versão mais elaborada
 		return _assemble(parts)
 	match id:
+		&"manual_ferreiro", &"manual_eletricista":
+			# Livro de capa dura: capa colorida, miolo creme, lombada com faixas e um
+			# desenho na capa (bigorna / raio).
+			var cover := Color(0.42, 0.16, 0.1) if id == &"manual_ferreiro" else Color(0.14, 0.24, 0.42)
+			_mb(parts, cover).box(Vector3(0, 0.0, 0), Vector3(0.17, 0.008, 0.23))
+			_mb(parts, cover).box(Vector3(0, 0.038, 0), Vector3(0.17, 0.008, 0.23))
+			_mb(parts, cover.darkened(0.2)).box(Vector3(-0.083, 0.019, 0), Vector3(0.012, 0.046, 0.232))
+			_mb(parts, CREAM).box(Vector3(0.004, 0.019, 0), Vector3(0.158, 0.03, 0.218))
+			_mb(parts, BRASS).box(Vector3(-0.083, 0.019, -0.07), Vector3(0.014, 0.048, 0.01))
+			_mb(parts, BRASS).box(Vector3(-0.083, 0.019, 0.07), Vector3(0.014, 0.048, 0.01))
+			if id == &"manual_ferreiro":
+				_mb(parts, DARK).box(Vector3(0.01, 0.043, 0.02), Vector3(0.08, 0.003, 0.03)) # bigorna
+				_mb(parts, DARK).box(Vector3(0.01, 0.043, 0.05), Vector3(0.03, 0.003, 0.03))
+			else:
+				for k in 3:
+					_mb(parts, Color(0.95, 0.8, 0.25)).box(Vector3(0.0 + (k - 1) * 0.012, 0.043, 0.02 + (k - 1) * 0.025), Vector3(0.02, 0.003, 0.03),
+						Basis(Vector3.UP, 0.5 * (1 - 2 * (k % 2))))
+		&"fio_cobre":
+			# Meada de fio de cobre nu, amarrada com um arame.
+			for k in 4:
+				_mb(parts, COPPER.lightened(0.12 + 0.05 * (k % 2))).torus(0.065 - k * 0.004, 0.009, 16, 4, Basis.IDENTITY, Vector3(0, 0.01 + k * 0.016, 0))
+			_mb(parts, IRON).box(Vector3(0.07, 0.03, 0), Vector3(0.012, 0.07, 0.03))
 		&"cabo":
 			# Rolo de fio encapado (pano escuro) com as pontas de cobre aparecendo.
 			for k in 3:

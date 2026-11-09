@@ -127,7 +127,10 @@ func _make_slot(entry: Dictionary) -> Control:
 	RecipeGrid.slot_labels(button, ItemDB.short_text(entry.name)) # nome curto dentro do quadrado
 	var current: bool = builder.selection.get("id") == entry.id
 	var affordable := Builder.can_afford(builder.player.inventory, entry.get("cost", {}))
-	if not affordable:
+	var locked := not Progress.knows(entry.get("manual", ""))
+	if locked:
+		button.modulate = Color(0.25, 0.25, 0.28) # manual que ainda não leu
+	elif not affordable:
 		button.modulate = Color(1.0, 0.6, 0.55) # falta material
 	for state in ["normal", "hover", "pressed"]:
 		var style := StyleBoxFlat.new()
@@ -136,10 +139,16 @@ func _make_slot(entry: Dictionary) -> Control:
 		style.border_color = InventoryUI.COLOR_SELECTED if current else Color(0.42, 0.42, 0.44)
 		button.add_theme_stylebox_override(state, style)
 	button.pressed.connect(func():
+		if locked:
+			Sfx.play("click", -6.0, 0.6)
+			return
 		builder.select(entry)
 		close(false))
 	button.mouse_entered.connect(func():
 		_hovered = entry
+		if locked:
+			_info.text = "%s: bloqueado. Leia o %s (casas, ruínas, airdrops)" % [entry.name, Progress.MANUALS[StringName(entry.manual)].title]
+			return
 		_info.text = "%s: %s\nCusto: %s" % [entry.name, entry.get("desc", ""), Builder.cost_text(entry.get("cost", {}), builder.player.inventory)])
 	button.mouse_exited.connect(func(): if _hovered == entry: _hovered = {})
 	return button

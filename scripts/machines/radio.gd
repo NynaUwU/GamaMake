@@ -130,6 +130,7 @@ static func interact(player: Node, obj: PlacedObject) -> void:
 				cost[StringName(id)] = int(mission.items[id])
 			Builder.pay(player.inventory, cost)
 			manager.request("radio_deliver", [obj.net_id])
+			Progress.event("radio", "deliver")
 			Sfx.play_at("pickup", obj.global_position + Vector3.UP * 0.5, 2.0, 0.8)
 			return
 	var msg: String = obj.extra.get("msg", "")
@@ -167,6 +168,7 @@ static func refresh(obj: PlacedObject) -> void:
 	var me := obj.get_tree().get_first_node_in_group("player") as Player if obj.is_inside_tree() else null
 	if me and me.global_position.distance_to(obj.global_position) < HEAR:
 		me.notify.emit(msg)
+		Progress.add_clue(msg) # vai para as pistas do diário
 		_static_sound(obj)
 
 

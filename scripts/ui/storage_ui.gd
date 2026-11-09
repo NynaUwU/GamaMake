@@ -54,6 +54,9 @@ func _build_furnace(column: VBoxContainer) -> void:
 	if source and source.kind == "boiler":
 		_build_boiler(column)
 		return
+	if source and source.kind == "forge":
+		_build_forge(column)
+		return
 	var row := HBoxContainer.new()
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
 	row.add_theme_constant_override("separation", 10)
@@ -62,8 +65,11 @@ func _build_furnace(column: VBoxContainer) -> void:
 	left.add_theme_constant_override("separation", 4)
 	row.add_child(left)
 	left.add_child(_furnace_slots[Smelting.INPUT])
-	_flame = _bar(left, Color(1.0, 0.55, 0.15))
-	left.add_child(_furnace_slots[Smelting.FUEL])
+	if source and source.kind in Smelting.NO_FUEL:
+		left.alignment = BoxContainer.ALIGNMENT_CENTER # trefiladora: gira, não queima
+	else:
+		_flame = _bar(left, Color(1.0, 0.55, 0.15))
+		left.add_child(_furnace_slots[Smelting.FUEL])
 	var middle := VBoxContainer.new()
 	middle.alignment = BoxContainer.ALIGNMENT_CENTER
 	row.add_child(middle)
@@ -80,16 +86,123 @@ func _build_furnace(column: VBoxContainer) -> void:
 		_water_bar = _labeled_bar(middle, "água", Color(0.3, 0.55, 0.95))
 	if source and source.kind == "blast_furnace":
 		_power_bar = _labeled_bar(middle, "fole", Color(0.9, 0.3, 0.15))
+	if source and source.kind == "wire_drawer":
+		_power_bar = _labeled_bar(middle, "eixo", Color(0.85, 0.7, 0.3))
 	var right := CenterContainer.new()
 	row.add_child(right)
 	right.add_child(_furnace_slots[Smelting.OUTPUT])
-	if source and source.kind in ["blast_furnace", "distillery"]:
+	if source and source.kind in ["blast_furnace", "distillery", "wire_drawer"]:
 		_status = Label.new()
 		_status.add_theme_font_size_override("font_size", 11)
 		_status.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		_status.modulate = Color(1.0, 0.75, 0.45)
 		column.add_child(_status)
 	_build_recipes(column)
+
+
+## Forja: metal e carvão à esquerda, a peça pronta à direita; embaixo as peças que
+## dá para forjar. Clicar numa peça abre o minigame (cor por temperatura).
+var _forge_box: HFlowContainer
+func _build_forge(column: VBoxContainer) -> void:
+	var row := HBoxContainer.new()
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	row.add_theme_constant_override("separation", 10)
+	column.add_child(row)
+	var left := VBoxContainer.new()
+	left.add_theme_constant_override("separation", 2)
+	row.add_child(left)
+	for part in [["metal", Smelting.INPUT], ["carvão", Smelting.FUEL]]:
+		var label := Label.new()
+		label.text = part[0]
+		label.add_theme_font_size_override("font_size", 9)
+		label.modulate = Color(1, 1, 1, 0.6)
+		left.add_child(label)
+		left.add_child(_furnace_slots[part[1]])
+	var arrow := Label.new()
+	arrow.text = "→ bigorna →"
+	arrow.add_theme_font_size_override("font_size", 11)
+	arrow.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	row.add_child(arrow)
+	var right := VBoxContainer.new()
+	right.alignment = BoxContainer.ALIGNMENT_CENTER
+	row.add_child(right)
+	var done := Label.new()
+	done.text = "peça"
+	done.add_theme_font_size_override("font_size", 9)
+	done.modulate = Color(1, 1, 1, 0.6)
+	right.add_child(done)
+	right.add_child(_furnace_slots[Smelting.OUTPUT])
+	var title := Label.new()
+	title.text = "Forjar (clique: começa o minigame · 1 carvão por peça)"
+	title.add_theme_font_size_override("font_size", 10)
+	title.modulate = Color(1, 1, 1, 0.7)
+	column.add_child(title)
+	_forge_box = HFlowContainer.new()
+	_forge_box.add_theme_constant_override("h_separation", 4)
+	_forge_box.add_theme_constant_override("v_separation", 4)
+	_forge_box.custom_minimum_size = Vector2(300, 0)
+	column.add_child(_forge_box)
+	_status = Label.new()
+	_status.add_theme_font_size_override("font_size", 10)
+	_status.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_status.autowrap_mode = TextServer.AUTOWRAP_WORD
+	_status.custom_minimum_size = Vector2(300, 0)
+	_status.modulate = Color(1.0, 0.8, 0.5)
+	column.add_child(_status)
+
+
+func _fill_forge() -> void:
+	if _forge_box == null:
+		return
+	for child in _forge_box.get_children():
+		_forge_box.remove_child(child)
+		child.queue_free()
+	var slots: Array = ContainerManager.i.slots_of(key)
+	var icons := get_tree().root.get_node_or_null("ItemIcons")
+	for entry in Smithing.recipes():
+		var r: Dictionary = entry[1]
+		if not Progress.knows(r.get("manual", "")):
+			continue # peça de manual que ainda não leu
+		var metal := Smithing.metal_of(r)
+		var why := Smithing.missing(r, slots)
+		var button := Button.new()
+		button.focus_mode = Control.FOCUS_NONE
+		button.custom_minimum_size = Vector2(56, 44)
+		button.tooltip_text = "%s%s: %d %s + 1 carvão, %d golpes certos%s" % [ItemDB.display_name(r.id), " (%s)" % r.note if r.has("note") else "",
+			r.cost[metal], ItemDB.display_name(metal), r.get("hits", 8), "\n" + why if why != "" else ""]
+		var icon := TextureRect.new()
+		icon.set_anchors_and_offsets_preset(Control.PRESET_TOP_WIDE)
+		icon.offset_top = 2
+		icon.offset_bottom = 30
+		icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		icon.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+		icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		if icons and icons.has_method("get_icon"):
+			icon.texture = icons.get_icon(r.id)
+		button.add_child(icon)
+		var cost := Label.new()
+		cost.text = "%dx %s" % [r.cost[metal], "aço" if metal == &"barra_aco" else ("cobre" if metal == &"barra_cobre" else "ferro")]
+		cost.add_theme_font_size_override("font_size", 8)
+		cost.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		cost.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_WIDE)
+		cost.offset_top = -12
+		cost.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		button.add_child(cost)
+		button.modulate = Color.WHITE if why == "" else Color(1, 1, 1, 0.4)
+		button.mouse_entered.connect(func(): _status.text = why if why != "" else "Pronto para forjar: %s" % ItemDB.display_name(r.id))
+		var index: int = entry[0]
+		button.pressed.connect(func():
+			if why != "":
+				_status.text = why
+				Sfx.play("click", -6.0, 0.6)
+				return
+			var forge := source
+			close()
+			Smithing.start(player, forge, index))
+		_forge_box.add_child(button)
+	if _status and _status.text == "":
+		_status.text = "Arraste barras de metal e carvão da mochila para os lugares"
 
 
 ## Receitas desta fornalha: material -> resultado (com ícones). Com o material na
@@ -110,6 +223,7 @@ func _build_recipes(column: VBoxContainer) -> void:
 
 
 func _fill_recipes() -> void:
+	_fill_forge()
 	if _recipe_box == null:
 		return
 	for child in _recipe_box.get_children():
@@ -220,7 +334,8 @@ func _process(_delta: float) -> void:
 	if not _is_furnace() or not is_instance_valid(source):
 		return
 	var burn_max: float = maxf(source.extra.get("burn_max", 1.0), 0.01)
-	_flame.value = clampf(source.extra.get("burn", 0.0) / burn_max, 0.0, 1.0)
+	if _flame:
+		_flame.value = clampf(source.extra.get("burn", 0.0) / burn_max, 0.0, 1.0)
 	if _arrow:
 		_arrow.value = clampf(source.extra.get("prog", 0.0) / Smelting.SMELT_TIME.get(source.kind, 8.0), 0.0, 1.0)
 	if _bellows:
@@ -235,7 +350,7 @@ func _process(_delta: float) -> void:
 		_pressure_bar.value = source.extra.get("pressure", 0.0) / Fluids.PRESSURE_MAX
 	if _power_bar:
 		_power_bar.value = source.extra.get("speed", 0.0)
-	if _status:
+	if _status and kind != "forge": # a forja escreve o que falta para a peça escolhida
 		_status.text = _status_text(kind)
 
 
@@ -256,6 +371,8 @@ func _status_text(kind: String) -> String:
 			return "Fole parado: ligue um eixo com força" if source.extra.get("speed", 0.0) < 0.3 else "Pronto: ferro + carvão = aço"
 		"distillery":
 			return "Sem água: ligue um cano ou despeje garrafas" if source.extra.get("water", 0.0) < 1.0 else ""
+		"wire_drawer":
+			return "Parada: ligue um eixo com força ou um motor elétrico na porta de latão" if source.extra.get("speed", 0.0) < 0.3 else "Girando: cobre vira fio"
 	return ""
 
 
@@ -433,7 +550,7 @@ func _drop_on(_at: Vector2, data: Variant, to: String, index: int) -> void:
 		if slot.is_empty():
 			return
 		var moved := player.inventory.take(src, slot.amount)
-		manager.request("put_at", [key, index, String(moved.id), moved.amount, moved.get("dur", 1.0)])
+		manager.request("put_at", [key, index, String(moved.id), moved.amount, moved.get("dur", 1.0), ItemDB.extras(moved)])
 		Sfx.play("knock", -8.0, 1.0)
 	_refresh()
 
@@ -454,7 +571,7 @@ func _quick(from: String, index: int) -> void:
 			Sfx.play("click", -6.0, 0.6)
 			return
 		var moved_f := player.inventory.take(index, item.amount)
-		manager.request("put_at", [key, target, String(moved_f.id), moved_f.amount, moved_f.get("dur", 1.0)])
+		manager.request("put_at", [key, target, String(moved_f.id), moved_f.amount, moved_f.get("dur", 1.0), ItemDB.extras(moved_f)])
 		Sfx.play("knock", -8.0, 1.0)
 		return
 	for k in slots.size(): # pilha igual com espaço, senão o primeiro vazio
@@ -467,7 +584,7 @@ func _quick(from: String, index: int) -> void:
 		Sfx.play("click", -6.0, 0.6) # baú cheio
 		return
 	var moved := player.inventory.take(index, item.amount)
-	manager.request("put_at", [key, target, String(moved.id), moved.amount, moved.get("dur", 1.0)])
+	manager.request("put_at", [key, target, String(moved.id), moved.amount, moved.get("dur", 1.0), ItemDB.extras(moved)])
 	Sfx.play("knock", -8.0, 1.0)
 
 

@@ -108,7 +108,8 @@ const _VOLUME := {"groan": -4.0, "growl": -2.0, "step_soft": -14.0, "step_hard":
 
 const NAMES := ["swing", "hit", "slice", "thud", "shot", "explosion", "step_soft", "step_hard", "groan", "growl",
 	"death", "engine", "creak", "knock", "ping", "pickup", "crunch", "slap", "whirr", "wind", "click", "punch", "rain",
-	"hiss", "zap", "static", "whistle", "chug", "roar", "splash", "spit", "retch", "cluck", "baa", "moo", "oink", "caw", "quack", "howl"]
+	"hiss", "zap", "static", "whistle", "chug", "roar", "splash", "spit", "retch", "cluck", "baa", "moo", "oink", "caw", "quack", "howl",
+	"anvil", "crack", "chime", "bellows"]
 static var _mutex := Mutex.new()
 static var _warm_task := -1
 
@@ -180,6 +181,17 @@ static func _make(name: String) -> AudioStreamWAV:
 			return _wav(_creak(rng))
 		"knock": # martelada na madeira
 			return _wav(_mix([_tone(0.12, 150.0, 115.0, 0.001, 0.08, 0.9), _noise_env(rng, 0.04, 1400.0, 0.0005, 0.02, 400.0)]))
+		"anvil": # martelo na bigorna: clangor agudo com harmônicos que soam um tempo
+			return _wav(_mix([_tone(0.7, 1250.0, 1245.0, 0.001, 0.5, 0.45), _tone(0.55, 2710.0, 2700.0, 0.001, 0.35, 0.22),
+				_tone(0.4, 4120.0, 4110.0, 0.001, 0.2, 0.12), _noise_env(rng, 0.03, 5000.0, 0.0005, 0.02, 1500.0)]))
+		"crack": # metal rachando: estalo seco e um rangido caindo
+			return _wav(_mix([_noise_env(rng, 0.12, 3200.0, 0.0005, 0.08, 700.0), _tone(0.18, 420.0, 160.0, 0.001, 0.14, 0.4)]))
+		"chime": # conquista: três notas subindo
+			return _wav(_mix([_tone(0.9, 1046.0, 1046.0, 0.004, 0.7, 0.3),
+				_concat([_tone(0.12, 0.0, 0.0, 0.001, 0.1, 0.0), _tone(0.78, 1318.0, 1318.0, 0.004, 0.6, 0.28)]),
+				_concat([_tone(0.24, 0.0, 0.0, 0.001, 0.2, 0.0), _tone(0.66, 1568.0, 1568.0, 0.004, 0.5, 0.26)])]))
+		"bellows": # fole soprando: ar subindo
+			return _wav(_sweep_noise(rng, 0.5, 220.0, 700.0, 0.15))
 		"ping": # talhadeira: metal
 			return _wav(_mix([_tone(0.35, 880.0, 875.0, 0.001, 0.22, 0.5), _tone(0.3, 1320.0, 1315.0, 0.001, 0.15, 0.2), _noise_env(rng, 0.03, 2000.0, 0.0005, 0.015)]))
 		"pickup": # pegou item: dois bipes

@@ -190,6 +190,14 @@ const ITEMS := {
 	&"celula": {"name": "Célula de bateria", "short": "Célula", "kind": "material", "stack": 100, "size": Vector3(0.2, 0.38, 0.2),
 		"desc": "Jarro de vidro com placas de cobre e zinco. Vai na estrutura da bateria (até 6): cada uma guarda 300 Wh e carrega/descarrega até 500 W.",
 		"controls": ["[E] na estrutura da bateria: põe uma célula"]},
+	&"fio_cobre": {"name": "Fio de cobre", "short": "Fio cobre", "kind": "material", "stack": 100, "size": Vector3(0.16, 0.06, 0.16),
+		"desc": "Barra de cobre puxada na trefiladora. Com fio, a mesa faz o dobro de cabo e o torno faz bobina com menos cobre."},
+	&"manual_ferreiro": {"name": "Manual do ferreiro", "short": "Man. ferreiro", "kind": "book", "stack": 1, "size": Vector3(0.18, 0.04, 0.24),
+		"desc": "Livro velho de oficina, com a tabela de cores do metal quente. Libera espada, capacete e peitoral na forja.",
+		"controls": ["Clique: lê (vai para o diário, J). O livro fica: dá para emprestar"]},
+	&"manual_eletricista": {"name": "Manual do eletricista", "short": "Man. eletric.", "kind": "book", "stack": 1, "size": Vector3(0.18, 0.04, 0.24),
+		"desc": "Apostila de curso técnico, cheia de esquemas. Libera a trefiladora e as receitas com fio de cobre.",
+		"controls": ["Clique: lê (vai para o diário, J). O livro fica: dá para emprestar"]},
 	&"bobina": {"name": "Bobina de cobre", "short": "Bobina", "kind": "material", "stack": 100, "size": Vector3(0.14, 0.14, 0.18),
 		"desc": "Fio de cobre enrolado num núcleo de ferro (torno). Peça do dínamo, do painel solar, da geladeira, do rádio e da bomba elétrica."},
 	&"correia": {"name": "Esteira de couro", "short": "Esteira", "kind": "material", "stack": 100, "size": Vector3(0.2, 0.05, 0.2),
@@ -371,6 +379,29 @@ static func spoil_slots(slots: Array, seconds: float) -> Dictionary:
 const SHARPEN := ["sword", "axe", "pickaxe", "spear", "shovel"]
 const SHARP_BONUS := 0.35 ## +35% de dano com o fio cheio
 const SHARP_PER_USE := 0.04 ## ~25 golpes até perder o fio
+
+
+## Campos extras de um item que viajam com ele (baú, chão, rede): qualidade da
+## forja e fio da pedra de amolar.
+const EXTRA_KEYS := ["q", "sharp"]
+
+
+static func extras(slot: Dictionary) -> Dictionary:
+	var out := {}
+	for key in EXTRA_KEYS:
+		if slot.has(key):
+			out[key] = slot[key]
+	return out
+
+
+## Qualidade da forja (0..1 em "q"; sem "q" = peça comum, 0,5): dano x0,85..1,2
+## e desgaste x1,3..0,7.
+static func quality_damage(slot: Dictionary) -> float:
+	return 0.85 + 0.35 * clampf(float(slot.q), 0.0, 1.0) if slot.has("q") else 1.0
+
+
+static func quality_wear(slot: Dictionary) -> float:
+	return 1.3 - 0.6 * clampf(float(slot.q), 0.0, 1.0) if slot.has("q") else 1.0
 
 
 static func sharpenable(id: StringName) -> bool:

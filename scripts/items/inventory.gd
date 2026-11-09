@@ -46,7 +46,7 @@ func _wear_item(item: Dictionary, uses: float) -> bool:
 	var total := ItemDB.max_durability(item.id)
 	if total <= 0:
 		return false
-	item.dur = item.get("dur", 1.0) - uses / total
+	item.dur = item.get("dur", 1.0) - uses * ItemDB.quality_wear(item) / total # peça forjada boa gasta menos
 	return item.dur <= 0.0
 
 
@@ -93,12 +93,12 @@ func _init() -> void:
 
 ## Adiciona itens; devolve quanto NÃO coube (0 = coube tudo).
 ## Armas e ferramentas vão primeiro para a hotbar; materiais para a mochila.
-func add(id: StringName, amount := 1, dur := 1.0) -> int:
+func add(id: StringName, amount := 1, dur := 1.0, extra := {}) -> int:
 	var left := amount
 	var stack := ItemDB.max_stack(id)
 	for i in slots.size():
-		if left <= 0:
-			break
+		if left <= 0 or not extra.is_empty():
+			break # peça com qualidade/fio não junta com outra
 		if not slots[i].is_empty() and slots[i].id == id and slots[i].amount < stack:
 			var moved := mini(stack - slots[i].amount, left)
 			ItemDB.merge_into(slots[i], moved, dur)
@@ -112,6 +112,7 @@ func add(id: StringName, amount := 1, dur := 1.0) -> int:
 			slots[i] = {"id": id, "amount": moved}
 			if dur < 1.0 and (ItemDB.max_durability(id) > 0 or ItemDB.spoils(id)):
 				slots[i].dur = dur # item gasto (do chão, de zumbi...)
+			slots[i].merge(extra)
 			left -= moved
 	if left != amount:
 		gained.emit(id, amount - left)
@@ -197,6 +198,7 @@ func take(index: int, amount := 1) -> Dictionary:
 	var result := {"id": slots[index].id, "amount": moved}
 	if slots[index].has("dur"):
 		result.dur = slots[index].dur
+	result.merge(ItemDB.extras(slots[index])) # qualidade da forja, fio
 	slots[index].amount -= moved
 	if slots[index].amount <= 0:
 		slots[index] = {}

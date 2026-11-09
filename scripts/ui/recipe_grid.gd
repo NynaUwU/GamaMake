@@ -42,7 +42,8 @@ func refresh() -> void:
 	for child in _grid.get_children():
 		child.queue_free()
 	for recipe: Dictionary in CraftingUI.recipes_for(station):
-		_grid.add_child(_slot(recipe))
+		if Progress.knows(recipe.get("manual", "")): # receita de manual: só depois de ler
+			_grid.add_child(_slot(recipe))
 
 
 func _slot(recipe: Dictionary) -> Control:

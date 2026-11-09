@@ -288,7 +288,7 @@ func host_apply(action: String, args: Array) -> Array:
 					"shaft", "water_wheel", "windmill", "sawmill", "ram_pump", "stairs",
 					"blast_furnace", "blast_stack", "boiler", "steam_engine", "water_tank", "sprinkler", "lathe", "press", "distillery",
 					"trough", "water_trough", "fence", "gate", "rotisserie"] \
-					and not Electric.has(kind) and not Decor.has(kind) and not PlacedTorch.has(kind):
+					and not Electric.has(kind) and not Decor.has(kind) and not PlacedTorch.has(kind) and not Smithing.has(kind):
 				return []
 			if kind in ["water_wheel", "ram_pump"] and not river_bank(xform.origin):
 				return [] # só na beira de um rio
@@ -349,9 +349,11 @@ func host_apply(action: String, args: Array) -> Array:
 			var tool: Dictionary = args[1] if args[1] is Dictionary else {}
 			if obj == null or obj.kind != "grindstone" or not obj.extra.get("tool", {}).is_empty() or tool.is_empty():
 				if not tool.is_empty():
-					Net.i.give_to(Net.i.request_peer, StringName(tool.id), 1, -1, float(tool.get("dur", 1.0)))
+					Net.i.give_to(Net.i.request_peer, StringName(tool.id), 1, -1, float(tool.get("dur", 1.0)), ItemDB.extras(tool))
 				return []
 			obj.extra.tool = {"id": String(tool.id), "dur": float(tool.get("dur", 1.0)), "sharp": float(tool.get("sharp", 0.0))}
+			if tool.has("q"):
+				obj.extra.tool.q = float(tool.q)
 			obj.refresh(clock)
 			return [args[0], {"tool": obj.extra.tool}]
 		"grind_take":
@@ -380,6 +382,14 @@ func host_apply(action: String, args: Array) -> Array:
 				return [] # só o host dá choque
 			ElectricFence.spark(obj, args[1])
 			return args
+		"forge_done":
+			# Fim do minigame da forja: [id, receita, qualidade]. Gasta metal + carvão
+			# dos lugares e põe a peça (ou a sucata, se rachou) no lugar da peça pronta.
+			var obj: PlacedObject = objects.get(args[0])
+			if obj == null or obj.kind != "forge":
+				return []
+			var update := Smithing.host_forge(self, obj, int(args[1]), float(args[2]))
+			return [] if update.is_empty() else [args[0], update]
 		"radio_deliver":
 			var obj: PlacedObject = objects.get(args[0])
 			if obj == null or obj.kind != "radio":
@@ -558,7 +568,7 @@ func host_apply(action: String, args: Array) -> Array:
 				Net.i.give_to(Net.i.request_peer, &"tocha", 1, -1, minf(PlacedTorch.left(obj, clock) / PlacedTorch.BURN, 1.0))
 			if obj.kind in ["chest", "airdrop", "trough", "bed", "fridge"] and ContainerManager.i:
 				ContainerManager.i.dump("placed_%d" % obj.net_id, obj.global_position) # o que tinha dentro cai
-			if obj.kind in Smelting.KINDS and ContainerManager.i:
+			if obj.kind in Smelting.SLOT_KINDS and ContainerManager.i:
 				ContainerManager.i.dump(Smelting.key_of(obj), obj.global_position)
 			_remove(args[0])
 			return args
@@ -831,7 +841,7 @@ func apply_remote(action: String, args: Array) -> void:
 				obj.refresh(clock)
 			if args.size() > 3 and args[3] == Net.i.my_id():
 				AutoMachines.receive(self, args[2]) # a ferramenta volta para quem pegou, com o fio
-		"extra", "gate", "fence_hit", "radio_deliver", "battery_cell", "grind_put":
+		"extra", "gate", "fence_hit", "radio_deliver", "battery_cell", "grind_put", "forge_done":
 			var obj: PlacedObject = objects.get(args[0])
 			if obj and obj.kind in Electric.SWITCHES:
 				Electric.dirty = true

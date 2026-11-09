@@ -14,7 +14,7 @@ extends RefCounted
 ## As máquinas que já eram sozinhas continuam (secador, filtro, defumador, composteira,
 ## fornalhas, forno); as de manivela que já tinham porta (moinho, roca, tear) também.
 
-const HUB_KINDS := ["grindstone", "sieve", "stone_furnace", "pump"]
+const HUB_KINDS := ["grindstone", "sieve", "stone_furnace", "pump", "wire_drawer"]
 const GRIND_RATE := 0.07 ## fio por segundo com força
 
 
@@ -67,15 +67,10 @@ static func receive(manager: PlacedManager, tool: Dictionary) -> void:
 		return
 	var id := StringName(tool.id)
 	var dur := float(tool.get("dur", 1.0))
-	if player.inventory.add(id, 1, dur) > 0:
-		Net.i.drop_item(id, 1, player.global_transform.translated(Vector3.UP), Vector3.ZERO, dur) # mochila cheia
+	var extra := ItemDB.extras(tool) # fio e qualidade da forja voltam junto
+	if player.inventory.add(id, 1, dur, extra) > 0:
+		Net.i.drop_item(id, 1, player.global_transform.translated(Vector3.UP), Vector3.ZERO, dur, extra) # mochila cheia
 		return
-	for slot in player.inventory.slots:
-		if not slot.is_empty() and slot.id == id and not slot.has("sharp") and is_equal_approx(float(slot.get("dur", 1.0)), dur):
-			if float(tool.get("sharp", 0.0)) > 0.0:
-				slot.sharp = float(tool.sharp)
-			break
-	player.inventory.changed.emit()
 	ItemFly.play(id, player.global_position + Vector3.UP, player)
 
 
@@ -95,6 +90,8 @@ static func grind_tap(player: Player, obj: PlacedObject) -> bool:
 		Sfx.play("click", -6.0, 0.6)
 		return true
 	var tool := {"id": String(slot.id), "dur": slot.get("dur", 1.0), "sharp": float(slot.get("sharp", 0.0))}
+	if slot.has("q"):
+		tool.q = slot.q
 	player.inventory.take(player.inventory.selected, 1)
 	manager.request("grind_put", [obj.net_id, tool])
 	Sfx.play_at("knock", obj.global_position + Vector3.UP * 0.8, -2.0, 1.3)

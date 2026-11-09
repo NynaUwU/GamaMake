@@ -56,6 +56,9 @@ func _ready() -> void:
 	var pings := PingMarkers.new()
 	pings.name = "Pings"
 	add_child(pings)
+	var progress := Progress.new()
+	progress.name = "Progress" # eras, conquistas, manuais e o diário (J) do jogador daqui
+	add_child(progress)
 	# Visual: grama densa, partículas do clima e qualidade gráfica (Look).
 	var terrain := get_node_or_null("Terrain") as TerrainWorld
 	var grass := GrassField.new()
@@ -255,11 +258,12 @@ func spawn_puppet_zombie(net_id: int, data: Dictionary) -> void:
 	enemies.add_child(zombie)
 
 
-func spawn_pickup(key: String, item_id: StringName, amount: int, where: Transform3D, impulse: Vector3, dur := 1.0) -> void:
+func spawn_pickup(key: String, item_id: StringName, amount: int, where: Transform3D, impulse: Vector3, dur := 1.0, extra := {}) -> void:
 	var item: PickupItem = PICKUP_SCENE.instantiate()
 	item.item_id = item_id
 	item.amount = amount
 	item.dur = dur
+	item.extra = extra
 	item.net_key = key
 	add_child(item)
 	item.continuous_cd = true # item pequeno e rápido não atravessa o chão

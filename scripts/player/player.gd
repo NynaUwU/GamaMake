@@ -454,6 +454,8 @@ func _unhandled_input(event: InputEvent) -> void:
 			pass # tocha posta no chão/parede (senão o clique segue como soco)
 		elif event.is_action_pressed("attack") and ItemDB.def(inventory.selected_id()).kind == "food":
 			_eat_selected()
+		elif event.is_action_pressed("attack") and ItemDB.def(inventory.selected_id()).kind == "book":
+			Progress.read(self, inventory.selected_id()) # manual: aprende (vai para o diário)
 		elif event.is_action_pressed("attack") and ItemDB.def(inventory.selected_id()).kind == "seed":
 			Farming.use(self, String(ItemDB.def(inventory.selected_id()).crop))
 		elif event.is_action_pressed("attack") and inventory.selected_id() == &"garrafa":
@@ -1250,10 +1252,12 @@ func _wear_selected(uses := 1.0) -> void:
 		_sync_equipped()
 
 
-## Dano extra do fio (pedra de amolar): +35% com o fio cheio.
+## Dano extra do fio (pedra de amolar, até +35%) e da qualidade da forja (x0,85..1,2).
 func _sharp_mult() -> float:
 	var slot: Dictionary = inventory.slots[inventory.selected]
-	return 1.0 + ItemDB.SHARP_BONUS * clampf(float(slot.get("sharp", 0.0)), 0.0, 1.0) if not slot.is_empty() else 1.0
+	if slot.is_empty():
+		return 1.0
+	return (1.0 + ItemDB.SHARP_BONUS * clampf(float(slot.get("sharp", 0.0)), 0.0, 1.0)) * ItemDB.quality_damage(slot)
 
 
 func _apply_swing_hit_inner(hit: Dictionary, direction: Vector3, swing: Dictionary) -> void:
@@ -1891,7 +1895,10 @@ func _start_swing_visual_only() -> void:
 
 ## Salvo junto com o jogador (SaveGame).
 func save_extra() -> Dictionary:
-	return {"hunger": hunger, "thirst": thirst, "sick": sick_time, "heat": heat, "equipment": inventory.equipment.duplicate(true)}
+	var data := {"hunger": hunger, "thirst": thirst, "sick": sick_time, "heat": heat, "equipment": inventory.equipment.duplicate(true)}
+	if Progress.i and not is_puppet():
+		data.progress = Progress.i.save_data() # eras, conquistas, manuais, diário
+	return data
 
 
 func load_extra(data: Dictionary) -> void:
@@ -1907,11 +1914,13 @@ func load_extra(data: Dictionary) -> void:
 			inventory.equipment[slot] = worn[slot]
 	inventory.changed.emit()
 	hunger_changed.emit(hunger, MAX_HUNGER)
+	if data.has("progress") and Progress.i and not is_puppet():
+		Progress.i.load_data(data.progress)
 
 
 ## Coloca o item no inventário. Devolve quanto NÃO coube.
-func pick_up(item_id: StringName, display_name: String, amount: int, dur := 1.0) -> int:
-	var left := inventory.add(item_id, amount, dur)
+func pick_up(item_id: StringName, display_name: String, amount: int, dur := 1.0, extra := {}) -> int:
+	var left := inventory.add(item_id, amount, dur, extra)
 	if left == amount:
 		Sfx.play("click", -6.0, 0.6)
 		return left
@@ -1928,7 +1937,7 @@ func _drop_selected() -> void:
 	var dur: float = inventory.slots[inventory.selected].get("dur", 1.0)
 	var taken := inventory.take(inventory.selected, 999)
 	var where := Transform3D(global_basis, camera.global_position - camera.global_basis.z * 0.7)
-	Net.i.drop_item(taken.id, taken.amount, where, -camera.global_basis.z * 2.0 + Vector3.UP, dur)
+	Net.i.drop_item(taken.id, taken.amount, where, -camera.global_basis.z * 2.0 + Vector3.UP, dur, ItemDB.extras(taken))
 	pass
 
 
@@ -2347,6 +2356,7 @@ func _refuel(car: VintageCar) -> void:
 	var id := inventory.selected_id()
 	inventory.take(inventory.selected, 1)
 	Net.i.refuel_car(car, VintageCar.FUEL_ITEMS[id])
+	Progress.event("refuel", "car")
 	Sfx.play_at("slap", car.global_position + Vector3.UP * 0.8, -2.0, 0.6)
 
 

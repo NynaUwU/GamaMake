@@ -140,7 +140,7 @@ func aiming_basket(player: Node) -> bool:
 
 # --- Fogo (acende só em uso) -----------------------------------------------------
 
-const LIT_KINDS := ["campfire", "furnace", "stone_furnace", "oven", "smoker", "blast_furnace", "boiler", "distillery", "torch", "torch_wall", "rotisserie"]
+const LIT_KINDS := ["campfire", "furnace", "stone_furnace", "oven", "smoker", "blast_furnace", "boiler", "distillery", "torch", "torch_wall", "rotisserie", "forge"]
 
 
 ## Está acesa agora? Fogueira: tem lenha queimando. Fornalhas: combustível
@@ -158,6 +158,8 @@ func is_lit(clock := -1.0) -> bool:
 			return extra.get("lit_until", 0.0) > clock
 		"smoker":
 			return crops.any(func(c): return Cooking.stage(c, clock) == 0)
+		"forge":
+			return Smithing.is_lit(self, clock)
 	return false
 
 
@@ -260,6 +262,9 @@ func refresh(clock: float) -> void:
 		StationModels.set_lit(self, is_lit(clock))
 	if kind == "grindstone":
 		AutoMachines.refresh_grind(self)
+	if Smithing.has(kind):
+		Smithing.refresh(self, clock) # peça em brasa esfriando na bigorna
+		return
 	if PlacedTorch.has(kind):
 		return
 	if Electric.has(kind):
@@ -332,6 +337,8 @@ func get_interact_text() -> String:
 			return Machines.text(self)
 	if kind in SteamModels.KINDS:
 		return SteamModels.text(self)
+	if Smithing.has(kind):
+		return Smithing.text(self)
 	if Ranch.has(kind):
 		return Ranch.text(self)
 	if PowerParts.has(kind):
@@ -395,6 +402,9 @@ func interact(player: Node) -> void:
 		return
 	if kind in SteamModels.KINDS:
 		SteamModels.interact(player, self)
+		return
+	if Smithing.has(kind):
+		Smithing.interact(player, self) # forja e trefiladora: os 3 lugares (e as peças da forja)
 		return
 	if Ranch.has(kind):
 		Ranch.interact(player, self)
@@ -472,6 +482,10 @@ func _build() -> void:
 		return
 	if kind == "rotisserie":
 		AutoMachines.build_rotisserie(self) # assador giratório (fogueira com espeto no eixo)
+		StationModels.set_lit(self, false)
+		return
+	if Smithing.has(kind):
+		Smithing.build(kind, self) # forja com bigorna, trefiladora
 		StationModels.set_lit(self, false)
 		return
 	if Decor.has(kind):

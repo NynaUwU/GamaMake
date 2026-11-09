@@ -10,6 +10,7 @@ extends RigidBody3D
 ## alguém pega. Itens da fase usam o caminho na cena; frutas, o chunk.
 var net_key := ""
 var dur := 1.0 ## durabilidade (0..1) de arma/ferramenta/roupa gasta
+var extra := {} ## qualidade da forja / fio (ItemDB.EXTRA_KEYS)
 
 
 func _ready() -> void:
@@ -72,7 +73,7 @@ func _exit_tree() -> void:
 func take_locally(player: Node) -> void:
 	if player == null or not player.has_method("pick_up"):
 		return
-	var left: int = player.pick_up(item_id, display_name, amount, dur)
+	var left: int = player.pick_up(item_id, display_name, amount, dur, extra)
 	if left > 0:
 		amount = left # não coube tudo: o resto fica no chão
 		return

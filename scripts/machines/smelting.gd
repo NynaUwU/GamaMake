@@ -14,9 +14,14 @@ const INPUT := 0
 const FUEL := 1
 const OUTPUT := 2
 const FUEL_TIME := {&"carvao": 40.0, &"tronco": 30.0, &"tabua": 12.0, &"graveto": 4.0}
-const SMELT_TIME := {"furnace": 8.0, "stone_furnace": 5.0, "blast_furnace": 10.0, "distillery": 12.0}
-const KINDS := ["furnace", "stone_furnace", "blast_furnace", "distillery", "boiler"]
-const STATIONS := {"stone_furnace": "fornalha_pedra", "blast_furnace": "alto_forno", "distillery": "destilaria"}
+const SMELT_TIME := {"furnace": 8.0, "stone_furnace": 5.0, "blast_furnace": 10.0, "distillery": 12.0, "wire_drawer": 4.0}
+## Fundem sozinhas (host, 1x por segundo). A trefiladora é igual, só que gira em vez de queimar.
+const KINDS := ["furnace", "stone_furnace", "blast_furnace", "distillery", "boiler", "wire_drawer"]
+## Têm os 3 lugares (a forja também: metal, carvão e a peça do minigame).
+const SLOT_KINDS := KINDS + ["forge"]
+const STATIONS := {"stone_furnace": "fornalha_pedra", "blast_furnace": "alto_forno", "distillery": "destilaria", "wire_drawer": "trefiladora", "forge": "forja"}
+## Sem fogo: o lugar do combustível fica de fora.
+const NO_FUEL := ["wire_drawer"]
 
 
 static func key_of(obj: PlacedObject) -> String:
@@ -54,11 +59,15 @@ static func is_fuel(id: StringName) -> bool:
 static func accepts(slot_index: int, id: StringName, kind := "") -> bool:
 	match slot_index:
 		FUEL:
-			if kind == "blast_furnace":
-				return id == &"carvao" # alto-forno: só carvão esquenta o bastante
+			if kind in NO_FUEL:
+				return false
+			if kind in ["blast_furnace", "forge"]:
+				return id == &"carvao" # alto-forno e forja: só carvão esquenta o bastante
 			return is_fuel(id)
 		OUTPUT:
 			return false
+	if kind == "forge":
+		return id in Smithing.metals() # forja: só as barras que ela trabalha
 	if kind == "boiler":
 		return false # caldeira: só combustível (a água vem pelo cano ou despejada)
 	return true
@@ -94,8 +103,8 @@ static func host_tick(obj: PlacedObject, clock: float) -> bool:
 		or (slots[OUTPUT].id == out_id and slots[OUTPUT].amount + out_amount <= ItemDB.max_stack(out_id)))
 	if room and r.get("heat", false) and Machines.heat(obj) < Machines.HEAT_NEEDED:
 		room = false # ferro: precisa do fole
-	if room and r.get("power", false) and (obj.extra.get("speed", 0.0) < 0.3 or not Fluids.blast_complete(obj)):
-		room = false # alto-forno: montado inteiro e com o fole girando
+	if room and r.get("power", false) and (obj.extra.get("speed", 0.0) < 0.3 or (obj.kind == "blast_furnace" and not Fluids.blast_complete(obj))):
+		room = false # alto-forno montado inteiro e com o fole girando; trefiladora com o eixo girando
 	if room and obj.extra.get("water", 0.0) < r.get("water", 0):
 		room = false # destilaria sem água
 	var uses_fuel: bool = r.get("fuel", false) or obj.kind == "furnace"

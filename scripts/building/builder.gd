@@ -54,6 +54,7 @@ const ENTRIES := {
 		{"id": "pump", "name": "Bomba", "place": "pump", "desc": "Bomba d'água manual: só na beira do lago. Segure E com uma garrafa vazia: água suja sem fim. Com eixo ou motor na porta de latão: põe água no cano sozinha (flange à direita)", "cost": {&"barra_ferro": 2, &"tabua": 3, &"sucata": 2}},
 		{"id": "filter", "name": "Filtro", "place": "filter", "desc": "Areia + carvão: ponha água suja e espere, sai potável", "cost": {&"tabua": 3, &"areia": 4, &"carvao": 3, &"pano": 1}},
 		{"id": "stone_furnace", "name": "Forn. pedra", "place": "stone_furnace", "desc": "Fornalha de tijolo com fole: a única que funde minério de ferro. Segure E para esquentar no fole. Com eixo ou motor na porta de latão: o fole sopra sozinho", "cost": {&"tijolo": 12, &"pedra": 6, &"pano": 2}},
+		{"id": "forge", "name": "Forja", "place": "forge", "desc": "Forja a carvão com bigorna (Era 1). Ponha barras e carvão, escolha a peça e martele no minigame: bata só com o metal na cor certa (fora dela racha). A peça sai com qualidade: mais dano e menos desgaste", "cost": {&"pedra": 12, &"barra_ferro": 4, &"tronco": 1, &"pano": 1}},
 		{"id": "sieve", "name": "Peneira", "place": "sieve", "desc": "Ponha argila e segure E: cada argila peneirada tem 50% de chance de dar uma pedra. Com eixo ou motor na porta de latão: peneira sozinha", "cost": {&"tabua": 3, &"graveto": 4, &"pano": 1}},
 		{"id": "spinning", "name": "Roca", "place": "spinning", "desc": "Fibra de algodão vira fio (segure E)", "cost": {&"tabua": 4, &"graveto": 4, &"sucata": 1}},
 		{"id": "loom", "name": "Tear", "place": "loom", "desc": "Fio vira tecido (segure E)", "cost": {&"tabua": 6, &"graveto": 6}},
@@ -73,6 +74,7 @@ const ENTRIES := {
 		{"id": "water_tank", "name": "Caixa d'água", "place": "water_tank", "desc": "Guarda 60 de água (4 portas). Guarda o que sobra e solta quando falta. [E] enche garrafa", "cost": {&"tabua": 8, &"barra_ferro": 2}},
 		{"id": "sprinkler", "name": "Aspersor", "place": "sprinkler", "desc": "Com água no cano, molha as plantações a 8 m: crescem 50% mais rápido", "cost": {&"barra_cobre": 2, &"parafuso": 1}},
 		{"id": "lathe", "name": "Torno", "place": "lathe", "desc": "Com eixo girando: parafusos, engrenagens, eixo de aço e canos", "cost": {&"tabua": 6, &"barra_ferro": 4, &"sucata": 2}},
+		{"id": "wire_drawer", "name": "Trefiladora", "place": "wire_drawer", "manual": &"manual_eletricista", "desc": "Com eixo ou motor na porta de latão: 1 barra de cobre vira 8 fios de cobre (cabo e bobina rendem bem mais)", "cost": {&"tabua": 6, &"barra_ferro": 4, &"engrenagem": 1}},
 		{"id": "press", "name": "Prensa", "place": "press", "desc": "Com eixo girando: fruta = suco; sementes de algodão ou gordura = óleo", "cost": {&"tabua": 6, &"barra_ferro": 3, &"parafuso": 2}},
 		{"id": "distillery", "name": "Destilaria", "place": "distillery", "desc": "Fogo + água + trigo, fruta ou batata = álcool (combustível dos carros e antisséptico)", "cost": {&"barra_cobre": 6, &"tijolo": 6, &"cano": 2}},
 	],
@@ -139,13 +141,13 @@ const PLACE_SIZE := {"pot_small": Vector3(0.46, 0.31, 0.46), "pot_wide": Vector3
 	"deco_painting": Vector3(0.9, 0.7, 0.06), "deco_shelf": Vector3(1.0, 0.3, 0.26), "deco_clock": Vector3(0.48, 0.48, 0.08),
 	"torch": Vector3(0.14, 0.8, 0.14), "torch_wall": Vector3(0.14, 0.35, 0.2),
 	"insulator": Vector3(0.08, 0.08, 0.08), "switch": Vector3(0.26, 1.1, 0.26), "switch_wall": Vector3(0.24, 0.26, 0.08),
-	"electric_motor": Vector3(0.7, 0.8, 0.42), "rotisserie": Vector3(1.6, 1.0, 0.9)}
+	"electric_motor": Vector3(0.7, 0.8, 0.42), "rotisserie": Vector3(1.6, 1.0, 0.9), "forge": Vector3(2.5, 2.65, 1.05), "wire_drawer": Vector3(2.0, 1.0, 0.7)}
 ## Centro da caixa (vermelha, ao desmontar) quando não é logo acima da origem.
 const PLACE_CENTER := {"bed": Vector3(1.4, 0.1, 1.4), "stairs": Vector3(0, 1.4, -1.4), "steam_engine": Vector3(0.45, 0.7, -0.3),
 	"distillery": Vector3(0.15, 0.72, 0), "boiler": Vector3(0, 1.45, 0), "pipe": Vector3(0, 0, 0.5),
 	"connector_wall": Vector3(0, 0, 0.1), "lamp_wall": Vector3(0, 0, 0.16), "deco_painting": Vector3(0, 0, 0.03), "deco_shelf": Vector3(0, 0.05, 0.13),
 	"deco_clock": Vector3(0, 0, 0.04), "torch_wall": Vector3(0, -0.05, 0.1), "insulator": Vector3(0, 0, 0.04),
-	"switch_wall": Vector3(0, 0, 0.04), "electric_motor": Vector3(0.38, -0.2, 0)}
+	"switch_wall": Vector3(0, 0, 0.04), "electric_motor": Vector3(0.38, -0.2, 0), "forge": Vector3(-0.2, 1.32, 0), "wire_drawer": Vector3(-0.05, 0.5, 0)}
 ## Shift: deslocamento da origem na grade (a escada tem 3 quadrados de largura: borda na linha da grade).
 const GRID_OFFSET := {"stairs": Vector3(0.2, 0, 0)}
 const PLACE_RADIUS := {"pot_small": 0.35, "pot_wide": 0.7, "bench": 0.9, "campfire": 0.6, "furnace": 0.8, "workbench": 1.0,
@@ -157,7 +159,7 @@ const PLACE_RADIUS := {"pot_small": 0.35, "pot_wide": 0.7, "bench": 0.9, "campfi
 	"connector": 0.2, "dynamo": 0.7, "solar_panel": 0.7, "battery": 0.6, "lamp": 0.25, "electric_fence": 0.15, "fridge": 0.5, "radio": 0.45, "electric_pump": 0.4,
 	"deco_table": 0.7, "deco_chair": 0.3, "deco_stool": 0.25, "deco_rug": 0.3, "deco_vase": 0.2, "deco_plant": 0.3, "deco_barrel": 0.4, "deco_crates": 0.6,
 	"deco_painting": 0.12, "deco_shelf": 0.12, "deco_clock": 0.12, "insulator": 0.06, "switch": 0.15, "electric_motor": 0.1,
-	"rotisserie": 0.8}
+	"rotisserie": 0.8, "forge": 1.1, "wire_drawer": 0.95}
 
 var player: Player
 var selection: Dictionary = ENTRIES["Estrutura"][0]
@@ -316,7 +318,7 @@ func _refund(cost: Dictionary) -> void:
 
 func _paid(entry: Dictionary) -> bool:
 	var cost: Dictionary = entry.get("cost", {})
-	if not can_afford(player.inventory, cost):
+	if not can_afford(player.inventory, cost) or not Progress.knows(entry.get("manual", "")):
 		Sfx.play("click", -6.0, 0.6)
 		return false
 	pay(player.inventory, cost)
@@ -493,6 +495,7 @@ func use(tool: String) -> bool:
 				return false
 			if not target.is_empty() and target.valid and _paid(selection):
 				_placed().request("place", [target.get("kind", selection.place), target.xform])
+				Progress.event("place", String(selection.place))
 				return true
 			return false
 		if selection.has("fill"):

@@ -29,7 +29,7 @@ const NAMES := {"grindstone": "Pedra de amolar", "quern": "Moinho manual", "pump
 	"spinning": "Roca", "loom": "Tear", "stone_furnace": "Fornalha de pedra", "oven": "Forno de tijolo",
 	"sieve": "Peneira", "furnace": "Fornalha", "sawmill": "Serraria", "water_wheel": "Roda d'água",
 	"windmill": "Moinho de vento", "shaft": "Eixo", "ram_pump": "Carneiro hidráulico",
-	"blast_furnace": "Alto-forno", "boiler": "Caldeira", "distillery": "Destilaria"}
+	"blast_furnace": "Alto-forno", "boiler": "Caldeira", "distillery": "Destilaria", "forge": "Forja e bigorna", "wire_drawer": "Trefiladora"}
 const HEAT_DECAY := 90.0 ## segundos para a fornalha esfriar de 1 a 0
 const HEAT_NEEDED := 0.5 ## ferro só funde com a fornalha a pelo menos 50%
 const CAPACITY := 100
