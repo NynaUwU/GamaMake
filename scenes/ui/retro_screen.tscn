@@ -1,12 +1,14 @@
 [gd_scene format=3]
 
 [ext_resource type="Shader" path="res://shaders/retro_screen.gdshader" id="1_shader"]
+[ext_resource type="Script" path="res://scripts/ui/retro_screen.gd" id="2_script"]
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_retro"]
 shader = ExtResource("1_shader")
 
 [node name="RetroScreen" type="CanvasLayer"]
 layer = 1
+script = ExtResource("2_script")
 
 [node name="Effect" type="ColorRect" parent="."]
 material = SubResource("ShaderMaterial_retro")

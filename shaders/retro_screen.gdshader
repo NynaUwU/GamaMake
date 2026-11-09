@@ -1,10 +1,13 @@
 shader_type canvas_item;
-// Pós-processamento "PC anos 2000": a imagem já é renderizada em 960x540
-// (stretch mode = viewport); aqui reduzimos as cores (estilo 16 bits) com
-// dithering ordenado, e ajustamos contraste/saturação, cor (luz quente, sombra
-// levemente azulada) e vinheta.
+// Pós-processamento "PC anos 2000" só no 3D (fica numa camada abaixo do HUD e dos
+// menus, que ficam na resolução da janela): o 3D é renderizado em 540 linhas
+// (RetroScreen ajusta o scaling_3d) e aqui cada pixel da imagem pequena vira um
+// bloco nítido (pixel_grid = tamanho da imagem 3D); depois reduzimos as cores
+// (estilo 16 bits) com dithering ordenado e ajustamos contraste/saturação, cor
+// (luz quente, sombra levemente azulada) e vinheta.
 
 uniform sampler2D screen_texture : hint_screen_texture, filter_nearest;
+uniform vec2 pixel_grid = vec2(960.0, 540.0);
 uniform float color_levels : hint_range(4.0, 256.0) = 32.0; // 32 = 5 bits por canal
 uniform float dither_strength : hint_range(0.0, 1.0) = 0.7;
 uniform float saturation : hint_range(0.0, 2.0) = 1.06;
@@ -21,7 +24,8 @@ const float BAYER[16] = float[16](
 );
 
 void fragment() {
-	vec3 c = texture(screen_texture, SCREEN_UV).rgb;
+	vec2 cell = floor(SCREEN_UV * pixel_grid);
+	vec3 c = texture(screen_texture, (cell + 0.5) / pixel_grid).rgb;
 	float luma = dot(c, vec3(0.299, 0.587, 0.114));
 	c = mix(vec3(luma), c, saturation);
 	c = (c - 0.5) * contrast + 0.5;
@@ -33,7 +37,7 @@ void fragment() {
 	vec2 centered = SCREEN_UV - 0.5;
 	c *= 1.0 - dot(centered, centered) * vignette * 2.0;
 
-	ivec2 p = ivec2(mod(FRAGCOORD.xy, 4.0));
+	ivec2 p = ivec2(mod(cell, 4.0)); // o padrão do pontilhado segue os pixels grandes
 	float threshold = BAYER[p.y * 4 + p.x] / 16.0 - 0.5;
 	c += threshold * dither_strength / color_levels;
 	c = floor(clamp(c, 0.0, 1.0) * (color_levels - 1.0) + 0.5) / (color_levels - 1.0);

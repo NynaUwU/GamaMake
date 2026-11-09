@@ -86,6 +86,9 @@ var done := {} ## conquista -> dia em que fez
 var manuals := {} ## manual -> true
 var recipes := {} ## item -> true (fabricou, pegou ou o manual mostrou)
 var clues: Array = [] ## {"text", "day", "hour"} (mais nova no fim)
+var built := {} ## tipo de objeto -> true (estações/máquinas que já construí)
+var seen_recipes := {} ## chave da receita (RecipeBook) -> true: já olhou no diário (some o "NOVA")
+var _seen_pending := true # mundo novo / save antigo: o que já aparece no começo não conta como novo
 var _queue: Array = [] # avisos esperando a vez
 var _toast: Control
 var _toast_time := 0.0
@@ -113,6 +116,29 @@ func _ready() -> void:
 	_toast.visible = false
 	_toast.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	layer.add_child(_toast)
+	_init_seen.call_deferred() # depois do save carregar (SaveGame.apply)
+
+
+## Começo de jogo (ou save de antes do "NOVA"): as receitas que já aparecem contam como vistas.
+func _init_seen() -> void:
+	if not _seen_pending:
+		return
+	_seen_pending = false
+	for r: Dictionary in RecipeBook.visible():
+		seen_recipes[r.key] = true
+
+
+# --- Receitas novas (diário) ---------------------------------------------------------
+
+## Receitas que aparecem no diário e ainda não foram olhadas.
+func new_recipes() -> Array:
+	return RecipeBook.visible().filter(func(r): return not seen_recipes.has(r.key))
+
+
+func mark_seen(key: String) -> void:
+	if not seen_recipes.has(key):
+		seen_recipes[key] = true
+		changed.emit()
 
 
 # --- Eventos -----------------------------------------------------------------------
@@ -125,12 +151,25 @@ static func event(kind: String, id: String) -> void:
 func _event(kind: String, id: String) -> void:
 	if kind in ["get", "craft", "forge"] and ItemDB.has(StringName(id)):
 		recipes[StringName(id)] = true
+	if kind == "place" and not built.has(id):
+		built[id] = true
+		_announce_station(id)
 	var key := "%s:%s" % [kind, id]
 	var any := "%s:*" % kind
 	for a: String in ACHIEVEMENTS:
 		if not done.has(a) and (key in ACHIEVEMENTS[a].on or any in ACHIEVEMENTS[a].on):
 			_complete(a)
 	changed.emit()
+
+
+## Construiu uma estação pela primeira vez: avisa quantas receitas ela liberou.
+func _announce_station(kind: String) -> void:
+	for section in RecipeBook.SECTIONS:
+		if kind in section[2]:
+			var fresh := new_recipes().filter(func(r): return r.station == section[0])
+			if not fresh.is_empty():
+				_announce("Receitas novas", section[1], "%d receita%s: veja no diário (J)" % [fresh.size(), "s" if fresh.size() > 1 else ""], false)
+			return
 
 
 func _complete(a: String) -> void:
@@ -283,7 +322,8 @@ func save_data() -> Dictionary:
 	var books := []
 	for id in manuals:
 		books.append(String(id))
-	return {"done": done.duplicate(), "manuals": books, "recipes": ids, "clues": clues.duplicate(true)}
+	return {"done": done.duplicate(), "manuals": books, "recipes": ids, "clues": clues.duplicate(true),
+		"built": built.keys(), "seen_recipes": seen_recipes.keys()}
 
 
 func load_data(data: Dictionary) -> void:
@@ -295,5 +335,14 @@ func load_data(data: Dictionary) -> void:
 	for id in data.get("recipes", []):
 		recipes[StringName(id)] = true
 	clues = data.get("clues", []).duplicate(true)
+	built.clear()
+	for kind in data.get("built", []):
+		built[String(kind)] = true
+	seen_recipes.clear()
+	for key in data.get("seen_recipes", []):
+		seen_recipes[String(key)] = true
+	_seen_pending = not data.has("seen_recipes") # save antigo: marca o que já aparece como visto
+	if _seen_pending:
+		_init_seen.call_deferred()
 	era = current_era()
 	changed.emit()

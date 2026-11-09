@@ -8,6 +8,7 @@ var _title: Label
 var _restart_button: Button
 var _lan_button: Button
 var _save_button: Button
+var _graphics_button: Button
 
 
 func _ready() -> void:
@@ -32,17 +33,20 @@ func _ready() -> void:
 	_save_button = LegacyGUI.button(column, "Salvar", _save)
 	_lan_button = LegacyGUI.button(column, "Abrir para LAN", _open_to_lan)
 	_restart_button = LegacyGUI.button(column, "Recomeçar", _restart)
-	# Qualidade gráfica: cada clique passa para a próxima (Baixa → Média → Alta).
-	var graphics: Button
-	graphics = LegacyGUI.button(column, _graphics_text(), func():
-		Look.set_quality((Look.quality() + 1) % 3)
-		graphics.text = _graphics_text())
+	# Qualidade gráfica: cada clique passa para a próxima (Baixa → Média → Alta). O texto
+	# é atualizado pelo membro (a variável local ainda era nula quando a função foi criada).
+	_graphics_button = LegacyGUI.button(column, _graphics_text(), _next_quality)
 	LegacyGUI.button(column, "Sair para o menu", func():
 		if Net.i.is_host():
 			_save()
 		Net.i.leave())
 	LegacyGUI.button(column, "Sair do jogo", func(): get_tree().quit())
 	visible = false
+
+
+func _next_quality() -> void:
+	Look.set_quality((Look.quality() + 1) % 3)
+	_graphics_button.text = _graphics_text()
 
 
 static func _graphics_text() -> String:

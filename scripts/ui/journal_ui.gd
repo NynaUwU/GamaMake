@@ -8,8 +8,6 @@ const TABS := ["Eras", "Receitas", "Manuais", "Pistas"]
 const OK := Color(0.45, 0.85, 0.4)
 const DIM := Color(1, 1, 1, 0.45)
 const GOLD := Color(0.95, 0.8, 0.35)
-## Estações na ordem da árvore (a mão primeiro; as do fim são as mais avançadas).
-const STATIONS := ["mao", "mesa", "fornalha", "fornalha_pedra", "forja", "forno", "fundicao", "alto_forno", "torno", "prensa", "trefiladora", "solda", "macarico", "destilaria"]
 
 static var tab := "Eras"
 
@@ -37,12 +35,12 @@ func _ready() -> void:
 	center.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(center)
 	LegacyGUI.close_on_outside(self, close)
-	var column := LegacyGUI.box(center, "Diário", 560.0)
+	var column := LegacyGUI.box(center, "Diário", 800.0)
 	_title = column.get_child(0) as Label
 	_tabs = HBoxContainer.new()
 	column.add_child(_tabs)
 	_scroll = ScrollContainer.new()
-	_scroll.custom_minimum_size = Vector2(540, 340)
+	_scroll.custom_minimum_size = Vector2(780, 470)
 	_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	column.add_child(_scroll)
 	_body = VBoxContainer.new()
@@ -70,6 +68,8 @@ func _refresh() -> void:
 			_refresh())
 		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		b.disabled = t == tab
+		b.set_meta("tab", t)
+	_update_tab_titles()
 	for child in _body.get_children():
 		_body.remove_child(child)
 		child.queue_free()
@@ -79,6 +79,14 @@ func _refresh() -> void:
 		"Manuais": _manuals()
 		"Pistas": _clues()
 	_scroll.scroll_vertical = 0
+
+
+## Aba de receitas com quantas novas faltam olhar.
+func _update_tab_titles() -> void:
+	var fresh := Progress.i.new_recipes().size()
+	for b in _tabs.get_children():
+		if b is Button and b.get_meta("tab", "") == "Receitas":
+			b.text = "Receitas (%d novas)" % fresh if fresh > 0 else "Receitas"
 
 
 # --- Eras ------------------------------------------------------------------------------
@@ -128,36 +136,115 @@ func _goal(info: Dictionary, finished: bool, future: bool) -> Control:
 
 # --- Receitas ------------------------------------------------------------------------
 
+## Por estação: produto ← ingredientes (ícone e quantidade), com o que mais precisa
+## (combustível, eixo...). Só aparecem as estações já construídas e as receitas com
+## ingredientes alcançáveis (RecipeBook). Receita nunca olhada tem o selo NOVA, que
+## some ao passar o mouse nela.
 func _recipes() -> void:
-	var p := Progress.i
-	var total := 0
-	var known := 0
-	for station in STATIONS:
-		var list: Array = CraftingUI.recipes_for(station)
-		if list.is_empty():
+	var list := RecipeBook.visible()
+	var by_station := {}
+	for r: Dictionary in list:
+		if not by_station.has(r.station):
+			by_station[r.station] = []
+		by_station[r.station].append(r)
+	var built := RecipeBook.built_kinds()
+	var fresh := 0
+	for r in list:
+		fresh += 0 if Progress.i.seen_recipes.has(r.key) else 1
+	_body.add_child(_small("%d receitas conhecidas%s. Construir uma estação ou máquina mostra o que dá para fazer nela; receita com ingrediente de máquina que você ainda não tem fica escondida." % [
+		list.size(), " (%d novas: passe o mouse para marcar como vista)" % fresh if fresh > 0 else ""], Color(1, 1, 1, 0.8)))
+	var locked: Array[String] = []
+	for section in RecipeBook.SECTIONS:
+		var rows: Array = by_station.get(section[0], [])
+		if rows.is_empty():
+			if not RecipeBook.station_built(section[0], built):
+				locked.append(section[1])
 			continue
-		var seen := list.filter(func(r): return p.recipes.has(r.id))
-		total += list.size()
-		known += seen.size()
-		var name: String = CraftingUI.TITLES.get(station, station)
-		var head := _label("%s  (%d de %d)" % [name, seen.size(), list.size()], 13)
-		head.modulate = GOLD if not seen.is_empty() else DIM
+		var head := _label("%s  (%d)" % [section[1], rows.size()], 14)
+		head.modulate = GOLD
 		_body.add_child(head)
-		var flow := HFlowContainer.new()
-		flow.add_theme_constant_override("h_separation", 4)
-		flow.add_theme_constant_override("v_separation", 4)
-		_body.add_child(flow)
-		for r: Dictionary in list:
-			flow.add_child(_recipe_icon(r, p.recipes.has(r.id)))
+		var grid := GridContainer.new()
+		grid.columns = 2
+		grid.add_theme_constant_override("h_separation", 6)
+		grid.add_theme_constant_override("v_separation", 4)
+		_body.add_child(grid)
+		for r: Dictionary in rows:
+			grid.add_child(_recipe_row(r))
 		_body.add_child(_gap(4))
-	var summary := _small("Receitas descobertas: %d de %d. Fabricar, pegar o item ou ler o manual descobre a receita." % [known, total], Color(1, 1, 1, 0.8))
-	_body.add_child(summary)
-	_body.move_child(summary, 0)
+	if not locked.is_empty():
+		_body.add_child(_small("Ainda não construídas: " + ", ".join(locked), DIM))
 
 
-func _recipe_icon(r: Dictionary, seen: bool) -> Control:
+## Uma receita: [NOVA] produto xN ← ingrediente xN ... (nota). Dica com os nomes.
+func _recipe_row(r: Dictionary) -> Control:
+	var panel := PanelContainer.new()
+	panel.custom_minimum_size = Vector2(376, 40)
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color(0, 0, 0, 0.25)
+	style.set_corner_radius_all(3)
+	style.content_margin_left = 4
+	style.content_margin_right = 4
+	panel.add_theme_stylebox_override("panel", style)
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 3)
+	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	panel.add_child(row)
+	var badge := Label.new()
+	badge.text = "NOVA"
+	badge.add_theme_font_size_override("font_size", 10)
+	badge.add_theme_color_override("font_color", Color(0.1, 0.08, 0.02))
+	var badge_box := StyleBoxFlat.new()
+	badge_box.bg_color = GOLD
+	badge_box.set_corner_radius_all(2)
+	badge_box.content_margin_left = 3
+	badge_box.content_margin_right = 3
+	badge.add_theme_stylebox_override("normal", badge_box)
+	badge.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	badge.visible = not Progress.i.seen_recipes.has(r.key)
+	row.add_child(badge)
+	row.add_child(_item_icon(r.out, r.amount, 32))
+	var name := Label.new()
+	name.text = ItemDB.short_name(r.out)
+	name.add_theme_font_size_override("font_size", 12)
+	name.custom_minimum_size = Vector2(92, 0)
+	name.clip_text = true
+	name.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	row.add_child(name)
+	var arrow := Label.new()
+	arrow.text = "<-"
+	arrow.modulate = DIM
+	arrow.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	row.add_child(arrow)
+	var parts: Array[String] = []
+	for item in r.cost:
+		row.add_child(_item_icon(item, r.cost[item], 26))
+		parts.append("%d %s" % [r.cost[item], ItemDB.display_name(item)])
+	if r.note != "":
+		var note := Label.new()
+		note.text = r.note
+		note.add_theme_font_size_override("font_size", 10)
+		note.modulate = DIM
+		note.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		note.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		note.autowrap_mode = TextServer.AUTOWRAP_WORD
+		row.add_child(note)
+	panel.tooltip_text = "%s%s\n%s%s" % [ItemDB.display_name(r.out), " x%d" % r.amount if r.amount > 1 else "", " + ".join(parts),
+		"\n" + r.note if r.note != "" else ""]
+	var key: String = r.key
+	panel.mouse_entered.connect(func():
+		if badge.visible:
+			badge.visible = false
+			Progress.i.mark_seen(key)
+			_update_tab_titles())
+	return panel
+
+
+## Ícone do item num quadradinho, com a quantidade no canto.
+func _item_icon(id: StringName, amount: int, px: float) -> Control:
 	var slot := Panel.new()
-	slot.custom_minimum_size = Vector2(34, 34)
+	slot.custom_minimum_size = Vector2(px, px)
+	slot.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	slot.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var style := StyleBoxFlat.new()
 	style.bg_color = LegacyGUI.SLOT
 	style.set_border_width_all(1)
@@ -165,26 +252,29 @@ func _recipe_icon(r: Dictionary, seen: bool) -> Control:
 	slot.add_theme_stylebox_override("panel", style)
 	var icon := TextureRect.new()
 	icon.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	icon.offset_left = 3
-	icon.offset_top = 3
-	icon.offset_right = -3
-	icon.offset_bottom = -3
+	icon.offset_left = 2
+	icon.offset_top = 2
+	icon.offset_right = -2
+	icon.offset_bottom = -2
 	icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	icon.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var icons := get_tree().root.get_node_or_null("ItemIcons")
 	if icons and icons.has_method("get_icon"):
-		icon.texture = icons.get_icon(r.id)
+		icon.texture = icons.get_icon(id)
 	slot.add_child(icon)
-	var locked := not Progress.knows(r.get("manual", ""))
-	if not seen:
-		icon.modulate = Color(0, 0, 0, 0.85) # silhueta: ainda não descobriu
-		slot.tooltip_text = "???" + ("\nPrecisa: %s" % Progress.MANUALS[StringName(r.manual)].title if locked else "")
-	else:
-		icon.modulate = Color(1, 1, 1, 0.45) if locked else Color.WHITE
-		slot.tooltip_text = "%s%s\n%s%s" % [ItemDB.display_name(r.id), " x%d" % r.amount if r.get("amount", 1) > 1 else "",
-			Builder.cost_text(r.cost, player.inventory), "\nPrecisa: %s" % Progress.MANUALS[StringName(r.manual)].title if locked else ""]
+	if amount > 1:
+		var count := Label.new()
+		count.text = str(amount)
+		count.add_theme_font_size_override("font_size", 10)
+		count.add_theme_color_override("font_outline_color", Color.BLACK)
+		count.add_theme_constant_override("outline_size", 3)
+		count.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_RIGHT)
+		count.offset_left = -14
+		count.offset_top = -14
+		count.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		slot.add_child(count)
 	return slot
 
 
