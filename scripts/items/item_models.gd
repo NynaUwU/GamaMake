@@ -56,6 +56,12 @@ static func build(id: StringName) -> Node3D:
 			_mb(parts, BRASS).lathe(PackedVector2Array([Vector2(0.0, 0.0), Vector2(0.014, 0.0), Vector2(0.018, 0.01), Vector2(0.016, 0.02),
 				Vector2(0.019, 0.03), Vector2(0.02, 0.036), Vector2(0.0, 0.036)]), 8)
 			_mb(parts, COPPER).tube(PackedVector3Array([Vector3(-0.008, 0.04, 0), Vector3(0, 0.08, 0), Vector3(0.008, 0.04, 0)]), 0.002, 3, false)
+		&"celula":
+			_mb(parts, Color(0.62, 0.74, 0.72)).lathe(PackedVector2Array([Vector2(0.0, 0.0), Vector2(0.1, 0.0), Vector2(0.1, 0.36), Vector2(0.085, 0.38)]), 10)
+			_mb(parts, Color(0.3, 0.62, 0.58)).lathe(PackedVector2Array([Vector2(0.0, 0.01), Vector2(0.092, 0.01), Vector2(0.092, 0.24), Vector2(0.0, 0.24)]), 10)
+			_mb(parts, COPPER).box(Vector3(-0.03, 0.26, 0), Vector3(0.012, 0.3, 0.12))
+			_mb(parts, STEEL).box(Vector3(0.03, 0.26, 0), Vector3(0.012, 0.3, 0.12))
+			_mb(parts, BRASS).box(Vector3(0, 0.42, 0), Vector3(0.1, 0.012, 0.012))
 		&"bobina":
 			_mb(parts, IRON).lathe(PackedVector2Array([Vector2(0.0, -0.09), Vector2(0.07, -0.09), Vector2(0.07, -0.075), Vector2(0.03, -0.075),
 				Vector2(0.03, 0.075), Vector2(0.07, 0.075), Vector2(0.07, 0.09), Vector2(0.0, 0.09)]), 10, Basis(Vector3.RIGHT, PI / 2))

@@ -29,6 +29,7 @@ const PORTS := {
 	"sprinkler": [[Vector3(0.0, 0.1, 0.22), "water", "in"]],
 	"water_trough": [[Vector3(0.68, 0.3, 0.0), "water", "in"]],
 	"electric_pump": [[Vector3(0.45, 0.25, 0.0), "water", "out"]],
+	"pump": [[Vector3(0.36, 0.25, 0.0), "water", "out"]], # bomba manual com força no eixo
 }
 ## Água que cada fonte consegue mandar por segundo.
 const SOURCE_RATE := {"ram_pump": 1.0, "rain_collector": 0.5, "water_tank": 2.0, "electric_pump": 1.5}
@@ -170,6 +171,9 @@ static func _water(group: Array) -> float:
 			"electric_pump":
 				if Electric.powered(obj):
 					supply += SOURCE_RATE.electric_pump # poço: sem fim, com energia
+			"pump":
+				if obj.extra.get("pstate", "") == "ok":
+					supply += 1.0 # bomba da beira do lago movida pelo eixo
 			"rain_collector":
 				var give: float = minf(obj.extra.get("water", 0.0), SOURCE_RATE.rain_collector)
 				if give > 0.0:

@@ -38,6 +38,7 @@ const RECIPES := [
 	{"id": &"tocha", "amount": 3, "station": "mesa", "cost": {&"graveto": 2, &"pano": 1, &"carvao": 1}},
 	{"id": &"cabo", "amount": 4, "station": "mesa", "cost": {&"barra_cobre": 1, &"pano": 1}},
 	{"id": &"lampada", "amount": 2, "station": "mesa", "cost": {&"vidro": 1, &"barra_cobre": 1}},
+	{"id": &"celula", "station": "mesa", "cost": {&"vidro": 1, &"barra_cobre": 1, &"sucata": 1}},
 	{"id": &"bandeira", "station": "mesa", "cost": {&"graveto": 2, &"pano": 2}},
 	{"id": &"capuz", "station": "mesa", "cost": {&"pano": 3}},
 	{"id": &"colete", "station": "mesa", "cost": {&"sucata": 6, &"pano": 2}},

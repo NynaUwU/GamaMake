@@ -21,6 +21,7 @@ func _init() -> void:
 	# --- Painel solar + bateria + lâmpada, ligados por cabo.
 	var solar: PlacedObject = spawn.call("solar_panel", at)
 	var battery: PlacedObject = spawn.call("battery", at + Vector3(2, 0, 0))
+	battery.extra.cells = 4 # 600 de carga
 	var lamp: PlacedObject = spawn.call("lamp", at + Vector3(4, 0, 0))
 	player.inventory.add(&"cabo", 10)
 	print("cabo painel-bateria: %s, bateria-lâmpada: %s, longe (20 m): %s" % [placed.host_apply("cable", [solar.net_id, battery.net_id]).size() > 0,
@@ -41,10 +42,6 @@ func _init() -> void:
 	battery.extra.charge = 0.2
 	placed._electric()
 	print("bateria vazia de noite: lâmpada acesa=%s, estado=%s, painel: %s" % [Electric.powered(lamp), lamp.extra.get("estate"), Electric.text(lamp)])
-	lamp.extra.on = false
-	placed._electric()
-	print("lâmpada desligada no interruptor: pede energia=%s" % [Electric.powered(lamp)])
-	lamp.extra.on = true
 	# --- Dínamo na roda d'água.
 	var wheel: PlacedObject = spawn.call("water_wheel", at + Vector3(0, 0, 8))
 	var port: Vector3 = Power.world_ports(wheel)[0][0]

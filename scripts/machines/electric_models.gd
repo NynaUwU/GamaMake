@@ -40,6 +40,30 @@ static func build(kind: String, obj: PlacedObject) -> void:
 				mb.box(Vector3(0, y, 0.026), Vector3(0.016, 0.016, 0.006)) # parafusos
 			_insulator(mb, Vector3(0, -0.02, 0.14), 0.7)
 			obj._shape(Vector3(0, 0, 0.08), Vector3(0.14, 0.22, 0.16))
+		"insulator":
+			# Isolador de cerâmica (prego com carretel de porcelana) para levar o cabo rente
+			# à parede, ao teto ou ao chão: +Z sai da superfície.
+			mb.color(ItemModels.IRON)
+			mb.box(Vector3(0, 0, 0.004), Vector3(0.05, 0.05, 0.008))
+			mb.lathe(PackedVector2Array([Vector2(0.0, 0.0), Vector2(0.006, 0.0), Vector2(0.006, 0.02), Vector2(0.0, 0.02)]), 6, Basis(Vector3.RIGHT, PI / 2))
+			mb.color(PORCELAIN)
+			mb.lathe(PackedVector2Array([Vector2(0.006, 0.018), Vector2(0.03, 0.02), Vector2(0.032, 0.03), Vector2(0.022, 0.04), Vector2(0.022, 0.05),
+				Vector2(0.03, 0.058), Vector2(0.028, 0.07), Vector2(0.006, 0.075)]), 10, Basis(Vector3.RIGHT, PI / 2))
+			obj._shape(Vector3(0, 0, 0.04), Vector3(0.08, 0.08, 0.08))
+		"switch":
+			# Interruptor de chão: pé de ferro com a caixa de ardósia em cima, virada para
+			# quem pôs. Dois bornes (entrada à esquerda, saída à direita) e a faca no meio.
+			mb.color(ItemModels.IRON)
+			mb.box(Vector3(0, 0.03, 0), Vector3(0.26, 0.06, 0.26))
+			mb.tube(PackedVector3Array([Vector3(0, 0.06, -0.02), Vector3(0, 0.86, -0.02)]), 0.025, 6)
+			_switch_box(mb, obj, Vector3(0, 0.9, 0.0))
+			obj._shape(Vector3(0, 0.55, 0), Vector3(0.26, 1.1, 0.26))
+		"switch_wall":
+			# Interruptor de parede: a mesma caixa presa na parede (z = 0), saindo para +Z.
+			_switch_box(mb, obj, Vector3(0, -0.03, 0.0))
+			obj._shape(Vector3(0, 0, 0.04), Vector3(0.24, 0.26, 0.08))
+		"electric_motor":
+			_motor(mb, obj)
 		"dynamo":
 			_dynamo(mb, obj)
 		"solar_panel":
@@ -167,6 +191,10 @@ static func _dynamo(mb: MeshBuilder, obj: PlacedObject) -> void:
 		var a := TAU * k / 8.0
 		mb.box(Vector3(0.43, 0.6 + sin(a) * 0.2, cos(a) * 0.2), Vector3(0.03, 0.04, 0.04)) # parafusos da tampa
 	_terminal_box(mb, Vector3(0.18, 0.76, 0))
+	# Mostrador do consumo (quanto da geração está sendo usado) na frente da carcaça.
+	mb.color(ItemModels.IRON)
+	mb.box(Vector3(0.12, 0.72, 0.24), Vector3(0.03, 0.12, 0.03))
+	_dial(mb, obj, Vector3(0.12, 0.84, 0.25), Vector3(0.13, 0.13, 0.04), 0.021)
 	# Eixo e polia de latão (gira).
 	var spin := MeshBuilder.new()
 	spin.color(ItemModels.STEEL)
@@ -206,8 +234,14 @@ static func _solar(mb: MeshBuilder, obj: PlacedObject) -> void:
 	obj._shape(Vector3(0, 0.6, 0), Vector3(1.3, 1.2, 0.9))
 
 
+## Lugar de cada célula na estrutura (3 x 2).
+static func _cell_spot(k: int) -> Vector3:
+	return Vector3(-0.27 + (k % 3) * 0.27, 0.08, -0.12 + (k / 3) * 0.24)
+
+
 static func _battery(mb: MeshBuilder, obj: PlacedObject) -> void:
-	# Engradado de madeira com 6 jarros de vidro (placas de cobre e zinco), mostrador em cima.
+	# Estrutura modular: engradado de madeira com 6 vagas; cada célula (jarro de vidro com
+	# placas de cobre e zinco) aparece quando é posta. Mostrador com ponteiro da carga.
 	mb.color(WOOD)
 	mb.box(Vector3(0, 0.04, 0), Vector3(0.9, 0.08, 0.55))
 	for x in [-0.43, 0.43]:
@@ -215,41 +249,59 @@ static func _battery(mb: MeshBuilder, obj: PlacedObject) -> void:
 	mb.color(WOOD_DARK)
 	mb.box(Vector3(0, 0.5, 0.25), Vector3(0.9, 0.04, 0.04))
 	mb.box(Vector3(0, 0.5, -0.25), Vector3(0.9, 0.04, 0.04))
-	var level := MeshBuilder.new()
-	for i in 3:
-		for j in 2:
-			var c := Vector3(-0.27 + i * 0.27, 0.08, -0.12 + j * 0.24)
-			mb.color(GLASS)
-			mb.lathe(PackedVector2Array([Vector2(0.0, 0.0), Vector2(0.1, 0.0), Vector2(0.1, 0.36), Vector2(0.085, 0.38)]), 10, Basis.IDENTITY, c)
-			mb.color(ItemModels.COPPER)
-			mb.box(c + Vector3(-0.03, 0.26, 0), Vector3(0.012, 0.3, 0.12))
-			mb.color(ItemModels.STEEL)
-			mb.box(c + Vector3(0.03, 0.26, 0), Vector3(0.012, 0.3, 0.12))
-			level.color(Color(0.3, 0.62, 0.58))
-			level.lathe(PackedVector2Array([Vector2(0.0, 0.0), Vector2(0.092, 0.0), Vector2(0.092, 1.0), Vector2(0.0, 1.0)]), 10, Basis.IDENTITY, Vector3(c.x, 0.0, c.z))
-	# Fios de latão ligando os jarros e o mostrador.
-	mb.color(ItemModels.BRASS)
-	mb.tube(PackedVector3Array([Vector3(-0.3, 0.46, -0.12), Vector3(0.0, 0.5, 0.12), Vector3(0.3, 0.46, -0.12)]), 0.008, 4)
+	mb.box(Vector3(0, 0.5, 0), Vector3(0.9, 0.03, 0.03))
+	for k in Electric.CELLS:
+		var c := _cell_spot(k)
+		mb.color(WOOD_DARK.darkened(0.2))
+		mb.lathe(PackedVector2Array([Vector2(0.0, 0.0), Vector2(0.105, 0.0), Vector2(0.105, 0.012), Vector2(0.0, 0.012)]), 10, Basis.IDENTITY, c) # bolacha da vaga
+		var cell := MeshBuilder.new()
+		cell.color(GLASS)
+		cell.lathe(PackedVector2Array([Vector2(0.0, 0.0), Vector2(0.1, 0.0), Vector2(0.1, 0.36), Vector2(0.085, 0.38)]), 10)
+		cell.color(ItemModels.COPPER)
+		cell.box(Vector3(-0.03, 0.26, 0), Vector3(0.012, 0.3, 0.12))
+		cell.color(ItemModels.STEEL)
+		cell.box(Vector3(0.03, 0.26, 0), Vector3(0.012, 0.3, 0.12))
+		cell.color(ItemModels.BRASS)
+		cell.box(Vector3(0, 0.42, 0), Vector3(0.1, 0.012, 0.012)) # ponte entre as placas
+		var node := MeshInstance3D.new()
+		node.name = "Cell%d" % k
+		node.mesh = cell.finish(PlacedObject._mat(), false)
+		node.position = c
+		node.visible = false
+		obj.add_child(node)
+		var liquid := MeshBuilder.new()
+		liquid.color(Color(0.3, 0.62, 0.58))
+		liquid.lathe(PackedVector2Array([Vector2(0.0, 0.0), Vector2(0.092, 0.0), Vector2(0.092, 1.0), Vector2(0.0, 1.0)]), 10)
+		var lvl := MeshInstance3D.new()
+		lvl.name = "Level%d" % k
+		lvl.mesh = liquid.finish(PlacedObject._mat(), false)
+		lvl.position = c + Vector3(0, 0.01, 0)
+		lvl.scale = Vector3(1, 0.01, 1)
+		lvl.visible = false
+		obj.add_child(lvl)
+	_dial(mb, obj, Vector3(0.36, 0.66, 0), Vector3(0.12, 0.2, 0.2), 0.101)
+	_terminal_box(mb, Vector3(0.36, 0.78, -0.05))
+	obj._shape(Vector3(0, 0.36, 0), Vector3(0.9, 0.72, 0.55))
+
+
+## Mostrador de porcelana numa caixinha, com ponteiro vermelho ("Needle").
+static func _dial(mb: MeshBuilder, obj: PlacedObject, at: Vector3, box: Vector3, face: float) -> void:
 	mb.color(WOOD_DARK)
-	mb.box(Vector3(0.36, 0.62, 0), Vector3(0.12, 0.2, 0.2))
+	mb.box(at, box)
 	mb.color(PORCELAIN)
-	mb.box(Vector3(0.36, 0.64, 0.101), Vector3(0.09, 0.09, 0.004))
-	var lvl := MeshInstance3D.new()
-	lvl.name = "Level"
-	lvl.mesh = level.finish(PlacedObject._mat(), false)
-	lvl.position = Vector3(0, 0.09, 0)
-	lvl.scale = Vector3(1, 0.01, 1)
-	obj.add_child(lvl)
+	mb.box(at + Vector3(0, 0.02, face), Vector3(0.09, 0.09, 0.004))
+	mb.color(Color(0.15, 0.12, 0.1))
+	for k in 5:
+		var a := lerpf(-1.1, 1.1, k / 4.0)
+		mb.box(at + Vector3(sin(a) * 0.036, 0.0 + cos(a) * 0.036, face + 0.003), Vector3(0.004, 0.01, 0.002), Basis(Vector3.BACK, -a))
 	var needle := MeshBuilder.new()
 	needle.color(Color(0.7, 0.1, 0.08))
-	needle.box(Vector3(0, 0.03, 0), Vector3(0.006, 0.06, 0.004))
+	needle.box(Vector3(0, 0.02, 0), Vector3(0.005, 0.04, 0.003))
 	var nd := MeshInstance3D.new()
 	nd.name = "Needle"
 	nd.mesh = needle.finish(PlacedObject._mat(), false)
-	nd.position = Vector3(0.36, 0.61, 0.105)
+	nd.position = at + Vector3(0, -0.01, face + 0.005)
 	obj.add_child(nd)
-	_terminal_box(mb, Vector3(0.36, 0.72, -0.05))
-	obj._shape(Vector3(0, 0.36, 0), Vector3(0.9, 0.72, 0.55))
 
 
 static func _fence(mb: MeshBuilder, obj: PlacedObject) -> void:
@@ -369,9 +421,78 @@ static func _pump(mb: MeshBuilder, obj: PlacedObject) -> void:
 	obj._shape(Vector3(0, 0.45, 0), Vector3(0.6, 0.9, 0.6))
 
 
+## Caixa do interruptor (base de ardósia com os 2 bornes e a faca de cobre). "at" = meio da
+## base de trás; a caixa sai para +Z.
+static func _switch_box(mb: MeshBuilder, obj: PlacedObject, at: Vector3) -> void:
+	mb.color(Color(0.18, 0.18, 0.2))
+	mb.box(at + Vector3(0, 0.0, 0.012), Vector3(0.24, 0.24, 0.024))
+	mb.color(ItemModels.BRASS)
+	for x in [-0.09, 0.09]:
+		mb.box(at + Vector3(x, 0.1, 0.04), Vector3(0.035, 0.025, 0.03)) # bornes (cabo entra/sai)
+	mb.box(at + Vector3(0, 0.06, 0.035), Vector3(0.06, 0.03, 0.025)) # garra de cima (onde a faca encosta)
+	mb.color(PORCELAIN)
+	mb.box(at + Vector3(0, -0.07, 0.03), Vector3(0.06, 0.03, 0.03)) # dobradiça isolada
+	_lever(obj, at + Vector3(0, -0.07, 0.045), 0.15)
+
+
+## Alavanca do interruptor ("Lever"): gira em X; para cima = ligado.
+static func _lever(obj: PlacedObject, pivot: Vector3, length: float, hanging := false) -> void:
+	var lever := MeshBuilder.new()
+	lever.color(ItemModels.COPPER)
+	lever.box(Vector3(0, length * 0.5, 0), Vector3(0.015, length, 0.01))
+	lever.color(Color(0.12, 0.1, 0.08))
+	lever.box(Vector3(0, length, 0), Vector3(0.03, 0.03, 0.03)) # punho
+	var node := MeshInstance3D.new()
+	node.name = "Lever"
+	node.mesh = lever.finish(PlacedObject._mat(), false)
+	node.position = pivot
+	node.set_meta("hanging", hanging)
+	obj.add_child(node)
+
+
+static func _motor(mb: MeshBuilder, obj: PlacedObject) -> void:
+	# Motor elétrico encaixado na porta de latão da máquina: origem na porta, corpo para +X,
+	# pés até o chão (as portas ficam a 0,6 m), bobinas de cobre e eixo que gira.
+	var axis := Basis(Vector3.BACK, -PI / 2)
+	mb.color(ItemModels.IRON)
+	mb.box(Vector3(0.38, -0.56, 0), Vector3(0.5, 0.08, 0.4))
+	for x in [0.2, 0.56]:
+		mb.box(Vector3(x, -0.36, 0), Vector3(0.08, 0.36, 0.28))
+	mb.color(ItemModels.IRON.lightened(0.15))
+	mb.lathe(PackedVector2Array([Vector2(0.0, 0.12), Vector2(0.14, 0.12), Vector2(0.18, 0.16), Vector2(0.18, 0.58), Vector2(0.14, 0.62), Vector2(0.0, 0.62)]), 12, axis)
+	mb.color(ItemModels.COPPER)
+	for x in [0.22, 0.32, 0.42, 0.52]:
+		mb.lathe(PackedVector2Array([Vector2(0.18, x - 0.025), Vector2(0.195, x - 0.015), Vector2(0.195, x + 0.015), Vector2(0.18, x + 0.025)]), 12, axis)
+	mb.color(ItemModels.IRON)
+	for k in 6:
+		var a := TAU * k / 6.0
+		mb.box(Vector3(0.64, sin(a) * 0.1, cos(a) * 0.1), Vector3(0.03, 0.03, 0.03)) # aletas da tampa
+	_terminal_box(mb, Vector3(0.36, 0.17, 0))
+	var spin := MeshBuilder.new()
+	spin.color(ItemModels.STEEL)
+	spin.tube(PackedVector3Array([Vector3(0.0, 0, 0), Vector3(0.14, 0, 0)]), 0.03, 8)
+	spin.color(ItemModels.BRASS)
+	spin.lathe(PackedVector2Array([Vector2(0.03, 0.02), Vector2(0.08, 0.02), Vector2(0.08, 0.06), Vector2(0.03, 0.06)]), 10, axis)
+	var node := MeshInstance3D.new()
+	node.name = "Spin"
+	node.mesh = spin.finish(PlacedObject._mat(), false)
+	obj.add_child(node)
+	var spinner := PowerSpin.new()
+	spinner.axis = Vector3.RIGHT
+	obj.add_child(spinner)
+	obj._shape(Vector3(0.38, -0.2, 0), Vector3(0.56, 0.8, 0.42))
+
+
 # --- Estado visual -----------------------------------------------------------------
 
 ## Acende/apaga conforme a energia (chamado pelo refresh do objeto).
+## Ponteiro de 0 (esquerda) a 1 (direita).
+static func _needle(obj: PlacedObject, fraction: float) -> void:
+	var needle := obj.get_node_or_null("Needle") as Node3D
+	if needle:
+		needle.rotation.z = lerpf(1.1, -1.1, clampf(fraction, 0.0, 1.0))
+
+
 static func refresh(obj: PlacedObject) -> void:
 	var on := Electric.powered(obj)
 	var glow := obj.get_node_or_null("Glow") as MeshInstance3D
@@ -388,13 +509,23 @@ static func refresh(obj: PlacedObject) -> void:
 	if light:
 		light.visible = on
 	if obj.kind == "battery":
-		var level := obj.get_node_or_null("Level") as Node3D
-		var fill := clampf(obj.extra.get("charge", 0.0) / Electric.BATTERY_CAP, 0.0, 1.0)
-		if level:
-			level.scale.y = maxf(0.01, fill * 0.3)
-		var needle := obj.get_node_or_null("Needle") as Node3D
-		if needle:
-			needle.rotation.z = lerpf(1.1, -1.1, fill)
+		var n := Electric.cells(obj)
+		var fill := clampf(obj.extra.get("charge", 0.0) / maxf(Electric.capacity(obj), 1.0), 0.0, 1.0)
+		for k in Electric.CELLS:
+			var cell := obj.get_node_or_null("Cell%d" % k) as Node3D
+			var level := obj.get_node_or_null("Level%d" % k) as Node3D
+			if cell:
+				cell.visible = k < n
+			if level:
+				level.visible = k < n and fill > 0.01
+				level.scale.y = maxf(0.01, fill * 0.3)
+		_needle(obj, fill)
+	if obj.kind == "dynamo":
+		_needle(obj, obj.extra.get("gauge", 0.0))
+	if obj.kind in Electric.SWITCHES:
+		var lever := obj.get_node_or_null("Lever") as Node3D
+		if lever:
+			lever.rotation.x = -0.05 if Electric.closed(obj) else 1.6 # ligada: faca em pé na garra; desligada: caída para fora
 	if obj.kind == "radio":
 		var needle := obj.get_node_or_null("Needle") as Node3D
 		if needle:

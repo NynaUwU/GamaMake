@@ -46,7 +46,9 @@ func setup(kind_: String) -> void:
 	_build()
 	if Fluids.PORTS.has(kind) and not kind in SteamModels.KINDS:
 		SteamModels.add_ports(self) # flange de latão onde o cano encaixa (carneiro, coletor)
-	if Power.is_machine(kind):
+	if kind in AutoMachines.HUB_KINDS:
+		AutoMachines.add_hub(self) # porta de latão nova (versão automática da máquina de mão)
+	if Power.is_machine(kind) and kind != "electric_motor":
 		PowerParts.add_lamp(self) # luz de força em cima da porta de latão
 
 
@@ -71,6 +73,8 @@ func slot_positions() -> Array:
 			return [Vector3(0, 0.06, 0)]
 		"campfire":
 			return _grid_slots(3, 2, 0.22, 0.2, 0.6)
+		"rotisserie":
+			return _grid_slots(4, 1, 0.28, 0.0, 0.6) # no espeto
 		"dryer":
 			return _grid_slots(6, 1, 0.22, 0.0, 1.05)
 		"filter":
@@ -136,7 +140,7 @@ func aiming_basket(player: Node) -> bool:
 
 # --- Fogo (acende só em uso) -----------------------------------------------------
 
-const LIT_KINDS := ["campfire", "furnace", "stone_furnace", "oven", "smoker", "blast_furnace", "boiler", "distillery", "torch", "torch_wall"]
+const LIT_KINDS := ["campfire", "furnace", "stone_furnace", "oven", "smoker", "blast_furnace", "boiler", "distillery", "torch", "torch_wall", "rotisserie"]
 
 
 ## Está acesa agora? Fogueira: tem lenha queimando. Fornalhas: combustível
@@ -146,7 +150,7 @@ func is_lit(clock := -1.0) -> bool:
 		var manager := get_parent() as PlacedManager
 		clock = manager.clock if manager else 0.0
 	match kind:
-		"campfire", "torch", "torch_wall":
+		"campfire", "torch", "torch_wall", "rotisserie":
 			return extra.get("fuel_until", 0.0) > clock
 		"furnace", "stone_furnace", "blast_furnace", "boiler", "distillery":
 			return extra.get("burn", 0.0) > 0.0
@@ -268,6 +272,8 @@ func refresh(clock: float) -> void:
 		PowerParts.refresh_lamp(self)
 	if kind in LIT_KINDS:
 		StationModels.set_lit(self, is_lit(clock))
+	if kind == "grindstone":
+		AutoMachines.refresh_grind(self)
 	if PlacedTorch.has(kind):
 		return
 	if Electric.has(kind):
@@ -334,7 +340,7 @@ func get_interact_text() -> String:
 			return "[E] Mesa de trabalho (metal, armas, ferramentas)"
 		"furnace":
 			return "[E] Fornalha (fundir minério, vidro, carvão)"
-		"campfire", "dryer", "filter", "smoker", "compost":
+		"campfire", "dryer", "filter", "smoker", "compost", "rotisserie":
 			return Cooking.text(self, clock)
 		"grindstone", "quern", "pump", "spinning", "loom", "stone_furnace", "oven", "sieve", "sawmill", "water_wheel", "windmill", "shaft", "ram_pump":
 			return Machines.text(self)
@@ -477,6 +483,10 @@ func _build() -> void:
 		return
 	if Electric.has(kind):
 		ElectricModels.build(kind, self) # Tier 4: cabos, geradores, lâmpadas, rádio...
+		return
+	if kind == "rotisserie":
+		AutoMachines.build_rotisserie(self) # assador giratório (fogueira com espeto no eixo)
+		StationModels.set_lit(self, false)
 		return
 	if Decor.has(kind):
 		Decor.build(kind, self)

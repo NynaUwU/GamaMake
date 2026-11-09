@@ -116,16 +116,45 @@ func _init() -> void:
 	var lamp_a := _put("lamp", _ground(yard + Vector3(0.8, 0, -1.2)))
 	var lamp_b := _put("lamp", _ground(yard + Vector3(-3.4, 0, -3.6)))
 	var wall_box := _on_wall("connector_wall", Vector3(house.x + 0.5, floor_y + 2.2, yard.z), Vector3.BACK)
+	# Dentro: interruptor na parede e isoladores de cerâmica levando o fio rente à parede.
+	var sw := _on_wall("switch_wall", inside + Vector3(1.2, -0.2, -2.0), Vector3.FORWARD)
+	var ins := []
+	for k in 3:
+		ins.append(_on_wall("insulator", inside + Vector3(1.2 - k * 0.8, 0.9, 0), Vector3.BACK))
 	var torch := _on_wall("torch_wall", Vector3(house.x + 2.2, floor_y + 1.5, yard.z), Vector3.BACK)
 	if torch:
 		torch.extra.fuel_until = placed.clock + 900.0
 		torch.refresh(placed.clock)
 	for pair in [[solar, battery], [battery, post_a], [post_a, lamp_a], [post_a, post_b], [post_b, dynamo], [post_b, pump],
-			[post_b, fence2], [fence2, fence], [battery, lamp_b], [post_a, wall_box], [wall_box, lamp_in], [lamp_in, lamp_in2],
-			[lamp_in, fridge], [lamp_in2, radio]]:
+			[post_b, fence2], [fence2, fence], [battery, lamp_b], [post_a, wall_box], [wall_box, sw], [sw, ins[0]], [ins[0], ins[1]],
+			[ins[1], ins[2]], [ins[2], lamp_in], [lamp_in, lamp_in2], [lamp_in, fridge], [lamp_in2, radio]]:
 		if pair[0] and pair[1]:
 			_wire(pair[0], pair[1])
-	battery.extra.charge = Electric.BATTERY_CAP
+	battery.extra.cells = 5
+	battery.extra.charge = Electric.capacity(battery) * 0.7
+	# Máquinas automáticas no quintal: assador com motor (carne no espeto), moinho com motor,
+	# pedra de amolar com motor e um machado afiando.
+	var shop := _ground(house + Vector3(9.0, 0, -2.0))
+	var autos := {}
+	for k in ["rotisserie", "quern", "grindstone", "sieve"].size():
+		var kind: String = ["rotisserie", "quern", "grindstone", "sieve"][k]
+		var m := _put(kind, _ground(shop + Vector3(0, 0, k * 2.2)))
+		var p: Array = Power.world_ports(m)[0]
+		var mo := _put("electric_motor", p[0])
+		mo.global_basis = Basis(p[1], Vector3.UP, p[1].cross(Vector3.UP))
+		_wire(mo, battery) if mo.global_position.distance_to(battery.global_position) < 11.0 else _wire(mo, post_b)
+		autos[kind] = m
+	autos.rotisserie.extra.fuel_until = placed.clock + 9999.0
+	for k in 4:
+		autos.rotisserie.crops[k] = Cooking.make_entry("rotisserie", [&"carne_crua", &"batata", &"carne_crua", &"cenoura"][k], placed.clock - 30.0 * (k % 2))
+	autos.quern.extra["in"] = 20
+	autos.sieve.extra["in"] = 20
+	autos.grindstone.extra.tool = {"id": "machado", "dur": 0.6, "sharp": 0.2}
+	Power.dirty = true
+	for k in 3:
+		placed._power()
+		placed._electric()
+		placed._power()
 	for k in 3:
 		placed._electric()
 	placed._process(0.0)
@@ -149,11 +178,28 @@ func _init() -> void:
 	DayNight.i._apply()
 	await _look(house + Vector3(2.0, 1.65, -2.0), house + Vector3(-1.0, 1.0, 1.4))
 	await _shot("casa_dia", 30)
+	# --- Máquinas automáticas com motor elétrico, de perto.
+	DayNight.i.hour = 17.0
+	DayNight.i._apply()
+	for k in 2:
+		placed._power()
+		placed._electric()
+	for obj in autos.values():
+		obj.refresh(placed.clock)
+	await _look(shop + Vector3(-3.4, 1.8, -1.6), shop + Vector3(0.3, 0.5, 2.2))
+	await _shot("maquinas_auto", 40)
 	# --- Fileira de modelos de perto (estúdio no quintal).
 	var row := _ground(house + Vector3(12.0, 0, -6.0))
-	var kinds := ["connector", "dynamo", "solar_panel", "battery", "lamp", "electric_pump", "fridge", "radio"]
+	var kinds := ["connector", "switch", "dynamo", "solar_panel", "battery", "lamp", "electric_pump", "fridge", "radio"]
 	for k in kinds.size():
-		_put(kinds[k], _ground(row + Vector3(k * 1.5, 0, 0)))
+		var o := _put(kinds[k], _ground(row + Vector3(k * 1.4, 0, 0)))
+		if kinds[k] == "battery":
+			o.extra.cells = 4
+			o.extra.charge = 300.0
+			o.refresh(placed.clock)
+		if kinds[k] == "dynamo":
+			o.extra.gauge = 0.6
+			o.refresh(placed.clock)
 	await _look(row + Vector3(5.2, 1.9, 4.4), row + Vector3(5.2, 0.6, 0.0))
 	await _shot("modelos_eletricos", 30)
 	# --- Menu do martelo na aba Elétrica.

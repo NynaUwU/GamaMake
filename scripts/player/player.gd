@@ -1240,9 +1240,20 @@ func _wear_cost(collider: Object) -> float:
 
 ## Gasta usos do item da mão; quebrou: some com um estalo e volta para os punhos.
 func _wear_selected(uses := 1.0) -> void:
+	var slot: Dictionary = inventory.slots[inventory.selected]
+	if not slot.is_empty() and slot.has("sharp"):
+		slot.sharp = float(slot.sharp) - ItemDB.SHARP_PER_USE * uses # o fio da pedra de amolar vai embora com o uso
+		if slot.sharp <= 0.0:
+			slot.erase("sharp")
 	if inventory.wear(inventory.selected, uses):
 		Sfx.play("crunch", 0.0, 0.6)
 		_sync_equipped()
+
+
+## Dano extra do fio (pedra de amolar): +35% com o fio cheio.
+func _sharp_mult() -> float:
+	var slot: Dictionary = inventory.slots[inventory.selected]
+	return 1.0 + ItemDB.SHARP_BONUS * clampf(float(slot.get("sharp", 0.0)), 0.0, 1.0) if not slot.is_empty() else 1.0
 
 
 func _apply_swing_hit_inner(hit: Dictionary, direction: Vector3, swing: Dictionary) -> void:
@@ -1254,7 +1265,7 @@ func _apply_swing_hit_inner(hit: Dictionary, direction: Vector3, swing: Dictiona
 	if collider.has_meta("enemy"):
 		if is_instance_valid(key) and key.has_method("take_hit"):
 			_swing_hits.append(key)
-			var info := HitInfo.make(stats.damage * swing.damage, collider.get_meta("bone"), hit.position,
+			var info := HitInfo.make(stats.damage * swing.damage * _sharp_mult(), collider.get_meta("bone"), hit.position,
 					direction, stats.force * swing.force, HitInfo.Type.CUT if stats.cut else HitInfo.Type.BLUNT)
 			info.limb_bias = swing.bias
 			if _weapon_type == WeaponType.SPOON:
@@ -1267,7 +1278,7 @@ func _apply_swing_hit_inner(hit: Dictionary, direction: Vector3, swing: Dictiona
 		_swing_hits.append(key)
 		# Ferramenta simples (de pedra) rende menos ("power" no ItemDB).
 		var power: float = ItemDB.def(inventory.selected_id()).get("power", 1.0)
-		collider.tool_hit(self, _weapon_type, stats.damage * swing.damage * power, hit.position)
+		collider.tool_hit(self, _weapon_type, stats.damage * swing.damage * power * _sharp_mult(), hit.position)
 		_shake = 0.08
 	elif collider is PickupItem and collider.item_id in [&"tronco", &"tabua"] and _weapon_type == WeaponType.AXE:
 		_swing_hits.append(key)

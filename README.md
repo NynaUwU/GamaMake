@@ -62,11 +62,28 @@ Martelo → aba **Vapor**. Ordem natural: torno (ferro) → parafusos/engrenagen
   - **Antisséptico:** bandagem + álcool (mesa) = **bandagem com álcool** (+60 vida e cura a doença).
 - **Itens novos:** barra de aço, parafusos, engrenagem, eixo torneado, cano, suco, óleo, álcool, bandagem com álcool (modelos próprios).
 
+## Elétrica v2, motor elétrico, máquinas automáticas e pedra de afiar (rodada de feedback)
+- **Nada mostra consumo ao olhar** para as peças elétricas (só o nome; geladeira/rádio/bateria/interruptor com a tecla). Os números ficam na descrição do martelo.
+- **Ponteiros:** o **dínamo** tem um mostrador com ponteiro de **consumo** (quanto da geração está sendo usado; carregar bateria conta); a **bateria** tem ponteiro da **carga**.
+- **Bateria modular:** o martelo põe a **estrutura** (6 vagas); as **células** saem da mesa (1 vidro + 1 cobre + 1 sucata) e entram com **[E]**. Cada célula guarda **150** e carrega/descarrega **5 por segundo**; os jarros aparecem conforme as células. Desmontar devolve as células.
+- **Sem liga/desliga nas máquinas:** para cortar energia, use o **interruptor** (no chão, num pedestal, ou na parede): tem **2 bornes** (entrada e saída, um cabo em cada); **[E]** levanta/abaixa a faca e, desligado, a energia não passa de um lado para o outro.
+- **Isolador de cerâmica** (1 argila): vai na parede, no teto ou no chão e o cabo entre isoladores fica **esticado**, rente à superfície (organiza a fiação).
+- **Motor elétrico** (2 bobinas + 3 ferro + 2 parafusos): mire uma máquina de rotação e ele **encaixa na porta de latão** dela (moinho, roca, tear, serraria, torno, prensa, alto-forno, peneira, fole, amolar, bomba, assador). Com energia dá **força 4**; gasta **3**, e só enquanto a máquina tem trabalho. **Não move dínamo** (sem moto-contínuo).
+- **Versões automáticas** (porta de latão nova com caixinha de engrenagem; eixo, esteira ou motor):
+  - **Peneira:** peneira sozinha a argila posta.
+  - **Fornalha de pedra:** o **fole sopra sozinho** enquanto tem minério.
+  - **Pedra de amolar:** [E] deixa a arma/ferramenta da mão na pedra; ela afia sozinha e [E] pega de volta (com o fio).
+  - **Bomba d'água:** põe **1 de água por segundo no cano** (flange de latão).
+  - **Assador giratório** (novo, aba Máquinas): fogueira com espeto de 4 lugares; com lenha e o espeto girando, **assa e não queima** (fica girando a comida pronta).
+  - As que já eram sozinhas continuam: moinho, roca, tear (já tinham porta), secador, filtro, defumador, composteira, fornalhas e forno.
+- **Pedra de amolar agora só afia** (não conserta mais): lâminas e ferramentas (espada, machados, picaretas, lança, pá) ganham até **+35% de dano** (o "fio"), que vai embora com o uso (~25 golpes). O fio aparece na janela do item ("Afiada: +35% de dano").
+- Testes: `tests/test_electric2.gd`. Fotos: `tests/shot_tier4.gd`.
+
 ## Tier 4: eletricidade, rádio, decorações e tocha na parede
 - **Cabos** (item **cabo**, mesa: 1 barra de cobre + 1 pano = 4): clique numa peça elétrica e depois na outra (até 12 m; cada 4 m gasta 1 cabo). O fio aparece pendurado até a mira antes de ligar (verde = alcança) e fica em **catenária** entre os bornes de latão. Ligar o mesmo par de novo tira o cabo; desmontar uma peça devolve os cabos dela. `scripts/machines/electric.gd`.
-- **Rede elétrica** (host, 1x por segundo, por rede ligada): o que sobra **carrega as baterias**; o que falta elas **descarregam**; se nem assim dá, **falta luz na rede inteira** (nada liga e as baterias guardam o que têm). Painel de cada peça: "rede: consumo 2 de 6 · baterias 300 de 600".
-- **Geram:** **dínamo** (eixo com força na porta de latão vira **6** de energia; pesa **2** no eixo só quando a rede precisa) e **painel solar** (até **3** ao meio-dia; nublado e chuva rendem menos; noite nada). **Guarda:** **bateria** de jarros (**600**, até 5 por segundo; o líquido sobe nos jarros e o ponteiro mostra a carga).
-- **Gastam** (todos com interruptor: **[E]** liga/desliga; geladeira e rádio: **Shift+E**):
+- **Rede elétrica** (host, 1x por segundo, por rede ligada): o que sobra **carrega as baterias**; o que falta elas **descarregam**; se nem assim dá, liga o que couber **por prioridade** (luz, rádio, geladeira, cerca, bomba, motor) e o resto fica apagado.
+- **Geram:** **dínamo** (eixo com força na porta de latão vira **6** de energia; pesa **2** no eixo só quando a rede precisa) e **painel solar** (até **3** ao meio-dia; nublado e chuva rendem menos; noite nada). **Guarda:** bateria modular (seção acima).
+- **Gastam** (para desligar, ponha um interruptor no caminho do cabo; ver a seção acima):
   - **Lâmpada** (0,5): no chão vira **lampadário**; mirando uma parede, **arandela**. Luz quente de verdade, com brilho.
   - **Cerca elétrica** (1): 2,4 m de fios com isoladores; quem encosta leva **choque** (dano, fica tonto, é empurrado), com faísca e estalo; no máximo 1 choque por segundo por zumbi.
   - **Geladeira** (1,5): guarda 21 itens; **ligada, a comida quase não estraga** (8% da velocidade da mochila).
@@ -246,7 +263,7 @@ Martelo → aba **Vapor**. Ordem natural: torno (ferro) → parafusos/engrenagen
 - **Comida estraga:** peixe cru ~8 min, assados ~15 min, legumes 25–40 min, pão caseiro 20 min (enlatado, pão velho, peixe seco/defumado e farinha não estragam). O frescor é a barrinha embaixo do ícone (verde → marrom); ao zerar vira **comida estragada** (quase não enche, 80% de doença). Pilhas juntam pela média do frescor. Estraga na mochila e nos baús (no chão fica parado). Comer algo com menos de 25% de frescor pode deixar doente.
 - **Martelo → aba Máquinas** (o coletor e o secador foram para lá).
 - **Manivela:** toque em [E] = pôr material / tirar o pronto / abrir; **segure [E] = girar**, gastando stamina (30/s, sem encher enquanto gira). O modelo gira e range.
-  - **Pedra de amolar:** segure E com a ferramenta/arma na mão: ~14 s de 0 a 100% de durabilidade.
+  - **Pedra de amolar:** segure E com a arma/ferramenta na mão: ~14 s até o fio cheio (+35% de dano; ver "Elétrica v2"). Não conserta mais.
   - **Moinho manual:** trigo → farinha (2,5 s de manivela cada).
   - **Bomba d'água:** só na beira do lago; segure E com garrafa vazia → água suja sem fim (1,5 s cada).
   - **Roca:** 2 fibra → 1 fio. **Tear:** 3 fio → 1 tecido. Tecido → **casaco** (isolamento térmico para o frio, 8% de proteção) ou 3 panos na mesa.

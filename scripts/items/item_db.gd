@@ -187,6 +187,9 @@ const ITEMS := {
 		"controls": ["Clique numa peça elétrica e depois na outra: liga", "Ligar o mesmo par de novo: tira o cabo (volta)"]},
 	&"lampada": {"name": "Lâmpada", "kind": "material", "stack": 100, "size": Vector3(0.08, 0.12, 0.08),
 		"desc": "Bulbo de vidro com filamento de cobre. Vai nas lâmpadas e nas válvulas do rádio."},
+	&"celula": {"name": "Célula de bateria", "short": "Célula", "kind": "material", "stack": 100, "size": Vector3(0.2, 0.38, 0.2),
+		"desc": "Jarro de vidro com placas de cobre e zinco. Vai na estrutura da bateria (até 6): cada uma guarda 150 de energia e carrega/descarrega 5 por segundo.",
+		"controls": ["[E] na estrutura da bateria: põe uma célula"]},
 	&"bobina": {"name": "Bobina de cobre", "short": "Bobina", "kind": "material", "stack": 100, "size": Vector3(0.14, 0.14, 0.18),
 		"desc": "Fio de cobre enrolado num núcleo de ferro (torno). Peça do dínamo, do painel solar, da geladeira, do rádio e da bomba elétrica."},
 	&"correia": {"name": "Esteira de couro", "short": "Esteira", "kind": "material", "stack": 100, "size": Vector3(0.2, 0.05, 0.2),
@@ -361,6 +364,17 @@ static func spoil_slots(slots: Array, seconds: float) -> Dictionary:
 					slots[i] = {"id": &"comida_estragada", "amount": rotten}
 					break
 	return {"any": any, "rotted": rotten > 0, "rotten": rotten}
+
+
+## Afiar na pedra de amolar: lâminas e ferramentas de corte/ponta ganham dano (o "fio",
+## 0..1 no slot como "sharp") e perdem o fio a cada uso.
+const SHARPEN := ["sword", "axe", "pickaxe", "spear", "shovel"]
+const SHARP_BONUS := 0.35 ## +35% de dano com o fio cheio
+const SHARP_PER_USE := 0.04 ## ~25 golpes até perder o fio
+
+
+static func sharpenable(id: StringName) -> bool:
+	return def(id).get("weapon", "") in SHARPEN
 
 
 static func spoils(id: StringName) -> bool:

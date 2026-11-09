@@ -2,7 +2,7 @@ class_name Machines
 extends RefCounted
 ## Máquinas do Tier 1 (manuais): o jogador é a energia. Toque em [E] = pôr/tirar
 ## material ou abrir; SEGURAR [E] = girar a manivela, gastando stamina.
-##   grindstone     pedra de amolar: segurando, recupera a durabilidade do item da mão
+##   grindstone     pedra de amolar: segurando, afia a lâmina/ferramenta da mão (+dano)
 ##   quern          moinho manual: trigo -> farinha
 ##   pump           bomba d'água (só na beira do lago): enche garrafas de água suja
 ##   spinning       roca: 2 fibra -> 1 fio
@@ -51,10 +51,13 @@ static func text(obj: PlacedObject) -> String:
 	var name: String = NAMES.get(obj.kind, obj.kind)
 	match obj.kind:
 		"grindstone":
-			return name + "  [segure E com a ferramenta na mão]"
+			var auto := AutoMachines.grind_text(obj)
+			return auto if auto != "" else name + "  [segure E com a arma/ferramenta na mão: afia]"
 		"pump":
 			return name + "  [segure E: enche garrafas vazias]"
 		"stone_furnace":
+			if obj.extra.get("pstate", "") == "ok":
+				return "%s: calor %d%% (fole no eixo)  [E] abrir" % [name, int(heat(obj) * 100.0)]
 			return "%s: calor %d%%  [E] abrir · [segure E] fole" % [name, int(heat(obj) * 100.0)]
 		"oven":
 			return "[E] " + name
@@ -78,6 +81,8 @@ static func text(obj: PlacedObject) -> String:
 ## Toque em [E].
 static func tap(player: Player, obj: PlacedObject) -> void:
 	var manager := obj.get_parent() as PlacedManager
+	if obj.kind == "grindstone" and AutoMachines.grind_tap(player, obj):
+		return # com força: deixa/pega a ferramenta na pedra
 	match obj.kind:
 		"stone_furnace":
 			StorageUI.open_for(player, Smelting.key_of(obj), obj)
@@ -128,9 +133,9 @@ static func crank_local(player: Player, obj: PlacedObject, delta: float) -> bool
 		"grindstone":
 			var index := player.inventory.selected
 			var slot: Dictionary = player.inventory.slots[index]
-			if slot.is_empty() or ItemDB.max_durability(slot.id) <= 0 or slot.get("dur", 1.0) >= 0.999:
+			if slot.is_empty() or not ItemDB.sharpenable(slot.id) or float(slot.get("sharp", 0.0)) >= 0.999:
 				return false
-			slot.dur = minf(slot.get("dur", 1.0) + 0.07 * delta, 1.0) # ~14 s de 0 a 100%
+			slot.sharp = minf(float(slot.get("sharp", 0.0)) + 0.07 * delta, 1.0) # ~14 s até o fio cheio (+35% de dano)
 			player.inventory.changed.emit()
 		"pump":
 			var bottle := Cooking.find_any(player.inventory, {&"garrafa": true}) # de qualquer lugar da mochila

@@ -22,10 +22,11 @@ const BELT_RANGE := 10.0
 const SNAP := 0.3 ## pontas/portas a até isso se ligam
 const MOUNT := 0.12 ## centro da engrenagem/polia a até isso da linha do eixo = montada
 ## Geradores: força máxima.
-const OUTPUT := {"water_wheel": 4.0, "windmill": 6.0, "steam_engine": 10.0}
+const OUTPUT := {"water_wheel": 4.0, "windmill": 6.0, "steam_engine": 10.0, "electric_motor": 4.0}
 ## Consumidores: carga quando têm trabalho.
 const DEMAND := {"sawmill": 3.0, "quern": 1.0, "spinning": 1.0, "loom": 1.5, "blast_furnace": 2.0, "lathe": 2.0, "press": 1.5,
-	"dynamo": 2.0} # = Electric.DYNAMO_LOAD
+	"dynamo": 2.0, # = Electric.DYNAMO_LOAD
+	"sieve": 1.0, "stone_furnace": 1.5, "grindstone": 1.0, "pump": 1.0, "rotisserie": 0.5}
 ## Bancadas com energia (torno, prensa): giram sempre que a rede tem força, mas só
 ## pedem carga nos segundos depois de fabricar algo (extra.used).
 const STATIONS := ["lathe", "press"]
@@ -43,6 +44,13 @@ const PORTS := {
 	"lathe": [[Vector3(-0.98, 0.6, 0), Vector3.LEFT]], # na polia de latão do modelo
 	"press": [[Vector3(-0.84, 0.6, 0), Vector3.LEFT]],
 	"dynamo": [[Vector3(-0.7, 0.6, 0), Vector3.LEFT]], # na polia de latão do eixo
+	"electric_motor": [[Vector3.ZERO, Vector3.LEFT]], # encaixado na porta da máquina (corpo para +X)
+	# Máquinas que eram só na mão (AutoMachines): porta de latão nova do lado esquerdo.
+	"sieve": [[Vector3(-0.58, 0.6, 0), Vector3.LEFT]],
+	"stone_furnace": [[Vector3(-0.9, 0.6, 0), Vector3.LEFT]],
+	"grindstone": [[Vector3(-0.56, 0.6, 0), Vector3.LEFT]],
+	"pump": [[Vector3(-0.4, 0.6, 0), Vector3.LEFT]],
+	"rotisserie": [[Vector3(-0.86, 0.6, 0), Vector3.LEFT]],
 }
 const PARTS := ["axle", "tripod", "cog", "pulley"]
 const COG_RADIUS := {"cog": 0.3}
@@ -155,6 +163,17 @@ static func output(obj: PlacedObject) -> float:
 			return OUTPUT.windmill * wind * altitude
 		"steam_engine":
 			return OUTPUT.steam_engine * clampf(obj.extra.get("steam", 0.0), 0.0, 1.0) # vapor da caldeira
+		"electric_motor":
+			# Com energia; não move dínamo (nada de moto-contínuo).
+			if not Electric.powered(obj):
+				return 0.0
+			var manager := obj.get_parent() as PlacedManager
+			if manager:
+				for id in group_of(obj.net_id):
+					var other: PlacedObject = manager.objects.get(id)
+					if other and other.kind == "dynamo":
+						return 0.0
+			return OUTPUT.electric_motor
 	return 0.0
 
 
@@ -165,8 +184,22 @@ static func busy(obj: PlacedObject) -> bool:
 	if obj.kind in STATIONS:
 		var manager := obj.get_parent() as PlacedManager
 		return manager != null and obj.extra.get("used", 0.0) > manager.clock
-	if obj.kind == "dynamo":
-		return obj.extra.get("draw", false) # gerando para a rede elétrica (Electric.tick)
+	match obj.kind:
+		"dynamo":
+			return obj.extra.get("draw", false) # gerando para a rede elétrica (Electric.tick)
+		"stone_furnace":
+			if ContainerManager.i == null:
+				return false
+			var slots: Array = ContainerManager.i.contents.get(Smelting.key_of(obj), [])
+			return slots.size() > 0 and not slots[Smelting.INPUT].is_empty() # tem minério: o fole sopra
+		"grindstone":
+			return AutoMachines.grinding(obj)
+		"pump":
+			return true # bomba: sempre puxando água para o cano
+		"rotisserie":
+			# O espeto gira enquanto o fogo está aceso (dá para pôr a comida com ele girando).
+			var manager := obj.get_parent() as PlacedManager
+			return manager != null and obj.is_lit(manager.clock)
 	if obj.kind == "blast_furnace" and ContainerManager.i:
 		var slots: Array = ContainerManager.i.contents.get(Smelting.key_of(obj), [])
 		return slots.size() > 0 and not slots[Smelting.INPUT].is_empty() # tem ferro para virar aço
@@ -371,6 +404,8 @@ static func tick(objects: Dictionary, clock: float) -> Dictionary:
 			var dir: int = _dir.get(obj.net_id, 1)
 			if obj.extra.get("dir", 1) != dir:
 				update.dir = dir
+			if obj.kind == "grindstone" and obj.extra.get("driven", false) != (members.size() > 1):
+				update.driven = members.size() > 1 # tem eixo/motor na porta (mesmo parado)
 			if is_machine(obj.kind):
 				var load := [snappedf(demand, 0.1), snappedf(supply, 0.1)]
 				if obj.extra.get("load", []) != load:
@@ -379,6 +414,12 @@ static func tick(objects: Dictionary, clock: float) -> Dictionary:
 				obj.extra.merge(update, true)
 				changed[obj.net_id] = update
 			# A máquina com força trabalha sozinha (igual a girar a manivela).
+			if state == "ok" and obj.kind in ["stone_furnace", "grindstone"] and busy(obj):
+				if obj.kind == "stone_furnace":
+					Machines.host_crank(obj, 1.0, clock) # o fole sopra sozinho
+				else:
+					AutoMachines.host_grind(obj)
+				changed[obj.net_id] = obj.extra.duplicate()
 			if state == "ok" and Machines.PROCESS.has(obj.kind) and busy(obj):
 				var before := [obj.extra.get("in", 0), obj.extra.get("out", 0)]
 				Machines.host_crank(obj, 1.0, clock)

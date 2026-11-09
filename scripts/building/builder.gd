@@ -48,13 +48,13 @@ const ENTRIES := {
 		{"id": "furnace", "name": "Fornalha", "place": "furnace", "desc": "Funde minério em barras, faz vidro e carvão", "cost": {&"pedra": 10, &"tabua": 2}},
 		{"id": "rain_collector", "name": "Coletor", "place": "rain_collector", "desc": "Barril com funil: junta água da chuva (potável). Clique nele com uma garrafa vazia", "cost": {&"tabua": 4, &"pano": 1}},
 		{"id": "dryer", "name": "Secador", "place": "dryer", "desc": "Varal de galhos: peixe e frutos do lago viram peixe seco (enche mais, não queima)", "cost": {&"graveto": 6, &"pano": 1}},
-		{"id": "grindstone", "name": "Amolar", "place": "grindstone", "desc": "Pedra de amolar: segure E com a ferramenta/arma na mão para recuperar a durabilidade (gasta stamina)", "cost": {&"pedra": 6, &"tabua": 2, &"graveto": 2}},
+		{"id": "grindstone", "name": "Amolar", "place": "grindstone", "desc": "Pedra de amolar: segure E com a lâmina/ferramenta na mão para afiar: até +35% de dano, que vai embora com o uso (~25 golpes). Não conserta. Com eixo ou motor elétrico na porta de latão: [E] deixa a ferramenta e ela afia sozinha", "cost": {&"pedra": 6, &"tabua": 2, &"graveto": 2}},
 		{"id": "quern", "name": "Moinho", "place": "quern", "desc": "Moinho manual: ponha trigo e segure E para moer em farinha (gasta stamina)", "cost": {&"pedra": 8, &"tabua": 2}},
 		{"id": "oven", "name": "Forno", "place": "oven", "desc": "Forno de tijolo: farinha + água = pão (com combustível)", "cost": {&"tijolo": 10, &"pedra": 4}},
-		{"id": "pump", "name": "Bomba", "place": "pump", "desc": "Bomba d'água manual: só na beira do lago. Segure E com uma garrafa vazia: água suja sem fim", "cost": {&"barra_ferro": 2, &"tabua": 3, &"sucata": 2}},
+		{"id": "pump", "name": "Bomba", "place": "pump", "desc": "Bomba d'água manual: só na beira do lago. Segure E com uma garrafa vazia: água suja sem fim. Com eixo ou motor na porta de latão: põe água no cano sozinha (flange à direita)", "cost": {&"barra_ferro": 2, &"tabua": 3, &"sucata": 2}},
 		{"id": "filter", "name": "Filtro", "place": "filter", "desc": "Areia + carvão: ponha água suja e espere, sai potável", "cost": {&"tabua": 3, &"areia": 4, &"carvao": 3, &"pano": 1}},
-		{"id": "stone_furnace", "name": "Forn. pedra", "place": "stone_furnace", "desc": "Fornalha de tijolo com fole: a única que funde minério de ferro. Segure E para esquentar no fole", "cost": {&"tijolo": 12, &"pedra": 6, &"pano": 2}},
-		{"id": "sieve", "name": "Peneira", "place": "sieve", "desc": "Ponha argila e segure E: cada argila peneirada tem 50% de chance de dar uma pedra", "cost": {&"tabua": 3, &"graveto": 4, &"pano": 1}},
+		{"id": "stone_furnace", "name": "Forn. pedra", "place": "stone_furnace", "desc": "Fornalha de tijolo com fole: a única que funde minério de ferro. Segure E para esquentar no fole. Com eixo ou motor na porta de latão: o fole sopra sozinho", "cost": {&"tijolo": 12, &"pedra": 6, &"pano": 2}},
+		{"id": "sieve", "name": "Peneira", "place": "sieve", "desc": "Ponha argila e segure E: cada argila peneirada tem 50% de chance de dar uma pedra. Com eixo ou motor na porta de latão: peneira sozinha", "cost": {&"tabua": 3, &"graveto": 4, &"pano": 1}},
 		{"id": "spinning", "name": "Roca", "place": "spinning", "desc": "Fibra de algodão vira fio (segure E)", "cost": {&"tabua": 4, &"graveto": 4, &"sucata": 1}},
 		{"id": "loom", "name": "Tear", "place": "loom", "desc": "Fio vira tecido (segure E)", "cost": {&"tabua": 6, &"graveto": 6}},
 		{"id": "water_wheel", "name": "Roda d'água", "place": "water_wheel", "desc": "Na beira de um rio, de frente para a água: gira sem parar (força 4). A porta de latão fica na margem", "cost": {&"tabua": 14, &"barra_ferro": 3}},
@@ -62,6 +62,7 @@ const ENTRIES := {
 		{"id": "sawmill", "name": "Serraria", "place": "sawmill", "desc": "Com energia: 1 tronco vira 12 tábuas (força 3)", "cost": {&"tabua": 8, &"barra_ferro": 4, &"sucata": 2}},
 		{"id": "ram_pump", "name": "Carneiro", "place": "ram_pump", "desc": "Na beira de um rio: bombeia água sem energia. Irriga as plantações em volta (10 m crescem 50% mais rápido) e enche garrafas", "cost": {&"barra_ferro": 4, &"sucata": 4, &"tabua": 2}},
 		{"id": "smoker", "name": "Defumador", "place": "smoker", "desc": "Peixe cru vira defumado: enche muito e nunca estraga", "cost": {&"tijolo": 4, &"tabua": 4, &"sucata": 1}},
+		{"id": "rotisserie", "name": "Assador", "place": "rotisserie", "desc": "Assador giratório: fogueira com espeto de 4 lugares. Com lenha e força no eixo (porta de latão à esquerda, ou motor elétrico) assa e NÃO QUEIMA: o espeto fica girando a comida pronta", "cost": {&"pedra": 6, &"barra_ferro": 2, &"tabua": 2, &"engrenagem_madeira": 1}},
 		{"id": "compost", "name": "Composteira", "place": "compost", "desc": "Comida estragada e restos viram adubo (colheitas em dobro)", "cost": {&"tabua": 5, &"graveto": 2}},
 	],
 	"Vapor": [
@@ -77,10 +78,13 @@ const ENTRIES := {
 	],
 	"Elétrica": [
 		{"id": "connector", "name": "Conector", "place": "connector", "desc": "Poste com isolador para emendar cabos. Mirando uma parede, vai na parede", "cost": {&"tabua": 2, &"argila": 1}},
-		{"id": "dynamo", "name": "Dínamo", "place": "dynamo", "desc": "Eixo com força na porta de latão (carga 2) vira 6 de energia. Borne em cima: ligue o cabo", "cost": {&"bobina": 2, &"barra_ferro": 4, &"barra_cobre": 2, &"parafuso": 4}},
+		{"id": "insulator", "name": "Isolador", "place": "insulator", "desc": "Isolador de cerâmica: vai na parede, no teto ou no chão e leva o cabo esticado, rente à superfície (organiza a fiação)", "cost": {&"argila": 1}},
+		{"id": "switch", "name": "Interruptor", "place": "switch", "desc": "No chão (pedestal) ou na parede. Dois bornes: um cabo na entrada e outro na saída; desligado, a energia não passa. [E] liga/desliga", "cost": {&"barra_cobre": 1, &"tabua": 1}},
+		{"id": "electric_motor", "name": "Motor elétrico", "place": "electric_motor", "desc": "Encaixa na porta de latão de qualquer máquina de rotação (moinho, roca, tear, serraria, torno, prensa, peneira, fole, amolar, bomba, assador...): com energia dá força 4 a ela. Gasta 3, só com a máquina trabalhando. Não move dínamo", "cost": {&"bobina": 2, &"barra_ferro": 3, &"parafuso": 2}},
+		{"id": "dynamo", "name": "Dínamo", "place": "dynamo", "desc": "Eixo com força na porta de latão (carga 2) vira 6 de energia. Ponteiro: quanto da geração está sendo usado (carregar bateria conta). Borne em cima: ligue o cabo", "cost": {&"bobina": 2, &"barra_ferro": 4, &"barra_cobre": 2, &"parafuso": 4}},
 		{"id": "solar_panel", "name": "Painel solar", "place": "solar_panel", "desc": "Até 3 de energia com sol (nublado e chuva rendem menos, noite nada)", "cost": {&"vidro": 4, &"barra_cobre": 3, &"bobina": 1, &"barra_ferro": 2}},
-		{"id": "battery", "name": "Bateria", "place": "battery", "desc": "Jarros que guardam 600: a sobra da rede carrega, a falta descarrega (até 5 por segundo)", "cost": {&"vidro": 6, &"barra_cobre": 4, &"sucata": 4, &"tabua": 3}},
-		{"id": "lamp", "name": "Lâmpada", "place": "lamp", "desc": "Luz elétrica (gasta 0,5). No chão vira lampadário; mirando uma parede, arandela. [E] liga/desliga", "cost": {&"lampada": 1, &"barra_ferro": 1, &"barra_cobre": 1}},
+		{"id": "battery", "name": "Bateria", "place": "battery", "desc": "Estrutura para até 6 células (mesa). [E] com célula na mochila: põe uma. Cada célula guarda 150 e carrega/descarrega 5 por segundo. Ponteiro mostra a carga", "cost": {&"tabua": 4, &"barra_ferro": 1, &"barra_cobre": 1}},
+		{"id": "lamp", "name": "Lâmpada", "place": "lamp", "desc": "Luz elétrica (gasta 0,5). No chão vira lampadário; mirando uma parede, arandela. Para apagar, ponha um interruptor no cabo", "cost": {&"lampada": 1, &"barra_ferro": 1, &"barra_cobre": 1}},
 		{"id": "electric_fence", "name": "Cerca elétrica", "place": "electric_fence", "desc": "2,4 m de fios: com energia (gasta 1) dá choque em quem encosta (dano e tontura). Shift alinha na grade", "cost": {&"tabua": 3, &"barra_cobre": 2, &"cabo": 2, &"argila": 2}},
 		{"id": "fridge", "name": "Geladeira", "place": "fridge", "desc": "Guarda 21 itens; ligada (gasta 1,5) a comida quase não estraga. Desligada estraga como num baú", "cost": {&"tabua": 8, &"barra_ferro": 4, &"cano": 2, &"bobina": 1, &"barra_cobre": 2}},
 		{"id": "radio", "name": "Rádio", "place": "radio", "desc": "Ligado (gasta 0,5) pega transmissões: direção da horda, airdrops no mapa e pedidos de sobreviventes (com recompensa)", "cost": {&"tabua": 4, &"vidro": 2, &"barra_cobre": 3, &"bobina": 1, &"lampada": 2}},
@@ -133,12 +137,15 @@ const PLACE_SIZE := {"pot_small": Vector3(0.46, 0.31, 0.46), "pot_wide": Vector3
 	"deco_table": Vector3(1.2, 0.78, 0.7), "deco_chair": Vector3(0.44, 0.98, 0.44), "deco_stool": Vector3(0.38, 0.54, 0.38), "deco_rug": Vector3(1.8, 0.03, 1.2),
 	"deco_vase": Vector3(0.3, 0.7, 0.3), "deco_plant": Vector3(0.6, 0.9, 0.6), "deco_barrel": Vector3(0.64, 0.9, 0.64), "deco_crates": Vector3(1.1, 0.96, 0.55),
 	"deco_painting": Vector3(0.9, 0.7, 0.06), "deco_shelf": Vector3(1.0, 0.3, 0.26), "deco_clock": Vector3(0.48, 0.48, 0.08),
-	"torch": Vector3(0.14, 0.8, 0.14), "torch_wall": Vector3(0.14, 0.35, 0.2)}
+	"torch": Vector3(0.14, 0.8, 0.14), "torch_wall": Vector3(0.14, 0.35, 0.2),
+	"insulator": Vector3(0.08, 0.08, 0.08), "switch": Vector3(0.26, 1.1, 0.26), "switch_wall": Vector3(0.24, 0.26, 0.08),
+	"electric_motor": Vector3(0.7, 0.8, 0.42), "rotisserie": Vector3(1.6, 1.0, 0.9)}
 ## Centro da caixa (vermelha, ao desmontar) quando não é logo acima da origem.
 const PLACE_CENTER := {"bed": Vector3(1.4, 0.1, 1.4), "stairs": Vector3(0, 1.4, -1.4), "steam_engine": Vector3(0.45, 0.7, -0.3),
 	"distillery": Vector3(0.15, 0.72, 0), "boiler": Vector3(0, 1.45, 0), "pipe": Vector3(0, 0, 0.5),
 	"connector_wall": Vector3(0, 0, 0.1), "lamp_wall": Vector3(0, 0, 0.16), "deco_painting": Vector3(0, 0, 0.03), "deco_shelf": Vector3(0, 0.05, 0.13),
-	"deco_clock": Vector3(0, 0, 0.04), "torch_wall": Vector3(0, -0.05, 0.1)}
+	"deco_clock": Vector3(0, 0, 0.04), "torch_wall": Vector3(0, -0.05, 0.1), "insulator": Vector3(0, 0, 0.04),
+	"switch_wall": Vector3(0, 0, 0.04), "electric_motor": Vector3(0.38, -0.2, 0)}
 ## Shift: deslocamento da origem na grade (a escada tem 3 quadrados de largura: borda na linha da grade).
 const GRID_OFFSET := {"stairs": Vector3(0.2, 0, 0)}
 const PLACE_RADIUS := {"pot_small": 0.35, "pot_wide": 0.7, "bench": 0.9, "campfire": 0.6, "furnace": 0.8, "workbench": 1.0,
@@ -149,7 +156,8 @@ const PLACE_RADIUS := {"pot_small": 0.35, "pot_wide": 0.7, "bench": 0.9, "campfi
 	"lathe": 1.0, "press": 0.7, "distillery": 0.9, "trough": 0.8, "water_trough": 0.7, "fence": 0.15, "gate": 0.15,
 	"connector": 0.2, "dynamo": 0.7, "solar_panel": 0.7, "battery": 0.6, "lamp": 0.25, "electric_fence": 0.15, "fridge": 0.5, "radio": 0.45, "electric_pump": 0.4,
 	"deco_table": 0.7, "deco_chair": 0.3, "deco_stool": 0.25, "deco_rug": 0.3, "deco_vase": 0.2, "deco_plant": 0.3, "deco_barrel": 0.4, "deco_crates": 0.6,
-	"deco_painting": 0.12, "deco_shelf": 0.12, "deco_clock": 0.12}
+	"deco_painting": 0.12, "deco_shelf": 0.12, "deco_clock": 0.12, "insulator": 0.06, "switch": 0.15, "electric_motor": 0.1,
+	"rotisserie": 0.8}
 
 var player: Player
 var selection: Dictionary = ENTRIES["Estrutura"][0]
@@ -582,6 +590,8 @@ func dismantle() -> bool:
 		else:
 			var base := _base_kind(hit.collider.kind)
 			_refund(entry_for("place", base).get("cost", {}))
+			if base == "battery" and Electric.cells(hit.collider) > 0:
+				player.inventory.add(Electric.CELL_ITEM, Electric.cells(hit.collider)) # as células voltam inteiras
 			if Electric.has(base):
 				for other_id in hit.collider.extra.get("cables", []):
 					var other: PlacedObject = _placed().objects.get(other_id)
@@ -677,6 +687,14 @@ func _compute_place() -> Dictionary:
 	var hit := _ray()
 	if selection.place == "blast_stack":
 		return _compute_stack(placed, hit)
+	if selection.place == "electric_motor":
+		return _compute_motor(placed, hit)
+	if selection.place in Electric.ANY_SURFACE and not hit.is_empty():
+		# Isolador/interruptor: em qualquer superfície (chão, parede, teto), virado para fora.
+		var n: Vector3 = hit.normal
+		var up := Vector3.UP if absf(n.y) < 0.9 else Vector3.FORWARD
+		var surf := Transform3D(Basis.looking_at(-n, up), hit.position + n * 0.004)
+		return {"xform": surf, "valid": not placed.occupied(surf.origin, 0.06), "kind": selection.place}
 	# Conector, lâmpada e enfeites de parede: mirando uma parede, vão na parede.
 	var wall := wall_kind(selection.place)
 	if wall != "" and not hit.is_empty() and absf(hit.normal.y) < 0.35:
@@ -698,6 +716,29 @@ func _compute_place() -> Dictionary:
 	var valid := not placed.occupied(xform.origin, PLACE_RADIUS[selection.place]) \
 			and player.global_position.distance_to(xform.origin) > 0.6
 	return {"xform": xform, "valid": valid}
+
+
+## Motor elétrico: encaixa na porta de latão mais perto da máquina mirada (máquina de
+## rotação, não gerador). O corpo sai para fora da porta.
+func _compute_motor(placed: PlacedManager, hit: Dictionary) -> Dictionary:
+	if hit.is_empty() or not hit.collider is PlacedObject:
+		return {}
+	var machine: PlacedObject = hit.collider
+	if not Power.DEMAND.has(machine.kind) or machine.kind == "dynamo":
+		return {}
+	var best := []
+	for port in Power.world_ports(machine):
+		if best.is_empty() or port[0].distance_to(hit.position) < best[0].distance_to(hit.position):
+			best = port
+	if best.is_empty():
+		return {}
+	var out: Vector3 = best[1].normalized()
+	var xform := Transform3D(Basis(out, Vector3.UP, out.cross(Vector3.UP)), best[0])
+	var taken := false
+	for obj: PlacedObject in placed.objects.values():
+		if obj.kind == "electric_motor" and obj.global_position.distance_to(best[0]) < 0.15:
+			taken = true
+	return {"xform": xform, "valid": not taken}
 
 
 ## Variante de parede do que está no martelo ("" = não vai na parede).

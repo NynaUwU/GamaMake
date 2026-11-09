@@ -298,10 +298,10 @@ func _hover(index: int) -> void:
 	if index < 0 or inventory.slots[index].is_empty() or not _backpack.visible:
 		_tooltip.visible = false
 		return
-	_show_tooltip(inventory.slots[index].id, inventory.slots[index].amount, inventory.slots[index].get("dur", 1.0))
+	_show_tooltip(inventory.slots[index].id, inventory.slots[index].amount, inventory.slots[index].get("dur", 1.0), inventory.slots[index].get("sharp", 0.0))
 
 
-func _show_tooltip(id: StringName, amount: int, dur := 1.0) -> void:
+func _show_tooltip(id: StringName, amount: int, dur := 1.0, sharp := 0.0) -> void:
 	var item := ItemDB.def(id)
 	_tooltip_title.text = item.name
 	_spinner.show_item(id)
@@ -310,6 +310,8 @@ func _show_tooltip(id: StringName, amount: int, dur := 1.0) -> void:
 		lines.append("Tipo de dano: %s" % item.damage_type)
 		lines.append("Dano: %d" % item.damage)
 		lines.append("Empurrão: %d" % item.knockback)
+	if sharp > 0.0:
+		lines.append("Afiada: +%d%% de dano (fio %d%%)" % [int(ItemDB.SHARP_BONUS * sharp * 100.0), int(sharp * 100.0)])
 	else:
 		lines.append({"tool": "Ferramenta", "material": "Material"}.get(item.kind, ""))
 	if amount > 1:

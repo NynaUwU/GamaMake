@@ -248,7 +248,8 @@ func _collect_rain() -> void:
 
 
 ## Coisas que vão na parede (o martelo/tocha escolhe a variante mirando uma parede).
-const WALL_KINDS := ["connector_wall", "lamp_wall", "torch_wall", "deco_painting", "deco_shelf", "deco_clock"]
+const WALL_KINDS := ["connector_wall", "lamp_wall", "torch_wall", "deco_painting", "deco_shelf", "deco_clock",
+	"insulator", "switch", "switch_wall", "electric_motor"]
 
 
 ## Pedido de qualquer jogador (vai para o host).
@@ -286,7 +287,7 @@ func host_apply(action: String, args: Array) -> Array:
 					"grindstone", "quern", "pump", "spinning", "loom", "stone_furnace", "oven", "filter", "smoker", "compost", "sieve",
 					"shaft", "water_wheel", "windmill", "sawmill", "ram_pump", "stairs",
 					"blast_furnace", "blast_stack", "boiler", "steam_engine", "water_tank", "sprinkler", "lathe", "press", "distillery",
-					"trough", "water_trough", "fence", "gate"] \
+					"trough", "water_trough", "fence", "gate", "rotisserie"] \
 					and not Electric.has(kind) and not Decor.has(kind) and not PlacedTorch.has(kind):
 				return []
 			if kind in ["water_wheel", "ram_pump"] and not river_bank(xform.origin):
@@ -342,6 +343,37 @@ func host_apply(action: String, args: Array) -> Array:
 			Electric.dirty = true
 			Sfx.play_at("click", Electric.terminal(b), 0.0, 1.3)
 			return [a.net_id, cables_a, b.net_id, cables_b]
+		"grind_put":
+			# Ferramenta deixada na pedra de amolar com força (já saiu da mochila de quem pôs).
+			var obj: PlacedObject = objects.get(args[0])
+			var tool: Dictionary = args[1] if args[1] is Dictionary else {}
+			if obj == null or obj.kind != "grindstone" or not obj.extra.get("tool", {}).is_empty() or tool.is_empty():
+				if not tool.is_empty():
+					Net.i.give_to(Net.i.request_peer, StringName(tool.id), 1, -1, float(tool.get("dur", 1.0)))
+				return []
+			obj.extra.tool = {"id": String(tool.id), "dur": float(tool.get("dur", 1.0)), "sharp": float(tool.get("sharp", 0.0))}
+			obj.refresh(clock)
+			return [args[0], {"tool": obj.extra.tool}]
+		"grind_take":
+			var obj: PlacedObject = objects.get(args[0])
+			if obj == null or obj.kind != "grindstone" or obj.extra.get("tool", {}).is_empty():
+				return []
+			var tool: Dictionary = obj.extra.tool
+			obj.extra.tool = {}
+			obj.refresh(clock)
+			if Net.i.request_peer == Net.i.my_id():
+				AutoMachines.receive(self, tool) # quem pegou é o host
+			return [args[0], {"tool": {}}, tool, Net.i.request_peer]
+		"battery_cell":
+			# Célula posta na estrutura da bateria (já saiu da mochila de quem pôs).
+			var obj: PlacedObject = objects.get(args[0])
+			if obj == null or obj.kind != "battery" or Electric.cells(obj) >= Electric.CELLS:
+				if obj:
+					Net.i.give_to(Net.i.request_peer, Electric.CELL_ITEM, 1)
+				return []
+			obj.extra.cells = Electric.cells(obj) + 1
+			obj.refresh(clock)
+			return [args[0], {"cells": obj.extra.cells}]
 		"zap":
 			var obj: PlacedObject = objects.get(args[0])
 			if obj == null or Net.i.request_peer != Net.i.my_id():
@@ -519,6 +551,8 @@ func host_apply(action: String, args: Array) -> Array:
 			var obj: PlacedObject = objects[args[0]]
 			if obj.kind == "flag":
 				Net.i.give_to(Net.i.request_peer, &"bandeira", 1) # recolheu: volta para a mochila
+			if obj.kind == "grindstone" and not obj.extra.get("tool", {}).is_empty():
+				Net.i.give_to(Net.i.request_peer, StringName(obj.extra.tool.id), 1, -1, float(obj.extra.tool.get("dur", 1.0))) # a ferramenta que estava amolando
 			if PlacedTorch.has(obj.kind) and PlacedTorch.left(obj, clock) > 20.0:
 				# A tocha volta com o que ainda tinha para queimar.
 				Net.i.give_to(Net.i.request_peer, &"tocha", 1, -1, minf(PlacedTorch.left(obj, clock) / PlacedTorch.BURN, 1.0))
@@ -595,6 +629,8 @@ func host_apply(action: String, args: Array) -> Array:
 			if obj == null or not args[1] is Dictionary:
 				return []
 			obj.extra.merge(args[1], true)
+			if obj.kind in Electric.SWITCHES and args[1].has("closed"):
+				Electric.dirty = true # interruptor mudou: a rede se divide/junta
 			obj.refresh(clock)
 			return args
 		"plant_tree":
@@ -788,8 +824,17 @@ func apply_remote(action: String, args: Array) -> void:
 			var obj: PlacedObject = objects.get(args[0])
 			if obj:
 				ElectricFence.spark(obj, args[1])
-		"extra", "gate", "fence_hit", "radio_deliver":
+		"grind_take":
 			var obj: PlacedObject = objects.get(args[0])
+			if obj:
+				obj.extra.tool = {}
+				obj.refresh(clock)
+			if args.size() > 3 and args[3] == Net.i.my_id():
+				AutoMachines.receive(self, args[2]) # a ferramenta volta para quem pegou, com o fio
+		"extra", "gate", "fence_hit", "radio_deliver", "battery_cell", "grind_put":
+			var obj: PlacedObject = objects.get(args[0])
+			if obj and obj.kind in Electric.SWITCHES:
+				Electric.dirty = true
 			if obj and args[1].get("gone", false):
 				_remove(args[0])
 			elif obj:
