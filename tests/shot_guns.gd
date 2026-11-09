@@ -45,10 +45,12 @@ func _init() -> void:
 		Input.action_release("block")
 		for k in 30:
 			player._update_pistol(0.05)
+		player._update_fp_arm() # física parada na foto: os braços seguem a arma aqui
 		await _shot("arma_%s_quadril" % id, 25)
 		Input.action_press("block")
 		for k in 30:
 			player._update_pistol(0.05)
+		player._update_fp_arm()
 		await _shot("arma_%s_mirando" % id, 10)
 		Input.action_release("block")
 		for k in 30:

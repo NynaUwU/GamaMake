@@ -48,16 +48,16 @@ const WEAPON_FROM_ITEM := {"sword": WeaponType.SWORD, "bat": WeaponType.BAT,
 const GUNS := {
 	&"pistola": {"ammo": &"cartucho", "mag": 6, "damage": 40.0, "force": 20.0, "rate": 0.3, "reload": 1.9, "range": 70.0,
 		"spread": 0.014, "aim": 0.004, "pellets": 1, "pierce": 1, "kick": 0.014, "zoom": 62.0,
-		"rest": Vector3(0.2, -0.21, -0.42), "ads": Vector3(0.0, -0.058, -0.3), "muzzle": Vector3(0, 0.035, -0.17), "pitch": 1.0, "volume": 0.0},
+		"rest": Vector3(0.2, -0.21, -0.42), "ads": Vector3(0.0, -0.072, -0.34), "muzzle": Vector3(0, 0.035, -0.17), "pitch": 1.0, "volume": 0.0},
 	&"rifle": {"ammo": &"bala_rifle", "mag": 1, "damage": 115.0, "force": 45.0, "rate": 0.5, "reload": 1.6, "range": 190.0,
 		"spread": 0.02, "aim": 0.0008, "pellets": 1, "pierce": 3, "kick": 0.04, "zoom": 50.0,
-		"rest": Vector3(0.17, -0.2, -0.36), "ads": Vector3(0.0, -0.034, -0.12), "muzzle": Vector3(0, 0.017, -0.74), "fore": Vector3(0, -0.03, -0.36), "pitch": 0.72, "volume": 3.0},
+		"rest": Vector3(0.17, -0.2, -0.36), "ads": Vector3(0.0, -0.051, -0.19), "muzzle": Vector3(0, 0.017, -0.74), "fore": Vector3(0, -0.03, -0.36), "pitch": 0.72, "volume": 3.0},
 	&"rifle_luneta": {"ammo": &"bala_rifle", "mag": 1, "damage": 115.0, "force": 45.0, "rate": 0.5, "reload": 1.6, "range": 220.0,
 		"spread": 0.02, "aim": 0.0002, "pellets": 1, "pierce": 3, "kick": 0.04, "zoom": 16.0, "scope": true,
-		"rest": Vector3(0.17, -0.2, -0.36), "ads": Vector3(0.0, -0.069, -0.06), "muzzle": Vector3(0, 0.017, -0.74), "fore": Vector3(0, -0.03, -0.36), "pitch": 0.72, "volume": 3.0},
+		"rest": Vector3(0.17, -0.2, -0.36), "ads": Vector3(0.0, -0.069, -0.1), "muzzle": Vector3(0, 0.017, -0.74), "fore": Vector3(0, -0.03, -0.36), "pitch": 0.72, "volume": 3.0},
 	&"espingarda": {"ammo": &"cartucho_espingarda", "mag": 2, "damage": 18.0, "force": 16.0, "rate": 0.32, "reload": 2.3, "range": 30.0,
 		"spread": 0.055, "aim": 0.04, "pellets": 8, "pierce": 1, "kick": 0.06, "zoom": 64.0, "falloff": 7.0,
-		"rest": Vector3(0.17, -0.21, -0.36), "ads": Vector3(0.0, -0.028, -0.14), "muzzle": Vector3(0, 0.013, -0.62), "fore": Vector3(0, -0.03, -0.3), "pitch": 0.55, "volume": 5.0},
+		"rest": Vector3(0.17, -0.21, -0.36), "ads": Vector3(0.0, -0.035, -0.2), "muzzle": Vector3(0, 0.013, -0.62), "fore": Vector3(0, -0.03, -0.3), "pitch": 0.55, "volume": 5.0},
 }
 const GUN_IDS := [&"pistola", &"rifle", &"rifle_luneta", &"espingarda"] ## índice que vai pela rede no "shoot"
 const SLIPPER_REST := Vector3(0.2, -0.24, -0.4)

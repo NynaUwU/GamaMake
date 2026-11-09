@@ -206,7 +206,7 @@ static func _revolver(p: Dictionary) -> void:
 	_mb(p, blued).lathe(PackedVector2Array([Vector2(0.002, -0.032), Vector2(0.0125, -0.032), Vector2(0.0115, 0.168), Vector2(0.002, 0.168)]), 8, AXIS_Z, axis)
 	_mb(p, blued.lightened(0.08)).box(Vector3(0, 0.048, -0.1), Vector3(0.006, 0.004, 0.13)) # nervura
 	_mb(p, ItemModels.DARK).lathe(PackedVector2Array([Vector2(0.006, 0.1685), Vector2(0.001, 0.169)]), 8, AXIS_Z, axis)
-	_mb(p, steel).box(Vector3(0, 0.051, -0.16), Vector3(0.003, 0.008, 0.012)) # massa de mira
+	_mb(p, steel).box(Vector3(0, 0.061, -0.16), Vector3(0.0035, 0.024, 0.012)) # massa de mira (alta: linha de mira acima do cão)
 	# Vareta de ejeção embaixo do cano.
 	_mb(p, steel).lathe(PackedVector2Array([Vector2(0.0045, -0.03), Vector2(0.0045, 0.12)]), 6, AXIS_Z, Vector3(0, 0.017, 0))
 	_mb(p, steel).lathe(PackedVector2Array([Vector2(0.002, 0.12), Vector2(0.007, 0.121), Vector2(0.007, 0.13), Vector2(0.002, 0.131)]), 6, AXIS_Z, Vector3(0, 0.017, 0))
@@ -225,7 +225,8 @@ static func _revolver(p: Dictionary) -> void:
 	_mb(p, blued).box(Vector3(0, 0.004, 0.005), Vector3(0.016, 0.014, 0.075)) # baixo
 	_mb(p, blued).box(Vector3(0, 0.03, -0.034), Vector3(0.016, 0.044, 0.01)) # frente do quadro
 	_mb(p, blued).box(Vector3(0, 0.03, 0.034), Vector3(0.026, 0.06, 0.014)) # escudo
-	_mb(p, blued.lightened(0.1)).box(Vector3(0, 0.062, 0.035), Vector3(0.004, 0.004, 0.012)) # mira traseira (entalhe)
+	for side in [-1.0, 1.0]:
+		_mb(p, blued.lightened(0.1)).box(Vector3(side * 0.0042, 0.067, 0.035), Vector3(0.0035, 0.012, 0.01)) # alça (entalhe no meio)
 	# Cão com espora.
 	_mb(p, steel).box(Vector3(0, 0.052, 0.046), Vector3(0.008, 0.024, 0.012), Basis(Vector3.RIGHT, 0.5))
 	_mb(p, steel).box(Vector3(0, 0.066, 0.058), Vector3(0.01, 0.007, 0.02), Basis(Vector3.RIGHT, 0.2)) # espora
@@ -1461,11 +1462,13 @@ static func _rifle(p: Dictionary, scoped: bool) -> void:
 	_buttstock(p, WALNUT, 0.38, 0.11, 0.036)
 	_mb(p, ItemModels.STEEL).torus(0.008, 0.0018, 8, 3, Basis(Vector3.BACK, PI / 2), Vector3(0, -0.085, 0.3))
 	# Miras de ferro: massa (lâmina) na boca e alça de escada com o entalhe.
-	_mb(p, BLUED.lightened(0.1)).box(Vector3(0, 0.0255, -0.718), Vector3(0.012, 0.004, 0.02)) # base
-	_mb(p, ItemModels.STEEL.lightened(0.15)).box(Vector3(0, 0.0305, -0.718), Vector3(0.0025, 0.008, 0.006)) # lâmina
-	_mb(p, BLUED.lightened(0.1)).box(Vector3(0, 0.0275, -0.2), Vector3(0.014, 0.006, 0.03)) # base da alça
+	_mb(p, BLUED.lightened(0.1)).box(Vector3(0, 0.035, -0.718), Vector3(0.01, 0.018, 0.02)) # torre da massa
+	_mb(p, ItemModels.STEEL.lightened(0.15)).box(Vector3(0, 0.0475, -0.718), Vector3(0.0025, 0.009, 0.006)) # lâmina (topo = linha de mira)
+	_mb(p, BLUED.lightened(0.1)).box(Vector3(0, 0.035, -0.2), Vector3(0.014, 0.018, 0.03)) # base da alça de escada
+	for k in 3:
+		_mb(p, BLUED.lightened(0.2)).box(Vector3(0, 0.03 + k * 0.005, -0.186), Vector3(0.012, 0.0012, 0.002)) # marcas de distância
 	for side in [-1.0, 1.0]:
-		_mb(p, BLUED.lightened(0.15)).box(Vector3(side * 0.0055, 0.0335, -0.2), Vector3(0.004, 0.008, 0.004)) # orelhas (entalhe no meio)
+		_mb(p, BLUED.lightened(0.15)).box(Vector3(side * 0.0055, 0.049, -0.2), Vector3(0.004, 0.01, 0.004)) # orelhas (entalhe no meio)
 	if scoped:
 		_scope(p, Vector3(0, 0.069, -0.02), false)
 
@@ -1498,7 +1501,8 @@ static func _shotgun(p: Dictionary) -> void:
 		_mb(p, ItemModels.DARK).lathe(PackedVector2Array([Vector2(0.0085, 0.6205), Vector2(0.001, 0.621)]), 10, AXIS_Z, axis) # boca
 	_mb(p, BLUED.lightened(0.1)).box(Vector3(0, 0.0255, -0.34), Vector3(0.008, 0.004, 0.56)) # fita entre os canos
 	_mb(p, BLUED).box(Vector3(0, 0.001, -0.34), Vector3(0.008, 0.006, 0.56)) # fita de baixo
-	_mb(p, ItemModels.BRASS).lathe(PackedVector2Array([Vector2(0.002, 0.0), Vector2(0.0035, 0.001), Vector2(0.0035, 0.004), Vector2(0.002, 0.006)]), 6, Basis.IDENTITY, Vector3(0, 0.0275, -0.612)) # grão
+	_mb(p, BLUED.lightened(0.1)).box(Vector3(0, 0.029, -0.612), Vector3(0.006, 0.006, 0.01)) # pé do grão
+	_mb(p, ItemModels.BRASS).lathe(PackedVector2Array([Vector2(0.002, 0.0), Vector2(0.0038, 0.001), Vector2(0.0038, 0.003), Vector2(0.002, 0.0045)]), 6, Basis.IDENTITY, Vector3(0, 0.0315, -0.612)) # grão de latão
 	_mb(p, BLUED.lightened(0.15)).lathe(PackedVector2Array([Vector2(0.026, 0.065), Vector2(0.026, 0.075)]), 10, AXIS_Z, Vector3(0, 0.013, 0)) # culatra dos canos
 	# Báscula com placas de latão gravadas e o pino da dobradiça.
 	_mb(p, CASE).box(Vector3(0, 0.008, 0.0), Vector3(0.05, 0.042, 0.12))
