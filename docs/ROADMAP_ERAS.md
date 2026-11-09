@@ -54,13 +54,21 @@ Plano em fases do pacote "eras + minigames". Cada fase fecha uma rodada jogável
   bateria (2 por vez) e lâmpadas (4 por vez). Minigame de solda no modo maçarico.
 - Ficou para depois: tornos e serras manuais com qualidade.
 
-## Fase 3 — Elétrica 2 (Era 3)
+## Fase 3 — Elétrica 2 (Era 3) — feita
 
-- **Voltagem**: redes 12 V (baterias) e 110 V (banco); aparelho na tensão errada
-  queima ou não liga.
-- **Carregador de baterias** e **banco de baterias** com desgaste (ciclos) e risco
-  de sobrecarga (estufa, vaza, pega fogo).
-- Bancada de eletrônicos (futuro): módulo de controle e módulo de temperatura
+- **Tensão por rede**: fontes de 12 V (painel solar, bateria, dínamo regulado em 12) e
+  de 110 V (dínamo regulado em 110 com [E], banco de baterias). Rede com fonte de 110 V
+  vira 110 V: painel de 12 V fica bloqueado e bateria de 12 V queima o fusível ([E]
+  troca). Quase tudo é bivolt; a bancada de solda só liga em 110 V.
+- **Perda nos cabos**: 12 V perde 0,4% por metro (25 m = 10%); 110 V perde 10x menos.
+- **Banco de baterias (110 V)**: 9 células em série (só funciona completo), 2700 Wh.
+- **Carregador** (110 -> 12 V, 400 W, 90%) e **inversor** (12 -> 110 V, 600 W, 85%):
+  dois bornes (entrada à esquerda, saída à direita), passam a sobra de uma rede para a
+  outra. Pedirem mais que o máximo na saída esquenta; demais, queima ([E] com bobina).
+- **Desgaste e sobrecarga das baterias**: cada ciclo inteiro gasta 0,4% da saúde;
+  ficar vazia com aparelho pedindo gasta mais; tirar acima do normal (até 1,5x) esquenta
+  e uma célula estoura. Célula nova sobe a saúde média.
+- Futuro: bancada de eletrônicos com módulo de controle e módulo de temperatura
   (máquinas mantêm a temperatura sozinhas).
 
 ## Fase 4 — Química e refino (Era 4)

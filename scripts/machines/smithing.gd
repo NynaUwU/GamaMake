@@ -115,7 +115,9 @@ static func missing(recipe: Dictionary, slots: Array, obj: PlacedObject = null) 
 	if slots.size() > Smelting.OUTPUT and not slots[Smelting.OUTPUT].is_empty():
 		return "Tire a peça pronta primeiro"
 	if kind == "weld_bench" and obj and not Electric.powered(obj):
-		return "Sem energia: ligue a bancada na rede elétrica (%d W)" % int(WELD_POWER)
+		if obj.extra.get("lowv", false):
+			return "Precisa de 110 V: dínamo regulado em 110 V, banco de baterias ou inversor"
+		return "Sem energia: ligue a bancada numa rede de 110 V (%d W)" % int(WELD_POWER)
 	return ""
 
 

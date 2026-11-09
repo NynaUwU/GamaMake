@@ -369,13 +369,16 @@ func host_apply(action: String, args: Array) -> Array:
 		"battery_cell":
 			# Célula posta na estrutura da bateria (já saiu da mochila de quem pôs).
 			var obj: PlacedObject = objects.get(args[0])
-			if obj == null or obj.kind != "battery" or Electric.cells(obj) >= Electric.CELLS:
+			if obj == null or not Electric.is_battery(obj.kind) or Electric.cells(obj) >= Electric.max_cells(obj.kind):
 				if obj:
 					Net.i.give_to(Net.i.request_peer, Electric.CELL_ITEM, 1)
 				return []
-			obj.extra.cells = Electric.cells(obj) + 1
+			var n := Electric.cells(obj)
+			obj.extra.health = (Electric.health(obj) * n + 1.0) / (n + 1) # célula nova: a saúde média sobe
+			obj.extra.cells = n + 1
 			obj.refresh(clock)
-			return [args[0], {"cells": obj.extra.cells}]
+			Electric.dirty = true # banco completo vira fonte de 110 V
+			return [args[0], {"cells": obj.extra.cells, "health": obj.extra.health}]
 		"zap":
 			var obj: PlacedObject = objects.get(args[0])
 			if obj == null or Net.i.request_peer != Net.i.my_id():

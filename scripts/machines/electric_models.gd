@@ -70,6 +70,10 @@ static func build(kind: String, obj: PlacedObject) -> void:
 			_solar(mb, obj)
 		"battery":
 			_battery(mb, obj)
+		"battery_bank":
+			_bank(mb, obj)
+		"charger", "inverter":
+			_converter(mb, obj)
 		"lamp":
 			# Lampadário: pé de ferro fundido, haste e lâmpada numa gaiola de latão.
 			mb.color(ItemModels.IRON)
@@ -235,8 +239,108 @@ static func _solar(mb: MeshBuilder, obj: PlacedObject) -> void:
 
 
 ## Lugar de cada célula na estrutura (3 x 2).
-static func _cell_spot(k: int) -> Vector3:
+static func _cell_spot(k: int, kind := "battery") -> Vector3:
+	if kind == "battery_bank":
+		return Vector3(-0.36 + (k % 3) * 0.3, 0.08, -0.3 + (k / 3) * 0.3)
 	return Vector3(-0.27 + (k % 3) * 0.27, 0.08, -0.12 + (k / 3) * 0.24)
+
+
+## Célula ("Cell<k>") e o líquido dela ("Level<k>"), escondidos até a célula ser posta.
+static func _cell_nodes(obj: PlacedObject, k: int, c: Vector3) -> void:
+	var cell := MeshBuilder.new()
+	cell.color(GLASS)
+	cell.lathe(PackedVector2Array([Vector2(0.0, 0.0), Vector2(0.1, 0.0), Vector2(0.1, 0.36), Vector2(0.085, 0.38)]), 10)
+	cell.color(ItemModels.COPPER)
+	cell.box(Vector3(-0.03, 0.26, 0), Vector3(0.012, 0.3, 0.12))
+	cell.color(ItemModels.STEEL)
+	cell.box(Vector3(0.03, 0.26, 0), Vector3(0.012, 0.3, 0.12))
+	cell.color(ItemModels.BRASS)
+	cell.box(Vector3(0, 0.42, 0), Vector3(0.1, 0.012, 0.012)) # ponte entre as placas
+	var node := MeshInstance3D.new()
+	node.name = "Cell%d" % k
+	node.mesh = cell.finish(PlacedObject._mat(), false)
+	node.position = c
+	node.visible = false
+	obj.add_child(node)
+	var liquid := MeshBuilder.new()
+	liquid.color(Color(0.3, 0.62, 0.58))
+	liquid.lathe(PackedVector2Array([Vector2(0.0, 0.0), Vector2(0.092, 0.0), Vector2(0.092, 1.0), Vector2(0.0, 1.0)]), 10)
+	var lvl := MeshInstance3D.new()
+	lvl.name = "Level%d" % k
+	lvl.mesh = liquid.finish(PlacedObject._mat(), false)
+	lvl.position = c + Vector3(0, 0.01, 0)
+	lvl.scale = Vector3(1, 0.01, 1)
+	lvl.visible = false
+	obj.add_child(lvl)
+
+
+## Banco de baterias (110 V): estrutura de ferro com 9 vagas em 3 fileiras, barramentos
+## de cobre ligando as células em série, mostrador da carga e o borne grande de latão.
+static func _bank(mb: MeshBuilder, obj: PlacedObject) -> void:
+	mb.color(ItemModels.IRON)
+	mb.box(Vector3(0, 0.04, 0), Vector3(1.12, 0.08, 0.92))
+	for x in [-0.55, 0.55]:
+		for z in [-0.44, 0.44]:
+			mb.box(Vector3(x, 0.3, z), Vector3(0.05, 0.6, 0.05))
+	mb.color(ItemModels.IRON.lightened(0.1))
+	for z in [-0.44, 0.44]:
+		mb.box(Vector3(0, 0.58, z), Vector3(1.12, 0.04, 0.04))
+	for k in Electric.BANK_CELLS:
+		var c := _cell_spot(k, "battery_bank")
+		mb.color(ItemModels.IRON.darkened(0.2))
+		mb.lathe(PackedVector2Array([Vector2(0.0, 0.0), Vector2(0.105, 0.0), Vector2(0.105, 0.012), Vector2(0.0, 0.012)]), 10, Basis.IDENTITY, c)
+		_cell_nodes(obj, k, c)
+	mb.color(ItemModels.COPPER.lightened(0.1))
+	for row in 3: # barramentos: série em zigue-zague
+		mb.box(Vector3(-0.21, 0.52, -0.3 + row * 0.3), Vector3(0.62, 0.015, 0.03))
+	mb.box(Vector3(0.0, 0.52, -0.15), Vector3(0.03, 0.015, 0.3))
+	mb.box(Vector3(-0.36, 0.52, 0.15), Vector3(0.03, 0.015, 0.3))
+	mb.color(Color(0.75, 0.15, 0.1))
+	mb.box(Vector3(-0.53, 0.62, -0.38), Vector3(0.04, 0.04, 0.12)) # placa "110 V" (vermelha)
+	_dial(mb, obj, Vector3(0.62, 0.66, 0), Vector3(0.12, 0.2, 0.2), 0.101)
+	_terminal_box(mb, Vector3(0.62, 0.78, -0.05))
+	obj._shape(Vector3(0.05, 0.36, 0), Vector3(1.25, 0.72, 0.95))
+
+
+## Carregador / inversor: caixa de chapa com aletas, dois bornes de latão em cima
+## (entrada à esquerda, saída à direita), mostrador da carga e a luz (verde
+## funcionando, vermelha queimado). Carregador laranja, inversor azul.
+static func _converter(mb: MeshBuilder, obj: PlacedObject) -> void:
+	var paint := Color(0.75, 0.42, 0.12) if obj.kind == "charger" else Color(0.18, 0.32, 0.55)
+	mb.color(ItemModels.IRON)
+	for x in [-0.18, 0.18]:
+		for z in [-0.12, 0.12]:
+			mb.box(Vector3(x, 0.04, z), Vector3(0.04, 0.08, 0.04))
+	mb.color(paint)
+	mb.box(Vector3(0, 0.33, 0), Vector3(0.46, 0.5, 0.32))
+	mb.color(paint.darkened(0.3))
+	for k in 6:
+		mb.box(Vector3(-0.234, 0.16 + k * 0.05, 0), Vector3(0.012, 0.02, 0.24)) # aletas
+		mb.box(Vector3(0.234, 0.16 + k * 0.05, 0), Vector3(0.012, 0.02, 0.24))
+	mb.color(PORCELAIN)
+	for x in [-0.17, 0.17]:
+		mb.box(Vector3(x, 0.6, 0.0), Vector3(0.06, 0.03, 0.06)) # base isolada do borne
+	mb.color(ItemModels.BRASS)
+	for x in [-0.17, 0.17]:
+		mb.lathe(PackedVector2Array([Vector2(0.0, 0.0), Vector2(0.018, 0.0), Vector2(0.018, 0.035), Vector2(0.026, 0.045), Vector2(0.0, 0.045)]), 8,
+			Basis.IDENTITY, Vector3(x, 0.6, 0.0))
+	mb.color(Color(0.85, 0.85, 0.82))
+	mb.box(Vector3(-0.12, 0.5, 0.162), Vector3(0.12, 0.05, 0.004)) # plaquinha da entrada
+	mb.box(Vector3(0.12, 0.5, 0.162), Vector3(0.12, 0.05, 0.004)) # e da saída
+	mb.color(Color(0.8, 0.12, 0.1) if obj.kind == "charger" else Color(0.15, 0.15, 0.16))
+	mb.box(Vector3(-0.12, 0.5, 0.165), Vector3(0.04, 0.02, 0.003))
+	mb.color(Color(0.15, 0.15, 0.16) if obj.kind == "charger" else Color(0.8, 0.12, 0.1))
+	mb.box(Vector3(0.12, 0.5, 0.165), Vector3(0.04, 0.02, 0.003))
+	_dial(mb, obj, Vector3(-0.04, 0.3, 0.17), Vector3(0.14, 0.14, 0.02), 0.012)
+	var led := MeshInstance3D.new()
+	led.name = "Led"
+	var bead := SphereMesh.new()
+	bead.radius = 0.018
+	bead.height = 0.036
+	led.mesh = bead
+	led.position = Vector3(0.14, 0.3, 0.165)
+	obj.add_child(led)
+	obj._shape(Vector3(0, 0.33, 0), Vector3(0.48, 0.66, 0.34))
 
 
 static func _battery(mb: MeshBuilder, obj: PlacedObject) -> void:
@@ -254,31 +358,7 @@ static func _battery(mb: MeshBuilder, obj: PlacedObject) -> void:
 		var c := _cell_spot(k)
 		mb.color(WOOD_DARK.darkened(0.2))
 		mb.lathe(PackedVector2Array([Vector2(0.0, 0.0), Vector2(0.105, 0.0), Vector2(0.105, 0.012), Vector2(0.0, 0.012)]), 10, Basis.IDENTITY, c) # bolacha da vaga
-		var cell := MeshBuilder.new()
-		cell.color(GLASS)
-		cell.lathe(PackedVector2Array([Vector2(0.0, 0.0), Vector2(0.1, 0.0), Vector2(0.1, 0.36), Vector2(0.085, 0.38)]), 10)
-		cell.color(ItemModels.COPPER)
-		cell.box(Vector3(-0.03, 0.26, 0), Vector3(0.012, 0.3, 0.12))
-		cell.color(ItemModels.STEEL)
-		cell.box(Vector3(0.03, 0.26, 0), Vector3(0.012, 0.3, 0.12))
-		cell.color(ItemModels.BRASS)
-		cell.box(Vector3(0, 0.42, 0), Vector3(0.1, 0.012, 0.012)) # ponte entre as placas
-		var node := MeshInstance3D.new()
-		node.name = "Cell%d" % k
-		node.mesh = cell.finish(PlacedObject._mat(), false)
-		node.position = c
-		node.visible = false
-		obj.add_child(node)
-		var liquid := MeshBuilder.new()
-		liquid.color(Color(0.3, 0.62, 0.58))
-		liquid.lathe(PackedVector2Array([Vector2(0.0, 0.0), Vector2(0.092, 0.0), Vector2(0.092, 1.0), Vector2(0.0, 1.0)]), 10)
-		var lvl := MeshInstance3D.new()
-		lvl.name = "Level%d" % k
-		lvl.mesh = liquid.finish(PlacedObject._mat(), false)
-		lvl.position = c + Vector3(0, 0.01, 0)
-		lvl.scale = Vector3(1, 0.01, 1)
-		lvl.visible = false
-		obj.add_child(lvl)
+		_cell_nodes(obj, k, c)
 	_dial(mb, obj, Vector3(0.36, 0.66, 0), Vector3(0.12, 0.2, 0.2), 0.101)
 	_terminal_box(mb, Vector3(0.36, 0.78, -0.05))
 	obj._shape(Vector3(0, 0.36, 0), Vector3(0.9, 0.72, 0.55))
@@ -508,10 +588,23 @@ static func refresh(obj: PlacedObject) -> void:
 	var light := obj.get_node_or_null("Light") as OmniLight3D
 	if light:
 		light.visible = on
-	if obj.kind == "battery":
+	_pop(obj)
+	if obj.kind in Electric.CONVERTERS:
+		_needle(obj, obj.extra.get("gauge", 0.0))
+		var led := obj.get_node_or_null("Led") as MeshInstance3D
+		if led:
+			var status: String = obj.extra.get("status", "")
+			var color := Color(1.0, 0.15, 0.1) if status == "burnt" or obj.extra.get("heat", 0.0) > 0.5 else (Color(0.2, 1.0, 0.3) if status == "ok" else Color(0.15, 0.15, 0.15))
+			var mat := StandardMaterial3D.new()
+			mat.albedo_color = color
+			mat.emission_enabled = color.v > 0.3
+			mat.emission = color
+			mat.emission_energy_multiplier = 2.0
+			led.material_override = mat
+	if Electric.is_battery(obj.kind):
 		var n := Electric.cells(obj)
 		var fill := clampf(obj.extra.get("charge", 0.0) / maxf(Electric.capacity(obj), 1.0), 0.0, 1.0)
-		for k in Electric.CELLS:
+		for k in Electric.max_cells(obj.kind):
 			var cell := obj.get_node_or_null("Cell%d" % k) as Node3D
 			var level := obj.get_node_or_null("Level%d" % k) as Node3D
 			if cell:
@@ -530,3 +623,18 @@ static func refresh(obj: PlacedObject) -> void:
 		var needle := obj.get_node_or_null("Needle") as Node3D
 		if needle:
 			needle.position.x = 0.11 + fposmod(obj.extra.get("msg_t", 0.0) * 7.3, 1.0) * 0.12
+
+
+## Estalo e faíscas quando o host avisa (célula estourou, fusível queimou, conversor
+## queimou): "pop" muda de valor. No primeiro refresh (save/entrou depois) não toca.
+static func _pop(obj: PlacedObject) -> void:
+	var pop: int = int(obj.extra.get("pop", 0))
+	if not obj.has_meta("pop_seen"):
+		obj.set_meta("pop_seen", pop)
+		return
+	if pop == int(obj.get_meta("pop_seen")):
+		return
+	obj.set_meta("pop_seen", pop)
+	if obj.is_inside_tree():
+		Sfx.play_at("crack", obj.global_position + Vector3.UP * 0.5, 2.0, 0.9)
+		ElectricFence.spark(obj, Vector3(0, 0.55, 0)) # faíscas e o zumbido do choque

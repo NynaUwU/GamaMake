@@ -118,9 +118,9 @@ func _init() -> void:
 	Progress.i.manuals[&"manual_soldagem"] = true
 	print("solda com manual, sem energia: '%s'; aceita aço=%s eletrodo no 2º=%s carvão=%s" % [Smithing.missing(couraca, bslots, bench),
 		Smelting.accepts(0, &"barra_aco", "weld_bench"), Smelting.accepts(1, &"eletrodo", "weld_bench"), Smelting.accepts(1, &"carvao", "weld_bench")])
-	var battery := _spawn("battery", at + Vector3(4, 0, 2))
-	battery.extra.cells = 4
-	battery.extra.charge = 800.0
+	var battery := _spawn("battery_bank", at + Vector3(4, 0, 2))
+	battery.extra.cells = 9
+	battery.extra.charge = 2000.0
 	placed.host_apply("cable", [battery.net_id, bench.net_id])
 	for k in 2:
 		placed._electric()

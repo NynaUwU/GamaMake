@@ -52,9 +52,9 @@ func _init() -> void:
 	var at := player.global_position + Vector3(4, 0, -4)
 	# --- Chapas na bancada de solda.
 	var bench := _spawn("weld_bench", at)
-	var battery := _spawn("battery", at + Vector3(0, 0, 2))
-	battery.extra.cells = 4
-	battery.extra.charge = 800.0
+	var battery := _spawn("battery_bank", at + Vector3(0, 0, 2))
+	battery.extra.cells = 9
+	battery.extra.charge = 2000.0
 	placed.host_apply("cable", [battery.net_id, bench.net_id])
 	placed._electric()
 	var key := Smelting.key_of(bench)

@@ -90,15 +90,18 @@ const ENTRIES := {
 		{"id": "insulator", "name": "Isolador", "place": "insulator", "desc": "Isolador de cerâmica: vai na parede, no teto ou no chão e leva o cabo esticado, rente à superfície (organiza a fiação)", "cost": {&"argila": 1}},
 		{"id": "switch", "name": "Interruptor", "place": "switch", "desc": "No chão (pedestal) ou na parede. Dois bornes: um cabo na entrada e outro na saída; desligado, a energia não passa. [E] liga/desliga", "cost": {&"barra_cobre": 1, &"tabua": 1}},
 		{"id": "electric_motor", "name": "Motor elétrico", "place": "electric_motor", "desc": "Encaixa na porta de latão de qualquer máquina de rotação (moinho, roca, tear, serraria, torno, prensa, peneira, fole, amolar, bomba, assador...): com energia dá força 4 a ela. Gasta 300 W, só com a máquina trabalhando. Não move dínamo", "cost": {&"bobina": 2, &"barra_ferro": 3, &"parafuso": 2}},
-		{"id": "dynamo", "name": "Dínamo", "place": "dynamo", "desc": "Eixo com força na porta de latão (carga 2) vira 600 W. Ponteiro: quanto da geração está sendo usado (carregar bateria conta). Borne em cima: ligue o cabo", "cost": {&"bobina": 2, &"barra_ferro": 4, &"barra_cobre": 2, &"parafuso": 4}},
-		{"id": "solar_panel", "name": "Painel solar", "place": "solar_panel", "desc": "Até 300 W com sol a pino (nublado e chuva rendem menos, noite nada)", "cost": {&"vidro": 4, &"barra_cobre": 3, &"bobina": 1, &"barra_ferro": 2}},
-		{"id": "battery", "name": "Bateria", "place": "battery", "desc": "Estrutura para até 6 células (mesa). [E] com célula na mochila: põe uma. Cada célula guarda 300 Wh e carrega/descarrega até 500 W. Ponteiro mostra a carga", "cost": {&"tabua": 4, &"barra_ferro": 1, &"barra_cobre": 1}},
+		{"id": "dynamo", "name": "Dínamo", "place": "dynamo", "desc": "Eixo com força na porta de latão (carga 2) vira 600 W. [E] no regulador: 12 V (carrega bateria direto) ou 110 V (bancada de solda, banco de baterias; bateria de 12 V só pelo carregador). Ponteiro: quanto da geração está sendo usado", "cost": {&"bobina": 2, &"barra_ferro": 4, &"barra_cobre": 2, &"parafuso": 4}},
+		{"id": "solar_panel", "name": "Painel solar", "place": "solar_panel", "desc": "Até 300 W em 12 V com sol a pino (nublado e chuva rendem menos, noite nada). Numa rede de 110 V fica bloqueado", "cost": {&"vidro": 4, &"barra_cobre": 3, &"bobina": 1, &"barra_ferro": 2}},
+		{"id": "battery", "name": "Bateria", "place": "battery", "desc": "Bateria de 12 V: estrutura para até 6 células (mesa ou maçarico). [E] com célula: põe uma. Cada célula guarda 300 Wh e dá 500 W (até 750 W esquentando: demais, estoura). Gasta com os ciclos. Numa rede de 110 V queima o fusível ([E] troca)", "cost": {&"tabua": 4, &"barra_ferro": 1, &"barra_cobre": 1}},
+		{"id": "battery_bank", "name": "Banco de baterias", "place": "battery_bank", "desc": "110 V: 9 células em série (só funciona com as 9). Guarda 2700 Wh e dá até 4500 W. Liga direto no dínamo em 110 V e na bancada de solda", "cost": {&"barra_ferro": 6, &"barra_cobre": 4, &"tabua": 2}},
+		{"id": "charger", "name": "Carregador", "place": "charger", "desc": "Carregador de baterias: 110 V na entrada (borne da esquerda) vira 12 V na saída (direita), até 400 W (90%). Consumo maior na saída esquenta e queima ([E] com bobina conserta)", "cost": {&"bobina": 2, &"cabo": 2, &"barra_ferro": 2}},
+		{"id": "inverter", "name": "Inversor", "place": "inverter", "desc": "12 V na entrada (esquerda) vira 110 V na saída (direita), até 600 W (85%): bancada de solda no painel solar e nas baterias de 12 V. Sobrecarga esquenta e queima", "cost": {&"bobina": 3, &"cabo": 2, &"barra_cobre": 2, &"barra_ferro": 1}},
 		{"id": "lamp", "name": "Lâmpada", "place": "lamp", "desc": "Luz elétrica (50 W). No chão vira lampadário; mirando uma parede, arandela. Para apagar, ponha um interruptor no cabo", "cost": {&"lampada": 1, &"barra_ferro": 1, &"barra_cobre": 1}},
 		{"id": "electric_fence", "name": "Cerca elétrica", "place": "electric_fence", "desc": "2,4 m de fios: com energia (100 W) dá choque em quem encosta (dano e tontura). Shift alinha na grade", "cost": {&"tabua": 3, &"barra_cobre": 2, &"cabo": 2, &"argila": 2}},
 		{"id": "fridge", "name": "Geladeira", "place": "fridge", "desc": "Guarda 21 itens; ligada (150 W) a comida quase não estraga. Desligada estraga como num baú", "cost": {&"tabua": 8, &"barra_ferro": 4, &"cano": 2, &"bobina": 1, &"barra_cobre": 2}},
 		{"id": "radio", "name": "Rádio", "place": "radio", "desc": "Ligado (50 W) pega transmissões: direção da horda, airdrops no mapa e pedidos de sobreviventes (com recompensa)", "cost": {&"tabua": 4, &"vidro": 2, &"barra_cobre": 3, &"bobina": 1, &"lampada": 2}},
 		{"id": "electric_pump", "name": "Bomba elétrica", "place": "electric_pump", "desc": "Poço: com energia (200 W) põe 1,5 de água por segundo no cano, em qualquer lugar", "cost": {&"barra_ferro": 4, &"bobina": 1, &"cano": 2, &"parafuso": 2}},
-		{"id": "weld_bench", "name": "Bancada de solda", "place": "weld_bench", "manual": &"manual_soldagem", "desc": "Mesa de aço com transformador (300 W ligada): chapas de aço + eletrodos viram armaduras soldadas. Minigame: siga a junta com velocidade constante", "cost": {&"barra_aco": 4, &"bobina": 2, &"cabo": 4, &"tabua": 2}},
+		{"id": "weld_bench", "name": "Bancada de solda", "place": "weld_bench", "manual": &"manual_soldagem", "desc": "Mesa de aço com transformador (300 W, só em 110 V: dínamo em 110 V, banco de baterias ou inversor): armaduras soldadas e chapas. Minigame: siga a junta com velocidade constante", "cost": {&"barra_aco": 4, &"bobina": 2, &"cabo": 4, &"tabua": 2}},
 	],
 	"Decoração": [
 		{"id": "deco_table", "name": "Mesa", "place": "deco_table", "desc": "Mesa de madeira (enfeite)", "cost": {&"tabua": 4}},
@@ -150,7 +153,8 @@ const PLACE_SIZE := {"pot_small": Vector3(0.46, 0.31, 0.46), "pot_wide": Vector3
 	"torch": Vector3(0.14, 0.8, 0.14), "torch_wall": Vector3(0.14, 0.35, 0.2),
 	"insulator": Vector3(0.08, 0.08, 0.08), "switch": Vector3(0.26, 1.1, 0.26), "switch_wall": Vector3(0.24, 0.26, 0.08),
 	"electric_motor": Vector3(0.7, 0.8, 0.42), "rotisserie": Vector3(1.6, 1.0, 0.9), "forge": Vector3(2.5, 2.65, 1.05), "wire_drawer": Vector3(2.0, 1.0, 0.7),
-	"foundry": Vector3(2.2, 1.7, 1.2), "weld_bench": Vector3(1.9, 1.5, 0.85), "torch_bench": Vector3(1.9, 1.3, 0.85)}
+	"foundry": Vector3(2.2, 1.7, 1.2), "weld_bench": Vector3(1.9, 1.5, 0.85), "torch_bench": Vector3(1.9, 1.3, 0.85),
+	"battery_bank": Vector3(1.35, 0.85, 1.0), "charger": Vector3(0.5, 0.7, 0.36), "inverter": Vector3(0.5, 0.7, 0.36)}
 ## Centro da caixa (vermelha, ao desmontar) quando não é logo acima da origem.
 const PLACE_CENTER := {"bed": Vector3(1.4, 0.1, 1.4), "stairs": Vector3(0, 1.4, -1.4), "steam_engine": Vector3(0.45, 0.7, -0.3),
 	"distillery": Vector3(0.15, 0.72, 0), "boiler": Vector3(0, 1.45, 0), "pipe": Vector3(0, 0, 0.5),
@@ -169,7 +173,7 @@ const PLACE_RADIUS := {"pot_small": 0.35, "pot_wide": 0.7, "bench": 0.9, "campfi
 	"connector": 0.2, "dynamo": 0.7, "solar_panel": 0.7, "battery": 0.6, "lamp": 0.25, "electric_fence": 0.15, "fridge": 0.5, "radio": 0.45, "electric_pump": 0.4,
 	"deco_table": 0.7, "deco_chair": 0.3, "deco_stool": 0.25, "deco_rug": 0.3, "deco_vase": 0.2, "deco_plant": 0.3, "deco_barrel": 0.4, "deco_crates": 0.6,
 	"deco_painting": 0.12, "deco_shelf": 0.12, "deco_clock": 0.12, "insulator": 0.06, "switch": 0.15, "electric_motor": 0.1,
-	"rotisserie": 0.8, "forge": 1.1, "wire_drawer": 0.95, "foundry": 1.0, "weld_bench": 0.9, "torch_bench": 0.9}
+	"rotisserie": 0.8, "forge": 1.1, "wire_drawer": 0.95, "foundry": 1.0, "weld_bench": 0.9, "torch_bench": 0.9, "battery_bank": 0.75, "charger": 0.3, "inverter": 0.3}
 
 var player: Player
 var selection: Dictionary = ENTRIES["Estrutura"][0]
@@ -614,7 +618,7 @@ func dismantle() -> bool:
 		else:
 			var base := _base_kind(hit.collider.kind)
 			_refund(entry_for("place", base).get("cost", {}))
-			if base == "battery" and Electric.cells(hit.collider) > 0:
+			if Electric.is_battery(base) and Electric.cells(hit.collider) > 0:
 				player.inventory.add(Electric.CELL_ITEM, Electric.cells(hit.collider)) # as células voltam inteiras
 			if Electric.has(base):
 				for other_id in hit.collider.extra.get("cables", []):

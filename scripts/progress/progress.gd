@@ -54,6 +54,8 @@ const ACHIEVEMENTS := {
 	"fio_cobre": {"era": 3, "title": "Trefilado", "how": "Puxe fio de cobre na trefiladora", "on": ["get:fio_cobre"]},
 	"motor_eletrico": {"era": 3, "title": "Motor elétrico", "how": "Encaixe um motor elétrico numa máquina", "on": ["place:electric_motor"]},
 	"solda": {"era": 3, "title": "Soldador", "how": "Solde uma armadura (bancada de solda, manual de soldagem)", "on": ["weld:*"]},
+	"alta_tensao": {"era": 3, "title": "Alta tensão", "how": "Monte um banco de baterias de 110 V (9 células)", "on": ["place:battery_bank"]},
+	"carregador": {"era": 3, "title": "Carregador", "how": "Ponha um carregador entre o dínamo (110 V) e uma bateria de 12 V", "on": ["place:charger"]},
 	"brasagem": {"era": 3, "title": "Maçariqueiro", "how": "Solde cobre na bancada de maçarico (álcool, óleo ou gás)", "on": ["braze:*"]},
 	"fortaleza": {"era": 3, "title": "Fortaleza", "how": "Levante uma parede de chapa soldada", "on": ["place:wall_metal"]},
 	"cordao_perfeito": {"era": 3, "title": "Cordão perfeito", "how": "Solde uma peça com 90% de qualidade ou mais", "on": ["weld_master:*"]},
