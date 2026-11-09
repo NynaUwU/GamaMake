@@ -36,7 +36,7 @@ func plan(world: TerrainWorld, coord: Vector2i, origin: Vector2) -> Dictionary:
 		var biome := world.biome_at(x, z)
 		tree_amount = world.tree_amount
 		rock_amount = world.rock_amount
-		var kind := _pick_kind(biome, rng)
+		var kind := _tin(_pick_kind(biome, rng), x, z)
 		if kind == "":
 			continue
 		var y := world._height_from(x, z, biome) # reaproveita o bioma já calculado
@@ -175,6 +175,16 @@ func _pick_kind(biome: Dictionary, rng: RandomNumberGenerator) -> String:
 	return ""
 
 
+## Estanho (Era 2): parte dos veios de cobre (40%) e alguns de ferro (12%) viram estanho,
+## pela posição. Não gasta sorteio nem muda a ordem dos outros recursos (saves antigos
+## continuam com as mesmas chaves).
+static func _tin(kind: String, x: float, z: float) -> String:
+	if kind != "ore_copper" and kind != "ore_iron":
+		return kind
+	var h := fposmod(sin(x * 12.9898 + z * 78.233) * 43758.5453, 1.0)
+	return "ore_tin" if h < (0.4 if kind == "ore_copper" else 0.12) else kind
+
+
 func _add_collision(body: StaticBody3D, kind: String, local: Vector3, scale: float) -> void:
 	if kind in ["bush", "dead_bush"]:
 		return
@@ -279,9 +289,10 @@ static func _mesh(kind: String) -> Mesh:
 		"rock":
 			_box(st, Vector3(0, 0.4, 0), Vector3(1.6, 1.0, 1.6), Color(0.45, 0.43, 0.41))
 			_box(st, Vector3(0.3, 0.95, -0.2), Vector3(0.9, 0.5, 0.8), Color(0.5, 0.48, 0.46))
-		"ore_iron", "ore_copper", "ore_coal":
+		"ore_iron", "ore_copper", "ore_coal", "ore_tin":
 			# Rocha com pedaços do minério à mostra (cor diz o que é).
-			var ore: Color = {"ore_iron": Color(0.66, 0.36, 0.2), "ore_copper": Color(0.25, 0.62, 0.52), "ore_coal": Color(0.07, 0.07, 0.07)}[kind]
+			var ore: Color = {"ore_iron": Color(0.66, 0.36, 0.2), "ore_copper": Color(0.25, 0.62, 0.52), "ore_coal": Color(0.07, 0.07, 0.07),
+				"ore_tin": Color(0.8, 0.8, 0.76)}[kind]
 			_box(st, Vector3(0, 0.4, 0), Vector3(1.5, 1.0, 1.5), Color(0.4, 0.38, 0.37))
 			_box(st, Vector3(-0.25, 0.9, 0.2), Vector3(0.8, 0.45, 0.7), Color(0.44, 0.42, 0.4))
 			for k in 7:

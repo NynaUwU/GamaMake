@@ -31,12 +31,12 @@ const CELLS := 6 ## vagas da estrutura da bateria
 const CELL_CAP := 300.0 ## Wh por célula
 const CELL_RATE := 500.0 ## W de carga/descarga por célula
 ## Quem liga primeiro quando falta energia.
-const PRIORITY := ["lamp", "lamp_wall", "radio", "fridge", "electric_fence", "electric_pump", "electric_motor"]
+const PRIORITY := ["lamp", "lamp_wall", "radio", "fridge", "electric_fence", "electric_pump", "electric_motor", "weld_bench"]
 ## Consumo em W.
-const DEMAND := {"lamp": 50.0, "lamp_wall": 50.0, "radio": 50.0, "electric_fence": 100.0, "fridge": 150.0, "electric_pump": 200.0,
+const DEMAND := {"lamp": 50.0, "lamp_wall": 50.0, "radio": 50.0, "electric_fence": 100.0, "fridge": 150.0, "electric_pump": 200.0, "weld_bench": 300.0,
 	"electric_motor": 300.0}
 const KINDS := ["connector", "connector_wall", "insulator", "switch", "switch_wall", "dynamo", "solar_panel", "battery",
-	"lamp", "lamp_wall", "radio", "electric_fence", "fridge", "electric_pump", "electric_motor"]
+	"lamp", "lamp_wall", "radio", "electric_fence", "fridge", "electric_pump", "electric_motor", "weld_bench"]
 const SWITCHES := ["switch", "switch_wall"]
 ## Peças que vão na parede (o martelo troca sozinho mirando uma parede).
 const WALL_VARIANT := {"connector": "connector_wall", "lamp": "lamp_wall", "switch": "switch_wall"}
@@ -52,12 +52,12 @@ const TERMINAL := {
 	"dynamo": Vector3(0.18, 0.86, 0), "solar_panel": Vector3(0, 0.62, -0.1), "battery": Vector3(0.36, 0.86, 0),
 	"lamp": Vector3(0, 0.22, -0.16), "lamp_wall": Vector3(0, -0.14, 0.06),
 	"radio": Vector3(0.28, 0.62, -0.16), "electric_fence": Vector3(-1.2, 1.36, 0),
-	"fridge": Vector3(0, 1.72, -0.2), "electric_pump": Vector3(0, 0.92, 0), "electric_motor": Vector3(0.36, 0.22, 0),
+	"fridge": Vector3(0, 1.72, -0.2), "electric_pump": Vector3(0, 0.92, 0), "electric_motor": Vector3(0.36, 0.22, 0), "weld_bench": Vector3(-0.66, 1.19, -0.2),
 }
 const NAMES := {"connector": "Conector", "connector_wall": "Conector", "insulator": "Isolador de cerâmica",
 	"switch": "Interruptor", "switch_wall": "Interruptor", "dynamo": "Dínamo", "solar_panel": "Painel solar",
 	"battery": "Bateria", "lamp": "Lâmpada", "lamp_wall": "Lâmpada", "radio": "Rádio", "electric_fence": "Cerca elétrica",
-	"fridge": "Geladeira", "electric_pump": "Bomba elétrica", "electric_motor": "Motor elétrico"}
+	"fridge": "Geladeira", "electric_pump": "Bomba elétrica", "electric_motor": "Motor elétrico", "weld_bench": "Bancada de solda"}
 
 static var dirty := true
 static var _groups: Array = [] # [[net_id, ...], ...]

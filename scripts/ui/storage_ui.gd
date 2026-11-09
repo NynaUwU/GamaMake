@@ -47,14 +47,14 @@ func _is_furnace() -> bool:
 ## Material e combustível à esquerda, seta (progresso) no meio, resultado à direita;
 ## a chama embaixo do material mostra quanto falta do combustível aceso.
 func _build_furnace(column: VBoxContainer) -> void:
-	for k in 3:
+	for k in Smelting.slot_count(source.kind if source else "furnace"):
 		var holder := CenterContainer.new()
 		holder.custom_minimum_size = SLOT
 		_furnace_slots.append(holder)
 	if source and source.kind == "boiler":
 		_build_boiler(column)
 		return
-	if source and source.kind == "forge":
+	if source and Smithing.STATION.has(source.kind):
 		_build_forge(column)
 		return
 	var row := HBoxContainer.new()
@@ -100,10 +100,29 @@ func _build_furnace(column: VBoxContainer) -> void:
 	_build_recipes(column)
 
 
-## Forja: metal e carvão à esquerda, a peça pronta à direita; embaixo as peças que
-## dá para forjar. Clicar numa peça abre o minigame (cor por temperatura).
+## Estações de minigame (forja, fundição, bancada de solda): lugares do material à
+## esquerda, a peça pronta à direita; embaixo as peças. Clicar numa abre o minigame.
+const STATION_UI := {
+	"forge": {"slots": [["metal", Smelting.INPUT], ["carvão", Smelting.FUEL]], "arrow": "→ bigorna →",
+		"title": "Forjar (clique: começa o minigame · 1 carvão por peça)", "hint": "Arraste barras de metal e carvão da mochila para os lugares"},
+	"foundry": {"slots": [["metal", Smelting.INPUT], ["liga", Smithing.ALLOY], ["carvão", Smelting.FUEL]], "arrow": "→ cadinho → molde →",
+		"title": "Fundir (clique: começa o minigame · 1 carvão por peça)", "hint": "Bronze: 3 barras de cobre no metal e 1 de estanho na liga, mais carvão"},
+	"weld_bench": {"slots": [["chapas", Smelting.INPUT], ["eletrodos", Smelting.FUEL]], "arrow": "→ solda →",
+		"title": "Soldar armadura (clique: começa o minigame)", "hint": "Arraste barras de aço e eletrodos (mesa) para os lugares"},
+}
+const METAL_SHORT := {&"barra_aco": "aço", &"barra_cobre": "cobre", &"barra_ferro": "ferro", &"barra_bronze": "bronze", &"barra_estanho": "estanho"}
+const METAL_SYMBOL := {&"barra_aco": "aço", &"barra_cobre": "Cu", &"barra_ferro": "Fe", &"barra_bronze": "bz", &"barra_estanho": "Sn"}
+
+
+## Custo curto no botão da peça: "2x ferro"; liga: "3 Cu + 1 Sn" (eletrodos ficam de fora).
+static func _cost_label(r: Dictionary) -> String:
+	var metals: Array = r.cost.keys().filter(func(id): return id != &"eletrodo")
+	if metals.size() == 1:
+		return "%dx %s" % [r.cost[metals[0]], METAL_SHORT.get(metals[0], ItemDB.short_name(metals[0]))]
+	return " + ".join(metals.map(func(id): return "%d %s" % [r.cost[id], METAL_SYMBOL.get(id, ItemDB.short_name(id))]))
 var _forge_box: HFlowContainer
 func _build_forge(column: VBoxContainer) -> void:
+	var ui: Dictionary = STATION_UI[source.kind]
 	var row := HBoxContainer.new()
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
 	row.add_theme_constant_override("separation", 10)
@@ -111,7 +130,7 @@ func _build_forge(column: VBoxContainer) -> void:
 	var left := VBoxContainer.new()
 	left.add_theme_constant_override("separation", 2)
 	row.add_child(left)
-	for part in [["metal", Smelting.INPUT], ["carvão", Smelting.FUEL]]:
+	for part in ui.slots:
 		var label := Label.new()
 		label.text = part[0]
 		label.add_theme_font_size_override("font_size", 9)
@@ -119,7 +138,7 @@ func _build_forge(column: VBoxContainer) -> void:
 		left.add_child(label)
 		left.add_child(_furnace_slots[part[1]])
 	var arrow := Label.new()
-	arrow.text = "→ bigorna →"
+	arrow.text = ui.arrow
 	arrow.add_theme_font_size_override("font_size", 11)
 	arrow.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	row.add_child(arrow)
@@ -133,7 +152,7 @@ func _build_forge(column: VBoxContainer) -> void:
 	right.add_child(done)
 	right.add_child(_furnace_slots[Smelting.OUTPUT])
 	var title := Label.new()
-	title.text = "Forjar (clique: começa o minigame · 1 carvão por peça)"
+	title.text = ui.title
 	title.add_theme_font_size_override("font_size", 10)
 	title.modulate = Color(1, 1, 1, 0.7)
 	column.add_child(title)
@@ -159,17 +178,19 @@ func _fill_forge() -> void:
 		child.queue_free()
 	var slots: Array = ContainerManager.i.slots_of(key)
 	var icons := get_tree().root.get_node_or_null("ItemIcons")
-	for entry in Smithing.recipes():
+	for entry in Smithing.recipes(Smithing.STATION[source.kind]):
 		var r: Dictionary = entry[1]
 		if not Progress.knows(r.get("manual", "")):
 			continue # peça de manual que ainda não leu
 		var metal := Smithing.metal_of(r)
-		var why := Smithing.missing(r, slots)
+		var why := Smithing.missing(r, slots, source)
 		var button := Button.new()
 		button.focus_mode = Control.FOCUS_NONE
 		button.custom_minimum_size = Vector2(56, 44)
-		button.tooltip_text = "%s%s: %d %s + 1 carvão, %d golpes certos%s" % [ItemDB.display_name(r.id), " (%s)" % r.note if r.has("note") else "",
-			r.cost[metal], ItemDB.display_name(metal), r.get("hits", 8), "\n" + why if why != "" else ""]
+		var fuel: int = Smithing.FUEL_COST.get(r.station, 0)
+		button.tooltip_text = "%s%s%s: %s%s%s" % [ItemDB.display_name(r.id), " x%d" % r.amount if r.get("amount", 1) > 1 else "",
+			" (%s)" % r.note if r.has("note") else "", Builder.cost_text(r.cost, null), " + %d carvão" % fuel if fuel > 0 else "",
+			"\n" + why if why != "" else ""]
 		var icon := TextureRect.new()
 		icon.set_anchors_and_offsets_preset(Control.PRESET_TOP_WIDE)
 		icon.offset_top = 2
@@ -182,7 +203,7 @@ func _fill_forge() -> void:
 			icon.texture = icons.get_icon(r.id)
 		button.add_child(icon)
 		var cost := Label.new()
-		cost.text = "%dx %s" % [r.cost[metal], "aço" if metal == &"barra_aco" else ("cobre" if metal == &"barra_cobre" else "ferro")]
+		cost.text = _cost_label(r)
 		cost.add_theme_font_size_override("font_size", 8)
 		cost.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		cost.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_WIDE)
@@ -190,7 +211,7 @@ func _fill_forge() -> void:
 		cost.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		button.add_child(cost)
 		button.modulate = Color.WHITE if why == "" else Color(1, 1, 1, 0.4)
-		button.mouse_entered.connect(func(): _status.text = why if why != "" else "Pronto para forjar: %s" % ItemDB.display_name(r.id))
+		button.mouse_entered.connect(func(): _status.text = why if why != "" else "Pronto: %s" % ItemDB.display_name(r.id))
 		var index: int = entry[0]
 		button.pressed.connect(func():
 			if why != "":
@@ -202,7 +223,7 @@ func _fill_forge() -> void:
 			Smithing.start(player, forge, index))
 		_forge_box.add_child(button)
 	if _status and _status.text == "":
-		_status.text = "Arraste barras de metal e carvão da mochila para os lugares"
+		_status.text = STATION_UI[source.kind].hint
 
 
 ## Receitas desta fornalha: material -> resultado (com ícones). Com o material na
@@ -350,7 +371,7 @@ func _process(_delta: float) -> void:
 		_pressure_bar.value = source.extra.get("pressure", 0.0) / Fluids.PRESSURE_MAX
 	if _power_bar:
 		_power_bar.value = source.extra.get("speed", 0.0)
-	if _status and kind != "forge": # a forja escreve o que falta para a peça escolhida
+	if _status and not Smithing.STATION.has(kind): # estação de minigame: escreve o que falta para a peça
 		_status.text = _status_text(kind)
 
 
@@ -433,7 +454,7 @@ func _refresh() -> void:
 	_fill_recipes() # mochila mudou: receitas com/sem material
 	var slots: Array = ContainerManager.i.slots_of(key)
 	if _is_furnace():
-		for k in 3:
+		for k in _furnace_slots.size():
 			for child in _furnace_slots[k].get_children():
 				child.queue_free()
 			_furnace_slots[k].add_child(_slot("chest", k, slots[k] if k < slots.size() else {}))
@@ -593,6 +614,16 @@ func _furnace_target(id: StringName, slots: Array) -> int:
 	var kind: String = source.kind if source else "furnace"
 	var fits := func(k: int) -> bool:
 		return slots.size() > k and (slots[k].is_empty() or (slots[k].id == id and slots[k].amount < ItemDB.max_stack(id)))
+	if Smithing.STATION.has(kind):
+		# Estação de minigame: o mesmo item que já está num lugar, senão o primeiro que aceita.
+		var order := [Smelting.INPUT, Smithing.ALLOY, Smelting.FUEL] if kind == "foundry" else [Smelting.INPUT, Smelting.FUEL]
+		for k in order:
+			if slots.size() > k and not slots[k].is_empty() and slots[k].id == id and fits.call(k):
+				return k
+		for k in order:
+			if Smelting.accepts(k, id, kind) and fits.call(k):
+				return k
+		return -1
 	if kind != "boiler" and not Smelting.recipe(kind, id).is_empty() and fits.call(Smelting.INPUT):
 		return Smelting.INPUT
 	if Smelting.accepts(Smelting.FUEL, id, kind) and fits.call(Smelting.FUEL):

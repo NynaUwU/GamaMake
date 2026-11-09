@@ -9,7 +9,7 @@ const OK := Color(0.45, 0.85, 0.4)
 const DIM := Color(1, 1, 1, 0.45)
 const GOLD := Color(0.95, 0.8, 0.35)
 ## Estações na ordem da árvore (a mão primeiro; as do fim são as mais avançadas).
-const STATIONS := ["mao", "mesa", "fornalha", "fornalha_pedra", "forja", "forno", "alto_forno", "torno", "prensa", "trefiladora", "destilaria"]
+const STATIONS := ["mao", "mesa", "fornalha", "fornalha_pedra", "forja", "forno", "fundicao", "alto_forno", "torno", "prensa", "trefiladora", "solda", "destilaria"]
 
 static var tab := "Eras"
 
@@ -207,7 +207,7 @@ func _manuals() -> void:
 			_body.add_child(head)
 			_body.add_child(_small("Ainda não encontrado.", DIM))
 		_body.add_child(_gap(4))
-	_body.add_child(_small("Outros manuais (soldagem, química, rádio, mecânica) chegam com as próximas eras.", DIM))
+	_body.add_child(_small("Outros manuais (química, rádio, mecânica) chegam com as próximas eras.", DIM))
 
 
 # --- Pistas --------------------------------------------------------------------------

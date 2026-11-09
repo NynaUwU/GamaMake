@@ -28,15 +28,25 @@ Plano em fases do pacote "eras + minigames". Cada fase fecha uma rodada jogável
 - **Trefiladora** (sem minigame): barra de cobre vira fio de cobre com eixo/motor.
   Fio de cobre rende mais cabo e bobina.
 
-## Fase 2 — Mecânica e metal (Era 2)
+## Fase 2 — Metal fundido e solda (Eras 2-3) — feita
 
-- Bronze (cobre + estanho; estanho novo nos minérios) e ligas na fornalha.
-- **Moldagem/fundição 3D**: cadinho na máquina, inclinar com o mouse; rápido
-  transborda, devagar solidifica antes de encher. Moldes (lingote, engrenagem,
-  cabeça de machado).
-- **Bancada de solda** (manual de soldagem): só armaduras. Cursor seguindo a
-  junta com velocidade constante; rápido demais = solda fraca.
-- Tornos e serras manuais com qualidade.
+- **Estanho**: parte dos veios de cobre (40%) e de ferro (12%) virou veio de estanho
+  (pedra com cristais cinza-prata), escolhido pela posição: saves antigos mantêm as
+  chaves. Fornalha: minério de estanho -> barra de estanho.
+- **Fundição** (aba Máquinas): 4 lugares (metal, liga, carvão, peça). Bronze = 3 cobre +
+  1 estanho (4 barras); engrenagens, polias, canos e machado de bronze fundidos.
+- **Minigame de despejar (3D)**: a altura do mouse inclina o cadinho (W/S/roda: fino).
+  O metal só passa da borda com inclinação, e precisa inclinar mais quanto mais vazio.
+  Vazão na faixa verde enche bem; rápido espirra (perde metal); devagar forma emenda
+  fria; passou de cheio transborda; demorou, o metal endurece no cadinho. Pilhas
+  (barras, engrenagens) saem em menor quantidade com qualidade baixa.
+- **Bancada de solda** (aba Elétrica, Manual de soldagem): elétrica, 300 W. Chapas de
+  aço + eletrodos (mesa) viram só armaduras: capacete soldado, couraça, grevas.
+- **Minigame de solda**: segure o clique na junta e siga até o fim; velocidade na faixa
+  verde. Rápido = cordão fino (solda fraca), devagar = grosso, parado = fura a chapa,
+  longe da junta = só respinga. Máscara de solda escurece a tela com o arco aceso.
+- Qualidade da armadura muda a proteção (x0,85…1,2) e quanto ela aguenta.
+- Ficou para depois: tornos e serras manuais com qualidade.
 
 ## Fase 3 — Elétrica 2 (Era 3)
 
@@ -73,7 +83,7 @@ Plano em fases do pacote "eras + minigames". Cada fase fecha uma rodada jogável
 |---|---|---|
 | 0 | Sobrevivente | sucata, ferramenta improvisada, fogueira |
 | 1 | Ferreiro de sucata | forja a carvão, barra de ferro, primeira peça forjada |
-| 2 | Mecânica | roda d'água ou moinho de vento, serraria ou torno |
+| 2 | Mecânica | roda d'água ou moinho de vento, serraria ou torno, bronze |
 | 3 | Eletrificação | dínamo ou painel solar, bateria |
 | 4 | Química/refino | destilaria, álcool |
 | 5 | Reconstrução | rádio, pedido entregue (veículos na Fase 5) |

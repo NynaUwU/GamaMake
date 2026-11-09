@@ -83,7 +83,7 @@ func _host(action: String, args: Array) -> Array:
 	match action:
 		"open":
 			if not contents.has(key):
-				var slots := empty_slots(3 if key.begins_with("furnace_") else (STORAGE_SLOTS if is_storage(key) else SLOTS))
+				var slots := empty_slots(Smelting.slot_count(Smelting.kind_of_key(key)) if key.begins_with("furnace_") else (STORAGE_SLOTS if is_storage(key) else SLOTS))
 				if not is_storage(key) and not Net.i.taken.has(key): # baú de save antigo já revistado: vazio
 					for drop in Loot.roll(args[1]):
 						add_to(slots, drop[0], drop[1])

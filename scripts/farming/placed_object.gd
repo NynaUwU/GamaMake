@@ -140,7 +140,7 @@ func aiming_basket(player: Node) -> bool:
 
 # --- Fogo (acende só em uso) -----------------------------------------------------
 
-const LIT_KINDS := ["campfire", "furnace", "stone_furnace", "oven", "smoker", "blast_furnace", "boiler", "distillery", "torch", "torch_wall", "rotisserie", "forge"]
+const LIT_KINDS := ["campfire", "furnace", "stone_furnace", "oven", "smoker", "blast_furnace", "boiler", "distillery", "torch", "torch_wall", "rotisserie", "forge", "foundry", "weld_bench"]
 
 
 ## Está acesa agora? Fogueira: tem lenha queimando. Fornalhas: combustível
@@ -158,7 +158,7 @@ func is_lit(clock := -1.0) -> bool:
 			return extra.get("lit_until", 0.0) > clock
 		"smoker":
 			return crops.any(func(c): return Cooking.stage(c, clock) == 0)
-		"forge":
+		"forge", "foundry", "weld_bench":
 			return Smithing.is_lit(self, clock)
 	return false
 
@@ -404,7 +404,7 @@ func interact(player: Node) -> void:
 		SteamModels.interact(player, self)
 		return
 	if Smithing.has(kind):
-		Smithing.interact(player, self) # forja e trefiladora: os 3 lugares (e as peças da forja)
+		Smithing.interact(player, self) # lugares (e as peças das estações de minigame)
 		return
 	if Ranch.has(kind):
 		Ranch.interact(player, self)
@@ -477,15 +477,15 @@ func _build() -> void:
 	if PowerParts.has(kind):
 		PowerParts.build(self) # eixo, tripé, engrenagem, polia
 		return
+	if Smithing.has(kind):
+		SmithingModels.build(kind, self) # forja, fundição, bancada de solda (elétrica), trefiladora
+		StationModels.set_lit(self, false)
+		return
 	if Electric.has(kind):
 		ElectricModels.build(kind, self) # Tier 4: cabos, geradores, lâmpadas, rádio...
 		return
 	if kind == "rotisserie":
 		AutoMachines.build_rotisserie(self) # assador giratório (fogueira com espeto no eixo)
-		StationModels.set_lit(self, false)
-		return
-	if Smithing.has(kind):
-		Smithing.build(kind, self) # forja com bigorna, trefiladora
 		StationModels.set_lit(self, false)
 		return
 	if Decor.has(kind):

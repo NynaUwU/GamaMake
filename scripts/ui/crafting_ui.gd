@@ -40,6 +40,7 @@ const RECIPES := [
 	{"id": &"cabo", "amount": 4, "station": "mesa", "manual": &"manual_eletricista", "cost": {&"fio_cobre": 2, &"pano": 1}, "note": "fio"},
 	{"id": &"lampada", "amount": 2, "station": "mesa", "cost": {&"vidro": 1, &"barra_cobre": 1}},
 	{"id": &"celula", "station": "mesa", "cost": {&"vidro": 1, &"barra_cobre": 1, &"sucata": 1}},
+	{"id": &"eletrodo", "amount": 6, "station": "mesa", "cost": {&"barra_ferro": 1, &"argila": 1}},
 	{"id": &"bandeira", "station": "mesa", "cost": {&"graveto": 2, &"pano": 2}},
 	{"id": &"capuz", "station": "mesa", "cost": {&"pano": 3}},
 	{"id": &"colete", "station": "mesa", "cost": {&"sucata": 6, &"pano": 2}},
@@ -60,12 +61,14 @@ const RECIPES := [
 	{"id": &"vidro", "station": "fornalha", "fuel": true, "cost": {&"areia": 2}},
 	{"id": &"vidro", "station": "fornalha", "fuel": true, "cost": {&"pedra": 4}, "note": "pedra"},
 	{"id": &"carvao", "amount": 2, "station": "fornalha", "cost": {&"tronco": 1}},
+	{"id": &"barra_estanho", "station": "fornalha", "fuel": true, "cost": {&"minerio_estanho": 2}},
 	# Fornalha de pedra (Tier 1): a única que funde minério de ferro; precisa de calor do fole.
 	{"id": &"barra_ferro", "station": "fornalha_pedra", "fuel": true, "heat": true, "cost": {&"minerio_ferro": 2}},
 	{"id": &"barra_ferro", "station": "fornalha_pedra", "fuel": true, "heat": true, "cost": {&"sucata": 2}, "note": "sucata"},
 	{"id": &"barra_cobre", "amount": 2, "station": "fornalha_pedra", "fuel": true, "cost": {&"minerio_cobre": 2}},
 	{"id": &"vidro", "amount": 2, "station": "fornalha_pedra", "fuel": true, "cost": {&"areia": 2}},
 	{"id": &"tijolo", "amount": 2, "station": "fornalha_pedra", "fuel": true, "cost": {&"argila": 2}},
+	{"id": &"barra_estanho", "amount": 2, "station": "fornalha_pedra", "fuel": true, "cost": {&"minerio_estanho": 2}},
 	# Forno de tijolo: pão e assados.
 	{"id": &"pao_fresco", "amount": 2, "station": "forno", "fuel": true, "cost": {&"farinha": 2, &"agua": 1}},
 	{"id": &"torrada", "amount": 2, "station": "forno", "fuel": true, "cost": {&"pao_fresco": 1}},
@@ -97,6 +100,17 @@ const RECIPES := [
 	{"id": &"espada", "station": "forja", "hits": 12, "manual": &"manual_ferreiro", "cost": {&"barra_aco": 2}, "note": "aço"},
 	{"id": &"capacete", "station": "forja", "hits": 10, "manual": &"manual_ferreiro", "cost": {&"barra_ferro": 3}},
 	{"id": &"peitoral", "station": "forja", "hits": 14, "manual": &"manual_ferreiro", "cost": {&"barra_ferro": 5}},
+	# Fundição (Era 2): minigame de despejar o metal (1 carvão por peça). "mold" = molde no
+	# minigame; pilhas saem em menor quantidade quando a qualidade é baixa (Smithing).
+	{"id": &"barra_bronze", "amount": 4, "station": "fundicao", "mold": "ingot", "cost": {&"barra_cobre": 3, &"barra_estanho": 1}},
+	{"id": &"engrenagem", "amount": 2, "station": "fundicao", "mold": "gear", "cost": {&"barra_bronze": 1}},
+	{"id": &"polia", "amount": 2, "station": "fundicao", "mold": "gear", "cost": {&"barra_bronze": 1}},
+	{"id": &"cano", "amount": 4, "station": "fundicao", "mold": "pipe", "cost": {&"barra_cobre": 1}},
+	{"id": &"machado", "station": "fundicao", "mold": "axe", "cost": {&"barra_bronze": 2}, "note": "bronze"},
+	# Bancada de solda (Era 3, manual de soldagem): só armaduras; "seams" = cordões no minigame.
+	{"id": &"capacete_soldado", "station": "solda", "seams": 2, "manual": &"manual_soldagem", "cost": {&"barra_aco": 2, &"eletrodo": 2}},
+	{"id": &"couraca", "station": "solda", "seams": 3, "manual": &"manual_soldagem", "cost": {&"barra_aco": 4, &"eletrodo": 3}},
+	{"id": &"grevas", "station": "solda", "seams": 2, "manual": &"manual_soldagem", "cost": {&"barra_aco": 3, &"eletrodo": 2}},
 	# Trefiladora (eixo girando, sem minigame): barra de cobre vira fio.
 	{"id": &"fio_cobre", "amount": 8, "station": "trefiladora", "power": true, "cost": {&"barra_cobre": 1}},
 	# Prensa (precisa de energia).
@@ -119,7 +133,7 @@ const RECIPES := [
 	{"id": &"tocha", "station": "mao", "cost": {&"graveto": 1, &"pano": 1}},
 ]
 const TITLES := {"mesa": "Mesa de trabalho", "fornalha": "Fornalha", "mao": "Fabricar", "forno": "Forno de tijolo",
-	"fornalha_pedra": "Fornalha de pedra", "torno": "Torno", "prensa": "Prensa", "forja": "Forja e bigorna", "trefiladora": "Trefiladora",
+	"fornalha_pedra": "Fornalha de pedra", "torno": "Torno", "prensa": "Prensa", "forja": "Forja e bigorna", "trefiladora": "Trefiladora", "fundicao": "Fundição", "solda": "Bancada de solda",
 	"alto_forno": "Alto-forno", "destilaria": "Destilaria"}
 ## Fornalha de pedra aberta agora (o calor do fole libera as receitas "heat").
 static var heat_source: PlacedObject

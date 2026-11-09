@@ -382,13 +382,13 @@ func host_apply(action: String, args: Array) -> Array:
 				return [] # só o host dá choque
 			ElectricFence.spark(obj, args[1])
 			return args
-		"forge_done":
-			# Fim do minigame da forja: [id, receita, qualidade]. Gasta metal + carvão
-			# dos lugares e põe a peça (ou a sucata, se rachou) no lugar da peça pronta.
+		"smith_done":
+			# Fim do minigame da forja/fundição/solda: [id, receita, qualidade]. Gasta o
+			# material dos lugares e põe a peça (ou a sucata, se perdeu) no lugar da peça pronta.
 			var obj: PlacedObject = objects.get(args[0])
-			if obj == null or obj.kind != "forge":
+			if obj == null or not Smithing.STATION.has(obj.kind):
 				return []
-			var update := Smithing.host_forge(self, obj, int(args[1]), float(args[2]))
+			var update := Smithing.host_make(self, obj, int(args[1]), float(args[2]))
 			return [] if update.is_empty() else [args[0], update]
 		"radio_deliver":
 			var obj: PlacedObject = objects.get(args[0])
@@ -841,7 +841,7 @@ func apply_remote(action: String, args: Array) -> void:
 				obj.refresh(clock)
 			if args.size() > 3 and args[3] == Net.i.my_id():
 				AutoMachines.receive(self, args[2]) # a ferramenta volta para quem pegou, com o fio
-		"extra", "gate", "fence_hit", "radio_deliver", "battery_cell", "grind_put", "forge_done":
+		"extra", "gate", "fence_hit", "radio_deliver", "battery_cell", "grind_put", "smith_done":
 			var obj: PlacedObject = objects.get(args[0])
 			if obj and obj.kind in Electric.SWITCHES:
 				Electric.dirty = true

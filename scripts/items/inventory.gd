@@ -55,7 +55,7 @@ func armor() -> float:
 	var total := 0.0
 	for slot in equipment:
 		if not equipment[slot].is_empty():
-			total += ItemDB.def(equipment[slot].id).get("armor", 0.0)
+			total += ItemDB.def(equipment[slot].id).get("armor", 0.0) * ItemDB.quality_damage(equipment[slot]) # solda/forja boa protege mais
 	return minf(total, 0.8)
 
 

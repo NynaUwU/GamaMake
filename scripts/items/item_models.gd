@@ -45,10 +45,10 @@ static func build(id: StringName) -> Node3D:
 		ItemDetail.build(id, parts) # versão mais elaborada
 		return _assemble(parts)
 	match id:
-		&"manual_ferreiro", &"manual_eletricista":
+		&"manual_ferreiro", &"manual_eletricista", &"manual_soldagem":
 			# Livro de capa dura: capa colorida, miolo creme, lombada com faixas e um
 			# desenho na capa (bigorna / raio).
-			var cover := Color(0.42, 0.16, 0.1) if id == &"manual_ferreiro" else Color(0.14, 0.24, 0.42)
+			var cover: Color = {&"manual_ferreiro": Color(0.42, 0.16, 0.1), &"manual_eletricista": Color(0.14, 0.24, 0.42)}.get(id, Color(0.2, 0.32, 0.18))
 			_mb(parts, cover).box(Vector3(0, 0.0, 0), Vector3(0.17, 0.008, 0.23))
 			_mb(parts, cover).box(Vector3(0, 0.038, 0), Vector3(0.17, 0.008, 0.23))
 			_mb(parts, cover.darkened(0.2)).box(Vector3(-0.083, 0.019, 0), Vector3(0.012, 0.046, 0.232))
@@ -58,6 +58,10 @@ static func build(id: StringName) -> Node3D:
 			if id == &"manual_ferreiro":
 				_mb(parts, DARK).box(Vector3(0.01, 0.043, 0.02), Vector3(0.08, 0.003, 0.03)) # bigorna
 				_mb(parts, DARK).box(Vector3(0.01, 0.043, 0.05), Vector3(0.03, 0.003, 0.03))
+			elif id == &"manual_soldagem":
+				_mb(parts, DARK).box(Vector3(0.0, 0.043, 0.03), Vector3(0.09, 0.003, 0.07)) # máscara de solda
+				_mb(parts, Color(0.35, 0.55, 0.3)).box(Vector3(0.0, 0.045, 0.02), Vector3(0.05, 0.003, 0.015)) # visor
+				_mb(parts, Color(1.0, 0.85, 0.4)).box(Vector3(0.03, 0.045, -0.05), Vector3(0.012, 0.003, 0.012)) # faísca
 			else:
 				for k in 3:
 					_mb(parts, Color(0.95, 0.8, 0.25)).box(Vector3(0.0 + (k - 1) * 0.012, 0.043, 0.02 + (k - 1) * 0.025), Vector3(0.02, 0.003, 0.03),

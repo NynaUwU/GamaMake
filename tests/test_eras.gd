@@ -88,7 +88,7 @@ func _init() -> void:
 	slots[Smelting.INPUT] = {"id": &"barra_ferro", "amount": 6}
 	slots[Smelting.FUEL] = {"id": &"carvao", "amount": 3}
 	var index := CraftingUI.RECIPES.find(espada)
-	print("pode forjar espada: '%s'" % Smithing.missing(espada, slots))
+	print("pode forjar espada: '%s'" % Smithing.missing(espada, slots, forge))
 	var results := []
 	var game := Minigame.play(player, "forge", {"item": &"espada", "metal": &"barra_ferro", "hits": 12, "chart": true}, func(q: float): results.append(q)) as ForgeMinigame
 	await process_frame
@@ -97,7 +97,7 @@ func _init() -> void:
 	print("ferreiro bom: golpes %d, rachaduras %d, queima %.1f s, qualidade %.2f" % [game.hits, game.cracks, game.burn, game.quality()])
 	await _until(func(): return not results.is_empty())
 	print("minigame fechou: qualidade devolvida %s, jogador solto=%s" % [results, not player.ui_blocked])
-	placed.host_apply("forge_done", [forge.net_id, index, results[0]])
+	placed.host_apply("smith_done", [forge.net_id, index, results[0]])
 	print("forjou: lugares agora metal %s, carvão %s, peça %s, forja acesa=%s" % [slots[0].get("amount", 0), slots[1].get("amount", 0), slots[2], forge.is_lit(placed.clock)])
 	# Rachar: ferreiro afobado bate frio.
 	var results2 := []
@@ -108,7 +108,7 @@ func _init() -> void:
 	await _until(func(): return not results2.is_empty())
 	var machado: Dictionary = CraftingUI.RECIPES.filter(func(r): return r.station == "forja" and r.id == &"machado")[0]
 	ContainerManager.i.host_apply("take", [key, Smelting.OUTPUT]) # tira a espada antes
-	placed.host_apply("forge_done", [forge.net_id, CraftingUI.RECIPES.find(machado), results2[0]])
+	placed.host_apply("smith_done", [forge.net_id, CraftingUI.RECIPES.find(machado), results2[0]])
 	print("ferreiro afobado: rachaduras %d, qualidade %s -> peça %s" % [cracks2, results2, slots[2]])
 	# Desistir antes do primeiro golpe: -1 (nada gasto).
 	var results3 := []

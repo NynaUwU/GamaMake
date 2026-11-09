@@ -19,7 +19,8 @@ const IDS := [&"pistola", &"espada", &"taco", &"martelo", &"talhadeira", &"pa", 
 	&"barra_aco", &"parafuso", &"engrenagem", &"eixo_aco", &"cano", &"suco", &"oleo", &"alcool", &"bandagem_esteril",
 	&"carne_crua", &"carne_assada", &"carne_seca", &"pele", &"couro", &"gordura", &"casaco_pele", &"correia", &"vara",
 	&"ovo", &"ovo_frito", &"leite", &"la", &"pena", &"gorro_la", &"casaco_la", &"casaco_penas",
-	&"eixo", &"engrenagem_madeira", &"polia"]
+	&"eixo", &"engrenagem_madeira", &"polia",
+	&"minerio_estanho", &"barra_estanho", &"barra_bronze", &"eletrodo", &"capacete_soldado", &"couraca", &"grevas"]
 
 
 static func has(id: StringName) -> bool:
@@ -68,6 +69,13 @@ static func build(id: StringName, p: Dictionary) -> void:
 		&"carvao": _coal(p)
 		&"barra_ferro": _ingot(p, ItemModels.IRON.lightened(0.2))
 		&"barra_cobre": _ingot(p, ItemModels.COPPER.lightened(0.12))
+		&"minerio_estanho": _stone(p, Color(0.46, 0.45, 0.43), 9, [Color(0.82, 0.82, 0.78), Color(0.62, 0.63, 0.62)])
+		&"barra_estanho": _ingot(p, Color(0.74, 0.75, 0.74))
+		&"barra_bronze": _ingot(p, Color(0.66, 0.46, 0.2))
+		&"eletrodo": _electrodes(p)
+		&"capacete_soldado": _welded_helmet(p)
+		&"couraca": _cuirass(p)
+		&"grevas": _greaves(p)
 		&"vidro": _glass(p)
 		&"sucata": _scrap(p)
 		&"pano": _cloth_stack(p)
@@ -837,6 +845,69 @@ static func _vest(p: Dictionary, iron: bool) -> void:
 		_mb(p, ItemModels.LEATHER).box(Vector3(side * 0.12, 0.52, 0.0), Vector3(0.06, 0.04, 0.18)) # alça do ombro
 		_mb(p, ItemModels.BRASS).box(Vector3(side * 0.21, 0.25, 0.0), Vector3(0.012, 0.02, 0.03)) # fivela lateral
 	_mb(p, ItemModels.LEATHER).lathe(PackedVector2Array([Vector2(0.205, 0.04), Vector2(0.205, 0.07)]), 12) # cinto
+
+
+## Feixe de eletrodos: varetas de ferro com capa de barro e a ponta nua, amarradas.
+static func _electrodes(p: Dictionary) -> void:
+	for k in 5:
+		var x := (k - 2) * 0.012
+		var y := (k % 2) * 0.01
+		_mb(p, Color(0.66, 0.6, 0.48)).box(Vector3(x, y, 0.02), Vector3(0.008, 0.008, 0.24))
+		_mb(p, ItemModels.STEEL).box(Vector3(x, y, -0.12), Vector3(0.005, 0.005, 0.03))
+	_mb(p, ItemModels.IRON).box(Vector3(0, 0.005, 0.05), Vector3(0.07, 0.024, 0.012))
+
+
+## Cordão de solda: fileira de "escamas" um pouco mais claras sobre a chapa.
+static func _bead(p: Dictionary, from: Vector3, to: Vector3, count: int) -> void:
+	for k in count:
+		var at := from.lerp(to, (k + 0.5) / count)
+		_mb(p, ItemModels.STEEL.lightened(0.15)).box(at, Vector3(0.016, 0.01, 0.016), Basis(Vector3.UP, 0.6))
+
+
+## Capacete de chapas soldadas: cúpula facetada em 6 chapas, viseira com fenda e
+## cordões de solda nas emendas.
+static func _welded_helmet(p: Dictionary) -> void:
+	var steel := ItemModels.STEEL.darkened(0.15)
+	_mb(p, steel).lathe(PackedVector2Array([Vector2(0.15, 0.0), Vector2(0.15, 0.08), Vector2(0.12, 0.17), Vector2(0.06, 0.22), Vector2(0.002, 0.23)]), 6)
+	_mb(p, steel.darkened(0.2)).box(Vector3(0, 0.07, 0.14), Vector3(0.24, 0.1, 0.03)) # viseira
+	_mb(p, ItemModels.DARK).box(Vector3(0, 0.08, 0.156), Vector3(0.18, 0.015, 0.006)) # fenda
+	for k in 6:
+		var a := TAU * (k + 0.5) / 6.0
+		_bead(p, Vector3(cos(a) * 0.15, 0.02, sin(a) * 0.15), Vector3(cos(a) * 0.07, 0.2, sin(a) * 0.07), 6)
+	_mb(p, ItemModels.LEATHER).box(Vector3(0, -0.04, 0.0), Vector3(0.02, 0.08, 0.28))
+
+
+## Couraça soldada: peito e costas de chapa grossa, ombreiras e cordões nas laterais.
+static func _cuirass(p: Dictionary) -> void:
+	var steel := ItemModels.STEEL.darkened(0.12)
+	var rings := []
+	for s in [[0.0, 0.21, 0.1], [0.22, 0.23, 0.11], [0.42, 0.21, 0.1], [0.52, 0.17, 0.08]]:
+		var ring := PackedVector3Array()
+		for k in 8:
+			var a := TAU * k / 8.0
+			ring.append(Vector3(cos(a) * s[1], s[0], sin(a) * s[2]))
+		rings.append(ring)
+	_mb(p, steel).loft(rings, true, false, true)
+	_mb(p, steel.lightened(0.1)).box(Vector3(0, 0.3, 0.105), Vector3(0.22, 0.22, 0.012)) # placa do peito
+	for side in [-1.0, 1.0]:
+		_bead(p, Vector3(side * 0.21, 0.02, 0.0), Vector3(side * 0.21, 0.42, 0.0), 9) # emenda lateral
+		_mb(p, steel.darkened(0.1)).box(Vector3(side * 0.2, 0.53, 0.0), Vector3(0.12, 0.03, 0.2), Basis(Vector3.BACK, side * 0.35)) # ombreira
+		_mb(p, ItemModels.LEATHER).box(Vector3(side * 0.1, 0.55, 0.0), Vector3(0.05, 0.03, 0.2))
+	_bead(p, Vector3(-0.11, 0.19, 0.112), Vector3(0.11, 0.19, 0.112), 7)
+	_bead(p, Vector3(-0.11, 0.41, 0.112), Vector3(0.11, 0.41, 0.112), 7)
+
+
+## Grevas soldadas: duas canelas de chapa com joelheira e correias.
+static func _greaves(p: Dictionary) -> void:
+	var steel := ItemModels.STEEL.darkened(0.12)
+	for side in [-1.0, 1.0]:
+		var x: float = side * 0.09
+		_mb(p, steel).lathe(PackedVector2Array([Vector2(0.05, 0.0), Vector2(0.06, 0.2), Vector2(0.068, 0.32)]), 6, Basis.IDENTITY, Vector3(x, 0, 0))
+		_mb(p, steel.lightened(0.1)).lathe(PackedVector2Array([Vector2(0.07, 0.34), Vector2(0.075, 0.4), Vector2(0.05, 0.44)]), 6, Basis.IDENTITY, Vector3(x, 0, 0)) # joelheira
+		_mb(p, steel.darkened(0.05)).lathe(PackedVector2Array([Vector2(0.07, 0.45), Vector2(0.08, 0.6)]), 6, Basis.IDENTITY, Vector3(x, 0, 0)) # coxa
+		_bead(p, Vector3(x, 0.02, 0.06), Vector3(x, 0.3, 0.066), 6)
+		for y in [0.12, 0.52]:
+			_mb(p, ItemModels.LEATHER).box(Vector3(x, y, -0.06), Vector3(0.1, 0.025, 0.02))
 
 
 static func _pants(p: Dictionary) -> void:
