@@ -65,7 +65,9 @@ const ACHIEVEMENTS := {
 	"quimica": {"era": 4, "key": true, "title": "Laboratório", "how": "Monte a bancada química (Manual de química)", "on": ["place:chem_bench"]},
 	"enxofre": {"era": 4, "title": "Cheiro de ovo", "how": "Ache enxofre (veios amarelos no deserto e entre o carvão)", "on": ["get:enxofre"]},
 	"polvora": {"era": 4, "title": "Pólvora", "how": "Misture pólvora a frio na bancada química", "on": ["chem:polvora"]},
-	"municao": {"era": 4, "title": "Munição", "how": "Faça cartuchos na mesa (pólvora + cobre + estanho)", "on": ["craft:cartucho"]},
+	"municao": {"era": 4, "title": "Munição", "how": "Faça munição na mesa (pólvora + cobre)", "on": ["craft:cartucho", "craft:bala_rifle", "craft:cartucho_espingarda"]},
+	"armeiro": {"era": 4, "title": "Armeiro", "how": "Faça um rifle de um tiro ou uma espingarda de dois canos", "on": ["craft:rifle", "craft:espingarda"]},
+	"luneta": {"era": 4, "title": "Olho de águia", "how": "Monte uma luneta no rifle", "on": ["craft:rifle_luneta"]},
 	"biodiesel": {"era": 4, "title": "Refinaria", "how": "Refine biodiesel (óleo + álcool)", "on": ["chem:combustivel"]},
 	"plastico": {"era": 4, "title": "Plástico", "how": "Cozinhe bioplástico (farinha + óleo)", "on": ["chem:plastico"]},
 	"acido": {"era": 4, "title": "Eletrólito novo", "how": "Renove uma bateria com ácido", "on": ["acid:battery"]},
@@ -90,7 +92,7 @@ const MANUALS := {
 		"unlocks": "Trefiladora (barra de cobre vira fio de cobre), cabo e bobina com fio de cobre (rendem mais).",
 		"clue": "Manual do eletricista: a fieira puxa a barra de cobre em fio fino; com fio, uma barra vira o dobro de cabo."},
 	&"manual_quimico": {"title": "Manual de química", "era": 4,
-		"unlocks": "Bancada química (salitre, pólvora, biodiesel, plástico, ácido de bateria, carvão ativado). Na mesa: cartuchos, filtros e a máscara de gás.",
+		"unlocks": "Bancada química (salitre, pólvora, biodiesel, plástico, ácido de bateria, carvão ativado). Na mesa: balas de revólver e de rifle, cartuchos de espingarda, filtros e a máscara de gás.",
 		"clue": "Manual de química: pólvora se mistura FRIA (passou do vermelho, explode). Ácido pede calor e pressão, mas não demais: a válvula de alívio salva. As zonas contaminadas só de máscara: cada filtro dura uns 3 minutos."},
 }
 

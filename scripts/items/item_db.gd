@@ -50,8 +50,20 @@ const ITEMS := {
 		"controls": ["Segurar clique: dispara mísseis"]},
 	&"pistola": {"name": "Revólver", "short": "Revólver", "kind": "weapon", "weapon": "pistol", "stack": 1, "size": Vector3(0.05, 0.15, 0.22),
 		"damage_type": "Perfuração", "damage": 40, "knockback": 20,
-		"desc": "Latão, madeira e pólvora de procedência duvidosa. Tambor de 12 tiros: gasta cartuchos (bancada química + mesa, ou achados).",
-		"controls": ["Clique: atira", "R: recarrega com os cartuchos da mochila"]},
+		"desc": "Latão, madeira e pólvora de procedência duvidosa. Tambor de 6, rápido de atirar; cabeça = um tiro. Gasta balas de revólver.",
+		"controls": ["Clique: atira", "Segurar botão direito: mira de ferro (zoom)", "R: recarrega com as balas da mochila"]},
+	&"rifle": {"name": "Rifle de um tiro", "short": "Rifle", "kind": "weapon", "weapon": "rifle", "stack": 1, "size": Vector3(0.06, 0.16, 1.1),
+		"damage_type": "Perfuração", "damage": 115, "knockback": 45,
+		"desc": "Bloco basculante, cano longo e coronha de nogueira. Uma bala por vez, mas atravessa até 3 zumbis e derruba de longe. Mira de ferro; na mesa dá para montar uma luneta.",
+		"controls": ["Clique: atira (1 bala, recarrega sozinho)", "Segurar botão direito: mira de ferro (zoom)", "R: recarrega"]},
+	&"rifle_luneta": {"name": "Rifle com luneta", "short": "Rifle lun.", "kind": "weapon", "weapon": "rifle", "stack": 1, "size": Vector3(0.06, 0.2, 1.1),
+		"damage_type": "Perfuração", "damage": 115, "knockback": 45,
+		"desc": "O rifle de um tiro com uma luneta de latão (8x). Mirando, você olha pela luneta: tiro de muito longe e quase sem dispersão.",
+		"controls": ["Clique: atira (1 bala, recarrega sozinho)", "Segurar botão direito: luneta (zoom forte)", "R: recarrega"]},
+	&"espingarda": {"name": "Espingarda de dois canos", "short": "Espingarda", "kind": "weapon", "weapon": "shotgun", "stack": 1, "size": Vector3(0.07, 0.16, 0.95),
+		"damage_type": "Chumbo", "damage": 144, "knockback": 60,
+		"desc": "Canos lado a lado, cães externos e gatilho duplo. 8 bagos por tiro (18 de dano cada): de perto derruba qualquer um, depois de uns 7 m espalha e perde força. 2 tiros e recarrega.",
+		"controls": ["Clique: atira um cano", "Segurar botão direito: mira de ferro (o leque fecha um pouco)", "R: recarrega os dois canos"]},
 	&"lanterna": {"name": "Lanterna", "kind": "tool", "slot": "offhand", "stack": 1, "size": Vector3(0.08, 0.08, 0.24),
 		"desc": "Lanterna de latão (L). Gasta bateria; recarregue com o carregador. Zumbis adoram uma luz na cara. Na mão secundária fica sempre à mão.",
 		"controls": ["L: liga/desliga (na mão secundária ou na mochila)", "Arraste para o slot da mão (ao lado da roupa)"]},
@@ -352,9 +364,17 @@ const ITEMS := {
 		"desc": "Cristais brancos tirados do adubo na bancada química (morno e sem pressa). O fôlego da pólvora."},
 	&"polvora": {"name": "Pólvora", "kind": "material", "stack": 100, "size": Vector3(0.14, 0.16, 0.14),
 		"desc": "Salitre, enxofre e carvão misturados A FRIO na bancada química (quente demais, explode). Na mesa vira cartucho."},
-	&"cartucho": {"name": "Cartuchos", "short": "Cartucho", "kind": "material", "stack": 100, "size": Vector3(0.1, 0.05, 0.1),
-		"desc": "Munição do revólver: estojo de cobre, pólvora e ponta de estanho. O revólver recarrega com os da mochila.",
-		"controls": ["R com o revólver na mão: recarrega (até 12)"]},
+	&"cartucho": {"name": "Balas de revólver", "short": "Bala rev.", "kind": "material", "stack": 100, "size": Vector3(0.1, 0.05, 0.1),
+		"desc": "Munição do revólver: estojo de cobre, pólvora e ponta de estanho. Rara: só na mesa (Manual de química) ou nas zonas contaminadas.",
+		"controls": ["R com o revólver na mão: recarrega (até 6)"]},
+	&"bala_rifle": {"name": "Balas de rifle", "short": "Bala rifle", "kind": "material", "stack": 100, "size": Vector3(0.1, 0.04, 0.12),
+		"desc": "Estojo comprido de cobre, carga dupla de pólvora e ponta de aço: atravessa zumbi. Rara: mesa (Manual de química) ou zonas contaminadas.",
+		"controls": ["R com o rifle na mão: põe uma bala na câmara"]},
+	&"cartucho_espingarda": {"name": "Cartuchos de espingarda", "short": "Cart. esp.", "kind": "material", "stack": 100, "size": Vector3(0.1, 0.06, 0.1),
+		"desc": "Tubo de plástico com base de cobre, pólvora e 8 bagos de estanho. Raro: mesa (Manual de química) ou zonas contaminadas.",
+		"controls": ["R com a espingarda na mão: recarrega os dois canos"]},
+	&"luneta": {"name": "Luneta", "kind": "material", "stack": 100, "size": Vector3(0.05, 0.06, 0.32),
+		"desc": "Tubo de bronze com duas lentes e os anéis de montagem. Na mesa, monta no rifle de um tiro."},
 	&"combustivel": {"name": "Biodiesel", "kind": "material", "stack": 100, "size": Vector3(0.09, 0.28, 0.09),
 		"desc": "Óleo e álcool refinados na bancada química. O melhor combustível: carro (+60%), maçarico e bancada química (2 lotes).",
 		"controls": ["Clique no carro: abastece (+60%)"]},
@@ -435,7 +455,7 @@ const SHARP_PER_USE := 0.04 ## ~25 golpes até perder o fio
 
 ## Campos extras de um item que viajam com ele (baú, chão, rede): qualidade da
 ## forja e fio da pedra de amolar.
-const EXTRA_KEYS := ["q", "sharp", "filter"] ## "filter": quanto resta do filtro da máscara de gás (0..1)
+const EXTRA_KEYS := ["q", "sharp", "filter", "ammo"] ## "filter": filtro da máscara (0..1); "ammo": balas carregadas na arma de fogo
 
 
 static func extras(slot: Dictionary) -> Dictionary:
@@ -536,6 +556,8 @@ static func make_mesh(id: StringName) -> Node3D:
 
 ## Centro da caixa de colisão do item no chão.
 static func shape_center(id: StringName) -> Vector3:
+	if id in [&"rifle", &"rifle_luneta", &"espingarda"]:
+		return Vector3(0, 0, -0.2) # arma longa: a coronha fica para trás da mão
 	if def(id).kind in ["weapon", "tool"] and id not in [&"pistola", &"carregador"]:
 		return Vector3(0, 0, -def(id).size.z * 0.5 + 0.05)
 	return Vector3.ZERO

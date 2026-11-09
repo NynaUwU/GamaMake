@@ -55,6 +55,7 @@ func _physics_process(_d: float) -> bool:
 		zs[1].balance = 0.0
 		zs[1]._set_state(Zombie.State.IDLE)
 		player.equip_item(&"pistola")
+		player._ammo = 6 # revólver carregado (gasta balas de revólver)
 		player.head.rotation.x = 0.0
 	if frame == 150:
 		# mira na cabeça (altura ~1.65 m); câmera em 1.6 m

@@ -308,6 +308,27 @@ class Catalog:
                 [self.p("Maçarico (soldas por unidade)"), self.p(self.cost(self.d["torch_fuel"]))],
                 [self.p("Bancada química (lotes por unidade)"), self.p(self.cost(self.d.get("chem_fuel", {})))]]
         story.append(self.table(["Onde queima", "Combustível e quanto dura"], rows, [5 * cm, 12 * cm]))
+        guns = self.d.get("guns")
+        if guns:
+            story.append(Paragraph("Armas de fogo", S["h2"]))
+            story.append(Paragraph("Todas têm mira de ferro (segure o botão direito: zoom e menos dispersão); o rifle com luneta mostra a "
+                                   "luneta na tela. Cada arma usa a sua munição, que fica carregada na própria arma. Cabeça = dano x2,5. "
+                                   "Munição é rara: só na mesa (Manual de química) ou no saque das zonas contaminadas.", S["body"]))
+            rows = []
+            for gid, g in guns.items():
+                dmg = "%g x%d bagos" % (g["damage"], g["pellets"]) if g["pellets"] > 1 else "%g" % g["damage"]
+                notes = []
+                if g["pierce"] > 1:
+                    notes.append("atravessa %d zumbis (-30%% cada)" % g["pierce"])
+                if g["falloff"]:
+                    notes.append("perde força depois de %g m" % g["falloff"])
+                if g["scope"]:
+                    notes.append("luneta")
+                rows.append([self.p(self.item(gid, 1, 13)), self.p(self.item(g["ammo"])), self.p(str(g["mag"])), self.p(dmg),
+                             self.p("%.2f s" % g["rate"]), self.p("%.1f s" % g["reload"]), self.p("%g m" % g["range"]),
+                             self.p("%g°" % g["zoom"]), self.p(esc(", ".join(notes)))])
+            story.append(self.table(["Arma", "Munição", "Cabe", "Dano", "Tiros", "Recarga", "Alcance", "Mirando", "Obs."], rows,
+                                    [3.2 * cm, 2.9 * cm, 1 * cm, 1.9 * cm, 1.3 * cm, 1.4 * cm, 1.4 * cm, 1.4 * cm, 2.5 * cm]))
         gas = self.d.get("gas")
         if gas:
             story.append(Paragraph("Zonas contaminadas (gás tóxico)", S["h2"]))

@@ -53,6 +53,12 @@ func _init() -> void:
 	data.fuel_fire = _s(Cooking.FIREWOOD)
 	data.torch_fuel = _s(Smithing.TORCH_FUEL)
 	data.chem_fuel = _s(Smithing.CHEM_FUEL)
+	var guns := {}
+	for id in Player.GUNS:
+		var g: Dictionary = Player.GUNS[id]
+		guns[String(id)] = {"ammo": String(g.ammo), "mag": g.mag, "damage": g.damage, "pellets": g.pellets, "rate": g.rate, "reload": g.reload,
+			"range": g.range, "pierce": g.pierce, "zoom": g.zoom, "scope": g.get("scope", false), "falloff": g.get("falloff", 0.0)}
+	data.guns = guns
 	data.gas = {"edge": Contamination.EDGE, "ceiling": Contamination.CEILING, "filter_time": Contamination.FILTER_TIME}
 	data.eras = Progress.ERAS
 	data.achievements = Progress.ACHIEVEMENTS

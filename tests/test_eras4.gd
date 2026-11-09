@@ -113,14 +113,15 @@ func _init() -> void:
 	placed.host_apply("chem_accident", [bench.net_id, "boom"])
 	print("pólvora explodiu do lado: vida %.0f -> %.0f, bancada continua: %s" % [hp, player.health, placed.objects.has(bench.net_id)])
 	player.health = player.max_health
-	# --- Revólver gasta cartuchos.
-	player._ammo = 0
+	# --- Revólver gasta balas de revólver (o que está carregado fica na arma).
+	player.equip_item(&"pistola")
+	player._sync_equipped()
 	player._start_reload()
-	print("revólver sem cartuchos: recarregando=%s" % (player._reload_timer > 0.0))
+	print("revólver sem balas: recarregando=%s" % (player._reload_timer > 0.0))
 	player.inventory.add(&"cartucho", 20)
 	player._start_reload()
-	player._update_pistol(player.reload_time + 0.1)
-	print("com 20 cartuchos: tambor %d, mochila %d" % [player._ammo, player.inventory.count(&"cartucho")])
+	player._update_pistol(3.0)
+	print("com 20 balas: tambor %d, mochila %d" % [player._ammo, player.inventory.count(&"cartucho")])
 	# --- Ácido renova a bateria.
 	var battery := _spawn("battery", at + Vector3(3, 0, 0))
 	battery.extra.cells = 4
@@ -182,10 +183,9 @@ func _init() -> void:
 	# Save/load: intoxicação, munição e filtro da máscara.
 	var saved := player.save_extra()
 	player.toxic = 0.0
-	player._ammo = 0
 	player.inventory.equipment.head = {}
 	player.load_extra(saved)
-	print("save/load: intoxicação %.0f, tambor %d, máscara %s filtro %.0f%%" % [player.toxic, player._ammo, player.inventory.equipment.head.get("id", ""),
+	print("save/load: intoxicação %.0f, tambor (no slot) %d, máscara %s filtro %.0f%%" % [player.toxic, player._ammo, player.inventory.equipment.head.get("id", ""),
 		player.inventory.equipment.head.get("filter", 1.0) * 100.0])
 	print("conquistas da era 4: %s" % [Progress.ACHIEVEMENTS.keys().filter(func(k): return Progress.ACHIEVEMENTS[k].era == 4)])
 	quit()

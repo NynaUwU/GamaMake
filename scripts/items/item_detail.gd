@@ -22,7 +22,8 @@ const IDS := [&"pistola", &"espada", &"taco", &"martelo", &"talhadeira", &"pa", 
 	&"eixo", &"engrenagem_madeira", &"polia",
 	&"minerio_estanho", &"barra_estanho", &"barra_bronze", &"eletrodo", &"capacete_soldado", &"couraca", &"grevas",
 	&"chapa", &"botijao", &"serpentina",
-	&"enxofre", &"salitre", &"polvora", &"cartucho", &"combustivel", &"plastico", &"acido", &"carvao_ativado", &"filtro", &"mascara_gas"]
+	&"enxofre", &"salitre", &"polvora", &"cartucho", &"combustivel", &"plastico", &"acido", &"carvao_ativado", &"filtro", &"mascara_gas",
+	&"rifle", &"rifle_luneta", &"espingarda", &"luneta", &"bala_rifle", &"cartucho_espingarda"]
 
 
 static func has(id: StringName) -> bool:
@@ -89,6 +90,12 @@ static func build(id: StringName, p: Dictionary) -> void:
 		&"carvao_ativado": _sack(p, Color(0.24, 0.24, 0.25), Color(0.08, 0.08, 0.08))
 		&"filtro": _filter_canister(p, Vector3.ZERO, Basis.IDENTITY)
 		&"mascara_gas": _gas_mask(p)
+		&"rifle": _rifle(p, false)
+		&"rifle_luneta": _rifle(p, true)
+		&"espingarda": _shotgun(p)
+		&"luneta": _scope(p, Vector3(0, 0.0, 0.17), true)
+		&"bala_rifle": _rifle_rounds(p)
+		&"cartucho_espingarda": _shells(p)
 		&"vidro": _glass(p)
 		&"sucata": _scrap(p)
 		&"pano": _cloth_stack(p)
@@ -1301,18 +1308,19 @@ static func _wood_pulley(p: Dictionary) -> void:
 
 # --- Era 4: química ------------------------------------------------------------
 
-## Cristais (enxofre, salitre): pedra cinza com pontas angulosas da cor do cristal.
+## Cristais (enxofre, salitre): pedra cinza larga com um tufo de pontas angulosas da cor do
+## cristal, abrindo em leque para todos os lados.
 static func _crystals(p: Dictionary, rock: Color, crystal: Color, seed: int) -> void:
-	_blob(_mb(p, rock), Vector3(0, -0.01, 0), Vector3(0.07, 0.035, 0.06), seed, 0.2, 7, 4)
+	_blob(_mb(p, rock), Vector3(0, -0.005, 0), Vector3(0.075, 0.03, 0.065), seed, 0.18, 8, 4)
 	var rng := RandomNumberGenerator.new()
 	rng.seed = seed
-	for k in 7:
-		var a := TAU * k / 7.0 + rng.randf() * 0.4
-		var r := 0.0 if k == 0 else rng.randf_range(0.02, 0.045)
-		var h := rng.randf_range(0.04, 0.08) * (1.4 if k == 0 else 1.0)
-		var tilt := Basis(Vector3(sin(a), 0, -cos(a)), r * 6.0) # tombam para fora
-		var c := crystal.lightened(0.15) if k % 2 == 0 else crystal.darkened(0.1)
-		_mb(p, c).lathe(PackedVector2Array([Vector2(0.014, 0.0), Vector2(0.014, h * 0.7), Vector2(0.001, h)]), 4, tilt, Vector3(cos(a) * r, 0.01, sin(a) * r))
+	for k in 10:
+		var a := TAU * k / 9.0 + rng.randf() * 0.3
+		var r := 0.0 if k == 9 else rng.randf_range(0.015, 0.05)
+		var h := rng.randf_range(0.035, 0.06) * (1.5 if k == 9 else 1.0)
+		var tilt := Basis(Vector3(sin(a), 0, -cos(a)), 0.0 if k == 9 else rng.randf_range(0.15, 0.45))
+		var c := crystal.lightened(0.15) if k % 2 == 0 else crystal.darkened(0.08)
+		_mb(p, c).lathe(PackedVector2Array([Vector2(0.012, 0.0), Vector2(0.012, h * 0.7), Vector2(0.001, h)]), 4, tilt, Vector3(cos(a) * r, 0.015, sin(a) * r))
 
 
 ## Barrilete de pólvora: madeira com cintas de ferro, tampa aberta com o pó preto.
@@ -1329,19 +1337,26 @@ static func _powder_keg(p: Dictionary) -> void:
 	_mb(p, ItemModels.RED_PAINT).box(Vector3(0, 0.08, 0.07), Vector3(0.03, 0.012, 0.002))
 
 
-## Cartuchos: estojos de cobre com a ponta de estanho, uns em pé e uns deitados.
+## Cartuchos: caixinha de papelão aberta com os cartuchos em pé (base de cobre e ponta de
+## estanho) e dois deitados na frente.
 static func _cartridges(p: Dictionary) -> void:
 	var case := ItemModels.COPPER.lightened(0.3)
 	var tip := Color(0.62, 0.63, 0.62)
-	for k in 5:
-		var at := Vector3((k - 2) * 0.018, 0.0, (k % 2) * 0.014)
-		_mb(p, case).lathe(PackedVector2Array([Vector2(0.002, 0.0), Vector2(0.0075, 0.0), Vector2(0.0075, 0.004), Vector2(0.0065, 0.005), Vector2(0.0065, 0.03)]), 8, Basis.IDENTITY, at)
-		_mb(p, tip).lathe(PackedVector2Array([Vector2(0.0062, 0.03), Vector2(0.0062, 0.036), Vector2(0.004, 0.042), Vector2(0.001, 0.044)]), 8, Basis.IDENTITY, at)
+	var card := Color(0.62, 0.5, 0.32)
+	_mb(p, card).box(Vector3(0, 0.002, -0.008), Vector3(0.085, 0.004, 0.06))
+	for side in [-1.0, 1.0]:
+		_mb(p, card.darkened(0.15)).box(Vector3(side * 0.0425, 0.014, -0.008), Vector3(0.004, 0.026, 0.06))
+		_mb(p, card.darkened(0.1)).box(Vector3(0, 0.014, -0.008 + side * 0.03), Vector3(0.085, 0.026, 0.004))
+	for i in 4:
+		for j in 3:
+			var at := Vector3(-0.03 + i * 0.02, 0.004, -0.026 + j * 0.018)
+			_mb(p, case).lathe(PackedVector2Array([Vector2(0.002, 0.0), Vector2(0.0085, 0.0), Vector2(0.0085, 0.022), Vector2(0.007, 0.024)]), 8, Basis.IDENTITY, at)
+			_mb(p, tip).lathe(PackedVector2Array([Vector2(0.006, 0.024), Vector2(0.0058, 0.03), Vector2(0.0035, 0.036), Vector2(0.001, 0.038)]), 8, Basis.IDENTITY, at)
 	for k in 2:
-		var at := Vector3(-0.025 + k * 0.05, 0.007, 0.04)
-		var lie := Basis(Vector3.RIGHT, PI / 2) * Basis(Vector3.BACK, 0.3 * (1 - 2 * k))
-		_mb(p, case).lathe(PackedVector2Array([Vector2(0.002, 0.0), Vector2(0.0075, 0.0), Vector2(0.0065, 0.03)]), 8, lie, at)
-		_mb(p, tip).lathe(PackedVector2Array([Vector2(0.0062, 0.03), Vector2(0.004, 0.042), Vector2(0.001, 0.044)]), 8, lie, at)
+		var at := Vector3(-0.022 + k * 0.044, 0.009, 0.04)
+		var lie := Basis(Vector3.UP, 0.3 * (1 - 2 * k)) * Basis(Vector3.RIGHT, PI / 2)
+		_mb(p, case).lathe(PackedVector2Array([Vector2(0.002, 0.0), Vector2(0.0085, 0.0), Vector2(0.0085, 0.022), Vector2(0.007, 0.024)]), 8, lie, at)
+		_mb(p, tip).lathe(PackedVector2Array([Vector2(0.006, 0.024), Vector2(0.0035, 0.036), Vector2(0.001, 0.038)]), 8, lie, at)
 
 
 ## Placas de bioplástico empilhadas (amareladas e foscas, uma meio torta).
@@ -1366,18 +1381,166 @@ static func _filter_canister(p: Dictionary, at: Vector3, basis: Basis) -> void:
 
 
 ## Máscara de gás (vestida na cabeça: frente para +Z): borracha cobrindo o rosto, duas
-## lentes com aro de latão, o filtro de rosca no queixo e as tiras de couro na nuca.
+## lentes grandes com aro de latão, o filtro de rosca no queixo e a cinta em volta da cabeça.
 static func _gas_mask(p: Dictionary) -> void:
-	var rubber := Color(0.2, 0.22, 0.19)
-	_blob(_mb(p, rubber), Vector3(0, -0.06, 0.1), Vector3(0.125, 0.13, 0.075), 31, 0.04, 10, 6)
-	_mb(p, rubber.darkened(0.2)).box(Vector3(0, -0.05, 0.05), Vector3(0.24, 0.2, 0.05)) # borda que veda no rosto
+	var rubber := Color(0.27, 0.3, 0.25)
+	_blob(_mb(p, rubber), Vector3(0, -0.06, 0.1), Vector3(0.13, 0.13, 0.08), 31, 0.04, 10, 6)
+	_mb(p, rubber.darkened(0.25)).box(Vector3(0, -0.05, 0.045), Vector3(0.24, 0.2, 0.04)) # borda que veda no rosto
 	for side in [-1.0, 1.0]:
-		var lens := Vector3(side * 0.052, -0.02, 0.165)
+		var lens := Vector3(side * 0.054, -0.02, 0.17)
 		var facing := Basis(Vector3.RIGHT, PI / 2)
-		_mb(p, ItemModels.BRASS).torus(0.032, 0.007, 12, 4, facing, lens)
-		_mb(p, Color(0.5, 0.62, 0.6)).lathe(PackedVector2Array([Vector2(0.0, 0.0), Vector2(0.029, 0.0), Vector2(0.029, 0.004)]), 12, facing, lens + Vector3(0, 0, -0.002))
-		_mb(p, ItemModels.LEATHER).box(Vector3(side * 0.13, -0.02, 0.0), Vector3(0.02, 0.025, 0.2)) # tira lateral
-	_mb(p, rubber.lightened(0.08)).lathe(PackedVector2Array([Vector2(0.03, 0.0), Vector2(0.026, 0.03), Vector2(0.03, 0.035)]), 10, Basis(Vector3.RIGHT, PI / 2 + 0.5), Vector3(0, -0.12, 0.15)) # bocal
+		_mb(p, ItemModels.BRASS).torus(0.038, 0.008, 12, 4, facing, lens)
+		_mb(p, Color(0.55, 0.7, 0.68)).lathe(PackedVector2Array([Vector2(0.0, 0.0), Vector2(0.034, 0.0), Vector2(0.034, 0.004)]), 12, facing, lens + Vector3(0, 0, -0.002))
+	_mb(p, rubber.lightened(0.1)).lathe(PackedVector2Array([Vector2(0.03, 0.0), Vector2(0.026, 0.03), Vector2(0.03, 0.035)]), 10, Basis(Vector3.RIGHT, PI / 2 + 0.5), Vector3(0, -0.12, 0.15)) # bocal
 	_filter_canister(p, Vector3(0, -0.15, 0.175), Basis(Vector3.RIGHT, PI / 2 + 0.5))
-	_mb(p, ItemModels.LEATHER).torus(0.14, 0.01, 14, 4, Basis.IDENTITY, Vector3(0, -0.02, -0.02)) # cinta em volta da cabeça
-	_mb(p, ItemModels.LEATHER).box(Vector3(0, 0.08, -0.06), Vector3(0.025, 0.012, 0.2), Basis(Vector3.RIGHT, -0.4)) # tira de cima
+	_mb(p, ItemModels.LEATHER).torus(0.145, 0.01, 14, 4, Basis.IDENTITY, Vector3(0, -0.02, -0.01)) # cinta em volta da cabeça
+
+
+# --- Armas de fogo longas e munição ------------------------------------------------
+# Mesma convenção do revólver: cano para -Z, origem no punho (onde a mão direita pega).
+# A linha da mira fica em x = 0: o jogador mirando alinha essa linha com o centro da tela.
+
+const WALNUT := Color(0.36, 0.2, 0.1)
+const BLUED := Color(0.19, 0.19, 0.21)
+const CASE := Color(0.46, 0.44, 0.4) ## caixa da culatra (aço temperado, meio azulado)
+
+
+## Coronha de nogueira: punho (atrás da mão) e a soleira com a chapa de latão.
+static func _buttstock(p: Dictionary, wood: Color, length: float, drop: float, width: float) -> void:
+	var wrist := PackedVector2Array([Vector2(-0.035, -0.014), Vector2(-0.058, -0.04), Vector2(-0.13, -0.052), Vector2(-0.13, 0.024), Vector2(-0.045, 0.026)])
+	_mb(p, wood).extrude(wrist, width * 0.85, Basis(Vector3(0, 1, 0), PI / 2), Vector3(-width * 0.425, 0.0, 0.0))
+	var butt := PackedVector2Array([Vector2(-0.125, 0.025), Vector2(-0.125, -0.054), Vector2(-length + 0.012, -drop - 0.012), Vector2(-length, -drop),
+		Vector2(-length, 0.016)])
+	_mb(p, wood).extrude(butt, width, Basis(Vector3(0, 1, 0), PI / 2), Vector3(-width * 0.5, 0.0, 0.0))
+	_mb(p, wood.darkened(0.25)).box(Vector3(-width * 0.5 - 0.001, -0.02, length * 0.62), Vector3(0.002, 0.03, length * 0.4)) # bochecheira
+	_mb(p, ItemModels.BRASS).box(Vector3(0, (0.016 - drop) * 0.5, length + 0.004), Vector3(width + 0.002, drop + 0.018, 0.008)) # chapa da soleira
+	for k in 3: # quadriculado do punho
+		_mb(p, wood.darkened(0.3)).box(Vector3(width * 0.43, -0.012 - k * 0.011, 0.075 + k * 0.012), Vector3(0.001, 0.004, 0.022), Basis(Vector3.RIGHT, -0.5))
+		_mb(p, wood.darkened(0.3)).box(Vector3(-width * 0.43, -0.012 - k * 0.011, 0.075 + k * 0.012), Vector3(0.001, 0.004, 0.022), Basis(Vector3.RIGHT, -0.5))
+
+
+## Guarda-mato de latão com o gatilho (ou dois, na espingarda).
+static func _trigger_group(p: Dictionary, z: float, triggers: int) -> void:
+	var guard := PackedVector3Array()
+	for i in 9:
+		var a := lerpf(0.0, PI, i / 8.0)
+		guard.append(Vector3(0, -0.022 - sin(a) * 0.026, z + cos(a) * 0.03))
+	_mb(p, ItemModels.BRASS).tube(guard, 0.0032, 4)
+	for k in triggers:
+		var dz := z - 0.006 + k * 0.014
+		_mb(p, ItemModels.STEEL.darkened(0.2)).tube(PackedVector3Array([Vector3(0, -0.02, dz), Vector3(0, -0.034, dz - 0.004), Vector3(0, -0.042, dz + 0.004)]), 0.0026, 4)
+
+
+## Rifle de um tiro (bloco basculante): cano octogonal azulado, culatra de aço com placas
+## de latão e a alavanca em laço embaixo, telha de nogueira com duas cintas de latão,
+## coronha com chapa de latão, massa de mira na boca e alça de mira de escada.
+## Com luneta: tubo de bronze com sino nas pontas, dois anéis e os tambores de ajuste.
+static func _rifle(p: Dictionary, scoped: bool) -> void:
+	var axis := Vector3(0, 0.017, 0)
+	_mb(p, BLUED).lathe(PackedVector2Array([Vector2(0.002, 0.06), Vector2(0.0125, 0.06), Vector2(0.0108, 0.74), Vector2(0.002, 0.74)]), 8, AXIS_Z, axis)
+	_mb(p, ItemModels.DARK).lathe(PackedVector2Array([Vector2(0.0055, 0.7405), Vector2(0.001, 0.741)]), 8, AXIS_Z, axis) # alma
+	_mb(p, BLUED.lightened(0.12)).lathe(PackedVector2Array([Vector2(0.0135, 0.06), Vector2(0.0135, 0.1)]), 8, AXIS_Z, axis) # reforço da câmara
+	# Culatra com as placas de latão gravadas e a alavanca em laço.
+	_mb(p, CASE).box(Vector3(0, 0.012, 0.0), Vector3(0.03, 0.05, 0.13))
+	for side in [-1.0, 1.0]:
+		_mb(p, ItemModels.BRASS).box(Vector3(side * 0.0153, 0.012, 0.0), Vector3(0.0012, 0.036, 0.1))
+		for k in 3:
+			_mb(p, ItemModels.BRASS.darkened(0.3)).box(Vector3(side * 0.016, 0.0 + k * 0.012, 0.0), Vector3(0.0008, 0.002, 0.08), Basis(Vector3.RIGHT, 0.1 * (k - 1)))
+		_mb(p, ItemModels.STEEL).box(Vector3(side * 0.0158, 0.03, 0.04), Vector3(0.002, 0.006, 0.006)) # pino do bloco
+	_mb(p, CASE.darkened(0.2)).box(Vector3(0, 0.04, 0.02), Vector3(0.018, 0.008, 0.07)) # bloco por cima
+	var lever := PackedVector3Array([Vector3(0, -0.014, 0.05), Vector3(0, -0.035, 0.07), Vector3(0, -0.06, 0.09), Vector3(0, -0.07, 0.13),
+		Vector3(0, -0.062, 0.16), Vector3(0, -0.045, 0.14)])
+	_mb(p, CASE).tube(lever, 0.0042, 5) # alavanca em laço atrás do gatilho
+	_trigger_group(p, 0.012, 1)
+	# Telha de nogueira e as cintas de latão.
+	_mb(p, WALNUT).box(Vector3(0, -0.004, -0.29), Vector3(0.032, 0.028, 0.44))
+	_mb(p, WALNUT.lightened(0.05)).lathe(PackedVector2Array([Vector2(0.016, 0.5), Vector2(0.012, 0.515), Vector2(0.002, 0.52)]), 6, AXIS_Z, Vector3(0, -0.004, 0)) # ponta
+	for z in [0.24, 0.47]:
+		_mb(p, ItemModels.BRASS).lathe(PackedVector2Array([Vector2(0.021, z), Vector2(0.021, z + 0.016)]), 8, AXIS_Z, Vector3(0, 0.008, 0))
+	_mb(p, ItemModels.STEEL).torus(0.008, 0.0018, 8, 3, Basis(Vector3.BACK, PI / 2), Vector3(0, -0.024, -0.43)) # argola da bandoleira
+	_buttstock(p, WALNUT, 0.38, 0.11, 0.036)
+	_mb(p, ItemModels.STEEL).torus(0.008, 0.0018, 8, 3, Basis(Vector3.BACK, PI / 2), Vector3(0, -0.085, 0.3))
+	# Miras de ferro: massa (lâmina) na boca e alça de escada com o entalhe.
+	_mb(p, BLUED.lightened(0.1)).box(Vector3(0, 0.0255, -0.718), Vector3(0.012, 0.004, 0.02)) # base
+	_mb(p, ItemModels.STEEL.lightened(0.15)).box(Vector3(0, 0.0305, -0.718), Vector3(0.0025, 0.008, 0.006)) # lâmina
+	_mb(p, BLUED.lightened(0.1)).box(Vector3(0, 0.0275, -0.2), Vector3(0.014, 0.006, 0.03)) # base da alça
+	for side in [-1.0, 1.0]:
+		_mb(p, BLUED.lightened(0.15)).box(Vector3(side * 0.0055, 0.0335, -0.2), Vector3(0.004, 0.008, 0.004)) # orelhas (entalhe no meio)
+	if scoped:
+		_scope(p, Vector3(0, 0.069, -0.02), false)
+
+
+## Luneta de bronze: tubo com sino na objetiva e na ocular, lentes, tambores de ajuste e
+## (montada) os dois anéis presos na culatra. "at" = ponta de trás (ocular), indo para -Z.
+static func _scope(p: Dictionary, at: Vector3, loose: bool) -> void:
+	var bronze := Color(0.62, 0.45, 0.22)
+	_mb(p, bronze).lathe(PackedVector2Array([Vector2(0.002, 0.0), Vector2(0.019, 0.0), Vector2(0.019, 0.05), Vector2(0.013, 0.075), Vector2(0.013, 0.25),
+		Vector2(0.021, 0.285), Vector2(0.021, 0.34), Vector2(0.002, 0.34)]), 10, AXIS_Z, at)
+	_mb(p, Color(0.18, 0.3, 0.38)).lathe(PackedVector2Array([Vector2(0.002, -0.001), Vector2(0.016, -0.001)]), 10, AXIS_Z, at) # lente da ocular
+	_mb(p, Color(0.22, 0.38, 0.45)).lathe(PackedVector2Array([Vector2(0.002, 0.341), Vector2(0.018, 0.341)]), 10, AXIS_Z, at) # objetiva
+	for z in [0.02, 0.31]:
+		_mb(p, bronze.darkened(0.25)).lathe(PackedVector2Array([Vector2(0.0195 if z < 0.1 else 0.0215, z), Vector2(0.0195 if z < 0.1 else 0.0215, z + 0.008)]), 10, AXIS_Z, at)
+	_mb(p, bronze.lightened(0.1)).lathe(PackedVector2Array([Vector2(0.008, 0.0), Vector2(0.008, 0.016), Vector2(0.002, 0.016)]), 8, Basis.IDENTITY, at + Vector3(0, 0.012, -0.16)) # tambor de cima
+	_mb(p, bronze.lightened(0.1)).lathe(PackedVector2Array([Vector2(0.008, 0.0), Vector2(0.008, 0.016), Vector2(0.002, 0.016)]), 8, Basis(Vector3.BACK, -PI / 2), at + Vector3(0.012, 0, -0.16)) # do lado
+	for z in [-0.06, -0.22]:
+		_mb(p, ItemModels.STEEL.darkened(0.2)).torus(0.015, 0.003, 10, 4, Basis(Vector3.RIGHT, PI / 2), at + Vector3(0, 0, z))
+		if not loose:
+			_mb(p, ItemModels.STEEL.darkened(0.2)).box(at + Vector3(0, -0.026, z), Vector3(0.012, 0.024, 0.01)) # pé do anel até a culatra
+
+
+## Espingarda de dois canos lado a lado: canos azulados com a fita no meio e o grão de
+## latão na boca, báscula com placas de latão gravadas, dois cães externos, alavanca de
+## abrir, dois gatilhos, telha curta e coronha reta de nogueira escura.
+static func _shotgun(p: Dictionary) -> void:
+	for side in [-1.0, 1.0]:
+		var axis := Vector3(side * 0.0125, 0.013, 0)
+		_mb(p, BLUED).lathe(PackedVector2Array([Vector2(0.002, 0.06), Vector2(0.0128, 0.06), Vector2(0.0118, 0.62), Vector2(0.002, 0.62)]), 10, AXIS_Z, axis)
+		_mb(p, ItemModels.DARK).lathe(PackedVector2Array([Vector2(0.0085, 0.6205), Vector2(0.001, 0.621)]), 10, AXIS_Z, axis) # boca
+	_mb(p, BLUED.lightened(0.1)).box(Vector3(0, 0.0255, -0.34), Vector3(0.008, 0.004, 0.56)) # fita entre os canos
+	_mb(p, BLUED).box(Vector3(0, 0.001, -0.34), Vector3(0.008, 0.006, 0.56)) # fita de baixo
+	_mb(p, ItemModels.BRASS).lathe(PackedVector2Array([Vector2(0.002, 0.0), Vector2(0.0035, 0.001), Vector2(0.0035, 0.004), Vector2(0.002, 0.006)]), 6, Basis.IDENTITY, Vector3(0, 0.0275, -0.612)) # grão
+	_mb(p, BLUED.lightened(0.15)).lathe(PackedVector2Array([Vector2(0.026, 0.065), Vector2(0.026, 0.075)]), 10, AXIS_Z, Vector3(0, 0.013, 0)) # culatra dos canos
+	# Báscula com placas de latão gravadas e o pino da dobradiça.
+	_mb(p, CASE).box(Vector3(0, 0.008, 0.0), Vector3(0.05, 0.042, 0.12))
+	for side in [-1.0, 1.0]:
+		_mb(p, ItemModels.BRASS).box(Vector3(side * 0.0253, 0.006, 0.006), Vector3(0.0012, 0.032, 0.09))
+		for k in 4:
+			var a := TAU * k / 4.0
+			_mb(p, ItemModels.BRASS.darkened(0.35)).box(Vector3(side * 0.026, 0.006 + sin(a) * 0.008, 0.006 + cos(a) * 0.022), Vector3(0.0008, 0.006, 0.006), Basis(Vector3.RIGHT, a)) # rosácea
+		_mb(p, ItemModels.STEEL).box(Vector3(side * 0.0258, -0.006, -0.05), Vector3(0.002, 0.008, 0.008)) # pino da dobradiça
+		# Cão externo (curvo, com a espora riscada).
+		_mb(p, ItemModels.STEEL.darkened(0.1)).tube(PackedVector3Array([Vector3(side * 0.016, 0.02, 0.05), Vector3(side * 0.016, 0.036, 0.06),
+			Vector3(side * 0.015, 0.045, 0.05), Vector3(side * 0.014, 0.046, 0.036)]), 0.0042, 5)
+		_mb(p, ItemModels.STEEL.darkened(0.35)).box(Vector3(side * 0.015, 0.05, 0.056), Vector3(0.007, 0.003, 0.012), Basis(Vector3.RIGHT, 0.4))
+	_mb(p, CASE.darkened(0.1)).box(Vector3(0, 0.032, 0.07), Vector3(0.012, 0.006, 0.05), Basis(Vector3.UP, 0.25)) # alavanca de abrir
+	_trigger_group(p, 0.018, 2)
+	# Telha curta (debaixo dos canos) e a coronha reta.
+	_mb(p, WALNUT.darkened(0.15)).box(Vector3(0, -0.006, -0.17), Vector3(0.04, 0.022, 0.2))
+	_mb(p, ItemModels.BRASS).box(Vector3(0, -0.017, -0.17), Vector3(0.012, 0.002, 0.08)) # trinco da telha
+	_buttstock(p, WALNUT.darkened(0.15), 0.36, 0.09, 0.04)
+
+
+## Balas de rifle: cinco cartuchos compridos (pescoço afinando, ponta de aço) num pente de latão.
+static func _rifle_rounds(p: Dictionary) -> void:
+	var case := ItemModels.BRASS.lightened(0.15)
+	for k in 5:
+		var at := Vector3((k - 2) * 0.016, 0.0, 0.0)
+		var lie := Basis(Vector3.RIGHT, -PI / 2)
+		_mb(p, case).lathe(PackedVector2Array([Vector2(0.002, -0.04), Vector2(0.0072, -0.04), Vector2(0.0072, -0.036), Vector2(0.0066, -0.034),
+			Vector2(0.0068, 0.005), Vector2(0.0046, 0.012), Vector2(0.0042, 0.02)]), 8, lie, at)
+		_mb(p, ItemModels.STEEL.darkened(0.1)).lathe(PackedVector2Array([Vector2(0.0041, 0.02), Vector2(0.0038, 0.03), Vector2(0.0018, 0.04), Vector2(0.0005, 0.043)]), 8, lie, at)
+	_mb(p, ItemModels.BRASS.darkened(0.2)).box(Vector3(0, -0.006, 0.037), Vector3(0.085, 0.003, 0.008)) # pente
+
+
+## Cartuchos de espingarda: tubos vermelhos de plástico com a base de cobre, em pé e um deitado.
+static func _shells(p: Dictionary) -> void:
+	var red := Color(0.62, 0.14, 0.1)
+	var base := ItemModels.COPPER.lightened(0.25)
+	var spots := [Vector3(-0.012, 0, -0.012), Vector3(0.012, 0, -0.012), Vector3(-0.012, 0, 0.012), Vector3(0.012, 0, 0.012)]
+	for at in spots:
+		_mb(p, base).lathe(PackedVector2Array([Vector2(0.002, 0.0), Vector2(0.0105, 0.0), Vector2(0.0105, 0.003), Vector2(0.0098, 0.004), Vector2(0.0098, 0.014)]), 10, Basis.IDENTITY, at)
+		_mb(p, red).lathe(PackedVector2Array([Vector2(0.0095, 0.014), Vector2(0.0095, 0.05), Vector2(0.006, 0.053), Vector2(0.002, 0.053)]), 10, Basis.IDENTITY, at)
+	var lie := Basis(Vector3.UP, 0.4) * Basis(Vector3.BACK, PI / 2)
+	var spot := Vector3(0.045, 0.0105, 0.005)
+	_mb(p, base).lathe(PackedVector2Array([Vector2(0.002, 0.0), Vector2(0.0105, 0.0), Vector2(0.0098, 0.014)]), 10, lie, spot)
+	_mb(p, red).lathe(PackedVector2Array([Vector2(0.0095, 0.014), Vector2(0.0095, 0.05), Vector2(0.006, 0.053), Vector2(0.002, 0.053)]), 10, lie, spot)

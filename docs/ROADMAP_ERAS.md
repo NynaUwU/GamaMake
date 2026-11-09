@@ -90,7 +90,14 @@ Plano em fases do pacote "eras + minigames". Cada fase fecha uma rodada jogável
 - **Enxofre**: veios amarelos (20% dos veios de carvão e 30% das rochas do deserto).
 - Mesa: **cartuchos** (cobre + estanho + pólvora = 12), **filtro** (carvão ativado + pano +
   plástico = 2), **máscara de gás** (plástico, vidro, couro, filtro), cabo com plástico.
-- **Revólver gasta cartuchos** (tambor de 12; R recarrega da mochila; o tambor vai no save).
+- **Armas de fogo** (todas com mira de ferro: segure o botão direito, zoom e menos dispersão):
+  - Revólver: balas de revólver, tambor de 6, 40 de dano (cabeça = 1 tiro), 0,3 s, recarga 1,9 s.
+  - **Rifle de um tiro**: balas de rifle, 115 de dano, atravessa até 3 zumbis (-30% cada),
+    190 m, recarga 1,6 s. Na mesa: rifle + **luneta** = rifle com luneta (zoom forte, luneta na tela).
+  - **Espingarda de dois canos**: cartuchos de espingarda, 8 bagos de 18, 2 tiros, recarga
+    2,3 s; perde força depois de 7 m (até 30%).
+  - Cada arma guarda o que está carregado; a munição é rara: só na mesa (Manual de química)
+    ou no saque das zonas contaminadas.
 - **Ácido** na mão + [E] na bateria: +50% de saúde das células (banco de 110 V: +20%).
 - **Biodiesel**: carro +60%, maçarico e queimador rendem 2 por unidade.
 - **Zonas contaminadas**: miolo das cidades grandes (sempre) e de metade das médias, e 3

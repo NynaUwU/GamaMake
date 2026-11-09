@@ -26,12 +26,15 @@ var _filter_label: Label
 var _filter_bar: ProgressBar
 var _toxic_label: Label
 var _toxic_bar: ProgressBar
+var _scope: ColorRect
 
 
 func _process(_delta: float) -> void:
 	if _machine:
 		var plants := $Root.get_node_or_null("PlantPanel") as Control
 		prompt_label.visible = not _machine.visible and not (plants and plants.visible)
+	if is_instance_valid(_player) and _player.get("_aim") != null:
+		$Root/Crosshair.visible = _player._aim < 0.5 # mirando: a mira é a da arma (ou a luneta)
 	if _bile and is_instance_valid(_player):
 		var amount := clampf(_player.bile_time / 2.0, 0.0, 1.0)
 		_bile.visible = amount > 0.0
@@ -135,6 +138,42 @@ void fragment() {
 		_toxic_bar.value = value / 100.0)
 
 
+## Luneta do rifle: tudo preto fora do círculo, retícula fina com as marcas de distância,
+## aro de bronze e a lente um pouco escura nas bordas.
+func _build_scope(player: Node) -> void:
+	_scope = ColorRect.new()
+	_scope.name = "Scope"
+	_scope.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_scope.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var mat := ShaderMaterial.new()
+	mat.shader = Shader.new()
+	mat.shader.code = """shader_type canvas_item;
+void fragment() {
+	vec2 p = (UV - 0.5) * vec2(SCREEN_PIXEL_SIZE.y / SCREEN_PIXEL_SIZE.x, 1.0);
+	float r = length(p);
+	float outside = smoothstep(0.43, 0.435, r);
+	float ring = smoothstep(0.41, 0.425, r) * (1.0 - outside);
+	float px = SCREEN_PIXEL_SIZE.y * 1.2;
+	float cross = (step(abs(p.x), px) * step(abs(p.y), 0.43) + step(abs(p.y), px) * step(abs(p.x), 0.43)) * (1.0 - step(r, 0.012));
+	float thick = (step(abs(p.x), px * 3.0) * step(0.2, abs(p.y)) + step(abs(p.y), px * 3.0) * step(0.2, abs(p.x)));
+	float ticks = 0.0;
+	for (int k = 1; k < 5; k++) {
+		float y = float(k) * 0.035;
+		ticks += step(abs(p.y - y), px) * step(abs(p.x), 0.012);
+	}
+	float lines = clamp(cross + thick + ticks, 0.0, 1.0) * (1.0 - outside);
+	float vignette = smoothstep(0.25, 0.42, r) * 0.45;
+	vec3 color = mix(vec3(0.0), vec3(0.42, 0.3, 0.14), ring);
+	float a = max(max(outside, ring * 0.95), max(lines * 0.95, vignette));
+	COLOR = vec4(color, a);
+}"""
+	_scope.material = mat
+	_scope.visible = false
+	$Root.add_child(_scope)
+	$Root.move_child(_scope, 0)
+	player.scope_changed.connect(func(on: bool): _scope.visible = on)
+
+
 func _gas_label(color: Color) -> Label:
 	var label := Label.new()
 	label.add_theme_font_size_override("font_size", 10)
@@ -227,6 +266,7 @@ void fragment() {
 	_bile_mat = bile_mat
 	_player = player
 	_build_gas(player)
+	_build_scope(player)
 	var plants := PlantPanel.new()
 	plants.name = "PlantPanel"
 	$Root.add_child(plants)

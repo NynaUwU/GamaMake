@@ -19,6 +19,7 @@ signal notify(text: String) ## mensagens curtas no HUD
 signal item_picked_up(item_id: StringName, amount: int) ## gancho para o inventário futuro
 signal died
 signal weapon_changed(weapon_text: String) ## nome da arma (+ munição)
+signal scope_changed(on: bool) ## olhando pela luneta do rifle (o HUD desenha a luneta)
 
 enum WeaponType { FISTS, SWORD, BAT, STAFF, PISTOL, CHARGER, SPOON, GRAPPLE, HAMMER, CHISEL, SLIPPER, BOOMERANG, SHOVEL, AXE, PICKAXE, SPEAR, ROD }
 const WEAPON_NAMES := {
@@ -31,7 +32,34 @@ const WEAPON_NAMES := {
 const WEAPON_FROM_ITEM := {"sword": WeaponType.SWORD, "bat": WeaponType.BAT,
 	"staff": WeaponType.STAFF, "pistol": WeaponType.PISTOL, "charger": WeaponType.CHARGER, "spoon": WeaponType.SPOON, "grapple": WeaponType.GRAPPLE,
 	"hammer": WeaponType.HAMMER, "chisel": WeaponType.CHISEL,
-	"slipper": WeaponType.SLIPPER, "boomerang": WeaponType.BOOMERANG, "shovel": WeaponType.SHOVEL, "axe": WeaponType.AXE, "pickaxe": WeaponType.PICKAXE, "spear": WeaponType.SPEAR, "rod": WeaponType.ROD}
+	"slipper": WeaponType.SLIPPER, "boomerang": WeaponType.BOOMERANG, "shovel": WeaponType.SHOVEL, "axe": WeaponType.AXE, "pickaxe": WeaponType.PICKAXE, "spear": WeaponType.SPEAR, "rod": WeaponType.ROD,
+	"rifle": WeaponType.PISTOL, "shotgun": WeaponType.PISTOL} # armas de fogo usam o mesmo nó (o modelo troca)
+## Armas de fogo (todas com mira de ferro: segure o botão direito). Cada uma gasta a sua
+## munição; o que está carregado fica guardado na própria arma ("ammo" no slot).
+##   ammo/mag      munição e quantas cabem    damage/force  por projétil (cabeça x2,5)
+##   rate/reload   s entre tiros / recarga     range         alcance (m)
+##   spread/aim    dispersão no quadril / mirando (x1,8 andando)
+##   pellets       projéteis por tiro (espingarda: 8 bagos)
+##   falloff       a partir de quantos metros o dano cai (até 30% no fim do alcance)
+##   pierce        zumbis que um tiro atravessa (rifle: 3, perde 30% a cada um)
+##   kick          recuo (sobe a mira)         zoom          campo de visão mirando (graus)
+##   rest/ads      posição na mão / mirando (a linha da mira no centro da tela)
+##   muzzle        boca do cano no modelo      pitch/volume  som do tiro
+const GUNS := {
+	&"pistola": {"ammo": &"cartucho", "mag": 6, "damage": 40.0, "force": 20.0, "rate": 0.3, "reload": 1.9, "range": 70.0,
+		"spread": 0.014, "aim": 0.004, "pellets": 1, "pierce": 1, "kick": 0.014, "zoom": 62.0,
+		"rest": Vector3(0.2, -0.21, -0.42), "ads": Vector3(0.0, -0.058, -0.3), "muzzle": Vector3(0, 0.035, -0.17), "pitch": 1.0, "volume": 0.0},
+	&"rifle": {"ammo": &"bala_rifle", "mag": 1, "damage": 115.0, "force": 45.0, "rate": 0.5, "reload": 1.6, "range": 190.0,
+		"spread": 0.02, "aim": 0.0008, "pellets": 1, "pierce": 3, "kick": 0.04, "zoom": 50.0,
+		"rest": Vector3(0.17, -0.2, -0.36), "ads": Vector3(0.0, -0.034, -0.12), "muzzle": Vector3(0, 0.017, -0.74), "fore": Vector3(0, -0.03, -0.36), "pitch": 0.72, "volume": 3.0},
+	&"rifle_luneta": {"ammo": &"bala_rifle", "mag": 1, "damage": 115.0, "force": 45.0, "rate": 0.5, "reload": 1.6, "range": 220.0,
+		"spread": 0.02, "aim": 0.0002, "pellets": 1, "pierce": 3, "kick": 0.04, "zoom": 16.0, "scope": true,
+		"rest": Vector3(0.17, -0.2, -0.36), "ads": Vector3(0.0, -0.069, -0.06), "muzzle": Vector3(0, 0.017, -0.74), "fore": Vector3(0, -0.03, -0.36), "pitch": 0.72, "volume": 3.0},
+	&"espingarda": {"ammo": &"cartucho_espingarda", "mag": 2, "damage": 18.0, "force": 16.0, "rate": 0.32, "reload": 2.3, "range": 30.0,
+		"spread": 0.055, "aim": 0.04, "pellets": 8, "pierce": 1, "kick": 0.06, "zoom": 64.0, "falloff": 7.0,
+		"rest": Vector3(0.17, -0.21, -0.36), "ads": Vector3(0.0, -0.028, -0.14), "muzzle": Vector3(0, 0.013, -0.62), "fore": Vector3(0, -0.03, -0.3), "pitch": 0.55, "volume": 5.0},
+}
+const GUN_IDS := [&"pistola", &"rifle", &"rifle_luneta", &"espingarda"] ## índice que vai pela rede no "shoot"
 const SLIPPER_REST := Vector3(0.2, -0.24, -0.4)
 const BOOMERANG_REST := Vector3(0.2, -0.22, -0.42)
 const HAMMER_REST := Vector3(0.24, -0.26, -0.44)
@@ -65,7 +93,6 @@ const TRAIL_LIFETIME := 0.1 ## quanto tempo o rastro do golpe fica na tela
 const GUARD_HAND := Vector3(0.32, -0.34, -0.45) ## posição da mão em guarda
 const GUARD_DIR := Vector3(0.2, 0.75, -0.6) ## para onde a arma aponta em guarda
 const STAFF_REST := Vector3(0.34, -0.5, -0.55)
-const PISTOL_REST := Vector3(0.2, -0.21, -0.42)
 const CHARGER_REST := Vector3(0.2, -0.2, -0.34)
 
 enum SwingPhase { NONE, WINDUP, SLASH, RECOVER }
@@ -159,15 +186,6 @@ var flashlight_charge := 0.5 ## bateria da lanterna (0..1)
 @export var cast_cooldown := 0.4 ## segure o clique para disparar sem parar
 @export var equip_time := 0.25
 
-@export_group("Pistola")
-@export var pistol_damage := 40.0 ## na cabeça (x2.5) mata com um tiro
-@export var pistol_force := 20.0
-@export var pistol_range := 80.0
-@export var pistol_fire_rate := 0.16 ## tempo mínimo entre tiros
-@export var magazine_size := 12
-@export var reload_time := 1.1
-@export var pistol_spread := 0.006
-
 @export_group("Status")
 @export var max_health := 100.0
 @export var max_stamina := 400.0 ## 4x o original: corre bem mais antes de cansar
@@ -222,8 +240,19 @@ var _trail_color := Color.WHITE
 var _cast_timer := 0.0
 var _staff_kick := 0.0 # recuo do cajado ao disparar
 
-var _ammo := 0
-const AMMO_ITEM := &"cartucho" ## munição do revólver (bancada química + mesa)
+## Balas no tambor/câmara da arma de fogo selecionada (guardadas no slot dela).
+var _ammo: int:
+	get:
+		var slot := _gun_slot()
+		return int(slot.get("ammo", 0)) if not slot.is_empty() else 0
+	set(value):
+		var slot := _gun_slot()
+		if not slot.is_empty():
+			slot.ammo = maxi(value, 0)
+var _gun_id: StringName = &"pistola" # modelo montado agora no nó da arma de fogo
+var _aim := 0.0 # 0 = no quadril, 1 = mirando (mira de ferro / luneta)
+var _scoped := false
+var last_shot_bones: Array = [] ## ossos acertados no último tiro (testes e balanceamento)
 var _fire_timer := 0.0
 var _reload_timer := 0.0
 var _pistol_kick := 0.0
@@ -345,7 +374,6 @@ func _ready() -> void:
 	health = max_health
 	stamina = max_stamina
 	_grapple_left = grapple_charges
-	_ammo = 0 # revólver começa vazio: recarrega com os cartuchos da mochila
 	spoon = Node3D.new()
 	spoon.name = "Spoon"
 	camera.add_child(spoon)
@@ -447,8 +475,9 @@ func _unhandled_input(event: InputEvent) -> void:
 			Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 		return
 	if event is InputEventMouseMotion and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
-		rotate_y(-event.relative.x * mouse_sensitivity)
-		head.rotate_x(-event.relative.y * mouse_sensitivity)
+		var sens := mouse_sensitivity * camera.fov / 75.0 # mirando com zoom: mais devagar
+		rotate_y(-event.relative.x * sens)
+		head.rotate_x(-event.relative.y * sens)
 		head.rotation.x = clampf(head.rotation.x, deg_to_rad(-85), deg_to_rad(85))
 	elif _should_recapture(event):
 		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
@@ -781,7 +810,7 @@ func _install_weapon_models() -> void:
 	var staff_model := ItemModels.build(&"cajado")
 	staff_model.transform = Transform3D(Basis(Vector3.RIGHT, PI / 2), Vector3(0, -0.41, 0)) # em pé, orbe na ponta (Tip)
 	staff.add_child(staff_model)
-	pistol.add_child(ItemModels.build(&"pistola"))
+	_install_gun(&"pistola")
 	spoon.add_child(ItemModels.build(&"colher"))
 	shovel.add_child(ItemModels.build(&"pa"))
 	axe.add_child(ItemModels.build(&"machado"))
@@ -908,6 +937,11 @@ func _update_fp_arm() -> void:
 			grip = staff.transform.translated_local(Vector3(0, -0.12, 0))
 		WeaponType.PISTOL:
 			grip = pistol.transform.translated_local(Vector3(0, -0.05, 0.03))
+			var fore: Vector3 = _gun().get("fore", Vector3.INF)
+			if fore != Vector3.INF and pistol.visible: # arma longa: a mão esquerda segura a telha
+				_fp_arm_left.visible = true
+				_fp_hand_left.visible = true
+				_place_arm(_fp_arm_left, _fp_hand_left, FP_SHOULDER_LEFT, pistol.transform.translated_local(fore))
 		WeaponType.CHARGER:
 			grip = charger.transform.translated_local(Vector3(0, -0.05, 0.02))
 		WeaponType.HAMMER:
@@ -990,6 +1024,12 @@ func equip_item(id: StringName) -> void:
 ## A arma na mão segue o slot selecionado da hotbar (slot sem arma = soco).
 func _sync_equipped() -> void:
 	var wanted: WeaponType = WEAPON_FROM_ITEM.get(ItemDB.weapon_of(inventory.selected_id()), WeaponType.FISTS)
+	if wanted == WeaponType.PISTOL and GUNS.has(inventory.selected_id()) and inventory.selected_id() != _gun_id:
+		_install_gun(inventory.selected_id())
+		if wanted == _weapon_type: # de uma arma de fogo para outra: abaixa e sobe a nova
+			_equip = 0.0
+			_reload_timer = 0.0
+			_emit_weapon_text()
 	if wanted != _weapon_type:
 		_switch_weapon(wanted)
 
@@ -1024,9 +1064,10 @@ func _emit_weapon_text() -> void:
 	var text: String = WEAPON_NAMES[_weapon_type]
 	if inventory and inventory.selected_id() != &"":
 		text = ItemDB.display_name(inventory.selected_id())
-	if _weapon_type == WeaponType.PISTOL:
-		var spare := inventory.count(AMMO_ITEM) if inventory else 0
-		text += "  recarregando..." if _reload_timer > 0.0 else "  %d/%d · %d na mochila" % [_ammo, magazine_size, spare]
+	if _weapon_type == WeaponType.PISTOL and not _gun().is_empty():
+		var gun := _gun()
+		var spare := inventory.count(gun.ammo) if inventory else 0
+		text += "  recarregando..." if _reload_timer > 0.0 else "  %d/%d · %d %s" % [_ammo, gun.mag, spare, ItemDB.short_name(gun.ammo).to_lower()]
 	elif _weapon_type == WeaponType.GRAPPLE:
 		text += "  %d/%d" % [_grapple_left, grapple_charges] if _grapple_left > 0 else "  recarregando..."
 	elif _weapon_type == WeaponType.SLIPPER:
@@ -1365,94 +1406,170 @@ func explosion_feedback(center: Vector3, radius: float) -> void:
 
 # Pistola ----------------------------------------------------------------------
 
+## Arma de fogo selecionada ({} se não for uma): números da tabela GUNS.
+func _gun() -> Dictionary:
+	return GUNS.get(inventory.selected_id(), {}) if inventory else {}
+
+
+func _gun_slot() -> Dictionary:
+	if inventory == null or inventory.slots.is_empty():
+		return {}
+	var slot: Dictionary = inventory.slots[inventory.selected]
+	return slot if not slot.is_empty() and GUNS.has(slot.id) else {}
+
+
+## Troca o modelo no nó da arma de fogo (revólver, rifle, rifle com luneta, espingarda).
+func _install_gun(id: StringName) -> void:
+	var old := pistol.get_node_or_null("Model")
+	if old:
+		pistol.remove_child(old)
+		old.queue_free()
+	var model := ItemModels.build(id)
+	model.name = "Model"
+	pistol.add_child(model)
+	muzzle.position = GUNS[id].muzzle
+	_gun_id = id
+
+
 func _update_pistol(delta: float) -> void:
 	_fire_timer -= delta
 	_pistol_kick = move_toward(_pistol_kick, 0.0, delta * 7.0)
+	var gun := _gun()
 	if _reload_timer > 0.0:
 		_reload_timer -= delta
-		if _reload_timer <= 0.0:
-			_ammo += _take_ammo(magazine_size - _ammo)
+		if _reload_timer <= 0.0 and not gun.is_empty():
+			_ammo += _take_ammo(gun.ammo, gun.mag - _ammo)
+			Sfx.play("click", -4.0, 0.7)
 			_emit_weapon_text()
-	if _weapon_type != WeaponType.PISTOL:
+	# Mirar (botão direito): a linha da mira vai para o centro e a câmera aproxima.
+	var want_aim := _weapon_type == WeaponType.PISTOL and not gun.is_empty() and Input.is_action_pressed("block") \
+		and not ui_blocked and health > 0.0 and _reload_timer <= 0.0 and vehicle == null and not is_puppet() and _equip >= 1.0
+	_aim = move_toward(_aim, 1.0 if want_aim else 0.0, delta * 6.0)
+	if not is_puppet():
+		camera.fov = lerpf(75.0, gun.get("zoom", 75.0) if not gun.is_empty() else 75.0, ease(_aim, 0.6))
+	var scoped: bool = gun.get("scope", false) and _aim > 0.9
+	if scoped != _scoped:
+		_scoped = scoped
+		scope_changed.emit(scoped)
+	if _weapon_type != WeaponType.PISTOL or gun.is_empty():
 		return
+	pistol.visible = not _scoped and not _hands_busy # pela luneta não se vê a arma
 	# Recarregando: a arma abaixa e gira um pouco.
-	var reload_dip := sin(clampf(1.0 - _reload_timer / reload_time, 0.0, 1.0) * PI) if _reload_timer > 0.0 else 0.0
-	pistol.position = PISTOL_REST + _bob_offset(0.8) + _equip_offset() \
-			+ Vector3(0, 0.02, 0.07) * _pistol_kick + Vector3(0, -0.12, 0) * reload_dip
-	pistol.rotation = Vector3(0.25 * _pistol_kick - 0.5 * reload_dip, 0.0, 0.6 * reload_dip)
+	var reload_dip := sin(clampf(1.0 - _reload_timer / float(gun.reload), 0.0, 1.0) * PI) if _reload_timer > 0.0 else 0.0
+	var aim := ease(_aim, 0.6)
+	pistol.position = (gun.rest as Vector3).lerp(gun.ads, aim) + _bob_offset(0.8 * (1.0 - 0.85 * aim)) + _equip_offset() \
+			+ Vector3(0, 0.02, 0.07) * _pistol_kick * (1.0 - 0.5 * aim) + Vector3(0, -0.12, 0) * reload_dip
+	pistol.rotation = Vector3(0.25 * _pistol_kick * (1.0 - 0.6 * aim) - 0.5 * reload_dip, 0.0, 0.6 * reload_dip)
 
 
 func _fire_pistol() -> void:
-	if _equip < 1.0 or _fire_timer > 0.0 or _reload_timer > 0.0:
+	var gun := _gun()
+	if gun.is_empty() or _equip < 1.0 or _fire_timer > 0.0 or _reload_timer > 0.0:
 		return
 	if _ammo <= 0:
 		_start_reload()
 		return
 	_ammo -= 1
-	Net.i.send_player_action("shoot", 0)
-	Sfx.play_at("shot", muzzle.global_position)
-	_fire_timer = pistol_fire_rate
+	Net.i.send_player_action("shoot", GUN_IDS.find(inventory.selected_id()))
+	Sfx.play_at("shot", muzzle.global_position, gun.volume, gun.pitch)
+	_fire_timer = gun.rate
 	_pistol_kick = 1.0
-	head.rotation.x = minf(head.rotation.x + 0.012, deg_to_rad(85)) # recuo sobe a mira
-	_shake = maxf(_shake, 0.05)
+	var kick: float = gun.kick * (1.0 - 0.4 * _aim)
+	head.rotation.x = minf(head.rotation.x + kick, deg_to_rad(85)) # recuo sobe a mira
+	rotate_y(randf_range(-1.0, 1.0) * kick * 0.25)
+	_shake = maxf(_shake, gun.kick * 2.5)
 	_flash_muzzle()
-
-	var origin := camera.global_position
-	var spread := Vector3(randf_range(-1, 1), randf_range(-1, 1), 0) * pistol_spread
-	var direction := (camera.global_basis * (Vector3.FORWARD + spread)).normalized()
-	var query := PhysicsRayQueryParameters3D.create(origin, origin + direction * pistol_range, MASK_HIT, [get_rid()])
-	query.collide_with_areas = true
-	var hit := get_world_3d().direct_space_state.intersect_ray(query)
-	# Zumbi longe fica sem hitboxes (desempenho): o tiro acerta a cápsula dele.
-	var far := PhysicsRayQueryParameters3D.create(origin, origin + direction * pistol_range, 1 << 2, [get_rid()])
-	var far_hit := get_world_3d().direct_space_state.intersect_ray(far)
-	if far_hit and far_hit.collider is Zombie and not far_hit.collider.hitboxes_active \
-			and (hit.is_empty() or origin.distance_to(far_hit.position) < origin.distance_to(hit.position)):
-		hit = far_hit
-	var end: Vector3 = hit.position if hit else origin + direction * pistol_range
-	ImpactFX.tracer(get_parent(), muzzle.global_position, end)
-	Net.i.fx("tracer", [muzzle.global_position, end])
-	if hit:
-		var collider: Object = hit.collider
-		if collider is Zombie:
-			collider.set_meta("enemy", collider)
-			collider.set_meta("bone", collider.hit_bone_at(hit.position))
-		if collider.has_meta("enemy"):
-			var enemy = collider.get_meta("enemy")
-			if is_instance_valid(enemy) and enemy.has_method("take_hit"):
-				enemy.take_hit(HitInfo.make(pistol_damage, collider.get_meta("bone"), hit.position,
-						direction, pistol_force, HitInfo.Type.PIERCE))
-				ImpactFX.burst(get_parent(), hit.position, -direction + hit.normal, ImpactFX.BLOOD, 14, 2.5)
-				Net.i.fx("burst", [hit.position, -direction + hit.normal, ImpactFX.BLOOD, 14, 2.5])
-		else:
-			if collider is RigidBody3D:
-				collider.apply_impulse(direction * pistol_force * 0.5, hit.position - collider.global_position)
-			ImpactFX.burst(get_parent(), hit.position, hit.normal, ImpactFX.SPARK, 8, 4.0, 0.03)
+	var moving := clampf(Vector2(velocity.x, velocity.z).length() / walk_speed, 0.0, 1.5)
+	var spread: float = lerpf(gun.spread, gun.aim, _aim) * (1.0 + moving * 0.8)
+	last_shot_bones.clear()
+	for k in int(gun.pellets):
+		var offset := Vector3(randf_range(-1, 1), randf_range(-1, 1), 0)
+		if offset.length() > 1.0:
+			offset = offset.normalized() # cone redondo
+		var direction := (camera.global_basis * (Vector3.FORWARD + offset * spread)).normalized()
+		_gun_ray(camera.global_position, direction, gun, k < 3)
 	_emit_weapon_text()
 	if _ammo == 0:
 		_start_reload()
 
 
+## Um projétil: acerta o primeiro zumbi (ou a parede) na linha. O rifle atravessa até
+## "pierce" zumbis, perdendo 30% do dano a cada um.
+func _gun_ray(origin: Vector3, direction: Vector3, gun: Dictionary, tracer: bool) -> void:
+	var space := get_world_3d().direct_space_state
+	var reach: float = gun.range
+	var damage: float = gun.damage
+	var to := origin + direction * reach
+	var start := origin
+	var end := to
+	var exclude: Array[RID] = [get_rid()]
+	var hits := []
+	for k in 10:
+		var query := PhysicsRayQueryParameters3D.create(start, to, MASK_HIT, exclude)
+		query.collide_with_areas = true
+		var hit := space.intersect_ray(query)
+		# Zumbi longe fica sem hitboxes (desempenho): o tiro acerta a cápsula dele.
+		var far := PhysicsRayQueryParameters3D.create(start, to, 1 << 2, exclude)
+		var far_hit := space.intersect_ray(far)
+		if far_hit and far_hit.collider is Zombie and not far_hit.collider.hitboxes_active \
+				and (hit.is_empty() or start.distance_to(far_hit.position) < start.distance_to(hit.position)):
+			hit = far_hit
+		if hit.is_empty():
+			break
+		end = hit.position
+		var collider: Object = hit.collider
+		if collider is Zombie:
+			collider.set_meta("enemy", collider)
+			collider.set_meta("bone", collider.hit_bone_at(hit.position))
+		if not collider.has_meta("enemy"):
+			if collider is RigidBody3D:
+				collider.apply_impulse(direction * gun.force * 0.5, hit.position - collider.global_position)
+			ImpactFX.burst(get_parent(), hit.position, hit.normal, ImpactFX.SPARK, 8, 4.0, 0.03)
+			break
+		var enemy = collider.get_meta("enemy")
+		exclude.append(hit.rid)
+		start = hit.position + direction * 0.02
+		if enemy in hits:
+			continue # outro pedaço do mesmo zumbi: passa reto
+		if is_instance_valid(enemy) and enemy.has_method("take_hit"):
+			var falloff: float = gun.get("falloff", reach)
+			var dist := origin.distance_to(hit.position)
+			var scale := clampf(1.0 - (dist - falloff) / maxf(reach - falloff, 1.0), 0.3, 1.0) if dist > falloff else 1.0
+			enemy.take_hit(HitInfo.make(damage * scale, collider.get_meta("bone"), hit.position, direction, gun.force * scale, HitInfo.Type.PIERCE))
+			last_shot_bones.append(collider.get_meta("bone"))
+			ImpactFX.burst(get_parent(), hit.position, -direction + hit.normal, ImpactFX.BLOOD, 14, 2.5)
+			Net.i.fx("burst", [hit.position, -direction + hit.normal, ImpactFX.BLOOD, 14, 2.5])
+		hits.append(enemy)
+		if hits.size() >= int(gun.pierce):
+			break
+		damage *= 0.7
+	if tracer:
+		ImpactFX.tracer(get_parent(), muzzle.global_position, end)
+		Net.i.fx("tracer", [muzzle.global_position, end])
+
+
 func _start_reload() -> void:
-	if _reload_timer > 0.0 or _ammo >= magazine_size:
+	var gun := _gun()
+	if gun.is_empty() or _reload_timer > 0.0 or _ammo >= int(gun.mag):
 		return
-	if inventory.count(AMMO_ITEM) <= 0:
+	if inventory.count(gun.ammo) <= 0:
 		Sfx.play("click", -2.0, 1.7) # gatilho em falso
 		if _ammo <= 0:
-			notify.emit("Sem cartuchos: faça na mesa (pólvora + cobre + estanho) ou ache em caixotes")
+			notify.emit("Sem %s: faça na mesa (Manual de química) ou ache nas zonas contaminadas" % ItemDB.display_name(gun.ammo).to_lower())
 		return
-	_reload_timer = reload_time
+	_reload_timer = gun.reload
+	Sfx.play("click", -6.0, 1.2)
 	_emit_weapon_text()
 
 
-## Tira até "want" cartuchos da mochila (devolve quantos tirou).
-func _take_ammo(want: int) -> int:
+## Tira até "want" balas do tipo "id" da mochila (devolve quantas tirou).
+func _take_ammo(id: StringName, want: int) -> int:
 	var got := 0
 	for i in inventory.slots.size():
 		if got >= want:
 			break
 		var slot: Dictionary = inventory.slots[i]
-		if not slot.is_empty() and slot.id == AMMO_ITEM:
+		if not slot.is_empty() and slot.id == id:
 			got += inventory.take(i, mini(want - got, slot.amount)).get("amount", 0)
 	return got
 
@@ -1999,7 +2116,7 @@ func _start_swing_visual_only() -> void:
 
 ## Salvo junto com o jogador (SaveGame).
 func save_extra() -> Dictionary:
-	var data := {"hunger": hunger, "thirst": thirst, "sick": sick_time, "heat": heat, "toxic": toxic, "ammo": _ammo,
+	var data := {"hunger": hunger, "thirst": thirst, "sick": sick_time, "heat": heat, "toxic": toxic,
 		"equipment": inventory.equipment.duplicate(true)}
 	if Progress.i and not is_puppet():
 		data.progress = Progress.i.save_data() # eras, conquistas, manuais, diário
@@ -2012,7 +2129,6 @@ func load_extra(data: Dictionary) -> void:
 	heat = data.get("heat", MAX_HEAT)
 	sick_time = data.get("sick", 0.0)
 	toxic = data.get("toxic", 0.0)
-	_ammo = int(data.get("ammo", 0))
 	thirst_changed.emit(thirst, MAX_THIRST)
 	sick_changed.emit(sick_time > 0.0)
 	var worn: Dictionary = data.get("equipment", {})
@@ -2765,6 +2881,9 @@ func play_net_action(action: String, arg: int) -> void:
 		animator.play(action, arg)
 	if action in ["swing", "punch", "kick", "throw"]:
 		Sfx.play_at("swing", global_position + Vector3.UP * 1.3, -2.0 if action == "swing" else -6.0)
+	elif action == "shoot" and arg >= 0 and arg < GUN_IDS.size():
+		var gun: Dictionary = GUNS[GUN_IDS[arg]]
+		Sfx.play_at("shot", global_position + Vector3.UP * 1.4, gun.volume, gun.pitch)
 
 
 func apply_net_state(state: Array) -> void:
