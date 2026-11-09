@@ -233,20 +233,6 @@ func tool_hit(_player: Node, weapon_type: int, damage: float, point: Vector3) ->
 	manager.request("chop", [net_id, damage * (1.0 if weapon_type == Player.WeaponType.AXE else 0.2)])
 
 
-## Vaga mais perto de um ponto do mundo (onde a mira bateu).
-func slot_at(world_point: Vector3) -> int:
-	var local := to_local(world_point)
-	var best := -1
-	var best_d := INF
-	var slots := slot_positions()
-	for i in slots.size():
-		var d: float = Vector2(local.x - slots[i].x, local.z - slots[i].z).length()
-		if d < best_d:
-			best_d = d
-			best = i
-	return best
-
-
 func slot_world(i: int) -> Vector3:
 	return to_global(slot_positions()[i])
 

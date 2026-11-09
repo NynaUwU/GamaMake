@@ -32,7 +32,7 @@ func _init() -> void:
 	player.inventory.add(&"celula", 3)
 	for k in 3:
 		Electric.interact(player, battery)
-	print("bateria: %d células (capacidade %.0f), sobrou na mochila %d; painel: %s" % [Electric.cells(battery), Electric.capacity(battery),
+	print("bateria: %d células (capacidade %.0f Wh), sobrou na mochila %d; painel: %s" % [Electric.cells(battery), Electric.capacity(battery),
 		player.inventory.count(&"celula"), Electric.text(battery)])
 	# --- Painel solar -> bateria -> interruptor -> lâmpada.
 	var solar: PlacedObject = spawn.call("solar_panel", at + Vector3(-2, 0, 0))
@@ -62,7 +62,7 @@ func _init() -> void:
 	placed.host_apply("cable", [dynamo.net_id, battery.net_id])
 	battery.extra.charge = 0.0
 	tick.call(3)
-	print("dínamo gerando %.0f, ponteiro %.2f (bateria vazia enchendo)" % [Electric.output(dynamo), dynamo.extra.get("gauge", -1.0)])
+	print("dínamo gerando %.0f W, ponteiro %.2f (bateria vazia enchendo)" % [Electric.output(dynamo), dynamo.extra.get("gauge", -1.0)])
 	battery.extra.charge = Electric.capacity(battery)
 	tick.call(2)
 	print("bateria cheia: ponteiro do dínamo %.2f (só a lâmpada)" % dynamo.extra.get("gauge", -1.0))

@@ -13,7 +13,6 @@ extends RefCounted
 
 const IDS := [&"camarao", &"lagosta", &"caranguejo", &"caranguejo_aranha", &"atum", &"baixo"]
 const SWIMMERS := [&"atum", &"baixo"]
-const CRAWLERS := [&"camarao", &"lagosta", &"caranguejo", &"caranguejo_aranha"]
 
 static var _cache := {}
 static var _material: StandardMaterial3D

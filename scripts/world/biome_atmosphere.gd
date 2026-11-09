@@ -52,11 +52,6 @@ func _process(delta: float) -> void:
 	_apply(1.0 - exp(-1.5 * delta))
 
 
-## Para o HUD/IA: quão longe dá para ver agora.
-func visibility() -> float:
-	return _environment.fog_depth_end
-
-
 func _sample() -> void:
 	var p := _player.global_position
 	var biome := _terrain.biome_at(p.x, p.z)

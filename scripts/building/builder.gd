@@ -80,15 +80,15 @@ const ENTRIES := {
 		{"id": "connector", "name": "Conector", "place": "connector", "desc": "Poste com isolador para emendar cabos. Mirando uma parede, vai na parede", "cost": {&"tabua": 2, &"argila": 1}},
 		{"id": "insulator", "name": "Isolador", "place": "insulator", "desc": "Isolador de cerâmica: vai na parede, no teto ou no chão e leva o cabo esticado, rente à superfície (organiza a fiação)", "cost": {&"argila": 1}},
 		{"id": "switch", "name": "Interruptor", "place": "switch", "desc": "No chão (pedestal) ou na parede. Dois bornes: um cabo na entrada e outro na saída; desligado, a energia não passa. [E] liga/desliga", "cost": {&"barra_cobre": 1, &"tabua": 1}},
-		{"id": "electric_motor", "name": "Motor elétrico", "place": "electric_motor", "desc": "Encaixa na porta de latão de qualquer máquina de rotação (moinho, roca, tear, serraria, torno, prensa, peneira, fole, amolar, bomba, assador...): com energia dá força 4 a ela. Gasta 3, só com a máquina trabalhando. Não move dínamo", "cost": {&"bobina": 2, &"barra_ferro": 3, &"parafuso": 2}},
-		{"id": "dynamo", "name": "Dínamo", "place": "dynamo", "desc": "Eixo com força na porta de latão (carga 2) vira 6 de energia. Ponteiro: quanto da geração está sendo usado (carregar bateria conta). Borne em cima: ligue o cabo", "cost": {&"bobina": 2, &"barra_ferro": 4, &"barra_cobre": 2, &"parafuso": 4}},
-		{"id": "solar_panel", "name": "Painel solar", "place": "solar_panel", "desc": "Até 3 de energia com sol (nublado e chuva rendem menos, noite nada)", "cost": {&"vidro": 4, &"barra_cobre": 3, &"bobina": 1, &"barra_ferro": 2}},
-		{"id": "battery", "name": "Bateria", "place": "battery", "desc": "Estrutura para até 6 células (mesa). [E] com célula na mochila: põe uma. Cada célula guarda 150 e carrega/descarrega 5 por segundo. Ponteiro mostra a carga", "cost": {&"tabua": 4, &"barra_ferro": 1, &"barra_cobre": 1}},
-		{"id": "lamp", "name": "Lâmpada", "place": "lamp", "desc": "Luz elétrica (gasta 0,5). No chão vira lampadário; mirando uma parede, arandela. Para apagar, ponha um interruptor no cabo", "cost": {&"lampada": 1, &"barra_ferro": 1, &"barra_cobre": 1}},
-		{"id": "electric_fence", "name": "Cerca elétrica", "place": "electric_fence", "desc": "2,4 m de fios: com energia (gasta 1) dá choque em quem encosta (dano e tontura). Shift alinha na grade", "cost": {&"tabua": 3, &"barra_cobre": 2, &"cabo": 2, &"argila": 2}},
-		{"id": "fridge", "name": "Geladeira", "place": "fridge", "desc": "Guarda 21 itens; ligada (gasta 1,5) a comida quase não estraga. Desligada estraga como num baú", "cost": {&"tabua": 8, &"barra_ferro": 4, &"cano": 2, &"bobina": 1, &"barra_cobre": 2}},
-		{"id": "radio", "name": "Rádio", "place": "radio", "desc": "Ligado (gasta 0,5) pega transmissões: direção da horda, airdrops no mapa e pedidos de sobreviventes (com recompensa)", "cost": {&"tabua": 4, &"vidro": 2, &"barra_cobre": 3, &"bobina": 1, &"lampada": 2}},
-		{"id": "electric_pump", "name": "Bomba elétrica", "place": "electric_pump", "desc": "Poço: com energia (gasta 2) põe 1,5 de água por segundo no cano, em qualquer lugar", "cost": {&"barra_ferro": 4, &"bobina": 1, &"cano": 2, &"parafuso": 2}},
+		{"id": "electric_motor", "name": "Motor elétrico", "place": "electric_motor", "desc": "Encaixa na porta de latão de qualquer máquina de rotação (moinho, roca, tear, serraria, torno, prensa, peneira, fole, amolar, bomba, assador...): com energia dá força 4 a ela. Gasta 300 W, só com a máquina trabalhando. Não move dínamo", "cost": {&"bobina": 2, &"barra_ferro": 3, &"parafuso": 2}},
+		{"id": "dynamo", "name": "Dínamo", "place": "dynamo", "desc": "Eixo com força na porta de latão (carga 2) vira 600 W. Ponteiro: quanto da geração está sendo usado (carregar bateria conta). Borne em cima: ligue o cabo", "cost": {&"bobina": 2, &"barra_ferro": 4, &"barra_cobre": 2, &"parafuso": 4}},
+		{"id": "solar_panel", "name": "Painel solar", "place": "solar_panel", "desc": "Até 300 W com sol a pino (nublado e chuva rendem menos, noite nada)", "cost": {&"vidro": 4, &"barra_cobre": 3, &"bobina": 1, &"barra_ferro": 2}},
+		{"id": "battery", "name": "Bateria", "place": "battery", "desc": "Estrutura para até 6 células (mesa). [E] com célula na mochila: põe uma. Cada célula guarda 300 Wh e carrega/descarrega até 500 W. Ponteiro mostra a carga", "cost": {&"tabua": 4, &"barra_ferro": 1, &"barra_cobre": 1}},
+		{"id": "lamp", "name": "Lâmpada", "place": "lamp", "desc": "Luz elétrica (50 W). No chão vira lampadário; mirando uma parede, arandela. Para apagar, ponha um interruptor no cabo", "cost": {&"lampada": 1, &"barra_ferro": 1, &"barra_cobre": 1}},
+		{"id": "electric_fence", "name": "Cerca elétrica", "place": "electric_fence", "desc": "2,4 m de fios: com energia (100 W) dá choque em quem encosta (dano e tontura). Shift alinha na grade", "cost": {&"tabua": 3, &"barra_cobre": 2, &"cabo": 2, &"argila": 2}},
+		{"id": "fridge", "name": "Geladeira", "place": "fridge", "desc": "Guarda 21 itens; ligada (150 W) a comida quase não estraga. Desligada estraga como num baú", "cost": {&"tabua": 8, &"barra_ferro": 4, &"cano": 2, &"bobina": 1, &"barra_cobre": 2}},
+		{"id": "radio", "name": "Rádio", "place": "radio", "desc": "Ligado (50 W) pega transmissões: direção da horda, airdrops no mapa e pedidos de sobreviventes (com recompensa)", "cost": {&"tabua": 4, &"vidro": 2, &"barra_cobre": 3, &"bobina": 1, &"lampada": 2}},
+		{"id": "electric_pump", "name": "Bomba elétrica", "place": "electric_pump", "desc": "Poço: com energia (200 W) põe 1,5 de água por segundo no cano, em qualquer lugar", "cost": {&"barra_ferro": 4, &"bobina": 1, &"cano": 2, &"parafuso": 2}},
 	],
 	"Decoração": [
 		{"id": "deco_table", "name": "Mesa", "place": "deco_table", "desc": "Mesa de madeira (enfeite)", "cost": {&"tabua": 4}},
@@ -798,19 +798,6 @@ func _snap_shaft(placed: PlacedManager, near: Vector3) -> Transform3D:
 	return Transform3D(basis, center - Vector3.UP * 0.6)
 
 
-func _draw_box(obj: PlacedObject) -> void:
-	_ghost.visible = true
-	var box := BoxMesh.new()
-	box.size = PLACE_SIZE.get(obj.kind, Vector3(BuildPiece.SIZE, 0.3, BuildPiece.SIZE)) * 1.03
-	_ghost_mesh.mesh = box
-	_ghost_mesh.position = PLACE_CENTER.get(obj.kind, Vector3(0, box.size.y * 0.5, 0))
-	_ghost_mesh.visible = true
-	_model_ghost.visible = false
-	_ghost.global_transform = obj.global_transform
-	_ghost_material.albedo_color = Color(1.0, 0.2, 0.15, 0.4)
-	call_deferred("_apply_ghost", selection)
-
-
 # --- Onde construir ---------------------------------------------------------------
 
 func _ray_from() -> Vector3:
@@ -1004,23 +991,3 @@ func _draw_triangles(piece: BuildPiece, tris: PackedInt32Array, color: Color) ->
 	_mark.albedo_color = color
 	_highlight.global_transform = piece.global_transform
 	_highlight.visible = true
-
-
-## Desenho antigo da remoção (caixa no fantasma).
-func _show_removal(node: Node) -> void:
-	if node is BuildFill:
-		var fill: BuildFill = node
-		_draw_triangles(fill.piece, fill.piece.fills[fill.fill_index].tris, Color(1, 0.2, 0.15, 0.55))
-		return
-	var piece: BuildPiece = node
-	var previous := kind
-	kind = piece.kind
-	_set_ghost_shape()
-	kind = previous
-	_ghost.visible = true
-	_ghost_mesh.visible = true
-	_model_ghost.visible = false
-	_ghost.global_transform = piece.global_transform
-	_ghost_mesh.scale = Vector3.ONE * 1.01
-	_ghost_material.albedo_color = Color(1.0, 0.2, 0.15, 0.4)
-	call_deferred("_apply_ghost", selection)

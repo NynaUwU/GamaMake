@@ -65,10 +65,10 @@ Martelo → aba **Vapor**. Ordem natural: torno (ferro) → parafusos/engrenagen
 ## Elétrica v2, motor elétrico, máquinas automáticas e pedra de afiar (rodada de feedback)
 - **Nada mostra consumo ao olhar** para as peças elétricas (só o nome; geladeira/rádio/bateria/interruptor com a tecla). Os números ficam na descrição do martelo.
 - **Ponteiros:** o **dínamo** tem um mostrador com ponteiro de **consumo** (quanto da geração está sendo usado; carregar bateria conta); a **bateria** tem ponteiro da **carga**.
-- **Bateria modular:** o martelo põe a **estrutura** (6 vagas); as **células** saem da mesa (1 vidro + 1 cobre + 1 sucata) e entram com **[E]**. Cada célula guarda **150** e carrega/descarrega **5 por segundo**; os jarros aparecem conforme as células. Desmontar devolve as células.
+- **Bateria modular:** o martelo põe a **estrutura** (6 vagas); as **células** saem da mesa (1 vidro + 1 cobre + 1 sucata) e entram com **[E]**. Cada célula guarda **300 Wh** e carrega/descarrega até **500 W**; os jarros aparecem conforme as células. Desmontar devolve as células.
 - **Sem liga/desliga nas máquinas:** para cortar energia, use o **interruptor** (no chão, num pedestal, ou na parede): tem **2 bornes** (entrada e saída, um cabo em cada); **[E]** levanta/abaixa a faca e, desligado, a energia não passa de um lado para o outro.
 - **Isolador de cerâmica** (1 argila): vai na parede, no teto ou no chão e o cabo entre isoladores fica **esticado**, rente à superfície (organiza a fiação).
-- **Motor elétrico** (2 bobinas + 3 ferro + 2 parafusos): mire uma máquina de rotação e ele **encaixa na porta de latão** dela (moinho, roca, tear, serraria, torno, prensa, alto-forno, peneira, fole, amolar, bomba, assador). Com energia dá **força 4**; gasta **3**, e só enquanto a máquina tem trabalho. **Não move dínamo** (sem moto-contínuo).
+- **Motor elétrico** (2 bobinas + 3 ferro + 2 parafusos): mire uma máquina de rotação e ele **encaixa na porta de latão** dela (moinho, roca, tear, serraria, torno, prensa, alto-forno, peneira, fole, amolar, bomba, assador). Com energia dá **força 4**; gasta **300 W**, e só enquanto a máquina tem trabalho. **Não move dínamo** (sem moto-contínuo).
 - **Versões automáticas** (porta de latão nova com caixinha de engrenagem; eixo, esteira ou motor):
   - **Peneira:** peneira sozinha a argila posta.
   - **Fornalha de pedra:** o **fole sopra sozinho** enquanto tem minério.
@@ -82,13 +82,14 @@ Martelo → aba **Vapor**. Ordem natural: torno (ferro) → parafusos/engrenagen
 ## Tier 4: eletricidade, rádio, decorações e tocha na parede
 - **Cabos** (item **cabo**, mesa: 1 barra de cobre + 1 pano = 4): clique numa peça elétrica e depois na outra (até 12 m; cada 4 m gasta 1 cabo). O fio aparece pendurado até a mira antes de ligar (verde = alcança) e fica em **catenária** entre os bornes de latão. Ligar o mesmo par de novo tira o cabo; desmontar uma peça devolve os cabos dela. `scripts/machines/electric.gd`.
 - **Rede elétrica** (host, 1x por segundo, por rede ligada): o que sobra **carrega as baterias**; o que falta elas **descarregam**; se nem assim dá, liga o que couber **por prioridade** (luz, rádio, geladeira, cerca, bomba, motor) e o resto fica apagado.
-- **Geram:** **dínamo** (eixo com força na porta de latão vira **6** de energia; pesa **2** no eixo só quando a rede precisa) e **painel solar** (até **3** ao meio-dia; nublado e chuva rendem menos; noite nada). **Guarda:** bateria modular (seção acima).
+- **Medidas em watts:** potência em **W**, carga guardada em **Wh** (horas do jogo: 1 h = duração do dia / 24, padrão 50 s).
+- **Geram:** **dínamo** (eixo com força na porta de latão vira **600 W**; pesa **2** de força no eixo só quando a rede precisa) e **painel solar** (até **300 W** ao meio-dia; nublado e chuva rendem menos; noite nada). **Guarda:** bateria modular (seção acima).
 - **Gastam** (para desligar, ponha um interruptor no caminho do cabo; ver a seção acima):
-  - **Lâmpada** (0,5): no chão vira **lampadário**; mirando uma parede, **arandela**. Luz quente de verdade, com brilho.
-  - **Cerca elétrica** (1): 2,4 m de fios com isoladores; quem encosta leva **choque** (dano, fica tonto, é empurrado), com faísca e estalo; no máximo 1 choque por segundo por zumbi.
-  - **Geladeira** (1,5): guarda 21 itens; **ligada, a comida quase não estraga** (8% da velocidade da mochila).
-  - **Bomba elétrica** (2): poço em qualquer lugar; põe **1,5 de água por segundo** no cano.
-  - **Rádio** (0,5): a cada 4-7 h de jogo pega uma transmissão: **de onde vem a horda desta noite** (de tarde), **airdrop** a 120-260 m (aparece no mapa) ou **pedido de sobreviventes** (ex.: "8 tijolos e 1 óleo"); [E] com tudo na mochila entrega e a recompensa (2 sorteios de airdrop) vai para a mochila. A mensagem vai para o chat de todos e aparece na tela de quem está perto, com chiado; [E] repete.
+  - **Lâmpada** (50 W): no chão vira **lampadário**; mirando uma parede, **arandela**. Luz quente de verdade, com brilho.
+  - **Cerca elétrica** (100 W): 2,4 m de fios com isoladores; quem encosta leva **choque** (dano, fica tonto, é empurrado), com faísca e estalo; no máximo 1 choque por segundo por zumbi.
+  - **Geladeira** (150 W): guarda 21 itens; **ligada, a comida quase não estraga** (8% da velocidade da mochila).
+  - **Bomba elétrica** (200 W): poço em qualquer lugar; põe **1,5 de água por segundo** no cano.
+  - **Rádio** (50 W): a cada 4-7 h de jogo pega uma transmissão: **de onde vem a horda desta noite** (de tarde), **airdrop** a 120-260 m (aparece no mapa) ou **pedido de sobreviventes** (ex.: "8 tijolos e 1 óleo"); [E] com tudo na mochila entrega e a recompensa (2 sorteios de airdrop) vai para a mochila. A mensagem vai para o chat de todos e aparece na tela de quem está perto, com chiado; [E] repete.
   - **Conector** (poste com isolador, ou na parede): só emenda cabos.
 - **Peças novas:** cabo, **lâmpada** (mesa: 1 vidro + 1 cobre = 2) e **bobina de cobre** (torno com força: 3 cobre + 1 ferro). Martelo, aba **Elétrica**: conector, dínamo, painel solar, bateria, lâmpada, cerca elétrica, geladeira, rádio, bomba elétrica.
 - **Comida guardada também estraga** (antes só na mochila): baú, cesto do canteiro, cocho e airdrop na **metade** da velocidade; geladeira desligada igual ao baú; ligada quase parada.

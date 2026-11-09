@@ -188,7 +188,7 @@ const ITEMS := {
 	&"lampada": {"name": "Lâmpada", "kind": "material", "stack": 100, "size": Vector3(0.08, 0.12, 0.08),
 		"desc": "Bulbo de vidro com filamento de cobre. Vai nas lâmpadas e nas válvulas do rádio."},
 	&"celula": {"name": "Célula de bateria", "short": "Célula", "kind": "material", "stack": 100, "size": Vector3(0.2, 0.38, 0.2),
-		"desc": "Jarro de vidro com placas de cobre e zinco. Vai na estrutura da bateria (até 6): cada uma guarda 150 de energia e carrega/descarrega 5 por segundo.",
+		"desc": "Jarro de vidro com placas de cobre e zinco. Vai na estrutura da bateria (até 6): cada uma guarda 300 Wh e carrega/descarrega até 500 W.",
 		"controls": ["[E] na estrutura da bateria: põe uma célula"]},
 	&"bobina": {"name": "Bobina de cobre", "short": "Bobina", "kind": "material", "stack": 100, "size": Vector3(0.14, 0.14, 0.18),
 		"desc": "Fio de cobre enrolado num núcleo de ferro (torno). Peça do dínamo, do painel solar, da geladeira, do rádio e da bomba elétrica."},

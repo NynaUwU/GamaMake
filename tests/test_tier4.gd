@@ -31,14 +31,14 @@ func _init() -> void:
 	Weather.i.rain = 0.0
 	for k in 20:
 		placed._electric()
-	print("meio-dia: painel gera %.1f, lâmpada acesa=%s, bateria %.0f (+%.1f/s)" % [Electric.output(solar), Electric.powered(lamp),
-		battery.extra.get("charge", 0.0), battery.extra.get("charge", 0.0) / 20.0])
+	print("meio-dia: painel gera %.0f W, lâmpada acesa=%s, bateria %.1f Wh em 20 s (= %.0f W entrando)" % [Electric.output(solar), Electric.powered(lamp),
+		battery.extra.get("charge", 0.0), battery.extra.get("charge", 0.0) * Electric.seconds_per_hour() / 20.0])
 	DayNight.i.hour = 1.0
 	DayNight.i._apply()
 	var before: float = battery.extra.charge
 	for k in 10:
 		placed._electric()
-	print("noite: painel gera %.1f, lâmpada acesa (da bateria)=%s, bateria %.0f -> %.0f" % [Electric.output(solar), Electric.powered(lamp), before, battery.extra.charge])
+	print("noite: painel gera %.0f W, lâmpada acesa (da bateria)=%s, bateria %.1f -> %.1f Wh" % [Electric.output(solar), Electric.powered(lamp), before, battery.extra.charge])
 	battery.extra.charge = 0.2
 	placed._electric()
 	print("bateria vazia de noite: lâmpada acesa=%s, estado=%s, painel: %s" % [Electric.powered(lamp), lamp.extra.get("estate"), Electric.text(lamp)])
@@ -50,7 +50,7 @@ func _init() -> void:
 	for k in 3:
 		placed._power()
 		placed._electric()
-	print("dínamo na roda: força %s, gera %.0f, carga no eixo=%s (rede: %s), lâmpada=%s" % [dynamo.extra.get("pstate"), Electric.output(dynamo),
+	print("dínamo na roda: força %s, gera %.0f W, carga no eixo=%s (rede: %s), lâmpada=%s" % [dynamo.extra.get("pstate"), Electric.output(dynamo),
 		Power.busy(dynamo), dynamo.extra.get("load"), Electric.powered(lamp)])
 	# --- Bomba elétrica enchendo a caixa d'água.
 	var tank: PlacedObject = spawn.call("water_tank", at + Vector3(-4, 0, 4))

@@ -127,13 +127,6 @@ func _item_slice(terrain: TerrainWorld) -> void:
 		_cursor += 1
 
 
-## Confere a lista toda de uma vez (testes).
-func _check_items(terrain: TerrainWorld) -> void:
-	for item in _items.keys():
-		_check_item(item, terrain)
-	_check_waiting(terrain)
-
-
 func _check_item(item, terrain: TerrainWorld) -> void:
 	if not _items.has(item):
 		return

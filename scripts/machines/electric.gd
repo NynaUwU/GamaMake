@@ -3,12 +3,14 @@ extends RefCounted
 ## Eletricidade (Tier 4). Peças ligadas por CABOS (item "cabo": clique num borne e
 ## depois no outro, até 12 m; 1 cabo a cada 4 m). O cabo pendura em catenária
 ## (entre isoladores de cerâmica fica esticado, rente à parede).
-##   Geram:    dínamo (6, com o eixo girando na porta de latão; pesa 2 no eixo)
-##             painel solar (até 3 ao meio-dia; nublado/chuva rende menos; noite 0)
-##   Guardam:  bateria modular: a estrutura recebe até 6 células (cada uma 150 e
-##             5 por segundo de carga/descarga)
-##   Gastam:   lâmpada 0,5 · rádio 0,5 · cerca elétrica 1 · geladeira 1,5 ·
-##             bomba elétrica 2 · motor elétrico 3 (só com a máquina trabalhando)
+## Medidas: potência em watts (W); carga guardada em watt-hora (Wh), contando as
+## horas do jogo (1 h de jogo = duração do dia / 24; padrão 50 s).
+##   Geram:    dínamo (600 W, com o eixo girando na porta de latão; pesa 2 no eixo)
+##             painel solar (até 300 W ao meio-dia; nublado/chuva rende menos; noite 0)
+##   Guardam:  bateria modular: a estrutura recebe até 6 células (cada uma 300 Wh e
+##             até 500 W de carga/descarga)
+##   Gastam:   lâmpada 50 W · rádio 50 W · cerca elétrica 100 W · geladeira 150 W ·
+##             bomba elétrica 200 W · motor elétrico 300 W (só com a máquina trabalhando)
 ##   Passam:   conector (poste ou parede), isolador de cerâmica (organiza os cabos)
 ##   Cortam:   interruptor (no chão ou na parede) com 2 bornes, entrada e saída: cada
 ##             lado recebe um cabo; desligado, a energia não passa de um lado para o outro
@@ -22,17 +24,17 @@ const CABLE_RANGE := 12.0
 const CABLE_PER_ITEM := 4.0
 const CABLE_ITEM := &"cabo"
 const CELL_ITEM := &"celula"
-const DYNAMO_OUT := 6.0
-const DYNAMO_LOAD := 2.0 ## carga no eixo enquanto gera
-const SOLAR_OUT := 3.0
+const DYNAMO_OUT := 600.0 ## W
+const DYNAMO_LOAD := 2.0 ## carga no eixo (força) enquanto gera
+const SOLAR_OUT := 300.0 ## W ao meio-dia de céu limpo
 const CELLS := 6 ## vagas da estrutura da bateria
-const CELL_CAP := 150.0
-const CELL_RATE := 5.0
-const MOTOR_OUT := 4.0 ## força que o motor dá no eixo da máquina
+const CELL_CAP := 300.0 ## Wh por célula
+const CELL_RATE := 500.0 ## W de carga/descarga por célula
 ## Quem liga primeiro quando falta energia.
 const PRIORITY := ["lamp", "lamp_wall", "radio", "fridge", "electric_fence", "electric_pump", "electric_motor"]
-const DEMAND := {"lamp": 0.5, "lamp_wall": 0.5, "radio": 0.5, "electric_fence": 1.0, "fridge": 1.5, "electric_pump": 2.0,
-	"electric_motor": 3.0}
+## Consumo em W.
+const DEMAND := {"lamp": 50.0, "lamp_wall": 50.0, "radio": 50.0, "electric_fence": 100.0, "fridge": 150.0, "electric_pump": 200.0,
+	"electric_motor": 300.0}
 const KINDS := ["connector", "connector_wall", "insulator", "switch", "switch_wall", "dynamo", "solar_panel", "battery",
 	"lamp", "lamp_wall", "radio", "electric_fence", "fridge", "electric_pump", "electric_motor"]
 const SWITCHES := ["switch", "switch_wall"]
@@ -153,8 +155,14 @@ static func cells(obj: PlacedObject) -> int:
 	return clampi(int(obj.extra.get("cells", 0)), 0, CELLS)
 
 
+## Wh que a bateria aguenta.
 static func capacity(obj: PlacedObject) -> float:
 	return cells(obj) * CELL_CAP
+
+
+## Segundos reais de 1 hora do jogo (converte W x segundo em Wh).
+static func seconds_per_hour() -> float:
+	return maxf(WorldSettings.get_value("day_length") * 60.0 / 24.0, 1.0)
 
 
 # --- Rede ---------------------------------------------------------------------------
@@ -252,10 +260,12 @@ static func tick(objects: Dictionary, _clock: float) -> Dictionary:
 				batteries.append(obj)
 			if wants(objects, obj):
 				wanting.append(obj)
-		# Liga quem couber no que tem (geração + baterias), por prioridade.
+		# Liga quem couber no que tem (geração + baterias), por prioridade. Tudo em W; a
+		# carga das baterias em Wh (1 tick = 1 s real = 1/sph hora do jogo).
+		var sph := seconds_per_hour()
 		var can := 0.0
 		for bat in batteries:
-			can += minf(bat.extra.get("charge", 0.0), cells(bat) * CELL_RATE)
+			can += minf(bat.extra.get("charge", 0.0) * sph, cells(bat) * CELL_RATE)
 		wanting.sort_custom(func(a, b): return PRIORITY.find(a.kind) < PRIORITY.find(b.kind))
 		var left := supply + can
 		var served := {}
@@ -273,20 +283,20 @@ static func tick(objects: Dictionary, _clock: float) -> Dictionary:
 			# Sobra: carrega as baterias.
 			var surplus := supply - used
 			for bat in batteries:
-				var put := minf(minf(surplus, cells(bat) * CELL_RATE), capacity(bat) - bat.extra.get("charge", 0.0))
+				var put := minf(minf(surplus, cells(bat) * CELL_RATE), (capacity(bat) - bat.extra.get("charge", 0.0)) * sph)
 				if put > 0.0:
-					bat.extra.charge = bat.extra.get("charge", 0.0) + put
+					bat.extra.charge = bat.extra.get("charge", 0.0) + put / sph
 					surplus -= put
 					charged += put
 		else:
 			# Falta: as baterias completam.
 			var short := used - supply
 			for bat in batteries:
-				var give := minf(minf(bat.extra.get("charge", 0.0), cells(bat) * CELL_RATE), short)
-				bat.extra.charge = bat.extra.get("charge", 0.0) - give
+				var give := minf(minf(bat.extra.get("charge", 0.0) * sph, cells(bat) * CELL_RATE), short)
+				bat.extra.charge = maxf(bat.extra.get("charge", 0.0) - give / sph, 0.0)
 				short -= give
 		# Ponteiro do dínamo: quanto da geração está indo embora (consumo + carregar bateria).
-		var gauge := 0.0 if supply <= 0.001 else clampf((minf(used, supply) + charged) / supply, 0.0, 1.0)
+		var gauge := 0.0 if supply <= 0.1 else clampf((minf(used, supply) + charged) / supply, 0.0, 1.0)
 		# Dínamo só pesa no eixo quando a rede precisa (consumo ou bateria para encher).
 		var wants_dynamo := demand > solar + 0.01 or batteries.any(func(b): return b.extra.get("charge", 0.0) < capacity(b) - 0.5)
 		for obj in members:

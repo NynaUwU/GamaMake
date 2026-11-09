@@ -112,7 +112,6 @@ static func _colors(rig: HumanoidRig, skin: Color, shirt: Color, pants: Color) -
 
 ## Deformação do corpo: {osso: [escala (largura, comprimento, fundura), rotação (graus), deslocamento]}.
 static func _deform(kind_: String) -> Dictionary:
-	var V := Vector3.ONE
 	match kind_:
 		"inchado":
 			# Tronco virou um barril, pernas e braços curtos e grossos, cabeça pequena afundada.
