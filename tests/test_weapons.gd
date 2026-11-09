@@ -60,6 +60,7 @@ func _physics_process(_d: float) -> bool:
 	if frame == 150:
 		# mira na cabeça (altura ~1.65 m); câmera em 1.6 m
 		player.head.rotation.x = 0.01 # cabeça
+		player._aim = 1.0 # mirando pela mira de ferro (no quadril o revólver espalha mais)
 		player._fire_pistol()
 		print("pistol: ammo=", player._ammo, " z hp=", zs[1].health, " state=", Zombie.State.keys()[zs[1].state])
 	# 5) Chute em área: três zumbis na frente, lado a lado.
