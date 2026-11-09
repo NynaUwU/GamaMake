@@ -109,7 +109,7 @@ const _VOLUME := {"groan": -4.0, "growl": -2.0, "step_soft": -14.0, "step_hard":
 const NAMES := ["swing", "hit", "slice", "thud", "shot", "explosion", "step_soft", "step_hard", "groan", "growl",
 	"death", "engine", "creak", "knock", "ping", "pickup", "crunch", "slap", "whirr", "wind", "click", "punch", "rain",
 	"hiss", "zap", "static", "whistle", "chug", "roar", "splash", "spit", "retch", "cluck", "baa", "moo", "oink", "caw", "quack", "howl",
-	"anvil", "crack", "chime", "bellows"]
+	"anvil", "crack", "chime", "bellows", "cough", "bubble"]
 static var _mutex := Mutex.new()
 static var _warm_task := -1
 
@@ -214,6 +214,11 @@ static func _make(name: String) -> AudioStreamWAV:
 			return _wav(_mix([_noise_env(rng, 0.05, 6000.0, 0.0005, 0.03, 2000.0), _tone(0.25, 120.0, 118.0, 0.002, 0.2, 0.35), _tone(0.25, 240.0, 236.0, 0.002, 0.2, 0.2)]))
 		"static": # rádio sintonizando: chiado com assobio caindo
 			return _wav(_mix([_noise_env(rng, 0.9, 3500.0, 0.05, 0.6, 600.0), _tone(0.7, 1400.0, 500.0, 0.05, 0.5, 0.12)]))
+		"cough": # tosse (gás tóxico): duas rajadas roucas
+			return _wav(_concat([_mix([_noise_env(rng, 0.14, 1500.0, 0.003, 0.1, 250.0), _voice(rng, 0.12, 150.0, 0.9, [650.0, 1500.0])]),
+				_tone(0.06, 0.0, 0.0, 0.001, 0.05, 0.0), _mix([_noise_env(rng, 0.1, 1300.0, 0.003, 0.07, 250.0), _voice(rng, 0.08, 140.0, 0.9, [620.0, 1400.0])])]))
+		"bubble": # balão fervendo: dois "blup" subindo
+			return _wav(_concat([_tone(0.06, 260.0, 620.0, 0.002, 0.05, 0.4), _tone(0.05, 300.0, 700.0, 0.002, 0.04, 0.3)]))
 		"hiss": # vapor escapando: chiado agudo
 			return _wav(_noise_env(rng, 0.7, 7000.0, 0.03, 0.5, 2500.0))
 		"whistle": # apito da caldeira (válvula / perigo)

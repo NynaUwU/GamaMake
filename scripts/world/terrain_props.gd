@@ -36,7 +36,7 @@ func plan(world: TerrainWorld, coord: Vector2i, origin: Vector2) -> Dictionary:
 		var biome := world.biome_at(x, z)
 		tree_amount = world.tree_amount
 		rock_amount = world.rock_amount
-		var kind := _tin(_pick_kind(biome, rng), x, z)
+		var kind := _sulfur(_tin(_pick_kind(biome, rng), x, z), x, z, biome)
 		if kind == "":
 			continue
 		var y := world._height_from(x, z, biome) # reaproveita o bioma já calculado
@@ -185,6 +185,17 @@ static func _tin(kind: String, x: float, z: float) -> String:
 	return "ore_tin" if h < (0.4 if kind == "ore_copper" else 0.12) else kind
 
 
+## Enxofre (Era 4): rochas do deserto (30%) e veios de carvão (20%) viram veio de enxofre,
+## pela posição (mesma ideia do estanho: não muda o sorteio dos outros).
+static func _sulfur(kind: String, x: float, z: float, biome: Dictionary) -> String:
+	if kind != "rock" and kind != "ore_coal":
+		return kind
+	var h := fposmod(sin(x * 39.3468 + z * 11.135) * 24634.6345, 1.0)
+	if kind == "ore_coal":
+		return "ore_sulfur" if h < 0.2 else kind
+	return "ore_sulfur" if biome.desert > 0.5 and h < 0.3 else kind
+
+
 func _add_collision(body: StaticBody3D, kind: String, local: Vector3, scale: float) -> void:
 	if kind in ["bush", "dead_bush"]:
 		return
@@ -289,10 +300,10 @@ static func _mesh(kind: String) -> Mesh:
 		"rock":
 			_box(st, Vector3(0, 0.4, 0), Vector3(1.6, 1.0, 1.6), Color(0.45, 0.43, 0.41))
 			_box(st, Vector3(0.3, 0.95, -0.2), Vector3(0.9, 0.5, 0.8), Color(0.5, 0.48, 0.46))
-		"ore_iron", "ore_copper", "ore_coal", "ore_tin":
+		"ore_iron", "ore_copper", "ore_coal", "ore_tin", "ore_sulfur":
 			# Rocha com pedaços do minério à mostra (cor diz o que é).
 			var ore: Color = {"ore_iron": Color(0.66, 0.36, 0.2), "ore_copper": Color(0.25, 0.62, 0.52), "ore_coal": Color(0.07, 0.07, 0.07),
-				"ore_tin": Color(0.8, 0.8, 0.76)}[kind]
+				"ore_tin": Color(0.8, 0.8, 0.76), "ore_sulfur": Color(0.9, 0.78, 0.18)}[kind]
 			_box(st, Vector3(0, 0.4, 0), Vector3(1.5, 1.0, 1.5), Color(0.4, 0.38, 0.37))
 			_box(st, Vector3(-0.25, 0.9, 0.2), Vector3(0.8, 0.45, 0.7), Color(0.44, 0.42, 0.4))
 			for k in 7:

@@ -52,6 +52,8 @@ func _init() -> void:
 	data.fuel_furnace = _s(Smelting.FUEL_TIME)
 	data.fuel_fire = _s(Cooking.FIREWOOD)
 	data.torch_fuel = _s(Smithing.TORCH_FUEL)
+	data.chem_fuel = _s(Smithing.CHEM_FUEL)
+	data.gas = {"edge": Contamination.EDGE, "ceiling": Contamination.CEILING, "filter_time": Contamination.FILTER_TIME}
 	data.eras = Progress.ERAS
 	data.achievements = Progress.ACHIEVEMENTS
 	data.manuals = _s(Progress.MANUALS)

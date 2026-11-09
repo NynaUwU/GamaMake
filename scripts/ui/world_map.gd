@@ -190,6 +190,7 @@ func _draw_minimap() -> void:
 		var pos: Vector2 = to_screen.call(Vector2(enemy.global_position.x, enemy.global_position.z))
 		if rect.has_point(pos):
 			_minimap.draw_rect(Rect2(pos - Vector2(2, 2), Vector2(4, 4)), COLOR_ZOMBIE)
+	_draw_zones(_minimap, to_screen, rect, false)
 	_draw_hordes(_minimap, to_screen, rect, false)
 	_draw_pings(_minimap, to_screen, rect)
 	_draw_car(_minimap, to_screen, rect)
@@ -212,6 +213,7 @@ func _draw_world() -> void:
 	_big.draw_texture_rect(_texture, rect, false)
 	var to_screen := func(world: Vector2) -> Vector2:
 		return rect.position + (world / terrain.world_size + Vector2(0.5, 0.5)) * side
+	_draw_zones(_big, to_screen, rect, true)
 	_draw_hordes(_big, to_screen, rect, true)
 	_draw_pings(_big, to_screen, rect)
 	_draw_car(_big, to_screen, rect)
@@ -226,6 +228,23 @@ func _draw_world() -> void:
 		var at := rect.position + Vector2(8, rect.size.y - 18 - i * 16)
 		_big.draw_rect(Rect2(at - Vector2(0, 10), Vector2(10, 10)), legend[i][1])
 		_big.draw_string(font, at + Vector2(14, 0), legend[i][0], HORIZONTAL_ALIGNMENT_LEFT, -1, 12)
+
+
+## Zonas contaminadas: círculo amarelo-esverdeado tracejado (no mapa grande, com o nome).
+func _draw_zones(target: Control, to_screen: Callable, clip: Rect2, big: bool) -> void:
+	var scale: float = (to_screen.call(Vector2(100, 0)) - to_screen.call(Vector2.ZERO)).x / 100.0
+	for zone in Contamination.zones:
+		var c: Vector2 = to_screen.call(zone.center)
+		var r: float = zone.radius * scale
+		if not clip.grow(r).has_point(c):
+			continue
+		target.draw_circle(c, r, Color(Contamination.GAS_COLOR, 0.28))
+		for k in 16:
+			var a := TAU * k / 16.0
+			target.draw_arc(c, r, a, a + TAU / 32.0, 3, Color(0.95, 0.85, 0.2, 0.9), 2.0)
+		if big:
+			var text := "Fábrica química (gás)" if zone.kind == "plant" else "Zona de gás"
+			target.draw_string(get_theme_default_font(), c + Vector2(-34, 4), text, HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color(0.95, 0.9, 0.4))
 
 
 func _draw_car(target: Control, to_screen: Callable, clip: Rect2) -> void:

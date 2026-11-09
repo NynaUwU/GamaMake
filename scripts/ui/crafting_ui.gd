@@ -117,6 +117,28 @@ const RECIPES := [
 	{"id": &"serpentina", "station": "macarico", "seams": 2, "manual": &"manual_soldagem", "cost": {&"cano": 3, &"barra_estanho": 1}},
 	{"id": &"celula", "amount": 2, "station": "macarico", "seams": 1, "manual": &"manual_soldagem", "cost": {&"barra_cobre": 1, &"barra_estanho": 1, &"vidro": 2}},
 	{"id": &"lampada", "amount": 4, "station": "macarico", "seams": 1, "manual": &"manual_soldagem", "cost": {&"fio_cobre": 2, &"barra_estanho": 1, &"vidro": 2}},
+	# Bancada química (Era 4, Manual de química): minigame de válvulas e indicadores. "chem" =
+	# faixas certas (0 a 1) de temperatura (t), pressão (p) e vazão (f); "risk" = o que acontece
+	# se ficar no vermelho (boom: explode; leak: vaza gás tóxico); "hot" = onde começa o vermelho
+	# da temperatura (padrão 0,95). "bottle": a garrafa da água fica no produto (não volta).
+	# Gasta 1 lote de combustível no queimador (Smithing.CHEM_FUEL).
+	{"id": &"salitre", "amount": 2, "station": "quimica", "manual": &"manual_quimico", "cost": {&"adubo": 3, &"agua": 1},
+		"chem": {"t": [0.25, 0.45], "p": [0.1, 0.35], "f": [0.2, 0.45]}},
+	{"id": &"polvora", "amount": 4, "station": "quimica", "manual": &"manual_quimico", "cost": {&"salitre": 2, &"enxofre": 1, &"carvao": 1},
+		"chem": {"t": [0.1, 0.3], "p": [0.05, 0.3], "f": [0.5, 0.75], "risk": "boom", "hot": 0.55}},
+	{"id": &"combustivel", "amount": 2, "station": "quimica", "manual": &"manual_quimico", "cost": {&"oleo": 2, &"alcool": 1},
+		"chem": {"t": [0.45, 0.65], "p": [0.3, 0.5], "f": [0.4, 0.6]}},
+	{"id": &"plastico", "amount": 3, "station": "quimica", "manual": &"manual_quimico", "cost": {&"farinha": 2, &"oleo": 1, &"agua": 1},
+		"chem": {"t": [0.55, 0.75], "p": [0.2, 0.4], "f": [0.25, 0.45]}},
+	{"id": &"acido", "station": "quimica", "manual": &"manual_quimico", "bottle": true, "cost": {&"enxofre": 2, &"agua": 1},
+		"chem": {"t": [0.7, 0.88], "p": [0.55, 0.75], "f": [0.3, 0.5], "risk": "leak"}},
+	{"id": &"carvao_ativado", "amount": 2, "station": "quimica", "manual": &"manual_quimico", "cost": {&"carvao": 2, &"agua": 1},
+		"chem": {"t": [0.75, 0.92], "p": [0.4, 0.6], "f": [0.55, 0.8]}},
+	# Mesa: o que sai da química vira munição, filtro e máscara.
+	{"id": &"cartucho", "amount": 12, "station": "mesa", "manual": &"manual_quimico", "cost": {&"barra_cobre": 1, &"barra_estanho": 1, &"polvora": 1}},
+	{"id": &"filtro", "amount": 2, "station": "mesa", "manual": &"manual_quimico", "cost": {&"carvao_ativado": 1, &"pano": 1, &"plastico": 1}},
+	{"id": &"mascara_gas", "station": "mesa", "manual": &"manual_quimico", "cost": {&"plastico": 3, &"vidro": 1, &"couro": 1, &"filtro": 1}},
+	{"id": &"cabo", "amount": 6, "station": "mesa", "cost": {&"fio_cobre": 2, &"plastico": 1}, "note": "plástico"},
 	# Trefiladora (eixo girando, sem minigame): barra de cobre vira fio.
 	{"id": &"fio_cobre", "amount": 8, "station": "trefiladora", "power": true, "cost": {&"barra_cobre": 1}},
 	# Prensa (precisa de energia).

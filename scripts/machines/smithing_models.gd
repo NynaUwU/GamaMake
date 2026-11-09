@@ -18,6 +18,8 @@ static func build(kind: String, obj: PlacedObject) -> void:
 			_weld_bench(obj)
 		"torch_bench":
 			_torch_bench(obj)
+		"chem_bench":
+			_chem_bench(obj)
 
 
 ## Forja de tijolo (esquerda) com leito de carvão, coifa de chapa em pirâmide e
@@ -435,3 +437,127 @@ static func _torch_bench(obj: PlacedObject) -> void:
 	StationModels._register_fire(obj, light)
 	_hot_piece(obj, Vector3(0.05, 0.05, 0.05), Vector3(0.13, 0.86, 0.04)) # emenda quente
 	obj._shape(Vector3(0, 0.45, 0), Vector3(1.6, 0.9, 0.75))
+
+
+## Bancada química (Era 4): mesa de azulejo branco; à esquerda o queimador de latão num
+## tripé com o balão de vidro (o líquido verde dentro), o tubo de vidro até a serpentina de
+## cobre na tina d'água e o frasco que recolhe na direita. No painel de trás, os três
+## relógios (temperatura, pressão, vazão) com as válvulas vermelhas embaixo. Prateleira com
+## potes de reagentes e o botijão no chão com a mangueira até o queimador.
+static func _chem_bench(obj: PlacedObject) -> void:
+	var mb := MeshBuilder.new()
+	var glass := Color(0.62, 0.74, 0.72)
+	# Mesa: pés de ferro, tampo de madeira coberto de azulejo, prateleira embaixo.
+	mb.color(ObjectModels.IRON)
+	for x in [-0.72, 0.72]:
+		for z in [-0.29, 0.29]:
+			mb.box(Vector3(x, 0.39, z), Vector3(0.06, 0.78, 0.06))
+	mb.color(ObjectModels.WOOD_DARK)
+	mb.box(Vector3(0, 0.78, 0), Vector3(1.6, 0.05, 0.7))
+	mb.box(Vector3(0, 0.16, 0), Vector3(1.5, 0.04, 0.6)) # prateleira
+	for k in 6:
+		for m in 3:
+			mb.color(Color(0.86, 0.86, 0.82).darkened(0.05 * ((k + m) % 2)))
+			mb.box(Vector3(-0.66 + k * 0.265, 0.812, -0.22 + m * 0.22), Vector3(0.255, 0.015, 0.21))
+	# Painel de trás com os três relógios e as válvulas.
+	mb.color(ObjectModels.WOOD)
+	mb.box(Vector3(0, 1.2, -0.33), Vector3(1.5, 0.76, 0.04))
+	mb.color(ObjectModels.IRON)
+	mb.box(Vector3(0, 1.59, -0.33), Vector3(1.56, 0.04, 0.06))
+	var facing := Basis(Vector3.RIGHT, PI / 2)
+	var needles := [0.6, -0.2, 0.9]
+	for k in 3:
+		var at := Vector3(-0.42 + k * 0.42, 1.36, -0.305)
+		mb.color(ItemModels.BRASS)
+		mb.lathe(PackedVector2Array([Vector2(0.002, 0.0), Vector2(0.11, 0.0), Vector2(0.11, 0.025)]), 14, facing, at)
+		mb.color(Color(0.92, 0.9, 0.82))
+		mb.lathe(PackedVector2Array([Vector2(0.002, 0.026), Vector2(0.095, 0.026)]), 14, facing, at)
+		mb.color(Color(0.3, 0.65, 0.3))
+		mb.box(at + Vector3(0, 0.05, 0.03), Vector3(0.07, 0.02, 0.004)) # faixa verde
+		mb.color(Color(0.7, 0.2, 0.15))
+		mb.box(at + Vector3(0.075, 0.0, 0.03), Vector3(0.02, 0.06, 0.004)) # faixa vermelha
+		mb.color(ObjectModels.SOOT)
+		mb.box(at + Vector3(0, 0.0, 0.034) + Vector3(sin(needles[k]), cos(needles[k]), 0) * 0.04, Vector3(0.01, 0.08, 0.004), Basis(Vector3.BACK, -needles[k]))
+		# Válvula embaixo de cada relógio: cano curto e o volante vermelho.
+		var valve := Vector3(-0.42 + k * 0.42, 1.0, -0.28)
+		mb.color(ObjectModels.COPPER)
+		mb.tube(PackedVector3Array([valve + Vector3(0, 0, -0.04), valve + Vector3(0, 0, 0.06)]), 0.02, 6)
+		mb.color(Color(0.62, 0.12, 0.1))
+		mb.torus(0.055, 0.01, 12, 4, facing, valve + Vector3(0, 0, 0.07))
+		mb.box(valve + Vector3(0, 0, 0.07), Vector3(0.1, 0.012, 0.012))
+		mb.box(valve + Vector3(0, 0, 0.07), Vector3(0.012, 0.1, 0.012))
+	mb.color(ObjectModels.COPPER) # cano que liga as válvulas
+	mb.tube(PackedVector3Array([Vector3(-0.62, 1.0, -0.3), Vector3(0.62, 1.0, -0.3)]), 0.018, 6)
+	# Queimador, tripé e balão (esquerda).
+	var bx := -0.48
+	mb.color(ItemModels.BRASS)
+	mb.lathe(PackedVector2Array([Vector2(0.002, 0.82), Vector2(0.06, 0.82), Vector2(0.05, 0.84), Vector2(0.018, 0.85), Vector2(0.016, 0.98), Vector2(0.002, 0.98)]), 10, Basis.IDENTITY, Vector3(bx, 0, 0.05))
+	mb.color(ObjectModels.IRON)
+	for k in 3:
+		var a := TAU * k / 3.0 + 0.3
+		mb.tube(PackedVector3Array([Vector3(bx + cos(a) * 0.15, 0.82, 0.05 + sin(a) * 0.15), Vector3(bx + cos(a) * 0.11, 1.07, 0.05 + sin(a) * 0.11)]), 0.01, 4)
+	mb.torus(0.11, 0.01, 12, 4, Basis.IDENTITY, Vector3(bx, 1.07, 0.05))
+	mb.color(glass)
+	mb.lathe(PackedVector2Array([Vector2(0.002, 1.04), Vector2(0.06, 1.05), Vector2(0.11, 1.11), Vector2(0.125, 1.18), Vector2(0.11, 1.26),
+		Vector2(0.06, 1.3), Vector2(0.03, 1.32), Vector2(0.028, 1.44), Vector2(0.034, 1.45), Vector2(0.002, 1.45)]), 12, Basis.IDENTITY, Vector3(bx, 0, 0.05))
+	mb.color(Color(0.42, 0.72, 0.28))
+	mb.lathe(PackedVector2Array([Vector2(0.002, 1.045), Vector2(0.06, 1.055), Vector2(0.112, 1.12), Vector2(0.126, 1.17), Vector2(0.002, 1.17)]), 12, Basis.IDENTITY, Vector3(bx, 0, 0.05))
+	mb.color(Color(0.5, 0.36, 0.2)) # rolha
+	mb.lathe(PackedVector2Array([Vector2(0.03, 1.44), Vector2(0.034, 1.47), Vector2(0.002, 1.48)]), 8, Basis.IDENTITY, Vector3(bx, 0, 0.05))
+	# Tubo de vidro do gargalo até a serpentina (meio), na tina d'água, e o frasco que recolhe.
+	mb.color(glass)
+	mb.tube(PackedVector3Array([Vector3(bx, 1.46, 0.05), Vector3(bx + 0.08, 1.5, 0.05), Vector3(0.0, 1.22, 0.06)]), 0.012, 5)
+	mb.color(ObjectModels.WOOD_DARK)
+	mb.lathe(PackedVector2Array([Vector2(0.002, 0.82), Vector2(0.15, 0.82), Vector2(0.16, 1.1), Vector2(0.145, 1.1), Vector2(0.135, 0.84), Vector2(0.002, 0.84)]), 10, Basis.IDENTITY, Vector3(0.05, 0, 0.06))
+	mb.color(Color(0.35, 0.5, 0.62))
+	mb.lathe(PackedVector2Array([Vector2(0.002, 1.04), Vector2(0.142, 1.04)]), 10, Basis.IDENTITY, Vector3(0.05, 0, 0.06)) # água da tina
+	for k in 5:
+		mb.color(ObjectModels.COPPER.lightened(0.05 * (k % 2)))
+		mb.torus(0.09, 0.013, 12, 4, Basis.IDENTITY, Vector3(0.05, 0.9 + k * 0.045, 0.06))
+	mb.color(ObjectModels.COPPER)
+	mb.tube(PackedVector3Array([Vector3(0.14, 0.9, 0.06), Vector3(0.3, 0.9, 0.08), Vector3(0.38, 0.98, 0.1)]), 0.012, 5)
+	mb.color(glass)
+	mb.lathe(PackedVector2Array([Vector2(0.002, 0.82), Vector2(0.07, 0.82), Vector2(0.075, 0.9), Vector2(0.03, 0.97), Vector2(0.028, 1.0), Vector2(0.002, 1.0)]), 10, Basis.IDENTITY, Vector3(0.4, 0, 0.1))
+	mb.color(Color(0.86, 0.8, 0.4))
+	mb.lathe(PackedVector2Array([Vector2(0.002, 0.825), Vector2(0.068, 0.825), Vector2(0.07, 0.86), Vector2(0.002, 0.86)]), 10, Basis.IDENTITY, Vector3(0.4, 0, 0.1)) # destilado
+	# Potes de reagentes na mesa (direita) e na prateleira.
+	var jars := [[Vector3(0.62, 0.82, -0.12), Color(0.92, 0.82, 0.22)], [Vector3(0.66, 0.82, 0.12), Color(0.93, 0.93, 0.9)], [Vector3(0.48, 0.82, -0.2), Color(0.12, 0.12, 0.12)],
+		[Vector3(-0.3, 0.18, 0.05), Color(0.78, 0.86, 0.42)], [Vector3(-0.1, 0.18, -0.05), Color(0.8, 0.76, 0.58)], [Vector3(0.15, 0.18, 0.08), Color(0.6, 0.58, 0.14)]]
+	for jar in jars:
+		mb.color(glass)
+		mb.lathe(PackedVector2Array([Vector2(0.002, 0.0), Vector2(0.05, 0.0), Vector2(0.05, 0.13), Vector2(0.035, 0.15), Vector2(0.002, 0.15)]), 8, Basis.IDENTITY, jar[0])
+		mb.color(jar[1])
+		mb.lathe(PackedVector2Array([Vector2(0.002, 0.005), Vector2(0.047, 0.005), Vector2(0.047, 0.09), Vector2(0.002, 0.09)]), 8, Basis.IDENTITY, jar[0])
+		mb.color(ObjectModels.SOOT)
+		mb.lathe(PackedVector2Array([Vector2(0.036, 0.15), Vector2(0.036, 0.17), Vector2(0.002, 0.17)]), 8, Basis.IDENTITY, jar[0])
+	# Botijão embaixo da mesa (esquerda) e a mangueira até o queimador.
+	var gx := -0.95
+	mb.color(Color(0.62, 0.12, 0.1))
+	mb.lathe(PackedVector2Array([Vector2(0.002, 0.03), Vector2(0.15, 0.03), Vector2(0.17, 0.1), Vector2(0.17, 0.36), Vector2(0.13, 0.46), Vector2(0.05, 0.5), Vector2(0.002, 0.5)]), 12,
+		Basis.IDENTITY, Vector3(gx, 0, 0.1))
+	mb.color(ItemModels.BRASS)
+	mb.box(Vector3(gx, 0.53, 0.1), Vector3(0.05, 0.05, 0.05))
+	mb.color(Color(0.1, 0.1, 0.11))
+	mb.tube(PackedVector3Array([Vector3(gx + 0.03, 0.53, 0.1), Vector3(-0.8, 0.62, 0.3), Vector3(-0.62, 0.84, 0.3), Vector3(bx - 0.05, 0.84, 0.1)]), 0.012, 5)
+	var mesh := MeshInstance3D.new()
+	mesh.mesh = mb.finish(PlacedObject._mat(), false)
+	obj.add_child(mesh)
+	# Chama azul do queimador e o líquido borbulhando (só logo depois de usar).
+	var flame := MeshBuilder.new()
+	flame.color(Color(0.45, 0.65, 1.0))
+	flame.lathe(PackedVector2Array([Vector2(0.002, 0.0), Vector2(0.025, 0.02), Vector2(0.002, 0.07)]), 8, Basis.IDENTITY, Vector3(bx, 0.98, 0.05))
+	flame.color(Color(0.55, 0.95, 0.4))
+	for k in 4:
+		flame.box(Vector3(bx - 0.05 + k * 0.03, 1.17, 0.05 + (k % 2) * 0.03), Vector3(0.018, 0.018, 0.018))
+	var cone := MeshInstance3D.new()
+	cone.mesh = flame.finish(StationModels._glow_mat(), false)
+	obj.add_child(cone)
+	StationModels._register_fire(obj, cone)
+	var light := OmniLight3D.new()
+	light.position = Vector3(bx, 1.1, 0.15)
+	light.light_color = Color(0.6, 1.0, 0.6)
+	light.omni_range = 2.5
+	light.light_energy = 0.6
+	obj.add_child(light)
+	StationModels._register_fire(obj, light)
+	obj._shape(Vector3(0, 0.55, 0), Vector3(1.7, 1.1, 0.75))

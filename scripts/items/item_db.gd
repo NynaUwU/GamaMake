@@ -50,8 +50,8 @@ const ITEMS := {
 		"controls": ["Segurar clique: dispara mísseis"]},
 	&"pistola": {"name": "Revólver", "short": "Revólver", "kind": "weapon", "weapon": "pistol", "stack": 1, "size": Vector3(0.05, 0.15, 0.22),
 		"damage_type": "Perfuração", "damage": 40, "knockback": 20,
-		"desc": "Latão, madeira e pólvora de procedência duvidosa. 12 tiros e munição infinita.",
-		"controls": ["Clique: atira", "R: recarrega"]},
+		"desc": "Latão, madeira e pólvora de procedência duvidosa. Tambor de 12 tiros: gasta cartuchos (bancada química + mesa, ou achados).",
+		"controls": ["Clique: atira", "R: recarrega com os cartuchos da mochila"]},
 	&"lanterna": {"name": "Lanterna", "kind": "tool", "slot": "offhand", "stack": 1, "size": Vector3(0.08, 0.08, 0.24),
 		"desc": "Lanterna de latão (L). Gasta bateria; recarregue com o carregador. Zumbis adoram uma luz na cara. Na mão secundária fica sempre à mão.",
 		"controls": ["L: liga/desliga (na mão secundária ou na mochila)", "Arraste para o slot da mão (ao lado da roupa)"]},
@@ -345,6 +345,35 @@ const ITEMS := {
 		"desc": "Cheira estranho. Não pergunte de onde veio."},
 	&"fita": {"name": "Fita adesiva", "kind": "material", "stack": 10, "size": Vector3(0.14, 0.06, 0.14),
 		"desc": "Conserta tudo, menos o fim do mundo. Ainda."},
+	# Era 4: química e refino (bancada química, Manual de química).
+	&"enxofre": {"name": "Enxofre", "kind": "material", "stack": 100, "size": Vector3(0.16, 0.1, 0.16),
+		"desc": "Cristais amarelos com cheiro de ovo podre. Veios amarelos no deserto e nas montanhas (picareta). Vai na pólvora e no ácido."},
+	&"salitre": {"name": "Salitre", "kind": "material", "stack": 100, "size": Vector3(0.16, 0.1, 0.16),
+		"desc": "Cristais brancos tirados do adubo na bancada química (morno e sem pressa). O fôlego da pólvora."},
+	&"polvora": {"name": "Pólvora", "kind": "material", "stack": 100, "size": Vector3(0.14, 0.16, 0.14),
+		"desc": "Salitre, enxofre e carvão misturados A FRIO na bancada química (quente demais, explode). Na mesa vira cartucho."},
+	&"cartucho": {"name": "Cartuchos", "short": "Cartucho", "kind": "material", "stack": 100, "size": Vector3(0.1, 0.05, 0.1),
+		"desc": "Munição do revólver: estojo de cobre, pólvora e ponta de estanho. O revólver recarrega com os da mochila.",
+		"controls": ["R com o revólver na mão: recarrega (até 12)"]},
+	&"combustivel": {"name": "Biodiesel", "kind": "material", "stack": 100, "size": Vector3(0.09, 0.28, 0.09),
+		"desc": "Óleo e álcool refinados na bancada química. O melhor combustível: carro (+60%), maçarico e bancada química (2 lotes).",
+		"controls": ["Clique no carro: abastece (+60%)"]},
+	&"plastico": {"name": "Plástico", "kind": "material", "stack": 100, "size": Vector3(0.2, 0.04, 0.2),
+		"desc": "Bioplástico de farinha (amido) e óleo, cozido na bancada química. Máscara de gás, filtros e cabo isolado."},
+	&"acido": {"name": "Ácido de bateria", "short": "Ácido", "kind": "material", "stack": 100, "size": Vector3(0.09, 0.28, 0.09),
+		"desc": "Ácido sulfúrico (enxofre queimado na água, quente e com pressão). Renova as baterias: a saúde das células sobe.",
+		"controls": ["Com ele na mão, [E] numa bateria: troca o eletrólito (+50% de saúde; banco de 110 V: +20%)"]},
+	&"carvao_ativado": {"name": "Carvão ativado", "short": "C. ativado", "kind": "material", "stack": 100, "size": Vector3(0.12, 0.1, 0.12),
+		"desc": "Carvão cozido no vapor bem quente: fica cheio de poros que seguram o gás. Recheio do filtro da máscara."},
+	&"filtro": {"name": "Filtro de máscara", "short": "Filtro", "kind": "material", "stack": 100, "size": Vector3(0.1, 0.06, 0.1),
+		"desc": "Carvão ativado entre panos numa rosca de plástico. Dura 3 minutos dentro do gás; a máscara troca sozinha quando acaba."},
+	&"mascara_gas": {"name": "Máscara de gás", "short": "Máscara", "kind": "armor", "slot": "head", "armor": 0.04, "warm": 0.1, "stack": 1,
+		"size": Vector3(0.26, 0.24, 0.24),
+		"desc": "Borracha, duas lentes e o filtro de rosca. Deixa respirar nas zonas contaminadas enquanto o filtro durar. Ocupa a cabeça (sem capacete).",
+		"controls": ["Vista na cabeça (inventário)", "Filtros na mochila: troca sozinho quando o atual acaba"]},
+	&"manual_quimico": {"name": "Manual de química", "short": "Man. química", "kind": "book", "stack": 1, "size": Vector3(0.18, 0.04, 0.24),
+		"desc": "Apostila de química industrial com manchas de queimado. Libera a bancada química, os cartuchos, os filtros e a máscara de gás.",
+		"controls": ["Clique: lê (vai para o diário, J). O livro fica: dá para emprestar"]},
 }
 
 ## Armas que zumbis podem carregar (só corpo a corpo).
@@ -406,7 +435,7 @@ const SHARP_PER_USE := 0.04 ## ~25 golpes até perder o fio
 
 ## Campos extras de um item que viajam com ele (baú, chão, rede): qualidade da
 ## forja e fio da pedra de amolar.
-const EXTRA_KEYS := ["q", "sharp"]
+const EXTRA_KEYS := ["q", "sharp", "filter"] ## "filter": quanto resta do filtro da máscara de gás (0..1)
 
 
 static func extras(slot: Dictionary) -> Dictionary:

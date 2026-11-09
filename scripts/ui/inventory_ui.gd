@@ -184,7 +184,8 @@ func _make_equip_slot(slot_name: String) -> Button:
 			_quick_unequip(slot_name))
 	button.mouse_entered.connect(func():
 		if not inventory.equipment[slot_name].is_empty():
-			_show_tooltip(inventory.equipment[slot_name].id, 1, inventory.equipment[slot_name].get("dur", 1.0), 0.0, inventory.equipment[slot_name].get("q", -1.0)))
+			_show_tooltip(inventory.equipment[slot_name].id, 1, inventory.equipment[slot_name].get("dur", 1.0), 0.0, inventory.equipment[slot_name].get("q", -1.0),
+				inventory.equipment[slot_name].get("filter", 1.0)))
 	button.mouse_exited.connect(func(): _hover(-1))
 	return button
 
@@ -299,10 +300,10 @@ func _hover(index: int) -> void:
 		_tooltip.visible = false
 		return
 	var slot: Dictionary = inventory.slots[index]
-	_show_tooltip(slot.id, slot.amount, slot.get("dur", 1.0), slot.get("sharp", 0.0), slot.get("q", -1.0))
+	_show_tooltip(slot.id, slot.amount, slot.get("dur", 1.0), slot.get("sharp", 0.0), slot.get("q", -1.0), slot.get("filter", 1.0))
 
 
-func _show_tooltip(id: StringName, amount: int, dur := 1.0, sharp := 0.0, quality := -1.0) -> void:
+func _show_tooltip(id: StringName, amount: int, dur := 1.0, sharp := 0.0, quality := -1.0, filter := 1.0) -> void:
 	var item := ItemDB.def(id)
 	_tooltip_title.text = item.name
 	_spinner.show_item(id)
@@ -322,6 +323,8 @@ func _show_tooltip(id: StringName, amount: int, dur := 1.0, sharp := 0.0, qualit
 		lines.append("Quantidade: %d" % amount)
 	if item.has("armor"):
 		lines.append("Proteção: %d%%" % int(item.armor * 100.0))
+	if id == &"mascara_gas":
+		lines.append("Filtro: %d%% (~%d s no gás)" % [int(filter * 100.0), int(filter * Contamination.FILTER_TIME)])
 	lines.append("")
 	lines.append(ItemDB.description(id))
 	var controls: Array = item.get("controls", [])

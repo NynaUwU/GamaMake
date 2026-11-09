@@ -167,6 +167,11 @@ class Catalog:
                 note = esc(r["note"]) if r["note"] else ""
                 if r.get("manual"):
                     note = (note + "<br/>" if note else "") + "<b>%s</b>" % esc(self.manual_title(r["manual"]))
+                chem = r.get("chem")
+                if chem:
+                    bands = " · ".join("%s %d–%d%%" % (label, round(chem[k][0] * 100), round(chem[k][1] * 100))
+                                       for k, label in (("t", "temp."), ("p", "pressão"), ("f", "vazão")))
+                    note = (note + "<br/>" if note else "") + "<font size=6.5>%s</font>" % esc(bands)
                 rows.append([self.p(self.item(r["out"], r["amount"], 13)), self.p(self.cost(r["cost"])), self.p(note)])
             if not rows:
                 continue
@@ -277,7 +282,8 @@ class Catalog:
 
     def where(self, story):
         story.append(Paragraph("Onde achar", S["h1"]))
-        names = {"casa": "Armário/baú de casa", "caixote": "Caixote de rua", "airdrop": "Airdrop (onda noturna)", "ruina": "Escombros / ruína"}
+        names = {"casa": "Armário/baú de casa", "caixote": "Caixote de rua", "airdrop": "Airdrop (onda noturna)", "ruina": "Escombros / ruína",
+                 "contaminado": "Zona contaminada (casas e fábricas químicas)"}
         rows = []
         for table, entries in self.d["loot"].items():
             text = " &nbsp; ".join("%s <font size=6.5>(%d%%)</font>" % (self.item(e[0]), round(e[1] * 100)) for e in entries)
@@ -286,7 +292,8 @@ class Catalog:
         story.append(self.table(["Onde", "Itens"], rows, [3.5 * cm, 13.5 * cm]))
         rows = []
         res_names = {"arvore": "Árvore", "arvore_fruta": "Árvore frutífera", "rocha": "Rocha", "ferro": "Veio de ferro",
-                     "cobre": "Veio de cobre", "estanho": "Veio de estanho", "carvao": "Veio de carvão"}
+                     "cobre": "Veio de cobre", "estanho": "Veio de estanho", "carvao": "Veio de carvão",
+                     "enxofre": "Veio de enxofre (amarelo)"}
         for res, entries in self.d["resources"].items():
             text = " &nbsp; ".join("%s %d–%d" % (self.item(e[0]), e[1], e[2]) for e in entries)
             label = res_names.get(res, "Móvel: " + res.split("_", 1)[-1] if res.startswith("movel_") else res)
@@ -298,8 +305,20 @@ class Catalog:
         story.append(Paragraph("Combustíveis", S["h2"]))
         rows = [[self.p("Fornalhas (segundos de fogo)"), self.p(self.cost({k: int(v) for k, v in self.d["fuel_furnace"].items()}))],
                 [self.p("Fogueira, forno, assador (segundos)"), self.p(self.cost({k: int(v) for k, v in self.d["fuel_fire"].items()}))],
-                [self.p("Maçarico (soldas por unidade)"), self.p(self.cost(self.d["torch_fuel"]))]]
+                [self.p("Maçarico (soldas por unidade)"), self.p(self.cost(self.d["torch_fuel"]))],
+                [self.p("Bancada química (lotes por unidade)"), self.p(self.cost(self.d.get("chem_fuel", {})))]]
         story.append(self.table(["Onde queima", "Combustível e quanto dura"], rows, [5 * cm, 12 * cm]))
+        gas = self.d.get("gas")
+        if gas:
+            story.append(Paragraph("Zonas contaminadas (gás tóxico)", S["h2"]))
+            story.append(Paragraph(
+                "O miolo das cidades grandes (sempre) e de metade das médias, e 3 fábricas químicas abandonadas espalhadas pelo mapa "
+                "(laje de concreto, tanques vazando, chaminé). No mapa: círculo amarelo-esverdeado tracejado; no chão, placas amarelas de perigo. "
+                "O gás engrossa em %d m a partir da borda e fica até %d m acima do chão da zona (telhado alto respira). "
+                "Sem máscara a intoxicação sobe (~15 s no gás cheio até o máximo): tosse, a vida cai e acima de 60%% fica doente. "
+                "De máscara de gás (cabeça), o filtro dura %d s no gás cheio e é trocado sozinho por um filtro da mochila. "
+                "Casas e caixotes dentro da zona têm o saque <b>contaminado</b> (cartuchos, química, manuais)."
+                % (gas["edge"], gas["ceiling"], gas["filter_time"]), S["body"]))
         story.append(PageBreak())
 
     def all_items(self, story):

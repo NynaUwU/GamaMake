@@ -21,7 +21,8 @@ const IDS := [&"pistola", &"espada", &"taco", &"martelo", &"talhadeira", &"pa", 
 	&"ovo", &"ovo_frito", &"leite", &"la", &"pena", &"gorro_la", &"casaco_la", &"casaco_penas",
 	&"eixo", &"engrenagem_madeira", &"polia",
 	&"minerio_estanho", &"barra_estanho", &"barra_bronze", &"eletrodo", &"capacete_soldado", &"couraca", &"grevas",
-	&"chapa", &"botijao", &"serpentina"]
+	&"chapa", &"botijao", &"serpentina",
+	&"enxofre", &"salitre", &"polvora", &"cartucho", &"combustivel", &"plastico", &"acido", &"carvao_ativado", &"filtro", &"mascara_gas"]
 
 
 static func has(id: StringName) -> bool:
@@ -80,6 +81,14 @@ static func build(id: StringName, p: Dictionary) -> void:
 		&"chapa": _plate(p)
 		&"botijao": _gas_bottle(p)
 		&"serpentina": _coil(p)
+		&"enxofre": _crystals(p, Color(0.46, 0.44, 0.38), Color(0.92, 0.82, 0.22), 21)
+		&"salitre": _crystals(p, Color(0.55, 0.52, 0.47), Color(0.93, 0.93, 0.9), 23)
+		&"polvora": _powder_keg(p)
+		&"cartucho": _cartridges(p)
+		&"plastico": _plastic_sheets(p)
+		&"carvao_ativado": _sack(p, Color(0.24, 0.24, 0.25), Color(0.08, 0.08, 0.08))
+		&"filtro": _filter_canister(p, Vector3.ZERO, Basis.IDENTITY)
+		&"mascara_gas": _gas_mask(p)
 		&"vidro": _glass(p)
 		&"sucata": _scrap(p)
 		&"pano": _cloth_stack(p)
@@ -89,7 +98,7 @@ static func build(id: StringName, p: Dictionary) -> void:
 		&"fibra": _cotton(p)
 		&"fio": _spool(p)
 		&"tecido": _bolt(p)
-		&"garrafa", &"agua", &"agua_suja", &"suco", &"oleo", &"alcool", &"leite": _bottle(p, id)
+		&"garrafa", &"agua", &"agua_suja", &"suco", &"oleo", &"alcool", &"leite", &"combustivel", &"acido": _bottle(p, id)
 		&"ovo": _egg(p)
 		&"ovo_frito": _fried_egg(p)
 		&"la": _wool(p)
@@ -789,7 +798,8 @@ static func _bottle(p: Dictionary, id: StringName) -> void:
 	# O vidro do corpo toma a cor do que tem dentro (vazia: vidro claro).
 	var glass := Color(0.62, 0.72, 0.68)
 	var body: Color = {&"agua": Color(0.55, 0.78, 0.95), &"agua_suja": Color(0.4, 0.42, 0.24), &"suco": Color(0.95, 0.55, 0.15),
-		&"oleo": Color(0.78, 0.62, 0.18), &"alcool": Color(0.82, 0.9, 0.95), &"leite": Color(0.96, 0.95, 0.9)}.get(id, glass)
+		&"oleo": Color(0.78, 0.62, 0.18), &"alcool": Color(0.82, 0.9, 0.95), &"leite": Color(0.96, 0.95, 0.9),
+		&"combustivel": Color(0.6, 0.58, 0.14), &"acido": Color(0.78, 0.86, 0.42)}.get(id, glass)
 	_mb(p, body).lathe(PackedVector2Array([Vector2(0.002, 0.0), Vector2(0.04, 0.0), Vector2(0.046, 0.01), Vector2(0.046, 0.16),
 		Vector2(0.032, 0.2)]), 10)
 	_mb(p, glass).lathe(PackedVector2Array([Vector2(0.032, 0.2), Vector2(0.02, 0.215), Vector2(0.018, 0.26), Vector2(0.022, 0.265), Vector2(0.002, 0.268)]), 10)
@@ -800,6 +810,10 @@ static func _bottle(p: Dictionary, id: StringName) -> void:
 	_mb(p, Color(0.5, 0.36, 0.2)).lathe(PackedVector2Array([Vector2(0.017, 0.255), Vector2(0.019, 0.29), Vector2(0.002, 0.292)]), 8) # rolha
 	_mb(p, ItemModels.CREAM.darkened(0.1)).lathe(PackedVector2Array([Vector2(0.0465, 0.06), Vector2(0.0465, 0.11)]), 10) # rótulo
 	_mb(p, ItemModels.LEATHER).torus(0.021, 0.003, 8, 3, Basis.IDENTITY, Vector3(0, 0.22, 0)) # barbante no gargalo
+	if id == &"acido": # rótulo de perigo: losango preto
+		_mb(p, ItemModels.DARK).box(Vector3(0, 0.085, 0.047), Vector3(0.026, 0.026, 0.004), Basis(Vector3.BACK, PI / 4))
+	elif id == &"combustivel": # faixa vermelha de inflamável
+		_mb(p, ItemModels.RED_PAINT).lathe(PackedVector2Array([Vector2(0.0468, 0.075), Vector2(0.0468, 0.095)]), 10)
 
 
 # --- roupas ---------------------------------------------------------------------
@@ -1283,3 +1297,87 @@ static func _wood_pulley(p: Dictionary) -> void:
 		Vector2(r, 0.03), Vector2(r + 0.02, 0.035), Vector2(r + 0.02, 0.05), Vector2(0.002, 0.05)]), 12, around_z)
 	_mb(p, ItemModels.IRON).lathe(PackedVector2Array([Vector2(0.002, -0.06), Vector2(0.04, -0.06), Vector2(0.04, 0.06), Vector2(0.002, 0.06)]), 8, around_z)
 	_mb(p, Color(0.2, 0.13, 0.08)).lathe(PackedVector2Array([Vector2(r + 0.004, -0.028), Vector2(r + 0.004, 0.028)]), 12, around_z) # pedaço de esteira
+
+
+# --- Era 4: química ------------------------------------------------------------
+
+## Cristais (enxofre, salitre): pedra cinza com pontas angulosas da cor do cristal.
+static func _crystals(p: Dictionary, rock: Color, crystal: Color, seed: int) -> void:
+	_blob(_mb(p, rock), Vector3(0, -0.01, 0), Vector3(0.07, 0.035, 0.06), seed, 0.2, 7, 4)
+	var rng := RandomNumberGenerator.new()
+	rng.seed = seed
+	for k in 7:
+		var a := TAU * k / 7.0 + rng.randf() * 0.4
+		var r := 0.0 if k == 0 else rng.randf_range(0.02, 0.045)
+		var h := rng.randf_range(0.04, 0.08) * (1.4 if k == 0 else 1.0)
+		var tilt := Basis(Vector3(sin(a), 0, -cos(a)), r * 6.0) # tombam para fora
+		var c := crystal.lightened(0.15) if k % 2 == 0 else crystal.darkened(0.1)
+		_mb(p, c).lathe(PackedVector2Array([Vector2(0.014, 0.0), Vector2(0.014, h * 0.7), Vector2(0.001, h)]), 4, tilt, Vector3(cos(a) * r, 0.01, sin(a) * r))
+
+
+## Barrilete de pólvora: madeira com cintas de ferro, tampa aberta com o pó preto.
+static func _powder_keg(p: Dictionary) -> void:
+	_mb(p, ItemModels.WOOD).lathe(PackedVector2Array([Vector2(0.002, 0.0), Vector2(0.055, 0.0), Vector2(0.066, 0.05), Vector2(0.068, 0.08),
+		Vector2(0.066, 0.11), Vector2(0.055, 0.16), Vector2(0.002, 0.16)]), 10)
+	for y in [0.025, 0.135]:
+		_mb(p, ItemModels.IRON).lathe(PackedVector2Array([Vector2(0.063, y - 0.008), Vector2(0.066, y), Vector2(0.063, y + 0.008)]), 10)
+	_mb(p, Color(0.08, 0.08, 0.08)).lathe(PackedVector2Array([Vector2(0.002, 0.162), Vector2(0.05, 0.162), Vector2(0.03, 0.175), Vector2(0.002, 0.18)]), 10)
+	for k in 6: # ripas
+		var a := TAU * k / 6.0
+		_mb(p, ItemModels.DARK_WOOD).box(Vector3(cos(a) * 0.067, 0.08, sin(a) * 0.067), Vector3(0.004, 0.1, 0.004))
+	_mb(p, ItemModels.CREAM).box(Vector3(0, 0.08, 0.068), Vector3(0.05, 0.035, 0.003)) # rótulo
+	_mb(p, ItemModels.RED_PAINT).box(Vector3(0, 0.08, 0.07), Vector3(0.03, 0.012, 0.002))
+
+
+## Cartuchos: estojos de cobre com a ponta de estanho, uns em pé e uns deitados.
+static func _cartridges(p: Dictionary) -> void:
+	var case := ItemModels.COPPER.lightened(0.3)
+	var tip := Color(0.62, 0.63, 0.62)
+	for k in 5:
+		var at := Vector3((k - 2) * 0.018, 0.0, (k % 2) * 0.014)
+		_mb(p, case).lathe(PackedVector2Array([Vector2(0.002, 0.0), Vector2(0.0075, 0.0), Vector2(0.0075, 0.004), Vector2(0.0065, 0.005), Vector2(0.0065, 0.03)]), 8, Basis.IDENTITY, at)
+		_mb(p, tip).lathe(PackedVector2Array([Vector2(0.0062, 0.03), Vector2(0.0062, 0.036), Vector2(0.004, 0.042), Vector2(0.001, 0.044)]), 8, Basis.IDENTITY, at)
+	for k in 2:
+		var at := Vector3(-0.025 + k * 0.05, 0.007, 0.04)
+		var lie := Basis(Vector3.RIGHT, PI / 2) * Basis(Vector3.BACK, 0.3 * (1 - 2 * k))
+		_mb(p, case).lathe(PackedVector2Array([Vector2(0.002, 0.0), Vector2(0.0075, 0.0), Vector2(0.0065, 0.03)]), 8, lie, at)
+		_mb(p, tip).lathe(PackedVector2Array([Vector2(0.0062, 0.03), Vector2(0.004, 0.042), Vector2(0.001, 0.044)]), 8, lie, at)
+
+
+## Placas de bioplástico empilhadas (amareladas e foscas, uma meio torta).
+static func _plastic_sheets(p: Dictionary) -> void:
+	var base := Color(0.8, 0.76, 0.58)
+	for k in 4:
+		var c := base.darkened(0.05 * k) if k % 2 == 0 else base.lightened(0.06)
+		_mb(p, c).box(Vector3(0.004 * k, k * 0.009, -0.003 * k), Vector3(0.19, 0.008, 0.19), Basis(Vector3.UP, 0.06 * (k - 1.5)))
+	_mb(p, base.darkened(0.2)).box(Vector3(0.0, 0.04, 0.0), Vector3(0.1, 0.006, 0.07), Basis(Vector3.BACK, 0.25)) # retalho
+
+
+## Filtro de rosca da máscara: lata verde-oliva com rosca de latão e furos no fundo.
+static func _filter_canister(p: Dictionary, at: Vector3, basis: Basis) -> void:
+	var olive := Color(0.3, 0.33, 0.2)
+	_mb(p, olive).lathe(PackedVector2Array([Vector2(0.002, 0.0), Vector2(0.042, 0.0), Vector2(0.046, 0.006), Vector2(0.046, 0.05),
+		Vector2(0.034, 0.06), Vector2(0.002, 0.06)]), 12, basis, at)
+	_mb(p, ItemModels.BRASS).lathe(PackedVector2Array([Vector2(0.016, 0.058), Vector2(0.018, 0.064), Vector2(0.016, 0.07), Vector2(0.018, 0.076), Vector2(0.002, 0.078)]), 8, basis, at)
+	_mb(p, olive.darkened(0.25)).lathe(PackedVector2Array([Vector2(0.0465, 0.02), Vector2(0.0465, 0.03)]), 12, basis, at) # faixa
+	for k in 5: # furos do fundo
+		var a := TAU * k / 5.0
+		_mb(p, ItemModels.DARK).box(at + basis * Vector3(cos(a) * 0.022, -0.001, sin(a) * 0.022), Vector3(0.008, 0.002, 0.008), basis)
+
+
+## Máscara de gás (vestida na cabeça: frente para +Z): borracha cobrindo o rosto, duas
+## lentes com aro de latão, o filtro de rosca no queixo e as tiras de couro na nuca.
+static func _gas_mask(p: Dictionary) -> void:
+	var rubber := Color(0.2, 0.22, 0.19)
+	_blob(_mb(p, rubber), Vector3(0, -0.06, 0.1), Vector3(0.125, 0.13, 0.075), 31, 0.04, 10, 6)
+	_mb(p, rubber.darkened(0.2)).box(Vector3(0, -0.05, 0.05), Vector3(0.24, 0.2, 0.05)) # borda que veda no rosto
+	for side in [-1.0, 1.0]:
+		var lens := Vector3(side * 0.052, -0.02, 0.165)
+		var facing := Basis(Vector3.RIGHT, PI / 2)
+		_mb(p, ItemModels.BRASS).torus(0.032, 0.007, 12, 4, facing, lens)
+		_mb(p, Color(0.5, 0.62, 0.6)).lathe(PackedVector2Array([Vector2(0.0, 0.0), Vector2(0.029, 0.0), Vector2(0.029, 0.004)]), 12, facing, lens + Vector3(0, 0, -0.002))
+		_mb(p, ItemModels.LEATHER).box(Vector3(side * 0.13, -0.02, 0.0), Vector3(0.02, 0.025, 0.2)) # tira lateral
+	_mb(p, rubber.lightened(0.08)).lathe(PackedVector2Array([Vector2(0.03, 0.0), Vector2(0.026, 0.03), Vector2(0.03, 0.035)]), 10, Basis(Vector3.RIGHT, PI / 2 + 0.5), Vector3(0, -0.12, 0.15)) # bocal
+	_filter_canister(p, Vector3(0, -0.15, 0.175), Basis(Vector3.RIGHT, PI / 2 + 0.5))
+	_mb(p, ItemModels.LEATHER).torus(0.14, 0.01, 14, 4, Basis.IDENTITY, Vector3(0, -0.02, -0.02)) # cinta em volta da cabeça
+	_mb(p, ItemModels.LEATHER).box(Vector3(0, 0.08, -0.06), Vector3(0.025, 0.012, 0.2), Basis(Vector3.RIGHT, -0.4)) # tira de cima

@@ -27,6 +27,9 @@ const CABLE_RANGE := 12.0
 const CABLE_PER_ITEM := 4.0
 const CABLE_ITEM := &"cabo"
 const CELL_ITEM := &"celula"
+const ACID_ITEM := &"acido" ## ácido de bateria: [E] com ele na mão renova as células
+const ACID_GAIN := 0.5 ## +50% de saúde por garrafa na bateria de 12 V
+const ACID_GAIN_BANK := 0.2 ## no banco de 110 V (9 células)
 const DYNAMO_OUT := 600.0 ## W
 const DYNAMO_LOAD := 2.0 ## carga no eixo (força) enquanto gera
 const SOLAR_OUT := 300.0 ## W ao meio-dia de céu limpo
@@ -606,6 +609,8 @@ static func text(obj: PlacedObject) -> String:
 				return line + " · FUSÍVEL QUEIMADO (bateria de 12 V numa rede de 110 V: use o carregador)  [E] trocar fusível"
 			if obj.extra.get("heat", 0.0) > 0.45:
 				line += " · ESQUENTANDO: consumo demais!"
+			if n > 0 and health(obj) < 0.9:
+				line += " · ácido na mão + [E]: renova"
 			return line + ("  [E] pôr célula" if n < most else "")
 		"dynamo":
 			var v := int(obj.extra.get("v", V12))
@@ -657,6 +662,9 @@ static func interact(player: Node, obj: PlacedObject) -> void:
 				manager.request("extra", [obj.net_id, {"fuse": false}]) # fusível novo
 				Sfx.play_at("click", obj.global_position, 2.0, 1.2)
 				return
+			if player.inventory.selected_id() == ACID_ITEM:
+				_refill_acid(player, obj)
+				return
 			var index := Cooking.find_any(player.inventory, {CELL_ITEM: true})
 			if index < 0 or cells(obj) >= max_cells(obj.kind):
 				Sfx.play("click", -6.0, 0.6)
@@ -686,6 +694,24 @@ static func interact(player: Node, obj: PlacedObject) -> void:
 			Radio.interact(player, obj)
 		_:
 			Sfx.play("click", -6.0, 0.6)
+
+
+## Ácido de bateria na mão + [E] na bateria: troca o eletrólito (a saúde das células sobe;
+## o banco de 110 V tem mais células, então cada garrafa rende menos). A garrafa volta.
+static func _refill_acid(player: Node, obj: PlacedObject) -> void:
+	var manager := obj.get_parent() as PlacedManager
+	if cells(obj) <= 0 or health(obj) >= 0.999:
+		player.notify.emit("Bateria sem células" if cells(obj) <= 0 else "As células já estão novas")
+		Sfx.play("click", -6.0, 0.6)
+		return
+	var gain := ACID_GAIN_BANK if obj.kind == "battery_bank" else ACID_GAIN
+	var after := minf(health(obj) + gain, 1.0)
+	player.inventory.take(player.inventory.selected, 1)
+	player.pick_up(&"garrafa", ItemDB.display_name(&"garrafa"), 1)
+	manager.request("extra", [obj.net_id, {"health": after}])
+	player.notify.emit("Eletrólito novo: saúde das células %d%%" % int(after * 100.0))
+	Progress.event("acid", "battery")
+	Sfx.play_at("splash", obj.global_position + Vector3.UP * 0.5, -6.0, 1.6)
 
 
 # --- Cabos (desenho) ------------------------------------------------------------------

@@ -21,6 +21,11 @@ var _bile: ColorRect
 var _bile_mat: ShaderMaterial
 var _player: Node
 var _machine: MachinePanel
+var _gas_box: VBoxContainer
+var _filter_label: Label
+var _filter_bar: ProgressBar
+var _toxic_label: Label
+var _toxic_bar: ProgressBar
 
 
 func _process(_delta: float) -> void:
@@ -41,6 +46,118 @@ func _process(_delta: float) -> void:
 		if _wave.visible:
 			_wave.max_value = hm.wave_quota
 			_wave.value = lerpf(_wave.value, maxf(hm.wave_quota - hm.wave_killed, 0), 0.15)
+
+
+## Gás tóxico: bordas esverdeadas que pulsam (intoxicação), a moldura das lentes da
+## máscara (dentro do gás, de máscara) e o medidor no canto (filtro e intoxicação).
+func _build_gas(player: Node) -> void:
+	var toxic := ColorRect.new()
+	toxic.name = "Toxic"
+	toxic.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	toxic.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var toxic_mat := ShaderMaterial.new()
+	toxic_mat.shader = Shader.new()
+	toxic_mat.shader.code = """shader_type canvas_item;
+uniform float amount = 0.0;
+float h(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+float n(vec2 p) { vec2 i = floor(p); vec2 f = fract(p); f = f * f * (3.0 - 2.0 * f);
+	return mix(mix(h(i), h(i + vec2(1, 0)), f.x), mix(h(i + vec2(0, 1)), h(i + vec2(1, 1)), f.x), f.y); }
+void fragment() {
+	vec2 d = abs(UV - 0.5) * 2.0;
+	float edge = smoothstep(0.25, 1.0, length(d) * 0.8);
+	float swirl = n(UV * 5.0 + vec2(TIME * 0.2, -TIME * 0.13)) * 0.6 + n(UV * 11.0 - TIME * 0.3) * 0.4;
+	float pulse = 0.85 + 0.15 * sin(TIME * 2.5);
+	float a = clamp(edge * (0.45 + swirl * 0.7) * pulse + amount * 0.18, 0.0, 0.9) * amount;
+	COLOR = vec4(mix(vec3(0.45, 0.55, 0.12), vec3(0.75, 0.78, 0.25), swirl), a);
+}"""
+	toxic.material = toxic_mat
+	toxic.visible = false
+	$Root.add_child(toxic)
+	$Root.move_child(toxic, 1)
+	var mask := ColorRect.new()
+	mask.name = "GasMask"
+	mask.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	mask.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var mask_mat := ShaderMaterial.new()
+	mask_mat.shader = Shader.new()
+	mask_mat.shader.code = """shader_type canvas_item;
+uniform float amount = 0.0;
+uniform float fog = 0.0; // filtro acabando: as lentes embaçam
+void fragment() {
+	vec2 p = (UV - 0.5) * vec2(SCREEN_PIXEL_SIZE.y / SCREEN_PIXEL_SIZE.x, 1.0);
+	vec2 l = (p - vec2(-0.3, -0.02)) / vec2(0.36, 0.33);
+	vec2 r = (p - vec2(0.3, -0.02)) / vec2(0.36, 0.33);
+	float dl = length(l);
+	float dr = length(r);
+	float lens = min(dl, dr);
+	float rubber = smoothstep(0.98, 1.02, lens);
+	float rim = smoothstep(0.9, 0.95, lens) * (1.0 - smoothstep(1.0, 1.06, lens));
+	vec3 color = mix(vec3(0.07, 0.08, 0.07), vec3(0.55, 0.43, 0.2), rim);
+	float inside = (1.0 - rubber) * (smoothstep(0.55, 0.98, lens) * 0.35 + fog * 0.5);
+	float a = max(rubber * 0.94, rim * 0.9);
+	COLOR = vec4(mix(vec3(0.8, 0.85, 0.8), color, step(0.5, a)), max(a, inside) * amount);
+}"""
+	mask.material = mask_mat
+	mask.visible = false
+	$Root.add_child(mask)
+	$Root.move_child(mask, 2)
+	# Medidor: em cima do quarto de círculo da vida.
+	_gas_box = VBoxContainer.new()
+	_gas_box.name = "GasMeter"
+	_gas_box.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_LEFT)
+	_gas_box.offset_left = 10.0
+	_gas_box.offset_top = -150.0
+	_gas_box.offset_bottom = -96.0
+	_gas_box.offset_right = 130.0
+	_gas_box.add_theme_constant_override("separation", 1)
+	_gas_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_gas_box.visible = false
+	$Root.add_child(_gas_box)
+	_filter_label = _gas_label(Color(0.7, 0.9, 0.85))
+	_filter_bar = _gas_bar(Color(0.35, 0.75, 0.65))
+	_toxic_label = _gas_label(Color(0.85, 0.9, 0.4))
+	_toxic_bar = _gas_bar(Color(0.6, 0.72, 0.15))
+	player.toxic_changed.connect(func(value: float, gas: float, filter: float):
+		var masked := filter >= 0.0
+		toxic.visible = value > 0.5
+		toxic_mat.set_shader_parameter("amount", clampf(value / 70.0, 0.0, 1.0))
+		mask.visible = masked and gas > 0.02
+		mask_mat.set_shader_parameter("amount", clampf(gas * 1.5, 0.0, 1.0))
+		mask_mat.set_shader_parameter("fog", clampf(1.0 - filter * 4.0, 0.0, 1.0) if masked else 0.0)
+		_gas_box.visible = gas > 0.0 or value > 0.5
+		_filter_label.visible = masked
+		_filter_bar.visible = masked
+		_filter_label.text = "Filtro %d%%" % int(filter * 100.0) if filter > 0.0 else "FILTRO VAZIO"
+		_filter_bar.value = maxf(filter, 0.0)
+		_toxic_label.visible = value > 0.5 or (gas > 0.0 and not (masked and filter > 0.0))
+		_toxic_bar.visible = _toxic_label.visible
+		_toxic_label.text = ("GÁS! " if gas > 0.0 else "") + "Intoxicação %d%%" % int(value)
+		_toxic_bar.value = value / 100.0)
+
+
+func _gas_label(color: Color) -> Label:
+	var label := Label.new()
+	label.add_theme_font_size_override("font_size", 10)
+	label.add_theme_color_override("font_color", color)
+	label.add_theme_color_override("font_outline_color", Color.BLACK)
+	label.add_theme_constant_override("outline_size", 3)
+	_gas_box.add_child(label)
+	return label
+
+
+func _gas_bar(color: Color) -> ProgressBar:
+	var bar := ProgressBar.new()
+	bar.custom_minimum_size = Vector2(110, 5)
+	bar.show_percentage = false
+	bar.max_value = 1.0
+	var fill := StyleBoxFlat.new()
+	fill.bg_color = color
+	var bg := StyleBoxFlat.new()
+	bg.bg_color = Color(0, 0, 0, 0.6)
+	bar.add_theme_stylebox_override("fill", fill)
+	bar.add_theme_stylebox_override("background", bg)
+	_gas_box.add_child(bar)
+	return bar
 
 
 func _ready() -> void:
@@ -109,6 +226,7 @@ void fragment() {
 	_bile = bile
 	_bile_mat = bile_mat
 	_player = player
+	_build_gas(player)
 	var plants := PlantPanel.new()
 	plants.name = "PlantPanel"
 	$Root.add_child(plants)

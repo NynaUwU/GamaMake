@@ -87,7 +87,7 @@ var headlights_on := false
 
 ## Combustível (0..1). Álcool da destilaria e óleo da prensa abastecem.
 ## Cada carro começa com 25–70% (igual para todos: sorteado pelo nome).
-const FUEL_ITEMS := {&"alcool": 0.35, &"oleo": 0.2}
+const FUEL_ITEMS := {&"alcool": 0.35, &"oleo": 0.2, &"combustivel": 0.6}
 const FUEL_IDLE := 0.0002 ## por segundo, ligado e parado
 const FUEL_THROTTLE := 0.0009 ## por segundo a mais com o pé no fundo (~18 min de tanque)
 var fuel := -1.0

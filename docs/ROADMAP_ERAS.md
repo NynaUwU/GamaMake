@@ -71,14 +71,37 @@ Plano em fases do pacote "eras + minigames". Cada fase fecha uma rodada jogável
 - Futuro: bancada de eletrônicos com módulo de controle e módulo de temperatura
   (máquinas mantêm a temperatura sozinhas).
 
-## Fase 4 — Química e refino (Era 4)
+## Fase 4 — Química e refino (Era 4) — feita
 
-- **Estação química** com válvulas e indicadores: cada receita pede um ajuste
-  (vazão, temperatura, pressão) dentro de uma faixa; a qualidade vem de quão
-  perto do alvo ficou.
-- Destilar combustível, pólvora (munição), plásticos simples, ácido para baterias.
-- **Contaminação por zona**: ruínas contaminadas pedem **máscara de gás** (filtro
-  dura alguns minutos reais); portões naturais de exploração.
+- **Bancada química** (aba Máquinas, Manual de química): balão de vidro no queimador,
+  serpentina na tina e três relógios. 3 lugares de reagente (qualquer ordem), queimador
+  (carvão, álcool, óleo, biodiesel = 2 lotes, botijão = 8 lotes) e o produto. Água em
+  garrafa: a garrafa volta (menos no ácido, que fica nela).
+- **Minigame das válvulas**: Gás (chama), Alívio (purga) e Saída (dosagem) mexem em
+  Temperatura, Pressão e Vazão, que se puxam (calor sobe a pressão, pressão empurra a
+  vazão). Cada receita tem a sua faixa verde nos três relógios; a reação só anda com o
+  balão quente e o líquido correndo, e a qualidade é o quanto os ponteiros ficaram na
+  faixa. Imprevistos: bolha de vapor, corrente de ar, saída entupida. Vermelho por tempo
+  demais = acidente: pólvora quente **explode**, ácido com pressão **vaza gás tóxico**,
+  o resto estoura a vedação (perde a mistura). Qualidade = quantidade que sai.
+- Receitas: salitre (adubo + água), **pólvora** (salitre, enxofre, carvão — fria),
+  **biodiesel** (óleo + álcool), **plástico** (farinha + óleo + água), **ácido de bateria**
+  (enxofre + água — quente e com pressão), carvão ativado (carvão + água — bem quente).
+- **Enxofre**: veios amarelos (20% dos veios de carvão e 30% das rochas do deserto).
+- Mesa: **cartuchos** (cobre + estanho + pólvora = 12), **filtro** (carvão ativado + pano +
+  plástico = 2), **máscara de gás** (plástico, vidro, couro, filtro), cabo com plástico.
+- **Revólver gasta cartuchos** (tambor de 12; R recarrega da mochila; o tambor vai no save).
+- **Ácido** na mão + [E] na bateria: +50% de saúde das células (banco de 110 V: +20%).
+- **Biodiesel**: carro +60%, maçarico e queimador rendem 2 por unidade.
+- **Zonas contaminadas**: miolo das cidades grandes (sempre) e de metade das médias, e 3
+  fábricas químicas abandonadas (laje, tanques vazando, chaminé com fumaça verde, galpão,
+  barris, 3 caixotes). Névoa amarelo-esverdeada, placas de perigo na borda, círculo no
+  mapa. O gás é pesado (até 14 m do chão: telhado alto respira). Sem máscara: intoxicação
+  sobe, tosse, a vida cai, acima de 60% fica doente. **Máscara de gás** (cabeça, sem
+  capacete): o filtro dura 3 min no gás cheio e troca sozinho por um da mochila; lentes
+  na tela e medidor de filtro/intoxicação no canto. Saque "contaminado" lá dentro.
+- Conquistas da Era 4: Laboratório (chave), Cheiro de ovo, Pólvora, Munição, Refinaria,
+  Plástico, Eletrólito novo, Respirar fundo, Zona morta, Mão firme.
 
 ## Fase 5 — Reconstrução (Era 5)
 
@@ -99,5 +122,5 @@ Plano em fases do pacote "eras + minigames". Cada fase fecha uma rodada jogável
 | 1 | Ferreiro de sucata | forja a carvão, barra de ferro, primeira peça forjada |
 | 2 | Mecânica | roda d'água ou moinho de vento, serraria ou torno, bronze |
 | 3 | Eletrificação | dínamo ou painel solar, bateria |
-| 4 | Química/refino | destilaria, álcool |
+| 4 | Química/refino | destilaria, álcool, bancada química |
 | 5 | Reconstrução | rádio, pedido entregue (veículos na Fase 5) |

@@ -59,6 +59,10 @@ func _ready() -> void:
 	var progress := Progress.new()
 	progress.name = "Progress" # eras, conquistas, manuais e o diário (J) do jogador daqui
 	add_child(progress)
+	var contamination := Contamination.new()
+	contamination.name = "Contamination" # zonas de gás tóxico (Era 4): névoa, placas e fábricas químicas
+	contamination.terrain = get_node_or_null("Terrain") as TerrainWorld
+	add_child(contamination)
 	# Visual: grama densa, partículas do clima e qualidade gráfica (Look).
 	var terrain := get_node_or_null("Terrain") as TerrainWorld
 	var grass := GrassField.new()

@@ -39,6 +39,7 @@ const SECTIONS := [
 	["destilaria", "Destilaria", ["distillery"]],
 	["solda", "Bancada de solda", ["weld_bench"]],
 	["macarico", "Bancada de maçarico", ["torch_bench"]],
+	["quimica", "Bancada química", ["chem_bench"]],
 ]
 
 static var _all: Array = []
@@ -65,7 +66,16 @@ static func all() -> Array:
 			notes.append("+ água")
 		if r.station == "forja" or r.station == "fundicao":
 			notes.append("+ carvão")
+		if r.station == "quimica":
+			notes.append("+ combustível")
+			match r.get("chem", {}).get("risk", ""):
+				"boom":
+					notes.append("explode se esquentar")
+				"leak":
+					notes.append("pressão demais vaza gás")
 		_add(r.station, r.id, r.get("amount", 1), r.cost, ", ".join(notes), r.get("manual", ""))
+		if r.has("chem"):
+			_all.back().chem = r.chem # faixas do minigame da química (catálogo)
 	for food in Cooking.COOK:
 		_add("campfire", Cooking.COOK[food], 1, {food: 1}, "+ lenha")
 		_add("rotisserie", Cooking.COOK[food], 1, {food: 1}, "+ lenha, eixo")

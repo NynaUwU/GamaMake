@@ -190,14 +190,18 @@ func _place_house(city_node: Node3D, city: Dictionary, lot: Dictionary, house: N
 	_add_loot(house, lot)
 
 
-## Baú/armário/caixote na frente de ~65% das casas (escombros: caixote de ruína).
+## Baú/armário/caixote na frente de ~65% das casas (escombros: caixote de ruína). Dentro
+## de uma zona contaminada quase toda casa tem, e o saque é o "contaminado" (melhor).
 func _add_loot(house: Node3D, lot: Dictionary) -> void:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = lot.seed + 77
-	if rng.randf() > 0.65:
+	var toxic := not Contamination.zone_at(lot.pos).is_empty()
+	if rng.randf() > (0.9 if toxic else 0.65):
 		return
 	var style: String = "caixote" if lot.ruin else LootBox.STYLES[rng.randi() % LootBox.STYLES.size()]
 	var table: String = "ruina" if lot.ruin else ("caixote" if style == "caixote" else "casa")
+	if toxic:
+		table = "contaminado"
 	var box := LootBox.new()
 	box.name = "Loot"
 	box.setup("loot_%d" % lot.seed, style, table)

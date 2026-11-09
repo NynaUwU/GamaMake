@@ -111,11 +111,15 @@ const STATION_UI := {
 		"title": "Soldar armaduras e chapas (clique: começa o minigame)", "hint": "Barras (aço para armadura, ferro para chapa) e eletrodos (mesa) nos lugares"},
 	"torch_bench": {"slots": [["cobre", Smelting.INPUT], ["solda", Smithing.ALLOY], ["outro", Smithing.EXTRA_SLOT], ["combustível", Smelting.FUEL]],
 		"arrow": "→ maçarico →", "title": "Soldar cobre (clique: começa o minigame · 1 solda de combustível)",
-		"hint": "Cobre/cano/fio, estanho (solda) e vidro nos lugares; álcool, óleo ou botijão de gás (8 soldas) no combustível"},
+		"hint": "Cobre/cano/fio, estanho (solda) e vidro nos lugares; álcool, óleo, biodiesel ou botijão de gás (8 soldas) no combustível"},
+	"chem_bench": {"slots": [["reagente", Smelting.INPUT], ["reagente", Smithing.ALLOY], ["reagente", Smithing.EXTRA_SLOT], ["queimador", Smelting.FUEL]],
+		"arrow": "→ balão → serpentina →", "title": "Reagir (clique: começa o minigame · 1 lote de combustível)",
+		"hint": "Reagentes nos três lugares (em qualquer ordem); carvão, álcool, óleo, biodiesel ou botijão (8 lotes) no queimador", "done": "produto"},
 }
 const METAL_SHORT := {&"barra_aco": "aço", &"barra_cobre": "cobre", &"barra_ferro": "ferro", &"barra_bronze": "bronze", &"barra_estanho": "estanho"}
 const METAL_SYMBOL := {&"barra_aco": "aço", &"barra_cobre": "Cu", &"barra_ferro": "Fe", &"barra_bronze": "bz", &"barra_estanho": "Sn",
-	&"vidro": "vd", &"fio_cobre": "fio", &"cano": "cano"}
+	&"vidro": "vd", &"fio_cobre": "fio", &"cano": "cano",
+	&"adubo": "adb", &"agua": "H2O", &"salitre": "KNO3", &"enxofre": "S", &"carvao": "C", &"oleo": "óleo", &"alcool": "álc", &"farinha": "far"}
 
 
 ## Custo curto no botão da peça: "2x ferro"; liga: "3 Cu + 1 Sn" (eletrodos ficam de fora).
@@ -151,7 +155,7 @@ func _build_forge(column: VBoxContainer) -> void:
 	right.alignment = BoxContainer.ALIGNMENT_CENTER
 	row.add_child(right)
 	var done := Label.new()
-	done.text = "peça"
+	done.text = ui.get("done", "peça")
 	done.add_theme_font_size_override("font_size", 9)
 	done.modulate = Color(1, 1, 1, 0.6)
 	right.add_child(done)
@@ -622,7 +626,8 @@ func _furnace_target(id: StringName, slots: Array) -> int:
 	if Smithing.STATION.has(kind):
 		# Estação de minigame: o mesmo item que já está num lugar, senão o primeiro que aceita.
 		var order: Array = {"foundry": [Smelting.INPUT, Smithing.ALLOY, Smelting.FUEL],
-			"torch_bench": [Smelting.INPUT, Smithing.ALLOY, Smithing.EXTRA_SLOT, Smelting.FUEL]}.get(kind, [Smelting.INPUT, Smelting.FUEL])
+			"torch_bench": [Smelting.INPUT, Smithing.ALLOY, Smithing.EXTRA_SLOT, Smelting.FUEL],
+			"chem_bench": [Smelting.INPUT, Smithing.ALLOY, Smithing.EXTRA_SLOT, Smelting.FUEL]}.get(kind, [Smelting.INPUT, Smelting.FUEL])
 		for k in order:
 			if slots.size() > k and not slots[k].is_empty() and slots[k].id == id and fits.call(k):
 				return k

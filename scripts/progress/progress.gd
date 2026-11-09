@@ -23,7 +23,7 @@ const ERAS := [
 	{"name": "Ferreiro de sucata", "desc": "Forja a carvão: refundir o metal achado e forjar as próprias peças (ainda sem ligas)."},
 	{"name": "Mecânica", "desc": "Força motriz da roda d'água e do vento; serraria, torno e prensa movidos a eixo; bronze na fundição."},
 	{"name": "Eletrificação", "desc": "Dínamo, painel solar, baterias e a rede elétrica da base."},
-	{"name": "Química e refino", "desc": "Destilar combustível e antisséptico. Pólvora, plástico e ácido de bateria vêm nesta era."},
+	{"name": "Química e refino", "desc": "Destilar álcool, refinar biodiesel, pólvora e cartuchos, plástico, ácido de bateria e a máscara de gás para entrar nas zonas contaminadas."},
 	{"name": "Reconstrução", "desc": "Rádio, contato com outras comunidades e veículos restaurados."},
 ]
 
@@ -62,9 +62,19 @@ const ACHIEVEMENTS := {
 	"destilaria": {"era": 4, "key": true, "title": "Alambique", "how": "Monte uma destilaria", "on": ["place:distillery"]},
 	"alcool": {"era": 4, "key": true, "title": "Álcool", "how": "Destile álcool", "on": ["get:alcool"]},
 	"esteril": {"era": 4, "title": "Antisséptico", "how": "Faça uma bandagem com álcool", "on": ["craft:bandagem_esteril"]},
+	"quimica": {"era": 4, "key": true, "title": "Laboratório", "how": "Monte a bancada química (Manual de química)", "on": ["place:chem_bench"]},
+	"enxofre": {"era": 4, "title": "Cheiro de ovo", "how": "Ache enxofre (veios amarelos no deserto e entre o carvão)", "on": ["get:enxofre"]},
+	"polvora": {"era": 4, "title": "Pólvora", "how": "Misture pólvora a frio na bancada química", "on": ["chem:polvora"]},
+	"municao": {"era": 4, "title": "Munição", "how": "Faça cartuchos na mesa (pólvora + cobre + estanho)", "on": ["craft:cartucho"]},
+	"biodiesel": {"era": 4, "title": "Refinaria", "how": "Refine biodiesel (óleo + álcool)", "on": ["chem:combustivel"]},
+	"plastico": {"era": 4, "title": "Plástico", "how": "Cozinhe bioplástico (farinha + óleo)", "on": ["chem:plastico"]},
+	"acido": {"era": 4, "title": "Eletrólito novo", "how": "Renove uma bateria com ácido", "on": ["acid:battery"]},
+	"mascara": {"era": 4, "title": "Respirar fundo", "how": "Faça ou ache uma máscara de gás", "on": ["get:mascara_gas"]},
+	"zona": {"era": 4, "title": "Zona morta", "how": "Entre numa zona contaminada de máscara", "on": ["zone:mask"]},
+	"quimico_mestre": {"era": 4, "title": "Mão firme", "how": "Faça uma reação com 90% de qualidade ou mais", "on": ["chem_master:*"]},
 	"radio": {"era": 5, "key": true, "title": "Na escuta", "how": "Monte um rádio", "on": ["place:radio"]},
 	"pedido": {"era": 5, "key": true, "title": "Comunidade", "how": "Entregue um pedido de sobreviventes pelo rádio", "on": ["radio:deliver"]},
-	"abastecer": {"era": 5, "title": "Na estrada", "how": "Abasteça um carro com álcool ou óleo", "on": ["refuel:car"]},
+	"abastecer": {"era": 5, "title": "Na estrada", "how": "Abasteça um carro com álcool, óleo ou biodiesel", "on": ["refuel:car"]},
 }
 
 ## Manuais: o que liberam (receitas com "manual" na CraftingUI e entradas do martelo
@@ -79,6 +89,9 @@ const MANUALS := {
 	&"manual_eletricista": {"title": "Manual do eletricista", "era": 3,
 		"unlocks": "Trefiladora (barra de cobre vira fio de cobre), cabo e bobina com fio de cobre (rendem mais).",
 		"clue": "Manual do eletricista: a fieira puxa a barra de cobre em fio fino; com fio, uma barra vira o dobro de cabo."},
+	&"manual_quimico": {"title": "Manual de química", "era": 4,
+		"unlocks": "Bancada química (salitre, pólvora, biodiesel, plástico, ácido de bateria, carvão ativado). Na mesa: cartuchos, filtros e a máscara de gás.",
+		"clue": "Manual de química: pólvora se mistura FRIA (passou do vermelho, explode). Ácido pede calor e pressão, mas não demais: a válvula de alívio salva. As zonas contaminadas só de máscara: cada filtro dura uns 3 minutos."},
 }
 
 var era := 0

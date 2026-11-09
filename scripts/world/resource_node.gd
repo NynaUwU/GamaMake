@@ -8,12 +8,12 @@ extends StaticBody3D
 ## chave como usada: no save e para quem entrar depois, a árvore não volta).
 
 const TREES := ["tree", "crooked_tree", "fruit_tree", "pine"]
-const STONES := ["rock", "ore_iron", "ore_copper", "ore_coal", "ore_tin"]
+const STONES := ["rock", "ore_iron", "ore_copper", "ore_coal", "ore_tin", "ore_sulfur"]
 const TABLE := {"tree": "arvore", "crooked_tree": "arvore", "fruit_tree": "arvore_fruta", "pine": "arvore",
-	"rock": "rocha", "ore_iron": "ferro", "ore_copper": "cobre", "ore_coal": "carvao", "ore_tin": "estanho"}
+	"rock": "rocha", "ore_iron": "ferro", "ore_copper": "cobre", "ore_coal": "carvao", "ore_tin": "estanho", "ore_sulfur": "enxofre"}
 const HP := {"tree": 90.0, "crooked_tree": 70.0, "fruit_tree": 60.0, "pine": 80.0,
-	"rock": 100.0, "ore_iron": 110.0, "ore_copper": 110.0, "ore_coal": 100.0, "ore_tin": 110.0}
-const NAMES := {"rock": "Rocha", "ore_iron": "Veio de ferro", "ore_copper": "Veio de cobre", "ore_coal": "Veio de carvão", "ore_tin": "Veio de estanho"}
+	"rock": 100.0, "ore_iron": 110.0, "ore_copper": 110.0, "ore_coal": 100.0, "ore_tin": 110.0, "ore_sulfur": 90.0}
+const NAMES := {"rock": "Rocha", "ore_iron": "Veio de ferro", "ore_copper": "Veio de cobre", "ore_coal": "Veio de carvão", "ore_tin": "Veio de estanho", "ore_sulfur": "Veio de enxofre"}
 
 var key := ""
 var kind := "tree"

@@ -75,6 +75,12 @@ func _sample() -> void:
 		end /= total
 		begin /= total
 		color /= total
+	# Zona contaminada: neblina amarelo-esverdeada e curta.
+	var gas := Contamination.level_at(p + Vector3.UP * 1.5)
+	if gas > 0.0:
+		end = lerpf(end, 42.0, gas)
+		begin = lerpf(begin, 2.0, gas)
+		color = color.lerp(Contamination.GAS_COLOR, gas * 0.85)
 	_target = {"end": end, "begin": begin, "color": color, "snow": snow}
 
 

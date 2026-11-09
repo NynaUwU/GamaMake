@@ -19,9 +19,9 @@ const SMELT_TIME := {"furnace": 8.0, "stone_furnace": 5.0, "blast_furnace": 10.0
 const KINDS := ["furnace", "stone_furnace", "blast_furnace", "distillery", "boiler", "wire_drawer"]
 ## Têm os 3 lugares (a forja também: metal, carvão e a peça do minigame).
 ## Têm os lugares (as estações de minigame também: Smithing).
-const SLOT_KINDS := KINDS + ["forge", "foundry", "weld_bench", "torch_bench"]
+const SLOT_KINDS := KINDS + ["forge", "foundry", "weld_bench", "torch_bench", "chem_bench"]
 const STATIONS := {"stone_furnace": "fornalha_pedra", "blast_furnace": "alto_forno", "distillery": "destilaria", "wire_drawer": "trefiladora",
-	"forge": "forja", "foundry": "fundicao", "weld_bench": "solda", "torch_bench": "macarico"}
+	"forge": "forja", "foundry": "fundicao", "weld_bench": "solda", "torch_bench": "macarico", "chem_bench": "quimica"}
 ## Sem fogo: o lugar do combustível fica de fora.
 const NO_FUEL := ["wire_drawer"]
 
@@ -63,7 +63,7 @@ static func slot_count(kind: String) -> int:
 	match kind:
 		"foundry":
 			return 4
-		"torch_bench":
+		"torch_bench", "chem_bench":
 			return 5
 	return 3
 

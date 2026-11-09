@@ -10,22 +10,31 @@ const TABLES := {
 		[&"semente_cenoura", 0.25, 2, 4], [&"semente_batata", 0.2, 2, 3], [&"semente_abobora", 0.12, 1, 3], [&"semente_trigo", 0.22, 2, 4], [&"semente_algodao", 0.18, 2, 3],
 		[&"chinelo", 0.02, 1, 1], [&"garrafa", 0.3, 1, 2], [&"agua", 0.25, 1, 1],
 		[&"manual_ferreiro", 0.04, 1, 1], [&"manual_eletricista", 0.02, 1, 1], [&"manual_soldagem", 0.02, 1, 1],
-		[&"botijao", 0.06, 1, 1],
+		[&"manual_quimico", 0.015, 1, 1], [&"botijao", 0.06, 1, 1], [&"cartucho", 0.08, 2, 6],
 	],
 	"caixote": [ # caixote de rua: material de construção
 		[&"tabua", 0.7, 3, 8], [&"pedra", 0.55, 2, 6], [&"sucata", 0.5, 1, 4], [&"fita", 0.25, 1, 2],
 		[&"pa", 0.05, 1, 1], [&"martelo", 0.04, 1, 1], [&"talhadeira", 0.04, 1, 1], [&"lata", 0.15, 1, 1],
+		[&"cartucho", 0.06, 2, 5],
 	],
 	"airdrop": [ # recompensa da onda noturna: suprimento bom
 		[&"bandagem", 0.9, 2, 4], [&"lata", 0.8, 2, 4], [&"agua", 0.8, 2, 4], [&"sucata", 0.7, 4, 8], [&"pano", 0.6, 3, 6],
 		[&"barra_ferro", 0.5, 1, 3], [&"barra_cobre", 0.4, 1, 2], [&"vidro", 0.4, 1, 3], [&"fita", 0.5, 1, 2],
 		[&"carvao", 0.4, 2, 5], [&"colete", 0.12, 1, 1], [&"capacete", 0.08, 1, 1], [&"pistola", 0.05, 1, 1],
 		[&"manual_ferreiro", 0.15, 1, 1], [&"manual_eletricista", 0.12, 1, 1], [&"manual_soldagem", 0.1, 1, 1], [&"barra_estanho", 0.25, 1, 2], [&"botijao", 0.12, 1, 1],
+		[&"manual_quimico", 0.1, 1, 1], [&"cartucho", 0.55, 6, 18], [&"filtro", 0.2, 1, 2], [&"mascara_gas", 0.04, 1, 1],
 	],
 	"ruina": [ # escombros: sucata e pedra, às vezes algo raro
 		[&"pedra", 0.7, 3, 7], [&"sucata", 0.6, 2, 5], [&"tabua", 0.35, 1, 4], [&"pano", 0.25, 1, 2],
 		[&"bumerangue", 0.03, 1, 1], [&"pa", 0.05, 1, 1], [&"semente_abobora", 0.15, 1, 2],
 		[&"manual_ferreiro", 0.08, 1, 1], [&"manual_eletricista", 0.05, 1, 1], [&"manual_soldagem", 0.04, 1, 1],
+		[&"manual_quimico", 0.04, 1, 1], [&"cartucho", 0.08, 2, 6], [&"enxofre", 0.08, 1, 3],
+	],
+	"contaminado": [ # casas e galpões dentro das zonas contaminadas: o que a química precisa e coisa rara
+		[&"cartucho", 0.5, 6, 16], [&"filtro", 0.35, 1, 2], [&"plastico", 0.3, 2, 5], [&"enxofre", 0.3, 2, 5], [&"salitre", 0.25, 2, 4],
+		[&"acido", 0.15, 1, 2], [&"polvora", 0.15, 1, 3], [&"botijao", 0.25, 1, 1], [&"barra_aco", 0.25, 1, 3], [&"bobina", 0.12, 1, 1],
+		[&"celula", 0.15, 1, 2], [&"bandagem_esteril", 0.2, 1, 2], [&"lata", 0.3, 1, 3], [&"pistola", 0.06, 1, 1], [&"mascara_gas", 0.04, 1, 1],
+		[&"manual_quimico", 0.12, 1, 1], [&"manual_soldagem", 0.1, 1, 1], [&"manual_eletricista", 0.1, 1, 1],
 	],
 }
 
@@ -42,6 +51,7 @@ const FIXED := {
 	"ferro": [[&"minerio_ferro", 2, 4], [&"pedra", 1, 2]],
 	"cobre": [[&"minerio_cobre", 2, 4], [&"pedra", 1, 2]],
 	"estanho": [[&"minerio_estanho", 2, 3], [&"pedra", 1, 2]],
+	"enxofre": [[&"enxofre", 2, 4], [&"pedra", 1, 2]],
 	"carvao": [[&"carvao", 3, 5]],
 	# Móveis desmontados.
 	"movel_mesa": [[&"tabua", 2, 3], [&"graveto", 0, 2]],

@@ -55,6 +55,7 @@ var tree_amount := 1.0
 var rock_amount := 1.0
 const SEA_BAND := 110.0 ## até onde (metros terra adentro) a água do mar pode chegar
 var cities: Array = [] ## cidades geradas pela semente (CityGen): centro, raio, tamanho, altura, lotes, ruas
+var zones: Array = [] ## zonas contaminadas (Contamination.plan): miolo de cidades e fábricas químicas
 var avenues: Array = [] ## avenidas entre as cidades maiores ({a, b, width, kind})
 var race_track: Array = [] ## segmentos de asfalto da pista de corrida (RaceTrack)
 var track: Dictionary = {} ## lugar e traçado da pista (RaceTrack.plan)
@@ -89,6 +90,8 @@ func _ready() -> void:
 	lakes = Lakes.place(self)
 	rivers = Rivers.place(self)
 	_river_grid = Rivers.index(rivers)
+	zones = Contamination.plan(self)
+	Contamination.zones = zones
 	_material = _make_material()
 	_props = TerrainProps.new()
 	_player = get_node_or_null(player_path)

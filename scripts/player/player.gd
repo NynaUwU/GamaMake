@@ -12,6 +12,7 @@ signal hunger_changed(current: float, maximum: float)
 signal thirst_changed(current: float, maximum: float)
 signal sick_changed(sick: bool)
 signal cold_changed(heat: float, temperature: float)
+signal toxic_changed(toxic: float, gas: float, filter: float) ## veneno do gás, gás no lugar (0..1), filtro da máscara (-1 = sem máscara)
 signal stamina_changed(current: float, maximum: float)
 signal interact_prompt_changed(text: String) ## "" = nada para interagir
 signal notify(text: String) ## mensagens curtas no HUD
@@ -222,6 +223,7 @@ var _cast_timer := 0.0
 var _staff_kick := 0.0 # recuo do cajado ao disparar
 
 var _ammo := 0
+const AMMO_ITEM := &"cartucho" ## munição do revólver (bancada química + mesa)
 var _fire_timer := 0.0
 var _reload_timer := 0.0
 var _pistol_kick := 0.0
@@ -278,6 +280,16 @@ var heat := MAX_HEAT
 var temperature := 18.0 ## sentida, em graus (já com roupa e fogo)
 var _cold_timer := 0.0
 var _sheltered := false
+## Gás tóxico (zonas contaminadas, Contamination): sem máscara com filtro, "toxic" sobe
+## (0..100); acima de 25 tosse e a vida cai, acima de 60 fica doente. Fora do gás baixa.
+const MAX_TOXIC := 100.0
+var toxic := 0.0
+var gas_level := 0.0 ## quanto gás tem onde estou (0..1)
+var _toxic_timer := 0.0
+var _gas_warned := false
+var _filter_warned := false
+var _zone_masked := false
+var _cough_in := 0.0
 var _thirst_warned := false
 var hunger := MAX_HUNGER
 var _hunger_warned := false
@@ -333,7 +345,7 @@ func _ready() -> void:
 	health = max_health
 	stamina = max_stamina
 	_grapple_left = grapple_charges
-	_ammo = magazine_size
+	_ammo = 0 # revólver começa vazio: recarrega com os cartuchos da mochila
 	spoon = Node3D.new()
 	spoon.name = "Spoon"
 	camera.add_child(spoon)
@@ -448,7 +460,7 @@ func _unhandled_input(event: InputEvent) -> void:
 			pipe_tool.press()
 		elif event.is_action_pressed("attack") and PowerTool.handles(inventory.selected_id()):
 			power_tool.press() # eixo (arrastar), engrenagem/polia (montar), esteira (ligar)
-		elif event.is_action_pressed("attack") and inventory.selected_id() in [&"alcool", &"oleo"] and _aimed_car() != null:
+		elif event.is_action_pressed("attack") and VintageCar.FUEL_ITEMS.has(inventory.selected_id()) and _aimed_car() != null:
 			_refuel(_aimed_car())
 		elif event.is_action_pressed("attack") and inventory.selected_id() == &"tocha" and _place_torch():
 			pass # tocha posta no chão/parede (senão o clique segue como soco)
@@ -1013,7 +1025,8 @@ func _emit_weapon_text() -> void:
 	if inventory and inventory.selected_id() != &"":
 		text = ItemDB.display_name(inventory.selected_id())
 	if _weapon_type == WeaponType.PISTOL:
-		text += "  recarregando..." if _reload_timer > 0.0 else "  %d/%d" % [_ammo, magazine_size]
+		var spare := inventory.count(AMMO_ITEM) if inventory else 0
+		text += "  recarregando..." if _reload_timer > 0.0 else "  %d/%d · %d na mochila" % [_ammo, magazine_size, spare]
 	elif _weapon_type == WeaponType.GRAPPLE:
 		text += "  %d/%d" % [_grapple_left, grapple_charges] if _grapple_left > 0 else "  recarregando..."
 	elif _weapon_type == WeaponType.SLIPPER:
@@ -1358,7 +1371,7 @@ func _update_pistol(delta: float) -> void:
 	if _reload_timer > 0.0:
 		_reload_timer -= delta
 		if _reload_timer <= 0.0:
-			_ammo = magazine_size
+			_ammo += _take_ammo(magazine_size - _ammo)
 			_emit_weapon_text()
 	if _weapon_type != WeaponType.PISTOL:
 		return
@@ -1421,10 +1434,27 @@ func _fire_pistol() -> void:
 
 
 func _start_reload() -> void:
-	if _reload_timer > 0.0 or _ammo == magazine_size:
+	if _reload_timer > 0.0 or _ammo >= magazine_size:
+		return
+	if inventory.count(AMMO_ITEM) <= 0:
+		Sfx.play("click", -2.0, 1.7) # gatilho em falso
+		if _ammo <= 0:
+			notify.emit("Sem cartuchos: faça na mesa (pólvora + cobre + estanho) ou ache em caixotes")
 		return
 	_reload_timer = reload_time
 	_emit_weapon_text()
+
+
+## Tira até "want" cartuchos da mochila (devolve quantos tirou).
+func _take_ammo(want: int) -> int:
+	var got := 0
+	for i in inventory.slots.size():
+		if got >= want:
+			break
+		var slot: Dictionary = inventory.slots[i]
+		if not slot.is_empty() and slot.id == AMMO_ITEM:
+			got += inventory.take(i, mini(want - got, slot.amount)).get("amount", 0)
+	return got
 
 
 func _flash_muzzle() -> void:
@@ -1837,6 +1867,79 @@ func insulation() -> float:
 	return minf(total, 1.4)
 
 
+## Máscara de gás vestida na cabeça ({} se não).
+func gas_mask() -> Dictionary:
+	var head: Dictionary = inventory.equipment.get("head", {})
+	return head if not head.is_empty() and head.id == &"mascara_gas" else {}
+
+
+func _update_toxic(delta: float) -> void:
+	_toxic_timer -= delta
+	if _toxic_timer > 0.0:
+		return
+	var step := 0.5 - _toxic_timer
+	_toxic_timer = 0.5
+	gas_level = 0.0 if vehicle else Contamination.level_at(global_position + Vector3.UP * 1.5)
+	var mask := gas_mask()
+	var filter := -1.0
+	var protected := false
+	if not mask.is_empty():
+		filter = float(mask.get("filter", 1.0))
+		if gas_level > 0.0 and filter > 0.0:
+			filter = maxf(filter - step * gas_level / Contamination.FILTER_TIME, 0.0)
+			if filter <= 0.0:
+				filter = _swap_filter()
+			mask.filter = snappedf(filter, 0.0001)
+		protected = filter > 0.0
+	if gas_level > 0.05:
+		if protected:
+			if not _zone_masked:
+				_zone_masked = true
+				Progress.event("zone", "mask")
+		elif not _gas_warned:
+			_gas_warned = true
+			notify.emit("Ar contaminado! Sem máscara de gás (com filtro) você sufoca")
+			Sfx.play("cough", -2.0, 1.0)
+	elif gas_level <= 0.0:
+		_gas_warned = false
+		_zone_masked = false
+	if gas_level > 0.0 and not protected:
+		toxic = minf(toxic + 7.0 * gas_level * step, MAX_TOXIC) # ~15 s no gás cheio até o máximo
+	else:
+		toxic = maxf(toxic - 5.0 * step, 0.0)
+	if toxic > 25.0 and health > 0.0:
+		health = maxf(health - toxic / MAX_TOXIC * 3.0 * step, 0.0)
+		health_changed.emit(health, max_health)
+		_cough_in -= step
+		if _cough_in <= 0.0:
+			_cough_in = randf_range(1.5, 3.5) * (1.6 - toxic / MAX_TOXIC)
+			Sfx.play("cough", -4.0, randf_range(0.9, 1.1))
+			_shake = maxf(_shake, 0.06)
+		if toxic > 60.0 and sick_time <= 0.0:
+			get_sick(90.0)
+		if health <= 0.0:
+			notify.emit("Você sufocou no gás - aperte Backspace para %s" % ("renascer" if Net.i.online() else "recomeçar"))
+			died.emit()
+	toxic_changed.emit(toxic, gas_level, filter)
+
+
+## Filtro da máscara acabou: põe um novo da mochila (devolve o filtro novo, 0 = não tinha).
+func _swap_filter() -> float:
+	var index := Cooking.find_any(inventory, {&"filtro": true})
+	if index < 0:
+		if not _filter_warned:
+			_filter_warned = true
+			notify.emit("O filtro da máscara acabou! Saia do gás")
+			Sfx.play("hiss", -6.0, 1.4)
+		return 0.0
+	inventory.take(index, 1)
+	_filter_warned = false
+	var left := inventory.count(&"filtro")
+	notify.emit("Filtro novo na máscara (%d na mochila)" % left)
+	Sfx.play("click", -2.0, 0.8)
+	return 1.0
+
+
 func _update_cold(delta: float) -> void:
 	_cold_timer -= delta
 	if _cold_timer > 0.0:
@@ -1865,6 +1968,7 @@ var _shovel_ready := 0
 func _update_hunger(delta: float) -> void:
 	_update_thirst(delta)
 	_update_cold(delta)
+	_update_toxic(delta)
 	_spoil_timer -= delta
 	if _spoil_timer <= 0.0:
 		_spoil_timer = 5.0
@@ -1895,7 +1999,8 @@ func _start_swing_visual_only() -> void:
 
 ## Salvo junto com o jogador (SaveGame).
 func save_extra() -> Dictionary:
-	var data := {"hunger": hunger, "thirst": thirst, "sick": sick_time, "heat": heat, "equipment": inventory.equipment.duplicate(true)}
+	var data := {"hunger": hunger, "thirst": thirst, "sick": sick_time, "heat": heat, "toxic": toxic, "ammo": _ammo,
+		"equipment": inventory.equipment.duplicate(true)}
 	if Progress.i and not is_puppet():
 		data.progress = Progress.i.save_data() # eras, conquistas, manuais, diário
 	return data
@@ -1906,6 +2011,8 @@ func load_extra(data: Dictionary) -> void:
 	thirst = data.get("thirst", MAX_THIRST)
 	heat = data.get("heat", MAX_HEAT)
 	sick_time = data.get("sick", 0.0)
+	toxic = data.get("toxic", 0.0)
+	_ammo = int(data.get("ammo", 0))
 	thirst_changed.emit(thirst, MAX_THIRST)
 	sick_changed.emit(sick_time > 0.0)
 	var worn: Dictionary = data.get("equipment", {})
@@ -2348,7 +2455,7 @@ func _aimed_car() -> VintageCar:
 	return node as VintageCar
 
 
-## Álcool/óleo na mão + clique no carro: abastece.
+## Álcool/óleo/biodiesel na mão + clique no carro: abastece.
 func _refuel(car: VintageCar) -> void:
 	if car.fuel >= 0.99:
 		Sfx.play("click", -6.0, 0.6) # tanque cheio
@@ -2620,6 +2727,7 @@ func respawn() -> void:
 	sick_time = 0.0
 	sick_changed.emit(false)
 	heat = MAX_HEAT
+	toxic = 0.0
 	velocity = Vector3.ZERO
 	if spawn_point != Vector3.INF:
 		global_position = spawn_point

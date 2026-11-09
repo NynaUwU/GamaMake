@@ -385,6 +385,13 @@ func host_apply(action: String, args: Array) -> Array:
 				return [] # só o host dá choque
 			ElectricFence.spark(obj, args[1])
 			return args
+		"chem_accident":
+			# Acidente no minigame da bancada química: [id, "boom"/"leak"/"spill"].
+			var obj: PlacedObject = objects.get(args[0])
+			if obj == null or obj.kind != "chem_bench" or not String(args[1]) in ["boom", "leak", "spill"]:
+				return []
+			_chem_accident(obj, String(args[1]), false)
+			return args
 		"smith_done":
 			# Fim do minigame da forja/fundição/solda: [id, receita, qualidade]. Gasta o
 			# material dos lugares e põe a peça (ou a sucata, se perdeu) no lugar da peça pronta.
@@ -802,6 +809,29 @@ func _boom(obj: PlacedObject, cosmetic: bool) -> void:
 	_remove(obj.net_id)
 
 
+## Acidente na bancada química: a pólvora explode (estilhaços em quem estiver perto; a
+## bancada aguenta), o ácido vaza uma nuvem de gás tóxico por 30 s, o resto só chia.
+func _chem_accident(obj: PlacedObject, kind: String, cosmetic: bool) -> void:
+	var at := obj.global_position + Vector3.UP * 1.1
+	match kind:
+		"boom":
+			var explosion := Explosion.new()
+			explosion.cosmetic = cosmetic
+			get_parent().add_child(explosion)
+			explosion.global_position = at
+			explosion.detonate(4.0, 90.0, 12.0, 1.4)
+			var me := get_tree().get_first_node_in_group("player") as Player
+			if me and not me.is_puppet():
+				var d := me.global_position.distance_to(at)
+				if d < 4.0:
+					me.take_damage(45.0 * (1.0 - d / 4.0) + 8.0, (me.global_position - at).normalized())
+		"leak":
+			Contamination.add_cloud(at, 6.0, 30.0)
+			Sfx.play_at("hiss", at, 6.0, 0.7)
+		_:
+			Sfx.play_at("hiss", at, 2.0, 1.1)
+
+
 ## Mina: explosão de verdade no host (dano nos zumbis), só o efeito nos clientes.
 func _explode(obj: PlacedObject, cosmetic: bool) -> void:
 	var explosion := Explosion.new()
@@ -857,6 +887,10 @@ func apply_remote(action: String, args: Array) -> void:
 			var obj: PlacedObject = objects.get(args[0])
 			if obj:
 				_explode(obj, true)
+		"chem_accident":
+			var obj: PlacedObject = objects.get(args[0])
+			if obj:
+				_chem_accident(obj, String(args[1]), true)
 		"boom":
 			var obj: PlacedObject = objects.get(args[0])
 			if obj:
