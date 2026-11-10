@@ -29,7 +29,7 @@ func _physics_process(_d: float) -> bool:
 		print("fired ", fired, " of 7 attempts, left=", player._grapple_left)
 	if player and frame == 20 + int(player.grapple_recharge * 60.0) + 5:
 		print("after ", player.grapple_recharge, " s idle: left=", player._grapple_left)
-		main._spawn_horde(100)
+		main.spawn_horde(100)
 		print("zombies now: ", main.get_tree().get_nodes_in_group("enemy").size())
 		last = Time.get_ticks_usec()
 	if frame == 560:

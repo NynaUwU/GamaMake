@@ -132,27 +132,23 @@ func _bake_navigation() -> void:
 
 
 func _unhandled_input(event: InputEvent) -> void:
-	var admin: bool = Net.i.is_host() # teclas de teste/admin: só o host
-	if event.is_action_pressed("spawn_zombie") and admin:
-		_spawn_zombie_in_front()
-	elif event.is_action_pressed("spawn_horde") and admin:
-		_spawn_horde(100)
-	elif event.is_action_pressed("restart"):
+	# Backspace só faz algo depois de morrer (recomeçar solo / renascer online). Zumbis,
+	# horda e trapaças ficam no menu de admin (ESC > Admin), para não apertar sem querer.
+	if event.is_action_pressed("restart") and player.health <= 0.0:
 		if not Net.i.online():
 			Engine.time_scale = 1.0
+			Cheats.reset()
 			get_tree().reload_current_scene()
-		elif player.health <= 0.0:
+		else:
 			player.respawn() # online: morto renasce (sem recomeçar a partida)
-		elif admin:
-			Net.i.restart_world()
 
 
-## Teste: muitos zumbis em volta do player (anel de 12 a 45 m). Nascem em
+## Admin: muitos zumbis em volta do player (anel de 12 a 45 m). Nascem em
 ## lotes de 10 por quadro (criar 100 de uma vez travava o jogo por um instante).
 var _horde_left := 0
 
 
-func _spawn_horde(count: int) -> void:
+func spawn_horde(count: int) -> void:
 	_horde_left += count
 
 
@@ -195,7 +191,7 @@ func _spawn_horde_batch(count: int) -> void:
 		enemies.add_child(zombie)
 
 
-func _spawn_zombie_in_front() -> void:
+func spawn_zombie_in_front() -> void:
 	var forward := -player.global_basis.z
 	var zombie: Zombie = ZOMBIE_SCENE.instantiate()
 	zombie.position = player.global_position + forward * 6.0

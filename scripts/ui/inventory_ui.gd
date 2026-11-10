@@ -2,9 +2,9 @@ class_name InventoryUI
 extends Control
 ## Hotbar (9 slots, sempre visível) e mochila (Tab): em cima o personagem com
 ## os 4 slots de roupa/armadura e o crafting de mão; embaixo a mochila 9x4 e a
-## hotbar. Arraste um item até outro slot para trocar/juntar (ou até a roupa
-## para vestir). Shift + clique transfere rápido (hotbar <-> mochila; roupa
-## veste/tira).
+## hotbar. Clique num item para pegar e clique em outro slot para soltar (troca ou
+## junta), ou arraste direto. Solto/arrastado para FORA da janela: o item cai no chão.
+## Shift + clique transfere rápido (hotbar <-> mochila; roupa veste/tira).
 ## Os slots mostram o ícone do item (ItemIcons); o nome e os detalhes aparecem
 ## numa janelinha que segue o mouse ao passar por cima.
 
@@ -31,6 +31,11 @@ var _preview: CharacterPreview
 var _equip_slots: Array[Button] = []
 var _picked_equip := ""
 var _showing_controls := false
+var _held := -1 ## slot pego com um clique (segue o mouse até clicar em outro slot)
+var _cursor: TextureRect # ícone do item pego, embaixo do mouse
+var _icons: Node
+## Estilos dos slots criados uma vez (antes cada atualização criava 3 por slot).
+var _styles := {}
 
 
 func setup(p: Node) -> void:
@@ -38,14 +43,33 @@ func setup(p: Node) -> void:
 	inventory = p.inventory
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_outside = LegacyGUI.close_on_outside(self, _set_open.bind(false))
+	_outside = LegacyGUI.close_on_outside(self, _click_outside)
 	_outside.visible = false
+	# Arrastou um item para fora da janela: cai no chão.
+	_outside.set_drag_forwarding(Callable(), _can_drop_outside, _drop_outside)
+	_icons = (Engine.get_main_loop() as SceneTree).root.get_node_or_null("ItemIcons")
+	for key in ["normal", "selected", "picked", "equip", "equip_picked"]:
+		var style := StyleBoxFlat.new()
+		style.bg_color = COLOR_SLOT.darkened(0.2) if key.begins_with("equip") else COLOR_SLOT
+		style.set_border_width_all(2)
+		style.border_color = {"normal": Color(0.3, 0.3, 0.3), "selected": COLOR_SELECTED, "picked": COLOR_PICKED,
+			"equip": Color(0.4, 0.36, 0.28), "equip_picked": COLOR_PICKED}[key]
+		_styles[key] = style
+	_cursor = TextureRect.new()
+	_cursor.top_level = true
+	_cursor.size = Vector2(40, 40)
+	_cursor.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	_cursor.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	_cursor.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_cursor.modulate = Color(1, 1, 1, 0.85)
+	_cursor.z_index = 10
+	_cursor.visible = false
 	_build_hotbar()
 	_build_backpack()
 	_build_tooltip()
-	var icons := (Engine.get_main_loop() as SceneTree).root.get_node_or_null("ItemIcons")
-	if icons:
-		icons.icons_ready.connect(_refresh)
+	add_child(_cursor)
+	if _icons:
+		_icons.icons_ready.connect(_refresh)
 	inventory.changed.connect(_refresh)
 	inventory.selection_changed.connect(func(_i): _refresh())
 	_refresh()
@@ -61,6 +85,8 @@ func _unhandled_input(event: InputEvent) -> void:
 
 
 func _process(_delta: float) -> void:
+	if _cursor.visible:
+		_cursor.global_position = get_global_mouse_position() - _cursor.size * 0.5
 	if not _tooltip.visible:
 		return
 	# Shift mostra os controles do item (solta: volta para a descrição).
@@ -79,6 +105,7 @@ func _set_open(open: bool) -> void:
 	_backpack.visible = open
 	_outside.visible = open
 	_picked = -1
+	_set_held(-1)
 	_hover(-1)
 	player.ui_blocked = open
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE if open else Input.MOUSE_MODE_CAPTURED
@@ -180,7 +207,11 @@ func _make_equip_slot(slot_name: String) -> Button:
 	_add_dur_bar(button)
 	button.set_drag_forwarding(_drag_equip.bind(button, slot_name), _can_drop_equip.bind(slot_name), _drop_on_equip.bind(slot_name))
 	button.pressed.connect(func():
-		if Input.is_key_pressed(KEY_SHIFT):
+		if _held >= 0:
+			var held := _held
+			_set_held(-1)
+			inventory.equip_from(held, slot_name) # pegou uma roupa: veste
+		elif Input.is_key_pressed(KEY_SHIFT):
 			_quick_unequip(slot_name))
 	button.mouse_entered.connect(func():
 		if not inventory.equipment[slot_name].is_empty():
@@ -199,8 +230,13 @@ func _make_slot(index: int, size := SLOT_SIZE) -> Button:
 	button.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	button.add_theme_constant_override("icon_max_width", int(size.x) - 8)
 	button.pressed.connect(func():
-		if Input.is_key_pressed(KEY_SHIFT) and _backpack.visible:
-			_quick_move(index))
+		if not _backpack.visible:
+			return
+		if Input.is_key_pressed(KEY_SHIFT):
+			_set_held(-1)
+			_quick_move(index)
+		else:
+			_click_slot(index))
 	button.set_meta("index", index)
 	# Arrastar e soltar: segura num slot, arrasta até outro e solta para trocar/juntar.
 	button.set_drag_forwarding(_drag_from.bind(button, index), _can_drop.bind(index), _drop_on.bind(index))
@@ -296,7 +332,7 @@ func _build_tooltip() -> void:
 ## Mostra (ou esconde, com -1) a janela de detalhes do item do slot.
 func _hover(index: int) -> void:
 	_hovered = index
-	if index < 0 or inventory.slots[index].is_empty() or not _backpack.visible:
+	if index < 0 or inventory.slots[index].is_empty() or not _backpack.visible or _held >= 0:
 		_tooltip.visible = false
 		return
 	var slot: Dictionary = inventory.slots[index]
@@ -406,6 +442,7 @@ func _drop_on_equip(_at: Vector2, data: Variant, slot_name: String) -> void:
 func _drag_from(_at: Vector2, button: Button, index: int) -> Variant:
 	if not _backpack.visible or inventory.slots[index].is_empty():
 		return null
+	_set_held(-1)
 	_picked = index
 	_refresh()
 	# O ícone segue o mouse enquanto arrasta.
@@ -440,6 +477,58 @@ func _drop_on(_at: Vector2, data: Variant, index: int) -> void:
 	_hover(index)
 
 
+# --- Pegar com clique / soltar fora ------------------------------------------------
+
+## Clique num slot: pega o item (segue o mouse); com um item pego, solta aqui (troca ou junta).
+func _click_slot(index: int) -> void:
+	if _held < 0:
+		if not inventory.slots[index].is_empty():
+			_set_held(index)
+			Sfx.play("click", -10.0, 1.3)
+		return
+	var from := _held
+	_set_held(-1)
+	if from != index:
+		inventory.swap(from, index)
+		Sfx.play("click", -10.0, 1.0)
+	_hover(index)
+
+
+func _set_held(index: int) -> void:
+	_held = index
+	_picked = index
+	_cursor.visible = index >= 0
+	if index >= 0:
+		_cursor.texture = _icons.get_icon(inventory.slots[index].id) if _icons else null
+		_cursor.global_position = get_global_mouse_position() - _cursor.size * 0.5
+		_tooltip.visible = false
+	_refresh()
+
+
+## Clique fora da janela: com um item pego, joga no chão; senão fecha a mochila.
+func _click_outside() -> void:
+	if _held >= 0:
+		var index := _held
+		_set_held(-1)
+		player.drop_slot(index)
+		return
+	_set_open(false)
+
+
+func _can_drop_outside(_at: Vector2, data: Variant) -> bool:
+	return data is Dictionary and (data.has("inventory_slot") or data.has("equip_slot"))
+
+
+func _drop_outside(_at: Vector2, data: Variant) -> void:
+	if data.has("equip_slot"):
+		player.drop_equipment(data.equip_slot)
+		_picked_equip = ""
+	else:
+		player.drop_slot(data.inventory_slot)
+		_picked = -1
+	_refresh()
+
+
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_DRAG_END and (_picked >= 0 or _picked_equip != ""):
 		_picked = -1 # soltou fora de um slot: nada muda
@@ -448,38 +537,38 @@ func _notification(what: int) -> void:
 
 
 func _refresh() -> void:
-	for slot in _hotbar_slots + _backpack_slots:
+	# Mochila fechada: só a hotbar da tela precisa mudar.
+	var slots: Array[Button] = _hotbar_slots + _backpack_slots if _backpack.visible else _hotbar_slots
+	for slot in slots:
 		var index: int = slot.get_meta("index")
 		var item: Dictionary = inventory.slots[index]
-		slot.text = ""
-		var icons := (Engine.get_main_loop() as SceneTree).root.get_node_or_null("ItemIcons")
-		slot.icon = icons.get_icon(item.id) if icons and not item.is_empty() else null
+		var icon: Texture2D = _icons.get_icon(item.id) if _icons and not item.is_empty() else null
+		if slot.icon != icon:
+			slot.icon = icon
 		var amount: Label = slot.get_node("Amount")
-		amount.text = str(item.amount) if not item.is_empty() and item.amount > 1 else ""
+		var count := str(item.amount) if not item.is_empty() and item.amount > 1 else ""
+		if amount.text != count:
+			amount.text = count
 		_show_dur(slot, item)
-		var style := StyleBoxFlat.new()
-		style.bg_color = COLOR_SLOT
-		style.set_border_width_all(2)
-		style.border_color = Color(0.3, 0.3, 0.3)
-		if index == _picked:
-			style.border_color = COLOR_PICKED
-		elif index == inventory.selected and index < Inventory.HOTBAR_SIZE:
-			style.border_color = COLOR_SELECTED
-		for state in ["normal", "hover", "pressed"]:
-			slot.add_theme_stylebox_override(state, style)
+		var key := "picked" if index == _picked else ("selected" if index == inventory.selected and index < Inventory.HOTBAR_SIZE else "normal")
+		_set_style(slot, key)
+	if not _backpack.visible:
+		return
 	if _preview:
 		_preview.show_equipment(inventory.equipment)
-	var icons_node := (Engine.get_main_loop() as SceneTree).root.get_node_or_null("ItemIcons")
 	for button in _equip_slots:
 		var slot_name: String = button.get_meta("equip")
 		var worn: Dictionary = inventory.equipment[slot_name]
 		# Vazio: só a silhueta da roupa (sem texto).
-		button.icon = icons_node.get_icon(worn.id) if icons_node and not worn.is_empty() else EquipIcons.icon(slot_name)
-		button.text = ""
+		button.icon = _icons.get_icon(worn.id) if _icons and not worn.is_empty() else EquipIcons.icon(slot_name)
 		_show_dur(button, worn)
-		var equip_style := StyleBoxFlat.new()
-		equip_style.bg_color = COLOR_SLOT.darkened(0.2)
-		equip_style.set_border_width_all(2)
-		equip_style.border_color = COLOR_PICKED if slot_name == _picked_equip else Color(0.4, 0.36, 0.28)
-		for state in ["normal", "hover", "pressed"]:
-			button.add_theme_stylebox_override(state, equip_style)
+		_set_style(button, "equip_picked" if slot_name == _picked_equip else "equip")
+
+
+## Troca o estilo do slot só quando muda (cada troca refaz o desenho do botão).
+func _set_style(button: Button, key: String) -> void:
+	if button.get_meta("style", "") == key:
+		return
+	button.set_meta("style", key)
+	for state in ["normal", "hover", "pressed"]:
+		button.add_theme_stylebox_override(state, _styles[key])

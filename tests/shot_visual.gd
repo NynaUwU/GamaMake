@@ -104,7 +104,7 @@ func _init() -> void:
 	await _shot("base", 30)
 	if OS.get_environment("BENCH") != "":
 		await _bench("base_vazia")
-		main._spawn_horde(60)
+		main.spawn_horde(60)
 		await _bench("base_60_zumbis")
 		for e in main.get_node("Enemies").get_children():
 			e.free()

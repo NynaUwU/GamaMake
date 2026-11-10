@@ -1365,7 +1365,7 @@ func _set_state(new_state: State) -> void:
 
 
 func _can_see_target() -> bool:
-	return is_instance_valid(target) and (_alerted or _flat_to_target().length() < detect_range)
+	return is_instance_valid(target) and target.get("invisible") != true and (_alerted or _flat_to_target().length() < detect_range)
 
 
 func _flat_to_target() -> Vector3:
@@ -1603,8 +1603,8 @@ func _nearest_player() -> Node3D:
 	var best_d := INF
 	for group in [&"player", &"remote_player"]:
 		for p in get_tree().get_nodes_in_group(group):
-			if p.get("health") != null and p.health <= 0.0:
-				continue
+			if p.get("health") != null and p.health <= 0.0 or p.get("invisible") == true:
+				continue # morto ou invisível (admin)
 			var d: float = global_position.distance_squared_to(p.global_position)
 			if d < best_d:
 				best_d = d

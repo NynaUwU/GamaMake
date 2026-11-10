@@ -3,7 +3,7 @@ extends Node
 ##
 ## Quem manda em quê:
 ##   - Host: IA, vida e estado de todos os zumbis; quem pega cada item; quem
-##     dirige cada carro. Também é o único com as teclas de admin (Z, H, Backspace).
+##     dirige cada carro. Também é o único com o menu de admin (ESC > Admin: trapaças).
 ##   - Cada jogador: o próprio boneco (posição enviada ~20x/s). Os golpes são
 ##     calculados por quem bate e mandados para o host aplicar no zumbi.
 ##   - Carro: quem dirige simula a física e manda a posição; nos outros ele é

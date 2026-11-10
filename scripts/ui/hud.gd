@@ -338,10 +338,6 @@ void fragment() {
 
 
 func _refresh_players() -> void:
-	# Teclas de admin (Z, H, Backspace recomeçar) só aparecem para o host.
-	var controls := get_node_or_null("Root/Controls") as Label
-	if controls and Net.i.online() and not Net.i.is_host():
-		controls.text = controls.text.replace("Z novo zumbi  H 100 zumbis  Backspace recomeçar", "Backspace renascer (morto)")
 	_players_label.visible = Net.i.online()
 	_players_label.text = "Online (%d): %s" % [Net.i.player_count(), ", ".join(Net.i.peers.values())]
 

@@ -11,6 +11,8 @@ var player: Player
 var station := "mesa"
 var _grid: GridContainer
 var _info: Label
+var _shown: Array = [] # receitas dos botões que estão na grade (na mesma ordem)
+var _dirty := false # mudou algo com a grade escondida: atualiza ao aparecer
 
 
 func setup(p: Player, station_: String, columns := 6, height := 240.0) -> void:
@@ -33,17 +35,33 @@ func setup(p: Player, station_: String, columns := 6, height := 240.0) -> void:
 	_info.add_theme_font_size_override("font_size", 11)
 	add_child(_info)
 	player.inventory.changed.connect(refresh)
+	visibility_changed.connect(func():
+		if _dirty and is_visible_in_tree():
+			refresh())
 	refresh()
 
 
+## Atualiza a grade. Escondida (mochila fechada) só marca para depois; com as mesmas
+## receitas só acende/apaga os botões (antes recriava tudo a cada item que entrava).
 func refresh() -> void:
 	if _grid == null:
 		return
+	if not is_visible_in_tree():
+		_dirty = true
+		return
+	_dirty = false
+	var list := CraftingUI.recipes_for(station).filter(func(r): return Progress.knows(r.get("manual", ""))) # manual: só depois de ler
+	if list == _shown and _grid.get_child_count() == list.size():
+		for k in list.size():
+			var ok := CraftingUI.can_craft(player.inventory, list[k])
+			(_grid.get_child(k) as Control).modulate = Color.WHITE if ok else Color(1, 1, 1, 0.4)
+		return
+	_shown = list
 	for child in _grid.get_children():
+		_grid.remove_child(child)
 		child.queue_free()
-	for recipe: Dictionary in CraftingUI.recipes_for(station):
-		if Progress.knows(recipe.get("manual", "")): # receita de manual: só depois de ler
-			_grid.add_child(_slot(recipe))
+	for recipe: Dictionary in list:
+		_grid.add_child(_slot(recipe))
 
 
 func _slot(recipe: Dictionary) -> Control:

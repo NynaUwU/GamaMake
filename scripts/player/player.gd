@@ -250,6 +250,10 @@ var _ammo: int:
 		if not slot.is_empty():
 			slot.ammo = maxi(value, 0)
 var _gun_id: StringName = &"pistola" # modelo montado agora no nó da arma de fogo
+## Admin: zumbis não enxergam (só o jogador daqui; o host é quem tem o menu).
+var invisible: bool:
+	get:
+		return Cheats.invisible and not is_puppet()
 var _aim := 0.0 # 0 = no quadril, 1 = mirando (mira de ferro / luneta)
 var _scoped := false
 var last_shot_bones: Array = [] ## ossos acertados no último tiro (testes e balanceamento)
@@ -585,7 +589,9 @@ func _physics_process(delta: float) -> void:
 		return
 	_update_crank(delta)
 	if not is_puppet():
+		Cheats.apply(self) # admin: vida/stamina/necessidades (antes, para nada matar no meio)
 		_update_hunger(delta)
+		Cheats.apply(self)
 		bile_time = maxf(bile_time - delta, 0.0)
 	if vehicle:
 		# Sentado no banco: acompanha o carro (o mouse gira só a cabeça).
@@ -620,6 +626,8 @@ func _physics_process(delta: float) -> void:
 		input = Vector2.ZERO
 	var direction := (global_basis * Vector3(input.x, 0, input.y)).normalized()
 	var speed := sprint_speed if sprinting else walk_speed
+	if Cheats.fast and not is_puppet():
+		speed *= 2.0
 	speed *= 1.0 - impale_slowdown * _impaled.size()
 	speed *= parkour.speed_factor(walk_speed)
 	if _blocking:
@@ -1466,10 +1474,13 @@ func _fire_pistol() -> void:
 	var gun := _gun()
 	if gun.is_empty() or _equip < 1.0 or _fire_timer > 0.0 or _reload_timer > 0.0:
 		return
+	if _ammo <= 0 and Cheats.ammo:
+		_ammo = int(gun.mag) # admin: munição infinita
 	if _ammo <= 0:
 		_start_reload()
 		return
-	_ammo -= 1
+	if not Cheats.ammo:
+		_ammo -= 1
 	Net.i.send_player_action("shoot", GUN_IDS.find(inventory.selected_id()))
 	Sfx.play_at("shot", muzzle.global_position, gun.volume, gun.pitch)
 	_fire_timer = gun.rate
@@ -1652,6 +1663,8 @@ func take_damage(amount: float, from_direction := Vector3.ZERO, attacker: Node =
 	if is_puppet():
 		Net.i.damage_player(remote_peer, amount, from_direction, attacker) # quem decide o bloqueio é o dono
 		return
+	if Cheats.god:
+		return # admin: vida infinita
 	if _blocking and _is_facing_attack(from_direction):
 		var parry := _block_time <= parry_window
 		amount *= 0.0 if parry else block_damage_factor
@@ -2157,11 +2170,32 @@ func pick_up(item_id: StringName, display_name: String, amount: int, dur := 1.0,
 func _drop_selected() -> void:
 	if inventory.selected_id() == &"" or _swing_phase != SwingPhase.NONE or _charging:
 		return
-	var dur: float = inventory.slots[inventory.selected].get("dur", 1.0)
-	var taken := inventory.take(inventory.selected, 999)
+	drop_slot(inventory.selected)
+
+
+## Joga no chão, na frente, a pilha inteira do slot (G, ou arrastou para fora da mochila).
+func drop_slot(index: int) -> void:
+	if index < 0 or index >= inventory.slots.size() or inventory.slots[index].is_empty():
+		return
+	_throw(inventory.take(index, 999))
+
+
+## Tira a roupa/item da mão secundária e joga no chão (arrastou para fora da mochila).
+func drop_equipment(slot_name: String) -> void:
+	var worn: Dictionary = inventory.equipment.get(slot_name, {})
+	if worn.is_empty():
+		return
+	inventory.equipment[slot_name] = {}
+	inventory.changed.emit()
+	_throw(worn)
+
+
+func _throw(taken: Dictionary) -> void:
+	if taken.is_empty():
+		return
 	var where := Transform3D(global_basis, camera.global_position - camera.global_basis.z * 0.7)
-	Net.i.drop_item(taken.id, taken.amount, where, -camera.global_basis.z * 2.0 + Vector3.UP, dur, ItemDB.extras(taken))
-	pass
+	Net.i.drop_item(taken.id, taken.amount, where, -camera.global_basis.z * 2.0 + Vector3.UP, taken.get("dur", 1.0), ItemDB.extras(taken))
+	Sfx.play("swing", -10.0, 1.4)
 
 
 func _is_facing_attack(from_direction: Vector3) -> bool:

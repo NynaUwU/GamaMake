@@ -308,6 +308,8 @@ static func repair_cost(piece: BuildPiece) -> Dictionary:
 
 
 static func can_afford(inventory: Inventory, cost: Dictionary) -> bool:
+	if Cheats.free:
+		return true # admin: criativo
 	for id in cost:
 		if inventory.count(id) < cost[id]:
 			return false
@@ -315,6 +317,8 @@ static func can_afford(inventory: Inventory, cost: Dictionary) -> bool:
 
 
 static func pay(inventory: Inventory, cost: Dictionary) -> void:
+	if Cheats.free:
+		return # admin: criativo
 	for id in cost:
 		var left: int = cost[id]
 		for i in inventory.slots.size():
