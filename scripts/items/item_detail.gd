@@ -1408,13 +1408,13 @@ const CASE := Color(0.46, 0.44, 0.4) ## caixa da culatra (aço temperado, meio a
 
 ## Coronha de nogueira: punho (atrás da mão) e a soleira com a chapa de latão.
 static func _buttstock(p: Dictionary, wood: Color, length: float, drop: float, width: float) -> void:
-	var wrist := PackedVector2Array([Vector2(-0.035, -0.014), Vector2(-0.058, -0.04), Vector2(-0.13, -0.052), Vector2(-0.13, 0.024), Vector2(-0.045, 0.026)])
+	var wrist := PackedVector2Array([Vector2(-0.035, -0.014), Vector2(-0.058, -0.04), Vector2(-0.13, -0.054), Vector2(-0.13, 0.012), Vector2(-0.045, 0.022)])
 	_mb(p, wood).extrude(wrist, width * 0.85, Basis(Vector3(0, 1, 0), PI / 2), Vector3(-width * 0.425, 0.0, 0.0))
-	var butt := PackedVector2Array([Vector2(-0.125, 0.025), Vector2(-0.125, -0.054), Vector2(-length + 0.012, -drop - 0.012), Vector2(-length, -drop),
-		Vector2(-length, 0.016)])
+	var butt := PackedVector2Array([Vector2(-0.125, 0.013), Vector2(-0.125, -0.056), Vector2(-length + 0.012, -drop - 0.03), Vector2(-length, -drop - 0.02),
+		Vector2(-length, -0.012)]) # caída: a soleira fica mais baixa que o punho
 	_mb(p, wood).extrude(butt, width, Basis(Vector3(0, 1, 0), PI / 2), Vector3(-width * 0.5, 0.0, 0.0))
-	_mb(p, wood.darkened(0.25)).box(Vector3(-width * 0.5 - 0.001, -0.02, length * 0.62), Vector3(0.002, 0.03, length * 0.4)) # bochecheira
-	_mb(p, ItemModels.BRASS).box(Vector3(0, (0.016 - drop) * 0.5, length + 0.004), Vector3(width + 0.002, drop + 0.018, 0.008)) # chapa da soleira
+	_mb(p, wood.darkened(0.25)).box(Vector3(-width * 0.5 - 0.001, -0.035, length * 0.62), Vector3(0.002, 0.03, length * 0.4)) # bochecheira
+	_mb(p, ItemModels.BRASS).box(Vector3(0, (-0.012 - drop - 0.02) * 0.5, length + 0.004), Vector3(width + 0.002, drop + 0.01, 0.008)) # chapa da soleira
 	for k in 3: # quadriculado do punho
 		_mb(p, wood.darkened(0.3)).box(Vector3(width * 0.43, -0.012 - k * 0.011, 0.075 + k * 0.012), Vector3(0.001, 0.004, 0.022), Basis(Vector3.RIGHT, -0.5))
 		_mb(p, wood.darkened(0.3)).box(Vector3(-width * 0.43, -0.012 - k * 0.011, 0.075 + k * 0.012), Vector3(0.001, 0.004, 0.022), Basis(Vector3.RIGHT, -0.5))
