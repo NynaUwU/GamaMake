@@ -20,11 +20,16 @@ func _process(delta: float) -> bool:
 		print("CLIENT ao entrar: edições %d; bloco cavado %d (0 = ar), pedra posta %d (17)" % [vw.edits.size(), vw.material_at(top),
 			vw.material_at(top + Vector3i(3, 1, 0))])
 		vw.request_place(top + Vector3i(0, 1, 3), VoxelRef.BUILT_DIRT)
+		vw.request_dig_sphere(top + Vector3i(-6, -1, 0), false) # picareta: esfera de 3x3x3
 	elif step == 2 and t > 20.0:
 		step = 3
 		var vw: VoxelWorld = current_scene.get_node("Voxels")
 		var terrain: TerrainWorld = current_scene.get_node("Terrain")
 		var top := VoxelWorld.block_of(Vector3(SPOT.x, terrain._base_at(SPOT.x, SPOT.y) - 0.2, SPOT.y))
 		print("CLIENT depois de pedir terra: %d (16 = terra posta), edições %d" % [vw.material_at(top + Vector3i(0, 1, 3)), vw.edits.size()])
+		var air := 0
+		for off: Vector3i in VoxelWorld.sphere_offsets():
+			air += 1 if vw.material_at(top + Vector3i(-6, -1, 0) + off) == VoxelRef.AIR else 0
+		print("CLIENT esfera cavada: %d de 19 blocos são ar" % air)
 		quit()
 	return false

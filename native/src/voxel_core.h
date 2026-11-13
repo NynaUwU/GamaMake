@@ -62,6 +62,19 @@ private:
 	uint8_t perm[512];
 };
 
+// Entrada de caverna: rampa aberta que desce da superfície (x, z) na direção (dx, dz),
+// vira túnel e termina num salão. A lista vem do jogo (TerrainWorld.cave_entrances), que
+// escolhe lugares fora do mar, lagos, rios e cidades. Medidas (iguais em voxel_ref.gd):
+constexpr float ENTRANCE_LEN = 30.0f; // metros na horizontal até o salão
+constexpr float ENTRANCE_SLOPE = 0.5f; // desce 0,5 m por metro
+constexpr float ENTRANCE_RW = 1.7f; // meia largura do túnel
+constexpr float ENTRANCE_RH = 1.4f; // meia altura do túnel
+constexpr float ENTRANCE_OPEN = 7.0f; // primeiros metros: vala aberta em cima (a boca)
+constexpr float ENTRANCE_ROOM = 4.5f; // raio do salão no fim
+struct Entrance {
+	float x, z, dx, dz;
+};
+
 struct GenParams {
 	int seed = 1337;
 	float cave_amount = 1.0f; // 0 = sem cavernas
@@ -81,12 +94,17 @@ public:
 	// Enche a seção (sx, sy, sz) (em seções) a partir das alturas das colunas: chão,
 	// cavernas (túneis e salões), veios de minério e rocha-mãe no fundo.
 	void fill(Section &out, int sx, int sy, int sz, const Columns &cols) const;
+	// Entradas da ilha (chamar antes de gerar; depois só leitura, seguro em várias threads).
+	void set_entrances(const std::vector<Entrance> &list) { entrances = list; }
+	// > 0 = dentro de alguma entrada (ar), em blocos; h = chão natural da coluna.
+	static float entrance_field(const Entrance *const *list, int n, float x, float y, float z, float h);
 	// Densidade natural de um ponto (útil para testes e para saber se há caverna).
 	float cave_field(float x, float y, float z, float depth) const;
 
 private:
 	GenParams params;
 	Noise3 tunnel_a, tunnel_b, cavern, entrance, ore_shape, ore_kind;
+	std::vector<Entrance> entrances;
 	uint8_t ore_at(float x, float y, float z, float depth) const;
 };
 

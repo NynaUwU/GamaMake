@@ -125,6 +125,8 @@ static func tick(objects: Dictionary, clock: float) -> Dictionary:
 			for obj: PlacedObject in group:
 				if obj.kind == "pipe":
 					obj.extra["flow" if fluid == "water" else "vapor"] = rate
+			if rate > 0.05:
+				_flow_directions(group, fluid)
 	var changed := {}
 	for obj: PlacedObject in parts:
 		var before: Dictionary = obj.get_meta("fluid_sent", {})
@@ -135,11 +137,44 @@ static func tick(objects: Dictionary, clock: float) -> Dictionary:
 	return changed
 
 
+## Sentido do fluxo em cada cano (as faixas andando dentro dele): da fonte (caldeira, bomba,
+## caixa d'água) para quem consome. 1 = da origem do cano para a ponta, -1 = ao contrário.
+const _SOURCES := {"water": ["ram_pump", "electric_pump", "pump", "rain_collector", "water_tank"], "steam": ["boiler"]}
+
+
+static func _flow_directions(group: Array, fluid: String) -> void:
+	var dist := {}
+	var queue := []
+	for obj: PlacedObject in group:
+		if obj.kind in _SOURCES[fluid]:
+			dist[obj] = 0
+			queue.append(obj)
+	var k := 0
+	while k < queue.size():
+		var obj: PlacedObject = queue[k]
+		k += 1
+		for other: PlacedObject in group:
+			if not dist.has(other) and obj.global_position.distance_to(other.global_position) < MAX_PIPE + 3.0 \
+					and touching(obj, other, fluid):
+				dist[other] = dist[obj] + 1
+				queue.append(other)
+				if other.kind == "pipe":
+					# A ponta encostada em quem veio antes é a entrada.
+					var start: Vector3 = pipe_ends(other)[0]
+					var from_start := false
+					for port in world_ports(obj):
+						if port[0].distance_to(start) < PIPE_SNAP:
+							from_start = true
+							break
+					other.extra.fdir = 1 if from_start else -1
+
+
 ## Estado que vai para os clientes (o resto fica só no host).
 static func _fluid_state(obj: PlacedObject) -> Dictionary:
 	match obj.kind:
 		"pipe":
-			return {"flow": snappedf(obj.extra.get("flow", 0.0), 0.1), "vapor": snappedf(obj.extra.get("vapor", 0.0), 0.1)}
+			return {"flow": snappedf(obj.extra.get("flow", 0.0), 0.1), "vapor": snappedf(obj.extra.get("vapor", 0.0), 0.1),
+				"fdir": obj.extra.get("fdir", 1)}
 		"steam_engine":
 			return {"steam": snappedf(obj.extra.get("steam", 0.0), 0.05)}
 		"sprinkler":
@@ -245,8 +280,12 @@ static func _steam(group: Array) -> float:
 	var used := minf(supply, demand)
 	for boiler: PlacedObject in boilers:
 		var p: float = minf(boiler.extra.get("pressure", 0.0), 1.5)
+		var out := 0.0
 		if supply > 0.0:
-			boiler.extra.pressure = maxf(boiler.extra.get("pressure", 0.0) - p / supply * used, 0.0)
+			out = p / supply * used
+			boiler.extra.pressure = maxf(boiler.extra.get("pressure", 0.0) - out, 0.0)
+		boiler.extra.steam_out = out # o texto da caldeira mostra para onde o vapor vai
+		boiler.extra.engines = engines.size()
 	return used
 
 
@@ -267,6 +306,7 @@ static func boiler_step(obj: PlacedObject, burning: bool) -> String:
 	obj.extra.heat = heat
 	var water: float = obj.extra.get("water", 0.0)
 	var pressure: float = obj.extra.get("pressure", 0.0)
+	var was_full := pressure >= PRESSURE_MAX - 0.05 # ninguém tirou vapor no último segundo
 	var result := ""
 	if heat > 0.5 and water > 0.0:
 		var steam := clampf((heat - 0.5) * 2.4, 0.0, 1.2)
@@ -275,7 +315,11 @@ static func boiler_step(obj: PlacedObject, burning: bool) -> String:
 		pressure += steam
 		if pressure > PRESSURE_MAX:
 			pressure = PRESSURE_MAX
-			result = "vent" # válvula chiando: está sobrando vapor
+			# Válvula chiando só se está sobrando vapor de verdade: com o motor puxando, a
+			# caldeira enche até o máximo e o motor tira logo depois (antes chiava sempre e
+			# parecia que o vapor ia para o ar em vez de ir pelo cano).
+			if was_full:
+				result = "vent"
 	else:
 		pressure = maxf(pressure - 0.05, 0.0)
 	obj.extra.water = maxf(water, 0.0)

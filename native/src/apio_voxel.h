@@ -29,6 +29,8 @@ public:
 
 	// Semente e quantidades do menu "Criar mundo" (cavernas e minério, 0..2).
 	void setup(int seed, float cave_amount, float ore_amount);
+	// Entradas de caverna: [x, z, dx, dz] por entrada (TerrainWorld.cave_entrances).
+	void set_entrances(const PackedFloat32Array &list);
 	// Dados da seção (18^3 densidades + 18^3 materiais + 4 bytes com a contagem de cheios).
 	// heights e soil: 18 x 18 colunas (índice z * 18 + x), centro de cada bloco.
 	PackedByteArray fill(const Vector3i &section, const PackedFloat32Array &heights, const PackedByteArray &soil) const;

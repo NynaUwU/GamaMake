@@ -147,6 +147,8 @@ func _build(coord: Vector2i) -> void:
 			continue
 		if not terrain.blocks.is_empty() and _on_edited(world):
 			continue
+		if VoxelWorld.i and VoxelWorld.i.foliage_hidden(world.x, world.z):
+			continue # cavado/posto em voxel
 		var on_level := false
 		for rect in _level_rects:
 			if rect.has_point(Vector2(world.x, world.z)):
@@ -268,6 +270,8 @@ func _generate(coord: Vector2i, density: float, gen: int) -> void:
 				var river := terrain.river_at(x, z)
 				if not river.is_empty() and h < river.level + 0.5:
 					good = false
+			if good and terrain.cave_mouth_at(x, z, 1.6):
+				good = false # boca de caverna: a grama ficaria flutuando
 			ok[idx] = 1 if good else 0
 	var rng := RandomNumberGenerator.new()
 	rng.seed = hash([terrain.seed, coord.x, coord.y, 77])

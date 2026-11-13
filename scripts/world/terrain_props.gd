@@ -31,6 +31,8 @@ func plan(world: TerrainWorld, coord: Vector2i, origin: Vector2) -> Dictionary:
 			continue # nada de árvores dentro das cidades geradas
 		if _in_lake(world, x, z, 1.08):
 			continue # nem dentro dos lagos
+		if world.cave_mouth_at(x, z, 2.5):
+			continue # nem em cima da boca de uma caverna (ficaria flutuando)
 		if not world.track.is_empty() and RaceTrack.flatten_weight(world.track, Vector2(x, z)) > 0.0:
 			continue # nem na pista
 		var biome := world.biome_at(x, z)
@@ -378,7 +380,7 @@ func _populate_ground(world: TerrainWorld, rng: RandomNumberGenerator, origin: V
 			continue
 		if not world.road_at(x, z).is_empty():
 			continue # sem grama em cima das ruas
-		if _in_lake(world, x, z, 0.98):
+		if _in_lake(world, x, z, 0.98) or world.cave_mouth_at(x, z, 1.0):
 			continue
 		var biome := world.biome_at(x, z)
 		var high := world._height_from(x, z, biome)

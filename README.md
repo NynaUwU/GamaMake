@@ -37,9 +37,14 @@ reação física a golpes e ragdoll (estilo Dying Light), visual de PC dos anos 
   gerado em threads (124 colunas / 443 seções em 0,18 s); mais longe continua o chão de alturas com um "buraco"
   onde os voxels assumem (com saia na emenda). Colunas a até 26 m ganham também o subsolo (cavernas); descendo,
   elas vão mais fundo. Andando de carro a 72 km/h: 60 fps na média, pior quadro ~60 ms.
-- **Cavar em 3D**: pá e picareta tiram o bloco mirado (para baixo, para o lado, para cima). Terra/areia com a pá;
-  pedra com a pá leva 3 golpes; **minério só com a picareta** (sai minério de ferro, cobre, estanho, carvão ou
-  enxofre). Rocha-mãe não sai.
+- **Cavar em 3D**: pá e picareta tiram uma **esfera de 3x3x3 blocos** (19, sem os cantos) em volta do bloco mirado
+  (a caixa da mira mostra o tamanho); cada bloco dá o seu item. Terra/areia com a pá; pedra com a pá leva 3 golpes;
+  **minério só com a picareta** (a pá deixa o minério no lugar). Mirando numa construção sai só aquele bloco, e a
+  esfera nunca come construção. Rocha-mãe não sai. A picareta tem golpe próprio: levanta por cima do ombro e crava
+  de cima para baixo.
+- **Entradas de caverna**: ~150 pela ilha (fora do mar, lagos, rios, ruas e cidades). A boca é uma vala aberta na
+  encosta que vira túnel descendo (0,5 m por metro) e termina num salão a ~16 m, ligado às cavernas. Nada de árvore
+  ou grama em cima da boca. Mesma conta no C++ e no GDScript (`set_entrances`).
 - **Construir com blocos**: terra, pedra (2) ou areia na mão + clique põe um bloco onde se mira (em 3D). Bloco
   posto é **construção**: zumbi enxerga e quebra (terra 3 golpes, pedra 8, areia 2); chão natural não.
 - **Caverna**: dentro dela a neblina escurece e encurta e a luz do céu quase some; a barreira do fundo do mundo
@@ -48,7 +53,13 @@ reação física a golpes e ragdoll (estilo Dying Light), visual de PC dos anos 
   Os blocos da versão anterior (colunas) viram edições 3D ao abrir o save.
 - Testes: `test_voxel_native` (C++ x GDScript), `test_voxel_world` (andar, cavar, construir, zumbi, caverna,
   save), `test_voxel_stream` (gerar andando rápido), `net_voxel_host` + `net_voxel_client`. Fotos: `shot_voxel`.
-- Próximo: jazidas infinitas + perfuratriz, água de 0,4 m escorrendo (mar fixo).
+- Desempenho andando rápido: buffer à frente (colunas pedidas também 1,3 s adiante), chão primeiro e plantas
+  depois (3 ms por quadro), vida dos lagos aos poucos, colisão do chão com buraco em 100 pedaços que só ligam e
+  desligam, e as threads de streaming deixam sempre um núcleo livre. A 72 km/h: 0-1 quadro acima de 33 ms em 10 s.
+- Mobs não caem do mundo: sem chão carregado (longe de todos) zumbis e bichos esperam parados; a colisão das
+  colunas de voxel só sai depois que o chão de alturas fecha o buraco (`test_mob_ground`).
+- **Próximo (depois dos bugfixes)**: fase 3 — jazidas infinitas + perfuratriz; depois, água de 0,4 m escorrendo
+  (mar fixo em volta da ilha).
 
 ## Terreno em grade de 0,4 m, blocos de terra/pedra e paredes de pedra/taipa (rodada de feedback)
 - **Grade do chão = quadradinho da parede** (`TerrainWorld.GRID` = `BuildPiece.SEG` = 0,4 m). O chão é feito de

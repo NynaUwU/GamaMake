@@ -72,7 +72,11 @@ func _init() -> void:
 	var before := player.inventory.count(item)
 	TerrainTools.dig(player)
 	await _frames(2)
-	print("pá: bloco agora %d (0 = ar), %s %d -> %d, edições %d" % [vw.material_at(dug_block), item, before, player.inventory.count(item), vw.edits.size()])
+	var air := 0
+	for off: Vector3i in VoxelWorld.sphere_offsets():
+		air += 1 if vw.material_at(dug_block + off) == VoxelRef.AIR else 0
+	print("pá: bloco agora %d (0 = ar), esfera 3x3x3: %d de %d blocos viraram ar, %s %d -> %d, edições %d" % [vw.material_at(dug_block),
+		air, VoxelWorld.sphere_offsets().size(), item, before, player.inventory.count(item), vw.edits.size()])
 	_hold(item)
 	await _frames(2)
 	var aim2 := TerrainTools.aim(player)

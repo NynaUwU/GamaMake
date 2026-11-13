@@ -102,3 +102,8 @@ Cada fase só usa o que as anteriores já entregaram.
    - Bomba elétrica, cerca elétrica, iluminação.
    - Geladeira (para a comida de estragar).
    - Rádio (eventos e missões).
+7. **Terreno em voxels — fase 3** *(próxima, depois dos bugfixes; branch `terreno-voxel`)*
+   - Jazidas infinitas: veios grandes de minério que não acabam (achados nas cavernas).
+   - Perfuratriz: máquina posta em cima da jazida, movida a eixo/vapor/eletricidade, que tira minério
+     sozinha para um baú.
+   - Depois: água em células de 0,4 m que escorre (o mar fica fixo em volta da ilha).

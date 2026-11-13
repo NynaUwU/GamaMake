@@ -126,6 +126,7 @@ func _ready() -> void:
 	_river_grid = Rivers.index(rivers)
 	zones = Contamination.plan(self)
 	Contamination.zones = zones
+	_place_entrances()
 	_material = _make_material()
 	_props = TerrainProps.new()
 	TerrainProps.warm_up()
@@ -133,6 +134,85 @@ func _ready() -> void:
 	if _player:
 		# Gera o entorno de uma vez antes de começar (o resto vem aos poucos).
 		update_around(_player.global_position, -1, 140.0)
+
+
+# --- Entradas de caverna ------------------------------------------------------------
+
+## Rampas abertas que descem até um salão a ~16 m (o gerador de voxels cava; medidas em
+## VoxelRef/voxel_core.h). Uma chance por quadrado de ENTRANCE_CELL m, fora do mar, de
+## lagos, rios, ruas, cidades e da pista. [x, z, dx, dz] por entrada.
+const ENTRANCE_CELL := 150.0
+var cave_entrances := PackedFloat32Array()
+var _entrance_grid := {} ## chunk -> [índices em cave_entrances] da boca (sem plantas em cima)
+
+
+func _place_entrances() -> void:
+	cave_entrances = PackedFloat32Array()
+	_entrance_grid = {}
+	var rng := RandomNumberGenerator.new()
+	var half := world_size * 0.5
+	var cells := int(world_size / ENTRANCE_CELL)
+	for j in cells:
+		for i in cells:
+			rng.seed = hash([seed, i, j, "caverna"])
+			if rng.randf() > 0.6:
+				continue
+			for attempt in 4:
+				var x := -half + (i + 0.15 + rng.randf() * 0.7) * ENTRANCE_CELL
+				var z := -half + (j + 0.15 + rng.randf() * 0.7) * ENTRANCE_CELL
+				var a := rng.randf() * TAU
+				var dir := Vector2(cos(a), sin(a))
+				if _entrance_ok(Vector2(x, z), dir):
+					cave_entrances.append_array([x, z, dir.x, dir.y])
+					break
+	for k in range(0, cave_entrances.size(), 4):
+		var start := Vector2(cave_entrances[k], cave_entrances[k + 1])
+		var mouth := start + Vector2(cave_entrances[k + 2], cave_entrances[k + 3]) * (VoxelRef.ENTRANCE_OPEN + 1.0)
+		for p in [start, mouth]:
+			var coord := Vector2i(floori(p.x / chunk_size), floori(p.y / chunk_size))
+			for dz in [-1, 0, 1]:
+				for dx in [-1, 0, 1]:
+					var c: Vector2i = coord + Vector2i(dx, dz)
+					if not _entrance_grid.has(c):
+						_entrance_grid[c] = []
+					if not k in _entrance_grid[c]:
+						_entrance_grid[c].append(k)
+
+
+func _entrance_ok(start: Vector2, dir: Vector2) -> bool:
+	if start.length() < town_radius * 2.5:
+		return false
+	var side := Vector2(-dir.y, dir.x)
+	for step in 8: # do começo da vala ao salão (30 m) e um pouco além
+		var p := start + dir * (step * 5.0)
+		for off in [0.0, -4.0, 4.0]:
+			var q: Vector2 = p + side * off
+			var h := _height_from(q.x, q.y, biome_at(q.x, q.y))
+			if h < SEA_LEVEL + 3.0 or not Lakes.at(lakes, q.x, q.y).is_empty():
+				return false
+			var river := river_near(q.x, q.y)
+			if not river.is_empty() and river.dist < river.half + 8.0:
+				return false
+			if city_mask(q.x, q.y) > 0.0 or not road_at(q.x, q.y).is_empty():
+				return false
+			if not track.is_empty() and RaceTrack.flatten_weight(track, q) > 0.0:
+				return false
+	return true
+
+
+## Ponto em cima da boca de uma entrada de caverna (vala aberta)? Sem árvore/grama ali.
+## Seguro em thread (a lista não muda depois de criada).
+func cave_mouth_at(x: float, z: float, margin := 1.0) -> bool:
+	var list: Array = _entrance_grid.get(Vector2i(floori(x / chunk_size), floori(z / chunk_size)), [])
+	for k: int in list:
+		var rx := x - cave_entrances[k]
+		var rz := z - cave_entrances[k + 1]
+		var along := rx * cave_entrances[k + 2] + rz * cave_entrances[k + 3]
+		var side := rz * cave_entrances[k + 2] - rx * cave_entrances[k + 3]
+		if along > -VoxelRef.ENTRANCE_RW - margin and along < VoxelRef.ENTRANCE_OPEN + 1.0 + margin \
+				and absf(side) < VoxelRef.ENTRANCE_RW + margin:
+			return true
+	return false
 
 
 ## Copia as configurações do menu "Criar mundo" (WorldSettings).
@@ -777,6 +857,14 @@ func set_voxel_holes(coord: Vector2i, holes: PackedByteArray) -> void:
 		_holes.erase(coord)
 	else:
 		_holes[coord] = holes
+	# Colisão na hora (os pedacinhos já existem: só liga/desliga); a malha vem da thread.
+	# Assim o buraco fecha no mesmo quadro em que os voxels da coluna saem.
+	var chunk: Node3D = _chunks.get(coord)
+	if is_instance_valid(chunk):
+		var pieces: Array = chunk.get_node("Body").get_meta("pieces", [])
+		var ground := chunk.get_node_or_null("Body/GroundShape") as CollisionShape3D
+		if not pieces.is_empty() and ground and ground.disabled and not ground.shape is ConcavePolygonShape3D:
+			_toggle_pieces(pieces, holes)
 	_chunk_ver[coord] = int(_chunk_ver.get(coord, 0)) + 1
 	_queue_rebuild(coord)
 
@@ -872,7 +960,7 @@ func _run_prop_jobs(budget_usec: int) -> void:
 		var entry: Array = _prop_jobs[0]
 		if _props.apply_step(entry[1], left):
 			_prop_jobs.pop_front()
-			if is_instance_valid(entry[1].chunk) and _chunk_cols.has(entry[0]):
+			if is_instance_valid(entry[1].chunk) and (_chunk_cols.has(entry[0]) or (VoxelWorld.i and VoxelWorld.i.foliage_in_chunk(entry[0]))):
 				_hide_foliage(entry[1].chunk)
 
 
@@ -908,7 +996,7 @@ func _finish(coord: Vector2i, data: Dictionary, sync := true) -> Node3D:
 			_queue_rebuild(coord)
 	if sync:
 		_props.apply(data.props, chunk, body)
-		if _chunk_cols.has(coord):
+		if _chunk_cols.has(coord) or (VoxelWorld.i and VoxelWorld.i.foliage_in_chunk(coord)):
 			_hide_foliage(chunk)
 	else:
 		_prop_jobs.append([coord, _props.make_job(data.props, chunk, body)])
@@ -964,19 +1052,16 @@ func _apply_surface(chunk: Node3D, data: Dictionary, heights: PackedFloat32Array
 ## Colisão do chão em pedacinhos de 6,4 m (5 x 5 pontos da grade): ligados fora dos buracos.
 func _set_pieces(chunk: Node3D, holes: PackedByteArray, heights: PackedFloat32Array, on: bool) -> void:
 	var body := chunk.get_node("Body") as StaticBody3D
-	var holder := body.get_node_or_null("Pieces")
+	var pieces: Array = body.get_meta("pieces", [])
 	if not on:
-		if holder:
-			for piece in holder.get_children():
-				(piece as CollisionShape3D).disabled = true
+		for piece: CollisionShape3D in pieces:
+			piece.disabled = true
 		return
-	var q := _lat_q()
-	var per := 4 # quadrados de 1,6 m por coluna
-	var cols := q / per
-	if holder == null:
-		holder = Node3D.new()
-		holder.name = "Pieces"
-		body.add_child(holder)
+	if pieces.is_empty():
+		# Filhos DIRETOS do StaticBody3D (forma de colisão dentro de outro nó não colide).
+		var q := _lat_q()
+		var per := 4 # quadrados de 1,6 m por coluna
+		var cols := q / per
 		var n := q + 1
 		for cj in cols:
 			for ci in cols:
@@ -990,14 +1075,20 @@ func _set_pieces(chunk: Node3D, holes: PackedByteArray, heights: PackedFloat32Ar
 						data[j * (per + 1) + i] = heights[(cj * per + j) * n + ci * per + i] / STEP
 				map.map_data = data
 				var piece := CollisionShape3D.new()
+				piece.name = "Piece_%d_%d" % [ci, cj]
 				piece.shape = map
 				piece.scale = Vector3.ONE * STEP
 				piece.position = Vector3((ci + 0.5) * per * STEP, 0.0, (cj + 0.5) * per * STEP)
-				holder.add_child(piece)
-	var k := 0
-	for piece in holder.get_children():
-		(piece as CollisionShape3D).disabled = holes[k] != 0
-		k += 1
+				body.add_child(piece)
+				pieces.append(piece)
+		body.set_meta("pieces", pieces)
+	_toggle_pieces(pieces, holes)
+
+
+## Liga os pedacinhos fora dos buracos (índice = linha * colunas + coluna, como "holes").
+static func _toggle_pieces(pieces: Array, holes: PackedByteArray) -> void:
+	for k in pieces.size():
+		(pieces[k] as CollisionShape3D).disabled = k < holes.size() and holes[k] != 0
 
 
 ## Para o mapa: cor do chão e altura no ponto (seguro de chamar em thread).
@@ -1221,6 +1312,8 @@ func _hide_foliage(chunk: Node3D) -> void:
 				for dx in range(-1, 2):
 					if blocks.has(col + Vector2i(dx, dz)):
 						hide = true
+			if not hide and VoxelWorld.i and VoxelWorld.i.foliage_hidden(chunk.position.x + t.origin.x, chunk.position.z + t.origin.z):
+				hide = true # cavado/posto em voxel
 			mm.set_instance_transform(k, Transform3D(Basis.from_scale(Vector3.ZERO), t.origin) if hide else t)
 
 

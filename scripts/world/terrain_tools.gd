@@ -138,10 +138,18 @@ static func _dig_voxel(player: Player, target: Dictionary) -> bool:
 		Sfx.play_at("knock" if res.hard else "step_soft", target.point, 2.0, 0.7)
 		return true
 	_progress.clear()
-	vw.request_dig(b)
-	var item: StringName = res.item
-	player.pick_up(item, ItemDB.display_name(item), res.amount)
-	_dust(player, target.point, VoxelRef.COLORS.get(res.material, Color(0.4, 0.3, 0.2)))
+	# Picareta e pá tiram uma esfera de 3x3x3 (19 blocos); cada bloco dá o seu item.
+	var drops := {}
+	for t: Vector3i in vw.sphere_targets(b, shovel):
+		var r := vw.dig_result(t)
+		if not r.is_empty():
+			drops[r.item] = int(drops.get(r.item, 0)) + int(r.amount)
+	vw.request_dig_sphere(b, shovel)
+	for item: StringName in drops:
+		player.pick_up(item, ItemDB.display_name(item), drops[item])
+	var color: Color = VoxelRef.COLORS.get(res.material, Color(0.4, 0.3, 0.2))
+	_dust(player, target.point, color)
+	_dust(player, target.point + Vector3.UP * 0.3, color)
 	return true
 
 
@@ -275,10 +283,14 @@ static func update_cursor(player: Player) -> void:
 			_cursor.visible = false
 			return
 		_cursor.global_position = VoxelWorld.block_center(b)
+		# Cavando: a caixa mostra a esfera de 3x3x3 (construção mirada: só o bloco).
+		var whole := mode == "dig" and not VoxelWorld.is_built(VoxelWorld.i.material_at(b))
+		_cursor.scale = Vector3.ONE * (3.0 if whole else 1.0)
 		var ok_v := not VoxelWorld.i.dig_result(b).is_empty() if mode == "dig" else VoxelWorld.i.material_at(b) == VoxelRef.AIR
 		_cursor_mat.albedo_color = (Color(1.0, 0.45, 0.3, 0.9) if mode == "dig" else Color(0.5, 1.0, 0.45, 0.9)) if ok_v else Color(0.6, 0.6, 0.6, 0.5)
 		_cursor.visible = true
 		return
+	_cursor.scale = Vector3.ONE
 	var col: Vector2i = target.dig if mode == "dig" else target.place
 	var top := terrain.column_top(col)
 	var y := top - TerrainWorld.GRID * 0.5 if mode == "dig" else top + TerrainWorld.GRID * 0.5

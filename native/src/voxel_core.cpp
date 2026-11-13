@@ -105,6 +105,34 @@ float Generator::cave_field(float x, float y, float z, float depth) const {
 	return field;
 }
 
+float Generator::entrance_field(const Entrance *const *list, int n, float x, float y, float z, float h) {
+	float best = -10.0f;
+	for (int k = 0; k < n; k++) {
+		const Entrance &e = *list[k];
+		const float rx = x - e.x;
+		const float rz = z - e.z;
+		const float along = rx * e.dx + rz * e.dz;
+		const float side = rz * e.dx - rx * e.dz;
+		if (along > -ENTRANCE_RW && along < ENTRANCE_LEN + ENTRANCE_RW) {
+			// Túnel que desce acompanhando o chão; no começo o teto some (vala aberta = a boca).
+			const float t = std::clamp(along, 0.0f, ENTRANCE_LEN);
+			const float yc = h - (0.4f + t * ENTRANCE_SLOPE);
+			const float dy = y - yc;
+			const float up = ENTRANCE_RH + std::max(ENTRANCE_OPEN - t, 0.0f) * 0.9f;
+			const float vy = dy / (dy > 0.0f ? up : ENTRANCE_RH);
+			const float vx = side / ENTRANCE_RW;
+			const float va = (along - t) / ENTRANCE_RW;
+			best = std::max(best, (1.0f - std::sqrt(vx * vx + vy * vy + va * va)) * ENTRANCE_RW / GRID);
+		}
+		// Salão no fim (um pouco achatado).
+		const float cx = x - (e.x + e.dx * ENTRANCE_LEN);
+		const float cz = z - (e.z + e.dz * ENTRANCE_LEN);
+		const float cy = (y - (h - (1.4f + ENTRANCE_LEN * ENTRANCE_SLOPE))) * 1.4f;
+		best = std::max(best, (ENTRANCE_ROOM - std::sqrt(cx * cx + cy * cy + cz * cz)) / GRID);
+	}
+	return best;
+}
+
 // Minério a partir dos ruídos já calculados (grade grossa interpolada).
 static uint8_t ore_from(float blob, float vein, float kind, float depth, float amount) {
 	if (amount <= 0.0f || depth < 2.0f) {
@@ -144,6 +172,23 @@ void Generator::fill(Section &out, int sx, int sy, int sz, const Columns &cols) 
 		h_max = std::max(h_max, cols.height[c]);
 	}
 	const bool underground = bottom_y < h_max + 1.0f && top > BOTTOM; // tem algo abaixo do chão
+	// Entradas de caverna que podem tocar esta seção (quase sempre nenhuma).
+	const Entrance *near[8];
+	int n_near = 0;
+	if (underground && params.cave_amount > 0.0f) {
+		const float x0 = float(sx * N - 1) * GRID, x1 = float(sx * N + P - 1) * GRID;
+		const float z0 = float(sz * N - 1) * GRID, z1 = float(sz * N + P - 1) * GRID;
+		const float m = ENTRANCE_ROOM + 2.0f;
+		for (const Entrance &e : entrances) {
+			const float ex = e.x + e.dx * ENTRANCE_LEN, ez = e.z + e.dz * ENTRANCE_LEN;
+			if (std::max(e.x, ex) + m < x0 || std::min(e.x, ex) - m > x1 || std::max(e.z, ez) + m < z0 || std::min(e.z, ez) - m > z1) {
+				continue;
+			}
+			if (n_near < 8) {
+				near[n_near++] = &e;
+			}
+		}
+	}
 	if (underground) {
 		for (int gy = 0; gy < G; gy++) {
 			const float y = (float(sy * N + gy * 2 - 1) + 0.5f) * GRID;
@@ -154,7 +199,11 @@ void Generator::fill(Section &out, int sx, int sy, int sz, const Columns &cols) 
 					const int col = std::min(gz * 2, P - 1) * P + std::min(gx * 2, P - 1);
 					const float depth = cols.height[col] - y;
 					const int g = (gy * G + gz) * G + gx;
-					cave[g] = (depth > -2.0f && cols.height[col] > SEA_LEVEL + 1.5f) ? cave_field(x, y, z, depth) : -10.0f;
+					const bool dry = depth > -2.0f && cols.height[col] > SEA_LEVEL + 1.5f;
+					cave[g] = dry ? cave_field(x, y, z, depth) : -10.0f;
+					if (dry && n_near > 0) {
+						cave[g] = std::max(cave[g], entrance_field(near, n_near, x, y, z, cols.height[col]));
+					}
 					if (depth > 2.0f && params.ore_amount > 0.0f) {
 						blob[g] = ore_shape.noise(x / 4.5f, y / 4.0f, z / 4.5f);
 						vein[g] = ore_shape.noise(x / 13.0f + 31.7f, y / 7.0f, z / 13.0f);

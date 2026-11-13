@@ -11,12 +11,18 @@ func _init() -> void:
 	native.setup(1337, 1.0, 1.0)
 	var ref := VoxelRef.new()
 	ref.setup(1337, 1.0, 1.0)
+	# Uma entrada de caverna passando pelas seções (3,1,2) .. (7,-2,2): vala, túnel e salão.
+	var entrances := PackedFloat32Array([14.0, 16.0, 1.0, 0.0, -40.0, 60.0, 0.6, 0.8])
+	native.set_entrances(entrances)
+	ref.set_entrances(entrances)
 	var P := VoxelRef.P
 	var total_diff := 0
 	var native_ms := 0.0
 	var ref_ms := 0.0
 	var tris := [0, 0]
-	for sec in [Vector3i(3, -1, 2), Vector3i(3, 1, 2), Vector3i(-7, -6, 11), Vector3i(2, -9, 1), Vector3i(0, 0, 0), Vector3i(12, 3, -4)]:
+	var air_in_entrance := 0
+	for sec in [Vector3i(3, -1, 2), Vector3i(3, 1, 2), Vector3i(-7, -6, 11), Vector3i(2, -9, 1), Vector3i(0, 0, 0), Vector3i(12, 3, -4),
+			Vector3i(2, 1, 2), Vector3i(4, 0, 2), Vector3i(6, -1, 2), Vector3i(6, -2, 2), Vector3i(7, -2, 2)]:
 		var heights := PackedFloat32Array()
 		heights.resize(P * P)
 		var soil := PackedByteArray()

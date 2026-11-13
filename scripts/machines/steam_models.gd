@@ -55,8 +55,17 @@ static func text(obj: PlacedObject) -> String:
 		"boiler":
 			if obj.extra.get("dry", 0.0) > 0.0:
 				return "[E] CALDEIRA SECA E QUENTE! Ponha água ou apague o fogo"
-			return "[E] %s · água %d/%d · pressão %d%%%s" % [name, int(water), int(Fluids.BOILER_WATER),
-				int(obj.extra.get("pressure", 0.0) / Fluids.PRESSURE_MAX * 100.0), hint]
+			# Para onde vai o vapor: pelo cano até o motor, ou pela válvula (sobrando / sem motor).
+			var where := ""
+			var out: float = obj.extra.get("steam_out", 0.0)
+			if out > 0.05:
+				where = " · vapor → %s: %.1f/s" % ["motor" if int(obj.extra.get("engines", 1)) <= 1 else "motores", out]
+			elif obj.extra.get("pressure", 0.0) > 0.1:
+				where = " · vapor parado: ligue um cano do domo (em cima) até um motor a vapor"
+			if obj.extra.get("vent", false):
+				where += " · sobrando: sai pela válvula"
+			return "[E] %s · água %d/%d · pressão %d%%%s%s" % [name, int(water), int(Fluids.BOILER_WATER),
+				int(obj.extra.get("pressure", 0.0) / Fluids.PRESSURE_MAX * 100.0), where, hint]
 		"steam_engine":
 			var steam: float = obj.extra.get("steam", 0.0)
 			return "%s: gera %s de força · %s" % [name, Power._num(snappedf(Power.output(obj), 0.1)), Power.status(obj)] if steam > 0.02 else name + ": sem vapor (cano da caldeira)"
@@ -116,6 +125,7 @@ static func refresh(obj: PlacedObject) -> void:
 		"pipe":
 			if obj.get_meta("built_len", -1.0) != obj.extra.get("len", 1.0):
 				_build_pipe(obj)
+			_update_flow(obj)
 		"sprinkler":
 			var wet: bool = obj.extra.get("wet", false)
 			obj.extra.speed = 1.0 if wet else 0.0 # cabeça girando (só visual)
@@ -279,6 +289,60 @@ static func _build_pipe(obj: PlacedObject) -> void:
 	shape.shape = box
 	shape.position = Vector3(0, 0, length * 0.5)
 	obj.add_child(shape)
+
+
+## Faixas andando por fora do cano no sentido do fluxo: brancas = vapor, azuis = água.
+const FLOW_SHADER := """
+shader_type spatial;
+render_mode unshaded, cull_back, depth_draw_never;
+instance uniform float flow_dir = 1.0;
+instance uniform float flow_speed = 1.0;
+instance uniform vec4 flow_color : source_color = vec4(1.0);
+varying float along;
+void vertex() {
+	along = VERTEX.z;
+}
+void fragment() {
+	float band = fract(along * 1.6 - TIME * flow_speed * flow_dir);
+	float a = smoothstep(0.0, 0.08, band) * (1.0 - smoothstep(0.22, 0.32, band));
+	ALBEDO = flow_color.rgb;
+	ALPHA = a * flow_color.a;
+}
+"""
+static var _flow_material: ShaderMaterial
+
+
+static func _update_flow(obj: PlacedObject) -> void:
+	var vapor: float = obj.extra.get("vapor", 0.0)
+	var water: float = obj.extra.get("flow", 0.0)
+	var flow := obj.get_node_or_null("Flow") as MeshInstance3D
+	var on := vapor > 0.05 or water > 0.05
+	if not on:
+		if flow:
+			flow.visible = false
+		return
+	var length: float = obj.extra.get("len", 1.0)
+	if flow == null or flow.get_meta("len", -1.0) != length:
+		if flow:
+			flow.queue_free()
+		if _flow_material == null:
+			_flow_material = ShaderMaterial.new()
+			_flow_material.shader = Shader.new()
+			_flow_material.shader.code = FLOW_SHADER
+		var mb := MeshBuilder.new()
+		mb.color(Color.WHITE)
+		mb.lathe(PackedVector2Array([Vector2(0.06, 0.06), Vector2(0.06, length - 0.06)]), 8, Basis(Vector3.RIGHT, PI / 2))
+		flow = MeshInstance3D.new()
+		flow.name = "Flow"
+		flow.mesh = mb.finish(_flow_material, false)
+		flow.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		flow.set_meta("len", length)
+		obj.add_child(flow)
+	flow.visible = true
+	var steam := vapor > 0.05
+	flow.set_instance_shader_parameter("flow_dir", float(obj.extra.get("fdir", 1)))
+	flow.set_instance_shader_parameter("flow_speed", 1.2 if steam else 0.6)
+	flow.set_instance_shader_parameter("flow_color", Color(1, 1, 1, 0.55) if steam else Color(0.45, 0.7, 1.0, 0.5))
 
 
 # --- Alto-forno --------------------------------------------------------------------------

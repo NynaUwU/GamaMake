@@ -87,7 +87,14 @@ const SWINGS := [
 	{"axis": Vector3(1.0, 0.1, 0.0), "pivot": Vector3(0.12, -0.2, -0.25),
 		"from": 1.8, "to": -1.0, "damage": 1.5, "force": 1.5,
 		"bias": {"head": 0.7, "leg": 0.3, "arm": 2.4}}, # de cima para baixo
+	# Picareta (sempre esta): sobe por trás da cabeça e desce reto na frente, acelerando até
+	# o impacto (sem o arco de lado da espada).
+	{"axis": Vector3(1.0, 0.04, -0.05), "pivot": Vector3(0.14, -0.24, -0.4),
+		"from": 1.45, "to": -0.35, "damage": 1.3, "force": 1.3,
+		"bias": {"head": 1.4, "leg": 0.3, "arm": 1.6}},
 ]
+const NORMAL_SWINGS := 3 ## os 3 primeiros (combo); o 4º é o da picareta
+const PICK_SWING := 3
 const ARM_LENGTH := 0.45
 const TRAIL_LIFETIME := 0.1 ## quanto tempo o rastro do golpe fica na tela
 const GUARD_HAND := Vector3(0.32, -0.34, -0.45) ## posição da mão em guarda
@@ -1124,8 +1131,9 @@ func _melee_attack() -> void:
 
 func _start_swing(index: int) -> void:
 	var stats: Dictionary = _melee[_weapon_type]
-	_swing_index = index % SWINGS.size()
-	Net.i.send_player_action("swing", _swing_index)
+	var pick := _weapon_type == WeaponType.PICKAXE
+	_swing_index = PICK_SWING if pick else index % NORMAL_SWINGS
+	Net.i.send_player_action("swing", 2 if pick else _swing_index) # os outros veem de cima para baixo
 	Sfx.play_at("swing", camera.global_position - camera.global_basis.z * 0.6, 0.0, 1.2 / stats.speed)
 	_swing_phase = SwingPhase.WINDUP
 	_swing_time = 0.0
@@ -1166,22 +1174,25 @@ func _update_swing(delta: float) -> void:
 		return
 
 	var swing: Dictionary = SWINGS[_swing_index]
+	var pick := _swing_index == PICK_SWING
 	_swing_time += delta * stats.speed
 	match _swing_phase:
 		SwingPhase.WINDUP:
-			var k := clampf(_swing_time / windup_time, 0.0, 1.0)
+			var k := clampf(_swing_time / (windup_time * (1.6 if pick else 1.0)), 0.0, 1.0) # picareta: levanta devagar
 			node.transform = _swing_start.interpolate_with(_arc_pose(swing, swing.from), ease(k, 0.4))
 			if k >= 1.0:
 				_swing_phase = SwingPhase.SLASH
 				_swing_time = 0.0
 		SwingPhase.SLASH:
 			var k := clampf(_swing_time / slash_time, 0.0, 1.0)
-			# Arranque, golpe rápido no meio e desaceleração no fim (follow-through).
-			var t := ease(k, -1.6)
+			# Arranque, golpe rápido no meio e desaceleração no fim (follow-through). Picareta:
+			# acelera até bater (peso na ponta) e para seca, sem rastro de lâmina.
+			var t := k * k if pick else ease(k, -1.6)
 			_swing_angle = lerpf(swing.from, swing.to, t)
 			node.transform = _arc_pose(swing, _swing_angle)
 			var dir := -node.transform.basis.z
-			_trail_points.append([node.position + dir * 0.35, node.position + dir * stats.length, 0.0])
+			if not pick:
+				_trail_points.append([node.position + dir * 0.35, node.position + dir * stats.length, 0.0])
 			_roll = -signf(swing.to - swing.from) * 0.06 * absf(swing.axis.normalized().y)
 			if k >= 1.0:
 				_swing_phase = SwingPhase.RECOVER
@@ -1191,11 +1202,18 @@ func _update_swing(delta: float) -> void:
 				if _swing_hits.is_empty() and TerrainTools.is_dig_tool(self) and TerrainTools.dig(self):
 					_wear_selected(0.5)
 					_shake = maxf(_shake, 0.05)
+				if pick:
+					_shake = maxf(_shake, 0.035) # tranco do impacto
 				if _swing_queued:
 					_start_swing(_swing_index + 1)
 		SwingPhase.RECOVER:
-			var k := clampf(_swing_time / recover_time, 0.0, 1.0)
-			node.transform = _swing_start.interpolate_with(_guard_pose(), smoothstep(0.0, 1.0, k))
+			var k := clampf(_swing_time / (recover_time * (1.4 if pick else 1.0)), 0.0, 1.0)
+			# Picareta: fica cravada um instante, quica um pouco e volta para a guarda.
+			var back := clampf((k - 0.25) / 0.75, 0.0, 1.0) if pick else k
+			var pose := _swing_start
+			if pick and k < 0.25:
+				pose = _arc_pose(swing, swing.to + sin(k / 0.25 * PI) * 0.08)
+			node.transform = pose.interpolate_with(_guard_pose(), smoothstep(0.0, 1.0, back))
 			_roll = 0.0
 			if k >= 1.0:
 				_swing_phase = SwingPhase.NONE

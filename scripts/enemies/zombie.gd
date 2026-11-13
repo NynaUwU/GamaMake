@@ -235,9 +235,27 @@ func _exit_tree() -> void:
 	Net.i.unregister_zombie(self)
 
 
+var _ground_timer := 0.0
+var _ground_ok := true
+
+
+## Sem chão com colisão aqui (fora do terreno carregado): fica parado até o chão aparecer,
+## em vez de cair pelo mundo e ser posto de volta em cima sem parar.
+func _ground_ready(delta: float) -> bool:
+	_ground_timer -= delta
+	if _ground_timer <= 0.0:
+		_ground_timer = 0.5
+		_ground_ok = WorldFloor.ground_at(global_position)
+	if not _ground_ok:
+		velocity = Vector3.ZERO
+	return _ground_ok
+
+
 func _physics_process(delta: float) -> void:
 	if puppet:
 		_puppet_physics(delta)
+		return
+	if state in [State.IDLE, State.CHASE] and not _ground_ready(delta):
 		return
 	# Longe e só andando/parado: pensa a cada 2 ticks (com o passo dobrado).
 	_tick += 1

@@ -93,6 +93,8 @@ static func sync_extra(obj: PlacedObject) -> Dictionary:
 			out[key] = snappedf(obj.extra[key], 0.01)
 	if obj.kind == "boiler":
 		out.vent = obj.extra.get("vent", false)
+		out.steam_out = snappedf(obj.extra.get("steam_out", 0.0), 0.1)
+		out.engines = obj.extra.get("engines", 0)
 	return out
 
 

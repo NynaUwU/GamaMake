@@ -83,10 +83,10 @@ func _populate() -> void:
 	if players.is_empty():
 		return
 	for id in animals.keys():
-		var a: Animal = animals[id]
-		if not is_instance_valid(a):
-			animals.erase(id)
+		if not is_instance_valid(animals[id]):
+			animals.erase(id) # morto/solto por fora (tipar antes de conferir dá erro)
 			continue
+		var a: Animal = animals[id]
 		if a.tame:
 			continue
 		var near := INF

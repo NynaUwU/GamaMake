@@ -30,6 +30,7 @@ ApioVoxel::ApioVoxel() :
 
 void ApioVoxel::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("setup", "seed", "cave_amount", "ore_amount"), &ApioVoxel::setup);
+	ClassDB::bind_method(D_METHOD("set_entrances", "list"), &ApioVoxel::set_entrances);
 	ClassDB::bind_method(D_METHOD("fill", "section", "heights", "soil"), &ApioVoxel::fill);
 	ClassDB::bind_method(D_METHOD("build_mesh", "data", "column_colors"), &ApioVoxel::build_mesh);
 	ClassDB::bind_method(D_METHOD("solid_count", "data"), &ApioVoxel::solid_count);
@@ -44,6 +45,14 @@ void ApioVoxel::setup(int seed, float cave_amount, float ore_amount) {
 	p.cave_amount = cave_amount;
 	p.ore_amount = ore_amount;
 	generator = std::make_unique<apio::Generator>(p);
+}
+
+void ApioVoxel::set_entrances(const PackedFloat32Array &list) {
+	std::vector<apio::Entrance> out;
+	for (int64_t i = 0; i + 3 < list.size(); i += 4) {
+		out.push_back({ list[i], list[i + 1], list[i + 2], list[i + 3] });
+	}
+	generator->set_entrances(out);
 }
 
 PackedByteArray ApioVoxel::fill(const Vector3i &section, const PackedFloat32Array &heights, const PackedByteArray &soil) const {

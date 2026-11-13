@@ -15,6 +15,14 @@ const GRID := 0.4
 const SEA_LEVEL := -1.0
 const BOTTOM := -61.0
 const DATA_SIZE := P3 * 2 + 4
+## Entradas de caverna (iguais a native/src/voxel_core.h): rampa aberta que vira túnel e
+## termina num salão a ~16 m.
+const ENTRANCE_LEN := 30.0
+const ENTRANCE_SLOPE := 0.5
+const ENTRANCE_RW := 1.7
+const ENTRANCE_RH := 1.4
+const ENTRANCE_OPEN := 7.0
+const ENTRANCE_ROOM := 4.5
 
 enum { AIR, TOPSOIL, DIRT, SAND, STONE, BEDROCK, COAL, IRON, COPPER, TIN, SULFUR, GRAVEL,
 	BUILT_DIRT = 16, BUILT_STONE, BUILT_SAND }
@@ -108,6 +116,11 @@ var _cavern: Noise3
 var _entrance: Noise3
 var _ore_shape: Noise3
 var _ore_kind: Noise3
+var entrances := PackedFloat32Array() ## [x, z, dx, dz] por entrada
+
+
+func set_entrances(list: PackedFloat32Array) -> void:
+	entrances = list
 
 
 func _init() -> void:
@@ -148,6 +161,35 @@ func cave_field(x: float, y: float, z: float, depth: float) -> float:
 	return field * roof - (1.0 - roof) * 3.0
 
 
+## > 0 = dentro de alguma entrada (ar), em blocos; h = chão natural da coluna.
+## near: índices (em "entrances", de 4 em 4) das entradas que tocam a seção.
+func entrance_field(near: Array, x: float, y: float, z: float, h: float) -> float:
+	var best := -10.0
+	for k: int in near:
+		var ex := entrances[k]
+		var ez := entrances[k + 1]
+		var dx := entrances[k + 2]
+		var dz := entrances[k + 3]
+		var rx := x - ex
+		var rz := z - ez
+		var along := rx * dx + rz * dz
+		var side := rz * dx - rx * dz
+		if along > -ENTRANCE_RW and along < ENTRANCE_LEN + ENTRANCE_RW:
+			var t := clampf(along, 0.0, ENTRANCE_LEN)
+			var yc := h - (0.4 + t * ENTRANCE_SLOPE)
+			var dy := y - yc
+			var up := ENTRANCE_RH + maxf(ENTRANCE_OPEN - t, 0.0) * 0.9
+			var vy := dy / (up if dy > 0.0 else ENTRANCE_RH)
+			var vx := side / ENTRANCE_RW
+			var va := (along - t) / ENTRANCE_RW
+			best = maxf(best, (1.0 - sqrt(vx * vx + vy * vy + va * va)) * ENTRANCE_RW / GRID)
+		var cx := x - (ex + dx * ENTRANCE_LEN)
+		var cz := z - (ez + dz * ENTRANCE_LEN)
+		var cy := (y - (h - (1.4 + ENTRANCE_LEN * ENTRANCE_SLOPE))) * 1.4
+		best = maxf(best, (ENTRANCE_ROOM - sqrt(cx * cx + cy * cy + cz * cz)) / GRID)
+	return best
+
+
 static func ore_from(blob: float, vein: float, kind: float, depth: float, amount: float) -> int:
 	if amount <= 0.0 or depth < 2.0:
 		return STONE
@@ -181,6 +223,21 @@ func fill(section: Vector3i, heights: PackedFloat32Array, soil: PackedByteArray)
 	for c in P * P:
 		h_max = maxf(h_max, heights[c])
 	var underground := bottom_y < h_max + 1.0 and top > BOTTOM
+	var near := []
+	if underground and cave_amount > 0.0:
+		var x0 := float(sx * N - 1) * GRID
+		var x1 := float(sx * N + P - 1) * GRID
+		var z0 := float(sz * N - 1) * GRID
+		var z1 := float(sz * N + P - 1) * GRID
+		var m := ENTRANCE_ROOM + 2.0
+		for k in range(0, entrances.size() - 3, 4):
+			var ex := entrances[k] + entrances[k + 2] * ENTRANCE_LEN
+			var ez := entrances[k + 1] + entrances[k + 3] * ENTRANCE_LEN
+			if maxf(entrances[k], ex) + m < x0 or minf(entrances[k], ex) - m > x1 \
+					or maxf(entrances[k + 1], ez) + m < z0 or minf(entrances[k + 1], ez) - m > z1:
+				continue
+			if near.size() < 8:
+				near.append(k)
 	if underground:
 		for gy in G:
 			var y := (float(sy * N + gy * 2 - 1) + 0.5) * GRID
@@ -191,7 +248,10 @@ func fill(section: Vector3i, heights: PackedFloat32Array, soil: PackedByteArray)
 					var col := mini(gz * 2, P - 1) * P + mini(gx * 2, P - 1)
 					var depth := heights[col] - y
 					var g := (gy * G + gz) * G + gx
-					cave[g] = cave_field(x, y, z, depth) if depth > -2.0 and heights[col] > SEA_LEVEL + 1.5 else -10.0
+					var dry := depth > -2.0 and heights[col] > SEA_LEVEL + 1.5
+					cave[g] = cave_field(x, y, z, depth) if dry else -10.0
+					if dry and not near.is_empty():
+						cave[g] = maxf(cave[g], entrance_field(near, x, y, z, heights[col]))
 					if depth > 2.0 and ore_amount > 0.0:
 						blob[g] = _ore_shape.noise(x / 4.5, y / 4.0, z / 4.5)
 						vein[g] = _ore_shape.noise(x / 13.0 + 31.7, y / 7.0, z / 13.0)

@@ -190,6 +190,13 @@ func _check_car(car: VintageCar, terrain: TerrainWorld) -> void:
 	rescued += 1
 
 
+## Tem chão com colisão nesse ponto (chunk do terreno carregado)? Zumbis e bichos sem chão
+## (longe de todo mundo: distância de visão curta, ou em volta de outro jogador online)
+## ficam parados no ar em vez de cair e voltar para cima sem parar.
+static func ground_at(p: Vector3) -> bool:
+	return _has_ground(TerrainWorld.i, p)
+
+
 ## O pedaço de terreno (com colisão) já existe nesse ponto?
 static func _has_ground(terrain: TerrainWorld, p: Vector3) -> bool:
 	if terrain == null:

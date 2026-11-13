@@ -26,5 +26,9 @@ func _process(delta: float) -> bool:
 		print("HOST cavou 2 e pôs 1 pedra: edições %d" % vw.edits.size())
 	if t > 24.0:
 		print("HOST no fim: edições %d, bloco do cliente %d" % [vw.edits.size(), vw.material_at(top + Vector3i(0, 1, 3))])
+		var air := 0
+		for off: Vector3i in VoxelWorld.sphere_offsets():
+			air += 1 if vw.material_at(top + Vector3i(-6, -1, 0) + off) == VoxelRef.AIR else 0
+		print("HOST esfera que o cliente cavou: %d de 19 blocos são ar" % air)
 		quit()
 	return false

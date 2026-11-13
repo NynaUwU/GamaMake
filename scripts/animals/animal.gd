@@ -223,6 +223,10 @@ func net_flags() -> int:
 
 # --- Simulação (host) -------------------------------------------------------------------
 
+var _ground_timer := 0.0
+var _ground_ok := true
+
+
 func _physics_process(delta: float) -> void:
 	_time += delta
 	if puppet:
@@ -235,6 +239,13 @@ func _physics_process(delta: float) -> void:
 	if is_bird():
 		_bird(delta)
 		_animate(delta)
+		return
+	_ground_timer -= delta
+	if _ground_timer <= 0.0:
+		_ground_timer = 0.5
+		_ground_ok = WorldFloor.ground_at(global_position)
+	if not _ground_ok:
+		velocity = Vector3.ZERO # sem chão carregado aqui: espera parado (não cai pelo mundo)
 		return
 	var d := def()
 	var player := _nearest_player()

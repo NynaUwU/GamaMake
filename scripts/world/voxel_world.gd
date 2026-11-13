@@ -83,6 +83,8 @@ func _init(terrain_: TerrainWorld = null, auto := true) -> void:
 	else:
 		backend = VoxelRef.new()
 	backend.setup(terrain.seed if terrain else 1337, 1.0, 1.0)
+	if terrain and backend.has_method("set_entrances"):
+		backend.set_entrances(terrain.cave_entrances) # bocas de caverna na superfície
 
 
 func _ready() -> void:
@@ -212,6 +214,7 @@ func _process_inner(delta: float) -> void:
 	stats["update_around"] = maxf(stats.get("update_around", 0.0), (Time.get_ticks_usec() - tu) / 1000.0)
 	var t1 := Time.get_ticks_usec()
 	_update_holes(1)
+	_retire_nodes()
 	stats.holes = maxf(stats.holes, (Time.get_ticks_usec() - t1) / 1000.0)
 	_check -= delta
 	if _check <= 0.0 and camera:
@@ -567,17 +570,42 @@ func _show(sec: Vector3i, mesh_arrays: Array) -> void:
 
 func _drop_column(col: Vector2i) -> void:
 	var entry: Dictionary = _columns[col]
+	var chunk := _chunk_of_column(col)
 	if entry.hi >= entry.lo:
 		for sy in range(entry.lo, entry.hi + 1):
 			var sec := Vector3i(col.x, sy, col.y)
 			sections.erase(sec)
 			var node: Node3D = _nodes.get(sec)
 			if node:
-				node.queue_free()
 				_nodes.erase(sec)
+				if entry.ready:
+					# A colisão fica até o chão de alturas fechar o buraco (senão quem está
+					# em cima cai por baixo do chão nesse meio-tempo).
+					if not _retiring.has(chunk):
+						_retiring[chunk] = [Time.get_ticks_msec()]
+					_retiring[chunk].append(node)
+				else:
+					node.queue_free()
 	_columns.erase(col)
 	if entry.ready:
-		_dirty_chunks[_chunk_of_column(col)] = true
+		_dirty_chunks[chunk] = true
+
+
+var _retiring := {} ## chunk -> [ms de quando começou, nós das seções soltas...]
+
+
+## Solta os nós das colunas que saíram quando o buraco do chão daquele chunk já fechou.
+func _retire_nodes() -> void:
+	var now := Time.get_ticks_msec()
+	for chunk: Vector2i in _retiring.keys():
+		var list: Array = _retiring[chunk]
+		var waiting := _dirty_chunks.has(chunk) or terrain._rebuilds.has(chunk) or terrain._rebuild_again.has(chunk)
+		if waiting and now - int(list[0]) < 3000:
+			continue
+		for k in range(1, list.size()):
+			if is_instance_valid(list[k]):
+				list[k].queue_free()
+		_retiring.erase(chunk)
 
 
 func _chunk_of_column(col: Vector2i) -> Vector2i:
@@ -656,9 +684,136 @@ static func _apply_edits(d: PackedByteArray, list: Array) -> void:
 
 
 ## Troca um bloco e refaz as seções carregadas que o enxergam (chamado pelo host e pela rede).
+## Vários blocos de uma vez (esfera da picareta/pá): [[bloco, material], ...]. Cada seção
+## tocada refaz a malha uma vez só (19 blocos um a um seriam até ~150 malhas).
+func set_blocks(list: Array) -> void:
+	var per_sec := {}
+	var marked := []
+	for entry in list:
+		var b: Vector3i = entry[0]
+		var mat: int = entry[1]
+		edits[b] = mat
+		if _mark_foliage(b):
+			marked.append(Vector2i(b.x, b.z))
+		_hits.erase(b)
+		for sec: Vector3i in _sections_touching(b):
+			if not _edit_index.has(sec):
+				_edit_index[sec] = {}
+			_edit_index[sec][b] = true
+			if sections.has(sec):
+				if not per_sec.has(sec):
+					per_sec[sec] = []
+				per_sec[sec].append_array([_local(sec, b), mat])
+	for sec: Vector3i in per_sec:
+		var d: PackedByteArray = sections[sec]
+		_apply_edits(d, per_sec[sec])
+		sections[sec] = d
+		var entry: Dictionary = _columns.get(Vector2i(sec.x, sec.z), {})
+		if not entry.is_empty():
+			_show(sec, backend.build_mesh(d, entry.cols[2]))
+	_refresh_foliage(marked)
+
+
+# --- Grama e tufos em cima de blocos mexidos ------------------------------------------
+
+var _foliage_cols := {} ## coluna de 0,4 m (x, z) -> true: bloco cavado/posto perto do chão natural
+var _quiet := false ## carregando o save: refaz a grama uma vez só no fim
+var _foliage_chunks := {} ## chunk do chão de alturas -> true (tem coluna marcada)
+
+
+## Bloco mexido perto da superfície natural: a grama e os tufos dali somem (senão ficam
+## flutuando em cima do buraco ou atravessando o bloco posto). true = coluna nova.
+func _mark_foliage(b: Vector3i) -> bool:
+	var col := Vector2i(b.x, b.z)
+	if _foliage_cols.has(col) or terrain == null:
+		return false
+	var h := terrain._base_at((b.x + 0.5) * GRID, (b.z + 0.5) * GRID)
+	if b.y * GRID > h + 0.8 or (b.y + 1) * GRID < h - 1.6:
+		return false
+	_foliage_cols[col] = true
+	var p := (Vector2(col) + Vector2(0.5, 0.5)) * GRID
+	for d in [Vector2(-0.8, -0.8), Vector2(0.8, -0.8), Vector2(-0.8, 0.8), Vector2(0.8, 0.8)]:
+		var q: Vector2 = p + d
+		_foliage_chunks[Vector2i(floori(q.x / terrain.chunk_size), floori(q.y / terrain.chunk_size))] = true
+	return true
+
+
+## O chunk do chão de alturas tem bloco mexido (precisa esconder tufos ao montar)?
+func foliage_in_chunk(coord: Vector2i) -> bool:
+	return _foliage_chunks.has(coord)
+
+
+## Tem bloco mexido no ponto (ou nas colunas vizinhas)? Grama e tufos não nascem ali.
+func foliage_hidden(x: float, z: float) -> bool:
+	if _foliage_cols.is_empty():
+		return false
+	var bx := floori(x / GRID)
+	var bz := floori(z / GRID)
+	for dz in [-1, 0, 1]:
+		for dx in [-1, 0, 1]:
+			if _foliage_cols.has(Vector2i(bx + dx, bz + dz)):
+				return true
+	return false
+
+
+func _refresh_foliage(cols: Array) -> void:
+	if _quiet or cols.is_empty() or terrain == null:
+		return
+	var chunks := {}
+	for col: Vector2i in cols:
+		for d in [Vector2(-0.8, -0.8), Vector2(0.8, -0.8), Vector2(-0.8, 0.8), Vector2(0.8, 0.8)]:
+			var p: Vector2 = (Vector2(col) + Vector2(0.5, 0.5)) * GRID + d
+			chunks[Vector2i(floori(p.x / terrain.chunk_size), floori(p.y / terrain.chunk_size))] = true
+	for c: Vector2i in chunks:
+		var node: Node3D = terrain._chunks.get(c)
+		if is_instance_valid(node):
+			terrain._hide_foliage(node)
+	var seen := {}
+	for col: Vector2i in cols: # grama (GrassField) dos quadrados tocados
+		var key := Vector2i(floori(col.x / 8.0), floori(col.y / 8.0))
+		if not seen.has(key):
+			seen[key] = true
+			terrain.blocks_changed.emit(col)
+
+
+## Esfera de 3x3x3 blocos sem os 8 cantos (19): o que a picareta e a pá tiram por golpe.
+static func sphere_offsets() -> Array:
+	var out := []
+	for dy in [0, -1, 1]:
+		for dz in [-1, 0, 1]:
+			for dx in [-1, 0, 1]:
+				if dx * dx + dy * dy + dz * dz <= 2:
+					out.append(Vector3i(dx, dy, dz))
+	return out
+
+
+## Blocos que a esfera tira em volta de "center". Mirando numa construção sai só ela; a
+## esfera nunca come construção do jogador; rocha-mãe fica; com a pá o minério fica.
+func sphere_targets(center: Vector3i, shovel: bool) -> Array:
+	var cm := material_at(center)
+	if is_built(cm):
+		return [center]
+	var out := []
+	for off: Vector3i in sphere_offsets():
+		var b: Vector3i = center + off
+		var m := material_at(b)
+		if m <= VoxelRef.AIR or m == VoxelRef.BEDROCK or is_built(m) or not DROPS.has(m):
+			continue
+		if shovel and m in ORES:
+			continue
+		out.append(b)
+	return out
+
+
+func request_dig_sphere(center: Vector3i, shovel: bool) -> void:
+	Net.i.system_request(name, "dig_sphere", [center, shovel])
+
+
 func set_block(b: Vector3i, mat: int) -> void:
 	edits[b] = mat
 	_hits.erase(b)
+	if _mark_foliage(b):
+		_refresh_foliage([Vector2i(b.x, b.z)])
 	for sec: Vector3i in _sections_touching(b):
 		if not _edit_index.has(sec):
 			_edit_index[sec] = {}
@@ -725,6 +880,18 @@ func zombie_hit(b: Vector3i, power: int) -> bool:
 func host_apply(action: String, args: Array) -> Array:
 	var b: Vector3i = args[0]
 	var m := material_at(b)
+	if action == "dig_sphere":
+		var targets := sphere_targets(b, args[1])
+		if targets.is_empty():
+			return []
+		var list := []
+		var flat := []
+		for t: Vector3i in targets:
+			list.append([t, VoxelRef.AIR])
+			flat.append_array([t, VoxelRef.AIR])
+		set_blocks(list)
+		_edit_sound("dig", b)
+		return [b, flat]
 	match action:
 		"dig":
 			if m <= VoxelRef.AIR or m == VoxelRef.BEDROCK:
@@ -747,6 +914,14 @@ func host_apply(action: String, args: Array) -> Array:
 
 func apply_remote(action: String, args: Array) -> void:
 	if args.size() < 2:
+		return
+	if action == "dig_sphere":
+		var flat: Array = args[1]
+		var list := []
+		for k in range(0, flat.size(), 2):
+			list.append([flat[k], flat[k + 1]])
+		set_blocks(list)
+		_edit_sound("dig", args[0])
 		return
 	set_block(args[0], args[1])
 	_edit_sound(action, args[0])
@@ -779,8 +954,15 @@ func save_data() -> Dictionary:
 
 
 func load_data(data: Dictionary) -> void:
+	_quiet = true
 	for entry in data.get("edits", []):
 		set_block(entry[0], entry[1])
+	_quiet = false
+	if not _foliage_cols.is_empty() and terrain:
+		for node in terrain._chunks.values():
+			if is_instance_valid(node):
+				terrain._hide_foliage(node)
+		terrain.blocks_changed.emit(Vector2i(-2147483647, 0)) # toda a grama
 
 
 func net_sync_to(peer: int) -> void:
