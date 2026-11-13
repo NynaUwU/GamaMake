@@ -64,7 +64,12 @@ reação física a golpes e ragdoll (estilo Dying Light), visual de PC dos anos 
 - **Perfuratriz** (martelo, aba Vapor: 4 aço, 2 engrenagens, 1 eixo torneado, 6 parafusos, 4 tábuas): só em cima de
   uma jazida. Com força no eixo pela porta de latão (roda d'água, moinho, motor a vapor ou motor elétrico; carga 3)
   tira 1 minério a cada 5 s, guarda até 100; [E] pega tudo. Rede e save. Conquistas "Espeleólogo" e "Mina sem fim".
-- **Próximo**: água de 0,4 m escorrendo (mar fixo em volta da ilha).
+- **Água que escorre (blocos de 0,4 m, `scripts/world/voxel_water.gd`)**: lagos, rios e o mar continuam como
+  antes (o mar fica fixo em volta da ilha) e viram fonte sem fim. Cavando perto, a água sai deles: cai reto em
+  buraco, se espalha para os lados perdendo nível (até ~4,8 m no plano; descendo, vai longe), e um canal abaixo
+  do nível do lago enche até esse nível (vasos comunicantes). Dá para nadar nela; bloco posto tira a água dali.
+  Só anda perto de onde mexeram (o mundo não alaga sozinho), até 2 ms por passo (4 por segundo), teto de 20 mil
+  blocos. O host simula e manda as mudanças; vai no save (`test_voxel_water`, rede em `net_voxel_host/client`).
 
 ## Terreno em grade de 0,4 m, blocos de terra/pedra e paredes de pedra/taipa (rodada de feedback)
 - **Grade do chão = quadradinho da parede** (`TerrainWorld.GRID` = `BuildPiece.SEG` = 0,4 m). O chão é feito de

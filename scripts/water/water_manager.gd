@@ -121,6 +121,10 @@ func _set_lowpass(on: bool) -> void:
 
 ## Quantos metros abaixo da superfície está o ponto (negativo = fora d'água).
 func depth_at(pos: Vector3) -> float:
+	if VoxelWorld.i and VoxelWorld.i.water:
+		var flowing := VoxelWorld.i.water.depth_at(pos)
+		if flowing > -INF:
+			return flowing # água que escorreu (canal, buraco, caverna alagada)
 	if VoxelWorld.i and VoxelWorld.i.cave_at(pos):
 		return -INF # dentro de caverna: a água do lago/rio/mar fica lá em cima
 	var lake := Lakes.at(lakes(), pos.x, pos.z)

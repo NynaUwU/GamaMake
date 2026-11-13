@@ -92,9 +92,13 @@ func _init(terrain_: TerrainWorld = null, auto := true) -> void:
 		backend.set_entrances(terrain.cave_entrances) # bocas de caverna na superfície
 
 
+var water: VoxelWater ## água que escorre em blocos de 0,4 m (VoxelWater)
+
+
 func _ready() -> void:
 	i = self
 	add_to_group("persist")
+	water = VoxelWater.new(self)
 	if terrain:
 		_material = terrain._material
 
@@ -131,6 +135,10 @@ static func block_center(b: Vector3i) -> Vector3:
 
 static func _sec_of_block(b: Vector3i) -> Vector3i:
 	return Vector3i(floori(b.x / float(N)), floori(b.y / float(N)), floori(b.z / float(N)))
+
+
+static func section_of_block(b: Vector3i) -> Vector3i:
+	return _sec_of_block(b)
 
 
 ## Índice do bloco nos dados (com a borda) da seção, ou -1 se não cabe.
@@ -224,6 +232,7 @@ func _process_inner(delta: float) -> void:
 	var t1 := Time.get_ticks_usec()
 	_update_holes(1)
 	_retire_nodes()
+	water.process(delta)
 	stats.holes = maxf(stats.holes, (Time.get_ticks_usec() - t1) / 1000.0)
 	_check -= delta
 	if _check <= 0.0 and camera:
@@ -573,6 +582,8 @@ func _show(sec: Vector3i, mesh_arrays: Array) -> void:
 		node.add_child(body)
 		add_child(node)
 		_nodes[sec] = node
+		if water:
+			water.section_changed(sec) # a água guardada nesta seção volta a aparecer
 	(node.get_node("Mesh") as MeshInstance3D).mesh = mesh
 	(node.get_node("Body/Shape") as CollisionShape3D).shape = faces
 
@@ -584,6 +595,8 @@ func _drop_column(col: Vector2i) -> void:
 		for sy in range(entry.lo, entry.hi + 1):
 			var sec := Vector3i(col.x, sy, col.y)
 			sections.erase(sec)
+			if water:
+				water.section_changed(sec) # some a malha da água daqui (os dados ficam)
 			var node: Node3D = _nodes.get(sec)
 			if node:
 				_nodes.erase(sec)
@@ -702,6 +715,8 @@ func set_blocks(list: Array) -> void:
 		var b: Vector3i = entry[0]
 		var mat: int = entry[1]
 		edits[b] = mat
+		if water:
+			water.wake(b)
 		if _mark_foliage(b):
 			marked.append(Vector2i(b.x, b.z))
 		_hits.erase(b)
@@ -823,6 +838,8 @@ func request_dig_sphere(center: Vector3i, shovel: bool) -> void:
 func set_block(b: Vector3i, mat: int) -> void:
 	edits[b] = mat
 	_hits.erase(b)
+	if water:
+		water.wake(b) # a água em volta pode escorrer para o buraco (ou parar no bloco posto)
 	if _mark_foliage(b):
 		_refresh_foliage([Vector2i(b.x, b.z)])
 	for sec: Vector3i in _sections_touching(b):
@@ -890,6 +907,9 @@ func zombie_hit(b: Vector3i, power: int) -> bool:
 
 
 func host_apply(action: String, args: Array) -> Array:
+	if action == "water_sync":
+		# Só o próprio host manda (a simulação da água é dele): repassa para todos.
+		return args if Net.i.request_peer == Net.i.my_id() else []
 	var b: Vector3i = args[0]
 	var m := material_at(b)
 	if action == "dig_sphere":
@@ -927,6 +947,9 @@ func host_apply(action: String, args: Array) -> Array:
 func apply_remote(action: String, args: Array) -> void:
 	if args.size() < 2:
 		return
+	if action == "water_sync":
+		water.apply_changes(args[1])
+		return
 	if action == "dig_sphere":
 		var flat: Array = args[1]
 		var list := []
@@ -962,7 +985,7 @@ func save_data() -> Dictionary:
 	var list := []
 	for b: Vector3i in edits:
 		list.append([b, edits[b]])
-	return {"edits": list}
+	return {"edits": list, "water": water.save_list() if water else []}
 
 
 func load_data(data: Dictionary) -> void:
@@ -970,6 +993,8 @@ func load_data(data: Dictionary) -> void:
 	for entry in data.get("edits", []):
 		set_block(entry[0], entry[1])
 	_quiet = false
+	if water:
+		water.load_list(data.get("water", []))
 	if not _foliage_cols.is_empty() and terrain:
 		for node in terrain._chunks.values():
 			if is_instance_valid(node):

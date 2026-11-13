@@ -31,5 +31,6 @@ func _process(delta: float) -> bool:
 		for off: Vector3i in VoxelWorld.sphere_offsets():
 			air += 1 if vw.material_at(top + Vector3i(-6, -1, 0) + off) == VoxelRef.AIR else 0
 		print("CLIENT esfera cavada: %d de 19 blocos são ar" % air)
+		print("CLIENT água: fonte do host chegou? %s; %d blocos de água" % [vw.water.sources.has(top + Vector3i(-3, 1, 2)), vw.water.cells.size()])
 		quit()
 	return false
