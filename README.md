@@ -50,7 +50,8 @@ reação física a golpes e ragdoll (estilo Dying Light), visual de PC dos anos 
   `ConcavePolygonShape3D` levava 48 ms com o mesmo tamanho); só o quadrado de 1,6 m com bloco mexido vira 4×4
   blocos na malha.
 - Testes: `tests/test_terrain_grid.gd` (altura = colisão, rampas, save, chunk recarregado), `tests/test_terrain_blocks.gd`
-  (pá, terra na mão, pedra, zumbi), `tests/test_wall_materials.gd`. Fotos: `tests/shot_terrain.gd`.
+  (pá, terra na mão, pedra, zumbi), `tests/test_wall_materials.gd`; rede: `tests/net_terrain_host.gd` junto com
+  `tests/net_terrain_client.gd` (quem entra recebe os blocos; pedido do cliente vale no host e volta). Fotos: `tests/shot_terrain.gd`.
 
 ## Menu de gráficos (Esc → Gráficos e menu principal)
 - **Predefinições:** **Clássico (como antes)** = o visual de antes da atualização gráfica (cores lavadas, sem

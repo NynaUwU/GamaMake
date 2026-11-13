@@ -1389,6 +1389,8 @@ func _can_see_target() -> bool:
 
 
 func _flat_to_target() -> Vector3:
+	if not is_instance_valid(target):
+		return -global_basis.z # alvo sumiu (jogador saiu do servidor no meio do ataque): olha para frente
 	var v := target.global_position - global_position
 	v.y = 0.0
 	return v
