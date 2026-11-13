@@ -38,10 +38,48 @@ func setup(lake_: Dictionary, terrain_: TerrainWorld, index_ := 0, stock := {}) 
 	terrain = terrain_
 	index = index_
 	_rng.seed = lake.seed
-	_build_plants()
+	# Monta aos poucos (cada tipo de planta e cada bicho é um passo, até ~2 ms por quadro):
+	# tudo de uma vez levava 50-100 ms e travava o jogo ao chegar perto do lago.
+	var area: float = lake.radius * lake.radius
+	_steps = [
+		_kelp.bind(int(area / 22.0) + 6),
+		_reeds.bind(int(lake.radius * 1.4) + 6),
+		_lilies.bind(int(area / (60.0 if lake.kind == "lake" else 18.0)) + 3),
+		_rocks.bind(int(area / 120.0) + 3),
+		_motes,
+	]
 	for id in stock:
 		for k in stock[id]:
-			_spawn(id)
+			_steps.append(_spawn.bind(id))
+
+
+const BUILD_BUDGET_USEC := 2000
+var _steps: Array[Callable] = [] ## o que falta montar (plantas e bichos)
+static var _kelp_shader: Shader
+
+
+## Termina de montar na hora (testes).
+func finish() -> void:
+	while not _steps.is_empty():
+		_steps.pop_front().call()
+
+
+static var worst_step_ms := 0.0 ## medição (teste de andar rápido)
+static var worst_step_name := ""
+
+
+func _build_some() -> void:
+	var t0 := Time.get_ticks_usec()
+	while not _steps.is_empty():
+		var t := Time.get_ticks_usec()
+		var step: Callable = _steps.pop_front()
+		step.call()
+		var ms := (Time.get_ticks_usec() - t) / 1000.0
+		if ms > worst_step_ms:
+			worst_step_ms = ms
+			worst_step_name = step.get_method()
+		if Time.get_ticks_usec() - t0 > BUILD_BUDGET_USEC:
+			break
 
 
 ## Repovoou (a cada 5 dias): cria o que falta até o estoque.
@@ -98,6 +136,8 @@ func on_caught(creature: Creature) -> void:
 
 
 func _process(delta: float) -> void:
+	if not _steps.is_empty():
+		_build_some()
 	var player: Node3D = get_parent().get_parent().get("player")
 	var ppos := player.global_position if player else Vector3(1e9, 0, 0)
 	for c in creatures:
@@ -150,15 +190,6 @@ func _process(delta: float) -> void:
 
 # --- Plantas ---------------------------------------------------------------------
 
-func _build_plants() -> void:
-	var area: float = lake.radius * lake.radius
-	_kelp(int(area / 22.0) + 6)
-	_reeds(int(lake.radius * 1.4) + 6)
-	_lilies(int(area / (60.0 if lake.kind == "lake" else 18.0)) + 3)
-	_rocks(int(area / 120.0) + 3)
-	_motes()
-
-
 func _multimesh(mesh: Mesh, transforms: Array, colors: Array = []) -> void:
 	if transforms.is_empty():
 		return
@@ -185,9 +216,10 @@ func _kelp(count: int) -> void:
 		mb.box(Vector3(0.03 * (k % 2), 0.25 + k * 0.5, 0), Vector3(0.12 - k * 0.01, 0.5, 0.03))
 		mb.box(Vector3(0.08, 0.35 + k * 0.5, 0), Vector3(0.12, 0.05, 0.02), Basis(Vector3.BACK, -0.6)) # folhinha
 	var material := ShaderMaterial.new()
-	var shader := Shader.new()
-	shader.code = KELP_SHADER
-	material.shader = shader
+	if _kelp_shader == null:
+		_kelp_shader = Shader.new() # um só para todos os lagos (não recompila)
+		_kelp_shader.code = KELP_SHADER
+	material.shader = _kelp_shader
 	var mesh := mb.finish(null, false)
 	mesh.surface_set_material(0, material)
 	var transforms := []

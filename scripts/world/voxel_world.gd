@@ -26,6 +26,9 @@ const NEAR := 40.0 ## raio com voxels a pé
 const CAR_NEAR := 28.0 ## no carro (anda rápido: menos coisa para gerar)
 const DEEP := 26.0 ## colunas até essa distância ganham as seções de baixo (cavernas)
 const MAX_TASKS := 12
+const SHOW_BUDGET_USEC := 4000 ## criar malha + colisão das seções prontas: até 4 ms por quadro
+const LOOKAHEAD := 1.3 ## segundos à frente: gera adiantado onde o jogador vai estar
+const LOOKAHEAD_MAX := 32.0
 const NO_BLOCK := Vector3i(-2147483647, 0, 0)
 const BOTTOM_SECTION := -10 ## y -64 m: abaixo da rocha-mãe
 
@@ -65,6 +68,9 @@ var _imported := false
 var _check := 0.0
 ## Pior tempo (ms) de cada parte num quadro, para testes de desempenho.
 var stats := {"add": 0.0, "collect": 0.0, "holes": 0.0, "drop": 0.0}
+var last_ms := 0.0 ## quanto o _process deste quadro levou
+var _scan_timer := 0.0
+var _last_scan_col := Vector2i(-99999, -99999)
 
 
 func _init(terrain_: TerrainWorld = null, auto := true) -> void:
@@ -166,8 +172,14 @@ static func is_voxel_body(collider: Object) -> bool:
 # --- Geração em volta do jogador -----------------------------------------------------------
 
 func _process(delta: float) -> void:
+	var t_start := Time.get_ticks_usec()
+	_process_inner(delta)
+	last_ms = (Time.get_ticks_usec() - t_start) / 1000.0
+
+
+func _process_inner(delta: float) -> void:
 	var t0 := Time.get_ticks_usec()
-	_collect(8)
+	_collect(1000, SHOW_BUDGET_USEC)
 	stats.collect = maxf(stats.collect, (Time.get_ticks_usec() - t0) / 1000.0)
 	if not active or terrain == null:
 		return
@@ -178,7 +190,26 @@ func _process(delta: float) -> void:
 	var player := get_tree().get_first_node_in_group("player") as Node3D
 	var center: Vector3 = player.global_position if player else (camera.global_position if camera else Vector3.ZERO)
 	var in_car: bool = player != null and player.get("vehicle") != null
-	update_around(center, CAR_NEAR if in_car else NEAR, 6)
+	# Buffer à frente: também gera em volta de onde o jogador vai estar daqui a ~1 s.
+	var vel := Vector3.ZERO
+	if in_car:
+		vel = (player.get("vehicle") as RigidBody3D).linear_velocity
+	elif player is CharacterBody3D:
+		vel = (player as CharacterBody3D).velocity
+	vel.y = 0.0
+	var ahead := center + vel.limit_length(LOOKAHEAD_MAX / LOOKAHEAD) * LOOKAHEAD
+	var tu := Time.get_ticks_usec()
+	# Varredura (quais colunas querer, quais soltar, ordem da fila) a cada 0,2 s ou quando o
+	# jogador muda de coluna; nos outros quadros só põe tarefas nas threads.
+	_scan_timer -= delta
+	var here := Vector2i(floori(center.x / SECTION), floori(center.z / SECTION))
+	if _scan_timer <= 0.0 or here != _last_scan_col:
+		_scan_timer = 0.2
+		_last_scan_col = here
+		update_around(center, CAR_NEAR if in_car else NEAR, 6, ahead)
+	else:
+		_pump()
+	stats["update_around"] = maxf(stats.get("update_around", 0.0), (Time.get_ticks_usec() - tu) / 1000.0)
 	var t1 := Time.get_ticks_usec()
 	_update_holes(1)
 	stats.holes = maxf(stats.holes, (Time.get_ticks_usec() - t1) / 1000.0)
@@ -191,22 +222,25 @@ func _process(delta: float) -> void:
 
 ## Pede as colunas de seções num raio (budget: colunas novas por chamada; < 0 = todas e
 ## espera ficar pronto, para testes e para o começo).
-func update_around(center: Vector3, radius: float, budget := -1) -> void:
+func update_around(center: Vector3, radius: float, budget := -1, ahead := Vector3.INF) -> void:
 	var c := Vector2(center.x, center.z)
-	var reach := int(ceil(radius / SECTION)) + 1
+	var a := Vector2(ahead.x, ahead.z) if ahead != Vector3.INF else c
+	var reach := int(ceil((radius + c.distance_to(a)) / SECTION)) + 1
 	var here := Vector2i(floori(center.x / SECTION), floori(center.z / SECTION))
 	var wanted := []
 	for dz in range(-reach, reach + 1):
 		for dx in range(-reach, reach + 1):
 			var col := here + Vector2i(dx, dz)
-			var dist := ((Vector2(col) + Vector2(0.5, 0.5)) * SECTION).distance_to(c)
-			if dist <= radius:
-				wanted.append([dist, col])
-	wanted.sort_custom(func(a, b): return a[0] < b[0])
+			var mid := (Vector2(col) + Vector2(0.5, 0.5)) * SECTION
+			var dist := mid.distance_to(c)
+			# Em volta do jogador, ou em volta do ponto à frente (um pouco menor).
+			if dist <= radius or mid.distance_to(a) <= radius * 0.75:
+				wanted.append([minf(dist, mid.distance_to(a) + 6.0), col, dist])
+	wanted.sort_custom(func(x, y): return x[0] < y[0])
 	var made := 0
 	for w in wanted:
 		var col: Vector2i = w[1]
-		var deep: float = center.y - 16.0 if w[0] <= DEEP else INF
+		var deep: float = center.y - 16.0 if w[2] <= DEEP else INF
 		if not _columns.has(col):
 			if budget >= 0 and made >= budget:
 				continue
@@ -218,13 +252,16 @@ func update_around(center: Vector3, radius: float, budget := -1) -> void:
 			_extend_down(col, deep)
 	# Longe demais (com folga): solta (tarefas em andamento terminam e são descartadas).
 	for col: Vector2i in _columns.keys():
-		if ((Vector2(col) + Vector2(0.5, 0.5)) * SECTION).distance_to(c) > radius + SECTION * 1.5:
+		var mid := (Vector2(col) + Vector2(0.5, 0.5)) * SECTION
+		if mid.distance_to(c) > radius + SECTION * 1.5 and mid.distance_to(a) > radius * 0.75 + SECTION * 1.5:
 			var t0 := Time.get_ticks_usec()
 			_drop_column(col)
 			stats.drop = maxf(stats.drop, (Time.get_ticks_usec() - t0) / 1000.0)
 	# O que está mais perto do jogador sai primeiro (teleporte, renascer, carro rápido).
 	if _waiting.size() > 1:
-		_waiting.sort_custom(func(a, b): return _job_dist(a, c) < _job_dist(b, c))
+		for job: Dictionary in _waiting:
+			job.d = _job_dist(job, c)
+		_waiting.sort_custom(func(x, y): return x.d < y.d)
 	_pump()
 	if budget < 0:
 		while _running() > 0 or not _waiting.is_empty() or not _to_show.is_empty():
@@ -316,7 +353,7 @@ func _add_column(col: Vector2i, deep: float) -> bool:
 	if lat.is_empty():
 		return false # o chunk do terreno ainda não foi gerado: tenta depois
 	_gen += 1
-	_columns[col] = {"cols": [], "lo": 0, "hi": -1, "pending": 0, "ready": false, "gen": _gen}
+	_columns[col] = {"cols": [], "lo": 0, "hi": -1, "pending": 0, "ready": false, "gen": _gen, "t_req": Time.get_ticks_usec()}
 	var edit_lists := {}
 	for sec: Vector3i in _edit_index:
 		if sec.x == col.x and sec.z == col.y:
@@ -345,6 +382,17 @@ func _running() -> int:
 	return _column_tasks.size() + _tasks.size()
 
 
+## Prioridade das tarefas de streaming. As pesadas (chunks do chão de alturas, grama, casas)
+## vão em prioridade baixa: o Godot as deixa em no máximo 75% das threads (project.godot,
+## low_priority_thread_ratio), então sempre sobra um núcleo. Com tudo em alta, as 4 threads de
+## um PC de 4 núcleos ocupavam tudo e a thread principal perdia a vez por alguns ms em qualquer
+## parte do quadro (travadas de ~30-40 ms).
+const STREAM_PRIORITY := false
+## As colunas de voxel são curtas (~2 ms de thread) e poucas: vão em alta, usando o núcleo que
+## sobra. Na fila baixa esperavam ~0,7 s (até 4 s) atrás dos chunks pesados.
+const VOXEL_PRIORITY := true
+
+
 ## Põe trabalhos nas threads (no máximo MAX_TASKS de uma vez: andando rápido, o que ficou
 ## para trás é descartado antes de começar).
 func _pump() -> void:
@@ -359,7 +407,7 @@ func _pump() -> void:
 				later.append(job) # a tarefa de antes (coluna solta e pedida de novo) ainda roda
 				continue
 			_column_tasks[job.col] = WorkerThreadPool.add_task(
-				_work_column.bind(job.col, job.lat, terrain._lat_q(), job.edits, job.deep, job.gen), true)
+				_work_column.bind(job.col, job.lat, terrain._lat_q(), job.edits, job.deep, job.gen), VOXEL_PRIORITY)
 		else:
 			var sec: Vector3i = job.sec
 			var entry: Dictionary = _columns.get(Vector2i(sec.x, sec.z), {})
@@ -369,12 +417,13 @@ func _pump() -> void:
 				later.append(job)
 				continue
 			var cols: Array = entry.cols
-			_tasks[sec] = WorkerThreadPool.add_task(_work.bind(sec, cols[0], cols[1], cols[2], _edit_list(sec), job.gen), true)
+			_tasks[sec] = WorkerThreadPool.add_task(_work.bind(sec, cols[0], cols[1], cols[2], _edit_list(sec), job.gen), VOXEL_PRIORITY)
 	_waiting.append_array(later)
 
 
 ## Thread: alturas da coluna, faixa de seções (superfície e, perto, o subsolo) e cada seção.
 func _work_column(col: Vector2i, lat: Dictionary, q: int, edit_lists: Dictionary, deep: float, gen: int) -> void:
+	var t_start := Time.get_ticks_usec()
 	var cols := _columns_from_lattice(col.x, col.y, lat, q)
 	var h_min := INF
 	var h_max := -INF
@@ -394,7 +443,8 @@ func _work_column(col: Vector2i, lat: Dictionary, q: int, edit_lists: Dictionary
 		_apply_edits(d, edit_lists.get(sec, []))
 		made[sec] = [d, backend.build_mesh(d, cols[2])]
 	_mutex.lock()
-	_column_results[col] = {"cols": cols, "lo": lo, "hi": hi, "sections": made, "gen": gen}
+	_column_results[col] = {"cols": cols, "lo": lo, "hi": hi, "sections": made, "gen": gen,
+		"t_start": t_start, "t_end": Time.get_ticks_usec()}
 	_mutex.unlock()
 
 
@@ -408,8 +458,10 @@ func _work(sec: Vector3i, heights: PackedFloat32Array, soil: PackedByteArray, co
 	_mutex.unlock()
 
 
-## Recolhe o que as threads terminaram e cria até "budget" seções; devolve quantas.
-func _collect(budget: int) -> int:
+## Recolhe o que as threads terminaram e cria até "budget" seções (e até budget_usec de
+## tempo, se dado); devolve quantas.
+func _collect(budget: int, budget_usec := 0) -> int:
+	var t0 := Time.get_ticks_usec()
 	for col: Vector2i in _column_tasks.keys():
 		if not WorkerThreadPool.is_task_completed(_column_tasks[col]):
 			continue
@@ -423,6 +475,14 @@ func _collect(budget: int) -> int:
 		if r.is_empty() or entry.is_empty() or entry.gen != r.gen:
 			continue # a coluna foi solta enquanto a thread trabalhava
 		entry.cols = r.cols
+		# Medição: espera na fila das threads, tempo de thread e do pedido até chegar aqui.
+		var thread_ms: float = (r.t_end - r.t_start) / 1000.0
+		var queue_ms: float = (r.t_start - entry.t_req) / 1000.0
+		stats.thread_max = maxf(stats.get("thread_max", 0.0), thread_ms)
+		stats.thread_sum = stats.get("thread_sum", 0.0) + thread_ms
+		stats.queue_max = maxf(stats.get("queue_max", 0.0), queue_ms)
+		stats.queue_sum = stats.get("queue_sum", 0.0) + queue_ms
+		stats.columns_done = stats.get("columns_done", 0) + 1
 		entry.lo = mini(entry.lo, r.lo) if entry.hi >= entry.lo else r.lo
 		entry.hi = r.hi
 		entry.pending += r.sections.size()
@@ -441,6 +501,8 @@ func _collect(budget: int) -> int:
 			_to_show.append([sec, r[0], r[1], r[2]])
 	var made := 0
 	while not _to_show.is_empty() and made < budget:
+		if budget_usec > 0 and made > 0 and Time.get_ticks_usec() - t0 > budget_usec:
+			break # o resto fica para o próximo quadro
 		var item: Array = _to_show.pop_front()
 		var sec: Vector3i = item[0]
 		var entry: Dictionary = _columns.get(Vector2i(sec.x, sec.z), {})

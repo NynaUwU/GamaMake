@@ -21,6 +21,7 @@ func _init() -> void:
 	var water: WaterManager = main.get_node("Water")
 	print("nadando=", player.swimming, " debaixo d'água=", water.underwater, " y-nível=", snappedf(player.global_position.y - lake.level, 0.01), " vida do lago=", water._lives.size())
 	var life: LakeLife = water._lives.values()[0]
+	life.finish()
 	var kinds := {}
 	for cr in life.creatures:
 		kinds[cr.id] = kinds.get(cr.id, 0) + 1

@@ -204,6 +204,10 @@ journal={
 
 3d/physics_engine="Jolt Physics"
 
+[threading]
+
+worker_pool/low_priority_thread_ratio=0.75
+
 [rendering]
 
 

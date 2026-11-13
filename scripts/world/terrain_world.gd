@@ -128,6 +128,7 @@ func _ready() -> void:
 	Contamination.zones = zones
 	_material = _make_material()
 	_props = TerrainProps.new()
+	TerrainProps.warm_up()
 	_player = get_node_or_null(player_path)
 	if _player:
 		# Gera o entorno de uma vez antes de começar (o resto vem aos poucos).
@@ -449,8 +450,30 @@ func _town_mask(x: float, z: float) -> float:
 
 # --- Chunks ------------------------------------------------------------------
 
-func _process(_delta: float) -> void:
+var last_ms := 0.0 ## quanto o _process deste quadro levou (testes de desempenho)
+
+
+func _process(delta: float) -> void:
+	var t0 := Time.get_ticks_usec()
+	_process_inner(delta)
+	last_ms = (Time.get_ticks_usec() - t0) / 1000.0
+
+
+var prof := {} ## pior tempo (ms) de cada parte num quadro (testes de desempenho)
+
+
+func _prof(key: String, t0: int) -> int:
+	var now := Time.get_ticks_usec()
+	prof[key] = maxf(prof.get(key, 0.0), (now - t0) / 1000.0)
+	return now
+
+
+func _process_inner(_delta: float) -> void:
+	var t := Time.get_ticks_usec()
 	_collect_rebuilds()
+	t = _prof("refazer chão (buraco)", t)
+	_run_prop_jobs(PROPS_BUDGET_USEC)
+	t = _prof("plantas", t)
 	if _player == null:
 		_player = get_tree().get_first_node_in_group("player")
 		if _player == null:
@@ -518,13 +541,13 @@ func _stream(wanted: Array, keep: Dictionary, budget: int) -> void:
 			_results.erase(coord)
 			_mutex.unlock()
 			if keep.has(coord) and not _chunks.has(coord) and not data.is_empty():
-				_finish(coord, data)
+				_finish(coord, data, false)
 				created += 1
 	# Pede os que faltam (os mais perto primeiro).
 	for coord in wanted:
 		if not _chunks.has(coord) and not _tasks.has(coord) and _tasks.size() < 10:
-			# Alta prioridade: tarefas comuns dividem só ~30% das threads (o mapa ocupava tudo).
-			_tasks[coord] = WorkerThreadPool.add_task(_threaded_generate.bind(coord, _snapshot(coord)), true)
+			# Prioridade baixa (até 75% das threads, project.godot): sobra um núcleo para o jogo.
+			_tasks[coord] = WorkerThreadPool.add_task(_threaded_generate.bind(coord, _snapshot(coord)), VoxelWorld.STREAM_PRIORITY)
 
 
 func _threaded_generate(coord: Vector2i, snap: Dictionary) -> void:
@@ -700,7 +723,8 @@ func _surface_data(coord: Vector2i, heights: PackedFloat32Array, colors: PackedC
 		uvs.resize(w[0])
 		_skirts(holes, per_hole, q, n, heights, colors, origin, vertices, normals, vertex_colors, uvs)
 	return {"vertices": vertices, "normals": normals, "colors": vertex_colors, "uvs": uvs,
-		"edited": not off.is_empty() or not mats.is_empty() or hole_quads > 0}
+		"edited": not off.is_empty() or not mats.is_empty() or hole_quads > 0,
+		"blocks_edited": not off.is_empty() or not mats.is_empty(), "holes": holes}
 
 
 ## Saia na borda entre o chão de alturas e a área de voxels: tira de 0,4 m para baixo dos
@@ -793,8 +817,11 @@ func _collect_rebuilds() -> void:
 		var chunk: Node3D = _chunks.get(coord)
 		var lat: Array = _lattice.get(coord, [])
 		if not data.is_empty() and is_instance_valid(chunk) and not lat.is_empty():
+			var t := Time.get_ticks_usec()
 			_apply_surface(chunk, data, lat[0])
+			t = _prof("  malha+colisão do chão", t)
 			_hide_foliage(chunk)
+			_prof("  esconder tufos", t)
 		if _rebuild_again.has(coord):
 			_rebuild_again.erase(coord)
 			_queue_rebuild(coord)
@@ -830,7 +857,28 @@ static func _quad(pos: Array, cols: Array, origin: Vector2, vertices: PackedVect
 
 
 ## Parte leve (thread principal): cria malha, colisão e enfeites.
-func _finish(coord: Vector2i, data: Dictionary) -> Node3D:
+const PROPS_BUDGET_USEC := 3000 ## plantas de chunk novo: no máximo 3 ms por quadro
+var _prop_jobs := [] ## [coord, trabalho] de plantas ainda sendo montadas
+
+
+## Monta as plantas pendentes dos chunks novos dentro do orçamento do quadro (o mais
+## perto do jogador primeiro).
+func _run_prop_jobs(budget_usec: int) -> void:
+	var t0 := Time.get_ticks_usec()
+	while not _prop_jobs.is_empty():
+		var left := budget_usec - (Time.get_ticks_usec() - t0)
+		if left <= 0:
+			return
+		var entry: Array = _prop_jobs[0]
+		if _props.apply_step(entry[1], left):
+			_prop_jobs.pop_front()
+			if is_instance_valid(entry[1].chunk) and _chunk_cols.has(entry[0]):
+				_hide_foliage(entry[1].chunk)
+
+
+## sync = true: monta tudo agora (começo do jogo, testes); senão o chão aparece já e as
+## plantas entram aos poucos (_run_prop_jobs).
+func _finish(coord: Vector2i, data: Dictionary, sync := true) -> Node3D:
 	var origin := Vector2(coord) * chunk_size
 	var chunk := Node3D.new()
 	chunk.name = "Chunk_%d_%d" % [coord.x, coord.y]
@@ -849,21 +897,29 @@ func _finish(coord: Vector2i, data: Dictionary) -> Node3D:
 	body.add_child(shape)
 	chunk.add_child(body)
 	_lattice[coord] = [data.lat_h, data.lat_c]
-	var surface := data
-	if int(data.get("ver", 0)) != int(_chunk_ver.get(coord, 0)):
-		# Cavaram/puseram bloco enquanto a thread trabalhava: refaz o chão com o atual.
-		surface = _surface_data(coord, data.lat_h, data.lat_c, _snapshot(coord))
-	_apply_surface(chunk, surface, data.lat_h)
-	_props.apply(data.props, chunk, body)
-	if _chunk_cols.has(coord):
-		_hide_foliage(chunk)
+	_apply_surface(chunk, data, data.lat_h)
 	_chunks[coord] = chunk
+	if int(data.get("ver", 0)) != int(_chunk_ver.get(coord, 0)):
+		# Cavaram/puseram bloco (ou os voxels abriram buraco) enquanto a thread trabalhava:
+		# refaz o chão com o atual, também em thread.
+		if sync:
+			_apply_surface(chunk, _surface_data(coord, data.lat_h, data.lat_c, _snapshot(coord)), data.lat_h)
+		else:
+			_queue_rebuild(coord)
+	if sync:
+		_props.apply(data.props, chunk, body)
+		if _chunk_cols.has(coord):
+			_hide_foliage(chunk)
+	else:
+		_prop_jobs.append([coord, _props.make_job(data.props, chunk, body)])
 	chunk_loaded.emit(coord)
 	return chunk
 
 
 ## Põe a malha e a colisão do chão no chunk. Sem blocos mexidos a colisão é um
-## HeightMapShape3D da grade de 1,6 m (leve); com blocos, os próprios triângulos.
+## HeightMapShape3D da grade de 1,6 m (leve); com blocos (versão de colunas), os próprios
+## triângulos. Com só "buracos" dos voxels: 100 pedacinhos de HeightMapShape3D (um por coluna
+## de 6,4 m) que só ligam/desligam quando o buraco muda (refazer a colisão inteira levava 16 ms).
 func _apply_surface(chunk: Node3D, data: Dictionary, heights: PackedFloat32Array) -> void:
 	var arrays := []
 	arrays.resize(Mesh.ARRAY_MAX)
@@ -875,25 +931,73 @@ func _apply_surface(chunk: Node3D, data: Dictionary, heights: PackedFloat32Array
 	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
 	(chunk.get_node("Ground") as MeshInstance3D).mesh = mesh
 	var shape := chunk.get_node("Body/GroundShape") as CollisionShape3D
-	if data.edited:
+	var holes: PackedByteArray = data.get("holes", PackedByteArray())
+	if data.get("blocks_edited", false):
+		_set_pieces(chunk, PackedByteArray(), heights, false)
 		var faces := ConcavePolygonShape3D.new()
 		faces.set_faces(data.vertices)
 		shape.shape = faces
 		shape.position = Vector3.ZERO
 		shape.scale = Vector3.ONE
+		shape.disabled = false
+	elif not holes.is_empty():
+		shape.disabled = true
+		_set_pieces(chunk, holes, heights, true)
 	else:
-		var n := _lat_q() + 1
-		var map := HeightMapShape3D.new()
-		map.map_width = n
-		map.map_depth = n
-		var scaled := PackedFloat32Array()
-		scaled.resize(n * n)
-		for k in n * n:
-			scaled[k] = heights[k] / STEP
-		map.map_data = scaled
-		shape.shape = map
-		shape.scale = Vector3.ONE * STEP
-		shape.position = Vector3(chunk_size * 0.5, 0.0, chunk_size * 0.5)
+		_set_pieces(chunk, PackedByteArray(), heights, false)
+		if not shape.shape is HeightMapShape3D:
+			var n := _lat_q() + 1
+			var map := HeightMapShape3D.new()
+			map.map_width = n
+			map.map_depth = n
+			var scaled := PackedFloat32Array()
+			scaled.resize(n * n)
+			for k in n * n:
+				scaled[k] = heights[k] / STEP
+			map.map_data = scaled
+			shape.shape = map
+			shape.scale = Vector3.ONE * STEP
+			shape.position = Vector3(chunk_size * 0.5, 0.0, chunk_size * 0.5)
+		shape.disabled = false
+
+
+## Colisão do chão em pedacinhos de 6,4 m (5 x 5 pontos da grade): ligados fora dos buracos.
+func _set_pieces(chunk: Node3D, holes: PackedByteArray, heights: PackedFloat32Array, on: bool) -> void:
+	var body := chunk.get_node("Body") as StaticBody3D
+	var holder := body.get_node_or_null("Pieces")
+	if not on:
+		if holder:
+			for piece in holder.get_children():
+				(piece as CollisionShape3D).disabled = true
+		return
+	var q := _lat_q()
+	var per := 4 # quadrados de 1,6 m por coluna
+	var cols := q / per
+	if holder == null:
+		holder = Node3D.new()
+		holder.name = "Pieces"
+		body.add_child(holder)
+		var n := q + 1
+		for cj in cols:
+			for ci in cols:
+				var map := HeightMapShape3D.new()
+				map.map_width = per + 1
+				map.map_depth = per + 1
+				var data := PackedFloat32Array()
+				data.resize((per + 1) * (per + 1))
+				for j in per + 1:
+					for i in per + 1:
+						data[j * (per + 1) + i] = heights[(cj * per + j) * n + ci * per + i] / STEP
+				map.map_data = data
+				var piece := CollisionShape3D.new()
+				piece.shape = map
+				piece.scale = Vector3.ONE * STEP
+				piece.position = Vector3((ci + 0.5) * per * STEP, 0.0, (cj + 0.5) * per * STEP)
+				holder.add_child(piece)
+	var k := 0
+	for piece in holder.get_children():
+		(piece as CollisionShape3D).disabled = holes[k] != 0
+		k += 1
 
 
 ## Para o mapa: cor do chão e altura no ponto (seguro de chamar em thread).

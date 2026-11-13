@@ -65,53 +65,89 @@ func plan(world: TerrainWorld, coord: Vector2i, origin: Vector2) -> Dictionary:
 
 ## Parte leve (thread principal): cria MultiMeshes, colisões e frutas.
 func apply(data: Dictionary, chunk: Node3D, body: StaticBody3D) -> void:
-	var multimeshes := {}
-	for i in data.fruits.size():
-		var pos: Vector3 = data.fruits[i]
-		var fruit: PickupItem = PICKUP_SCENE.instantiate()
-		fruit.item_id = &"fruta"
-		fruit.net_key = "%s_f%d" % [chunk.name, i] # igual em todos os jogadores
-		fruit.freeze = true # fica presa no galho até alguém pegar
-		chunk.add_child(fruit)
-		fruit.position = pos
-	var placed: Dictionary = data.placed
-	for kind in placed:
-		var foliage: bool = kind in FOLIAGE
-		var multimesh := MultiMesh.new()
-		multimesh.transform_format = MultiMesh.TRANSFORM_3D
-		multimesh.use_colors = foliage
-		multimesh.mesh = _foliage_mesh(kind) if foliage else _mesh(kind)
-		multimesh.instance_count = placed[kind].size()
-		for i in placed[kind].size():
-			if foliage:
-				multimesh.set_instance_transform(i, placed[kind][i][0])
-				multimesh.set_instance_color(i, placed[kind][i][1])
-			else:
-				multimesh.set_instance_transform(i, placed[kind][i])
-		multimeshes[kind] = multimesh
-		var instance := MultiMeshInstance3D.new()
-		instance.multimesh = multimesh
-		if foliage:
-			instance.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF # grama não suja de sombra
-			# Posições originais: o terreno esconde os tufos de cima de bloco cavado/posto.
-			instance.set_meta("foliage", placed[kind].map(func(e): return e[0]))
-		chunk.add_child(instance)
-	# Árvores, rochas e veios viram ResourceNode (derrubar/minerar); o resto só colide.
-	for ci in data.collisions.size():
-		var c: Array = data.collisions[ci]
-		if not (c[0] in ResourceNode.TREES or c[0] in ResourceNode.STONES):
-			_add_collision(body, c[0], c[1], c[2])
-			continue
-		var node := ResourceNode.new()
-		node.setup("%s_r%d" % [chunk.name, ci], c[0], multimeshes.get(c[0]), c[3], c[2])
-		node.position = c[1]
-		chunk.add_child(node)
-		if Net.i.taken.has(node.key):
-			node.gone(false) # já derrubada/quebrada neste mundo
-		if c[0] in ResourceNode.STONES:
-			_loose_stones(chunk, ci, c[1], c[2])
-		else:
-			_loose_items(chunk, ci, c[1], c[2], &"graveto", 0.4, 1, 2) # gravetos caídos em volta de algumas árvores
+	var job := make_job(data, chunk, body)
+	while not apply_step(job, 1 << 40):
+		pass
+
+
+## Trabalho de montar as plantas de um chunk aos poucos (ver apply_step).
+func make_job(data: Dictionary, chunk: Node3D, body: StaticBody3D) -> Dictionary:
+	return {"data": data, "chunk": chunk, "body": body, "stage": 0, "i": 0, "kinds": (data.placed as Dictionary).keys(), "multimeshes": {}}
+
+
+## Monta um pedaço das plantas/pedras/itens do chunk, até gastar budget_usec; true = terminou.
+## Assim um chunk novo lá longe aparece primeiro só com o chão e as árvores entram nos
+## quadros seguintes (montar tudo de uma vez levava 13-21 ms e travava andando rápido).
+func apply_step(job: Dictionary, budget_usec: int) -> bool:
+	if not is_instance_valid(job.chunk):
+		return true # o chunk foi solto antes de terminar
+	var chunk: Node3D = job.chunk
+	var data: Dictionary = job.data
+	var body: StaticBody3D = job.body
+	var t0 := Time.get_ticks_usec()
+	while Time.get_ticks_usec() - t0 < budget_usec:
+		match job.stage:
+			0: # frutas nas árvores
+				if job.i >= data.fruits.size():
+					job.stage = 1
+					job.i = 0
+					continue
+				var pos: Vector3 = data.fruits[job.i]
+				var fruit: PickupItem = PICKUP_SCENE.instantiate()
+				fruit.item_id = &"fruta"
+				fruit.net_key = "%s_f%d" % [chunk.name, job.i] # igual em todos os jogadores
+				fruit.freeze = true # fica presa no galho até alguém pegar
+				chunk.add_child(fruit)
+				fruit.position = pos
+				job.i += 1
+			1: # um MultiMesh por tipo (árvores, rochas, grama)
+				if job.i >= job.kinds.size():
+					job.stage = 2
+					job.i = 0
+					continue
+				var kind: String = job.kinds[job.i]
+				var list: Array = data.placed[kind]
+				var foliage: bool = kind in FOLIAGE
+				var multimesh := MultiMesh.new()
+				multimesh.transform_format = MultiMesh.TRANSFORM_3D
+				multimesh.use_colors = foliage
+				multimesh.mesh = _foliage_mesh(kind) if foliage else _mesh(kind)
+				multimesh.instance_count = list.size()
+				for k in list.size():
+					if foliage:
+						multimesh.set_instance_transform(k, list[k][0])
+						multimesh.set_instance_color(k, list[k][1])
+					else:
+						multimesh.set_instance_transform(k, list[k])
+				job.multimeshes[kind] = multimesh
+				var instance := MultiMeshInstance3D.new()
+				instance.multimesh = multimesh
+				if foliage:
+					instance.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF # grama não suja de sombra
+					# Posições originais: o terreno esconde os tufos de cima de bloco cavado/posto.
+					instance.set_meta("foliage", list.map(func(e): return e[0]))
+				chunk.add_child(instance)
+				job.i += 1
+			2: # árvores, rochas e veios viram ResourceNode (derrubar/minerar); o resto só colide
+				if job.i >= data.collisions.size():
+					return true
+				var ci: int = job.i
+				job.i += 1
+				var c: Array = data.collisions[ci]
+				if not (c[0] in ResourceNode.TREES or c[0] in ResourceNode.STONES):
+					_add_collision(body, c[0], c[1], c[2])
+					continue
+				var node := ResourceNode.new()
+				node.setup("%s_r%d" % [chunk.name, ci], c[0], job.multimeshes.get(c[0]), c[3], c[2])
+				node.position = c[1]
+				chunk.add_child(node)
+				if Net.i.taken.has(node.key):
+					node.gone(false) # já derrubada/quebrada neste mundo
+				if c[0] in ResourceNode.STONES:
+					_loose_stones(chunk, ci, c[1], c[2])
+				else:
+					_loose_items(chunk, ci, c[1], c[2], &"graveto", 0.4, 1, 2) # gravetos caídos em volta de algumas árvores
+	return false
 
 
 ## Pedras soltas no chão em volta de rochas e veios (dá para pegar com [E]
@@ -226,6 +262,16 @@ func _add_collision(body: StaticBody3D, kind: String, local: Vector3, scale: flo
 
 
 # --- Modelos (montados uma vez) -------------------------------------------------
+
+## Monta antes os modelos de todas as plantas/rochas (o primeiro de cada tipo levava ~15 ms
+## e travava o jogo na hora em que aparecia lá longe).
+static func warm_up() -> void:
+	for kind in ["tree", "bush", "crooked_tree", "fruit_tree", "giant_tree", "pine", "cactus_a", "cactus_b", "cactus_c",
+			"dead_bush", "rock", "ore_iron", "ore_copper", "ore_coal", "ore_tin", "ore_sulfur"]:
+		_mesh(kind)
+	for kind in FOLIAGE:
+		_foliage_mesh(kind)
+
 
 static func _mesh(kind: String) -> Mesh:
 	if _meshes.has(kind):

@@ -48,7 +48,7 @@ func _process(delta: float) -> void:
 		var city: Dictionary = _terrain.cities[index]
 		while entry.queued < city.lots.size() and _house_tasks.size() < 24:
 			var lot: Dictionary = city.lots[entry.queued]
-			_house_tasks.append([index, entry.queued, WorkerThreadPool.add_task(_build_house_task.bind(index, entry.queued, lot), true)])
+			_house_tasks.append([index, entry.queued, WorkerThreadPool.add_task(_build_house_task.bind(index, entry.queued, lot), VoxelWorld.STREAM_PRIORITY)])
 			entry.queued += 1
 	for task in _house_tasks.duplicate():
 		if budget <= 0:

@@ -64,7 +64,16 @@ func apply_quality() -> void:
 	_raw.clear()
 
 
+var last_ms := 0.0
+
+
 func _process(delta: float) -> void:
+	var t0 := Time.get_ticks_usec()
+	_process_inner(delta)
+	last_ms = (Time.get_ticks_usec() - t0) / 1000.0
+
+
+func _process_inner(delta: float) -> void:
 	if terrain == null or _radius <= 0.0:
 		return
 	_collect()
@@ -103,7 +112,7 @@ func _process(delta: float) -> void:
 			continue
 		if _tasks.size() >= MAX_TASKS:
 			break
-		_tasks[coord] = WorkerThreadPool.add_task(_generate.bind(coord, _density, _generation), true)
+		_tasks[coord] = WorkerThreadPool.add_task(_generate.bind(coord, _density, _generation), VoxelWorld.STREAM_PRIORITY)
 
 
 ## Recolhe o que as threads terminaram (até 2 quadrados por quadro).
