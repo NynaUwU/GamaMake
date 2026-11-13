@@ -1,0 +1,13 @@
+#!/usr/bin/env python
+# Extensão C++ do APIO (terreno em voxels). Ver native/README.md.
+#   scons platform=windows use_mingw=yes target=template_debug   (Windows, de Linux)
+#   scons platform=windows target=template_release              (no próprio Windows)
+#   scons platform=linux target=template_debug
+import os
+
+godot_cpp = os.environ.get("GODOT_CPP", "godot-cpp")
+env = SConscript(os.path.join(godot_cpp, "SConstruct"))
+env.Append(CPPPATH=["src/"])
+sources = Glob("src/*.cpp")
+library = env.SharedLibrary("../bin/libapio_voxel{}{}".format(env["suffix"], env["SHLIBSUFFIX"]), source=sources)
+Default(library)

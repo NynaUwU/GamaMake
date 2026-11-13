@@ -23,6 +23,18 @@ reação física a golpes e ragdoll (estilo Dying Light), visual de PC dos anos 
 - Os outros jogadores aparecem com o nome em cima, o item da mão, a lanterna acesa e uma bolinha
   azul no minimapa/mapa. Em cima, no meio da tela, aparece quem está online.
 
+## Branch `terreno-voxel`: terreno em voxels 3D (fase 1, protótipo)
+- Matriz 3D de blocos de 0,4 m em seções de 16³ (6,4 m), estilo Minecraft na memória (só dados; malha só
+  onde tem superfície) e com **rampas** na tela (Surface Nets facetado), não cubos.
+- Gera a partir das alturas de hoje (a superfície fica igual), mais **cavernas** (túneis e salões, ~4% do
+  subsolo), **veios de minério** (carvão, ferro, cobre, estanho, enxofre por profundidade, ~2,5% da pedra) e
+  **rocha-mãe a 60 m abaixo do nível do mar**.
+- Núcleo em C++ (`native/`, ver `native/README.md`) e a mesma conta em GDScript (`scripts/world/voxel_ref.gd`):
+  os dois dão o mesmo mundo bloco a bloco. C++: 0,2 ms para encher e 0,13 ms para a malha de uma seção;
+  GDScript: 43 ms e 12 ms.
+- Fotos: `tests/shot_voxel.gd`. Próximas fases: trocar o terreno perto do jogador por voxels, cavar/construir
+  em 3D, jazidas infinitas + perfuratriz, água de 0,4 m escorrendo.
+
 ## Terreno em grade de 0,4 m, blocos de terra/pedra e paredes de pedra/taipa (rodada de feedback)
 - **Grade do chão = quadradinho da parede** (`TerrainWorld.GRID` = `BuildPiece.SEG` = 0,4 m). O chão é feito de
   colunas de 0,4 m; a altura natural é gerada a cada 4 colunas (1,6 m) e entre esses pontos o chão são
