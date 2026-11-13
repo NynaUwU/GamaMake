@@ -1124,6 +1124,8 @@ static func is_build_hit(hit: Dictionary, direction := Vector3.ZERO) -> bool:
 		return false
 	if is_build(hit.collider):
 		return true
+	if VoxelWorld.i and VoxelWorld.is_voxel_body(hit.collider):
+		return VoxelWorld.i.built_near(hit.position - hit.normal * 0.2, direction) != VoxelWorld.NO_BLOCK
 	return TerrainWorld.i != null and TerrainWorld.is_ground(hit.collider) \
 		and TerrainWorld.is_column(TerrainWorld.i.built_near(hit.position - hit.normal * 0.05, direction))
 
@@ -1310,6 +1312,15 @@ func _damage_wall() -> void:
 			var placed := hit.collider.get_parent() as PlacedManager
 			if placed:
 				placed.request("fence_hit", [hit.collider.net_id, wall_power])
+			return
+		if VoxelWorld.i and VoxelWorld.is_voxel_body(hit.collider):
+			# Bloco de voxel posto pelo jogador: quebra um por vez. Chão natural não.
+			var vb := VoxelWorld.i.built_near(hit.position - hit.normal * 0.2, direction)
+			if vb == VoxelWorld.NO_BLOCK:
+				continue
+			Sfx.play_at("knock", hit.position, 3.0, 0.55)
+			if VoxelWorld.i.zombie_hit(vb, wall_power):
+				Sfx.play_at("crunch", hit.position, 5.0, 0.6)
 			return
 		if TerrainWorld.is_ground(hit.collider) and TerrainWorld.i:
 			# Bloco de terra/pedra que o jogador pôs: quebra um por vez (o de cima).

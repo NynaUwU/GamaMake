@@ -23,17 +23,32 @@ reação física a golpes e ragdoll (estilo Dying Light), visual de PC dos anos 
 - Os outros jogadores aparecem com o nome em cima, o item da mão, a lanterna acesa e uma bolinha
   azul no minimapa/mapa. Em cima, no meio da tela, aparece quem está online.
 
-## Branch `terreno-voxel`: terreno em voxels 3D (fase 1, protótipo)
-- Matriz 3D de blocos de 0,4 m em seções de 16³ (6,4 m), estilo Minecraft na memória (só dados; malha só
-  onde tem superfície) e com **rampas** na tela (Surface Nets facetado), não cubos.
-- Gera a partir das alturas de hoje (a superfície fica igual), mais **cavernas** (túneis e salões, ~4% do
-  subsolo), **veios de minério** (carvão, ferro, cobre, estanho, enxofre por profundidade, ~2,5% da pedra) e
-  **rocha-mãe a 60 m abaixo do nível do mar**.
-- Núcleo em C++ (`native/`, ver `native/README.md`) e a mesma conta em GDScript (`scripts/world/voxel_ref.gd`):
-  os dois dão o mesmo mundo bloco a bloco. C++: 0,2 ms para encher e 0,13 ms para a malha de uma seção;
-  GDScript: 43 ms e 12 ms.
-- Fotos: `tests/shot_voxel.gd`. Próximas fases: trocar o terreno perto do jogador por voxels, cavar/construir
-  em 3D, jazidas infinitas + perfuratriz, água de 0,4 m escorrendo.
+## Branch `terreno-voxel`: terreno em voxels 3D (fases 1 e 2)
+- **Matriz 3D de blocos de 0,4 m** em seções de 16³ (6,4 m), estilo Minecraft na memória (só dados; malha só onde
+  tem superfície) e com **rampas** na tela (Surface Nets facetado), não cubos.
+- **Gerado a partir das alturas de hoje** (a superfície fica igual), mais **cavernas** (túneis e salões, ~4% do
+  subsolo), **veios de minério** (carvão e ferro em cima, cobre no meio, estanho e enxofre fundo; ~2,5% da pedra)
+  e **rocha-mãe a 60 m abaixo do nível do mar**.
+- **C++ (extensão `bin/apio_voxel.gdextension`)**: DLL para Windows e .so para Linux, já compilados em `bin/`
+  (código em `native/`, ver `native/README.md`). A mesma conta em GDScript (`scripts/world/voxel_ref.gd`) dá o
+  mesmo mundo bloco a bloco; o C++ é ~90x mais rápido. Sem a extensão (outro sistema) o jogo fica com o chão de
+  alturas da versão anterior.
+- **No jogo (fase 2, `scripts/world/voxel_world.gd`)**: num raio de **40 m** (28 m de carro) o chão é de voxels,
+  gerado em threads (124 colunas / 443 seções em 0,18 s); mais longe continua o chão de alturas com um "buraco"
+  onde os voxels assumem (com saia na emenda). Colunas a até 26 m ganham também o subsolo (cavernas); descendo,
+  elas vão mais fundo. Andando de carro a 72 km/h: 60 fps na média, pior quadro ~60 ms.
+- **Cavar em 3D**: pá e picareta tiram o bloco mirado (para baixo, para o lado, para cima). Terra/areia com a pá;
+  pedra com a pá leva 3 golpes; **minério só com a picareta** (sai minério de ferro, cobre, estanho, carvão ou
+  enxofre). Rocha-mãe não sai.
+- **Construir com blocos**: terra, pedra (2) ou areia na mão + clique põe um bloco onde se mira (em 3D). Bloco
+  posto é **construção**: zumbi enxerga e quebra (terra 3 golpes, pedra 8, areia 2); chão natural não.
+- **Caverna**: dentro dela a neblina escurece e encurta e a luz do céu quase some; a barreira do fundo do mundo
+  não puxa mais o jogador de volta para cima; água de lago/rio/mar não vale lá embaixo.
+- **Save e multiplayer**: as edições (bloco -> material) vão no save e na rede (o host decide; quem entra recebe).
+  Os blocos da versão anterior (colunas) viram edições 3D ao abrir o save.
+- Testes: `test_voxel_native` (C++ x GDScript), `test_voxel_world` (andar, cavar, construir, zumbi, caverna,
+  save), `test_voxel_stream` (gerar andando rápido), `net_voxel_host` + `net_voxel_client`. Fotos: `shot_voxel`.
+- Próximo: jazidas infinitas + perfuratriz, água de 0,4 m escorrendo (mar fixo).
 
 ## Terreno em grade de 0,4 m, blocos de terra/pedra e paredes de pedra/taipa (rodada de feedback)
 - **Grade do chão = quadradinho da parede** (`TerrainWorld.GRID` = `BuildPiece.SEG` = 0,4 m). O chão é feito de

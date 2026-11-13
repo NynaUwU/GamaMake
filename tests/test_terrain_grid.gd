@@ -43,6 +43,7 @@ func _compare(label: String, center: Vector2, radius: float, count: int) -> void
 
 
 func _init() -> void:
+	VoxelWorld.enabled = false # testa o chão de alturas (colunas de 0,4 m), sem a área de voxels
 	SaveGame.start_new()
 	change_scene_to_file("res://scenes/main.tscn")
 	for k in 30:

@@ -132,7 +132,9 @@ func _apply() -> void:
 		_sky.set_shader_parameter("cloud_cover", lerpf(0.34, 0.92, wet))
 		_sky.set_shader_parameter("cloud_color", Color(0.96, 0.95, 0.93).lerp(Color(0.48, 0.5, 0.53), wet))
 	if _env:
-		_env.ambient_light_energy = palette.ambient
+		# Dentro de caverna (VoxelWorld) a luz do céu quase não chega.
+		var cave := VoxelWorld.i.cave_factor if VoxelWorld.i else 0.0
+		_env.ambient_light_energy = palette.ambient * (1.0 - 0.9 * cave)
 		_env.ambient_light_color = palette.horizon.lerp(Color(0.5, 0.5, 0.5), 0.4)
 	if _sun:
 		# Sol nasce no leste (6h), passa alto ao meio-dia e se põe no oeste (18h+).

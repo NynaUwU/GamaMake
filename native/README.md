@@ -18,7 +18,8 @@ superfície é desenhada com rampas (Surface Nets, faces retas), não com cubos.
 Precisa de git, scons, g++ e mingw-w64. Baixa o godot-cpp oficial (tag `godot-4.5-stable`,
 funciona no Godot 4.7) em `native/godot-cpp` (fora do git), compila
 `bin/libapio_voxel.{windows,linux}.template_{debug,release}.x86_64.{dll,so}` e copia
-`bin/apio_voxel.gdextension`. Sem os binários o jogo usa a versão GDScript (bem mais lenta).
+`bin/apio_voxel.gdextension`. Os binários já vão no repositório (Windows e Linux, debug e release); só
+precisa recompilar quando mudar algo em `native/src`. Sem eles o jogo fica sem a área de voxels.
 
 ## Medir sem o Godot
 

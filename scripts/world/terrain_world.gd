@@ -235,6 +235,27 @@ func _lattice_h(gi: int, gj: int, main: bool) -> float:
 	return _height_from(x, z, biome_at(x, z))
 
 
+## Cor do chão natural no ponto (a mesma da malha), para os voxels.
+func base_color_at(x: float, z: float) -> Color:
+	var gx := x / STEP
+	var gz := z / STEP
+	var gi := floori(gx)
+	var gj := floori(gz)
+	return _tri_color(_lattice_c(gi, gj), _lattice_c(gi + 1, gj), _lattice_c(gi, gj + 1), _lattice_c(gi + 1, gj + 1), gx - gi, gz - gj)
+
+
+func _lattice_c(gi: int, gj: int) -> Color:
+	var q := _lat_q()
+	var coord := Vector2i(floori(float(gi) / q), floori(float(gj) / q))
+	var lat: Array = _lattice.get(coord, [])
+	if not lat.is_empty():
+		return (lat[1] as PackedColorArray)[(gj - coord.y * q) * (q + 1) + gi - coord.x * q]
+	var x := gi * STEP
+	var z := gj * STEP
+	var biome := biome_at(x, z)
+	return _color_for(x, z, _height_from(x, z, biome), biome)
+
+
 ## Triângulos da grade (diagonal do canto (1,0) ao (0,1), a mesma do HeightMapShape3D).
 static func tri_lerp(h00: float, h10: float, h01: float, h11: float, u: float, v: float) -> float:
 	if u + v <= 1.0:
@@ -429,6 +450,7 @@ func _town_mask(x: float, z: float) -> float:
 # --- Chunks ------------------------------------------------------------------
 
 func _process(_delta: float) -> void:
+	_collect_rebuilds()
 	if _player == null:
 		_player = get_tree().get_first_node_in_group("player")
 		if _player == null:
@@ -515,6 +537,9 @@ func _threaded_generate(coord: Vector2i, snap: Dictionary) -> void:
 func _exit_tree() -> void:
 	if i == self:
 		i = null
+	for coord in _rebuilds:
+		WorkerThreadPool.wait_for_task_completion(_rebuilds[coord])
+	_rebuilds.clear()
 	for coord in _tasks:
 		WorkerThreadPool.wait_for_task_completion(_tasks[coord])
 	_tasks.clear()
@@ -580,6 +605,9 @@ func _surface_data(coord: Vector2i, heights: PackedFloat32Array, colors: PackedC
 	var off: Dictionary = snap.get("off", {})
 	var corner_mat: Dictionary = snap.get("cmat", {})
 	var mats: Dictionary = snap.get("mat", {})
+	# Colunas de 6,4 m que viraram voxels (VoxelWorld): sem chão de alturas ali.
+	var holes: PackedByteArray = snap.get("holes", PackedByteArray())
+	var per_hole := 4 # quadrados de 1,6 m por coluna de voxel (6,4 m)
 	var fine := PackedByteArray()
 	fine.resize(q * q)
 	var fine_count := 0
@@ -595,7 +623,16 @@ func _surface_data(coord: Vector2i, heights: PackedFloat32Array, colors: PackedC
 			if fine[k] == 0:
 				fine[k] = 1
 				fine_count += 1
-	var total := ((q * q - fine_count) + fine_count * LAT * LAT) * 6
+	var hole_quads := 0
+	if not holes.is_empty():
+		for j in q:
+			for i in q:
+				if holes[(j / per_hole) * (q / per_hole) + i / per_hole] != 0:
+					hole_quads += 1
+					if fine[j * q + i] != 0:
+						fine[j * q + i] = 0
+						fine_count -= 1
+	var total := ((q * q - fine_count - hole_quads) + fine_count * LAT * LAT) * 6
 	var vertices := PackedVector3Array()
 	vertices.resize(total)
 	var normals := PackedVector3Array()
@@ -621,6 +658,8 @@ func _surface_data(coord: Vector2i, heights: PackedFloat32Array, colors: PackedC
 			var c11 := colors[k0 + n + 1].lerp(COLOR_ROCK, rock)
 			var x0 := i * STEP
 			var z0 := j * STEP
+			if not holes.is_empty() and holes[(j / per_hole) * (q / per_hole) + i / per_hole] != 0:
+				continue # coluna de voxel: o chão é desenhado pelo VoxelWorld
 			if fine[j * q + i] == 0:
 				var pos := [Vector3(x0, h00, z0), Vector3(x0 + STEP, h10, z0), Vector3(x0, h01, z0 + STEP), Vector3(x0 + STEP, h11, z0 + STEP)]
 				var cols := [c00, c10, c01, c11]
@@ -654,7 +693,111 @@ func _surface_data(coord: Vector2i, heights: PackedFloat32Array, colors: PackedC
 						for k in 4:
 							cols[k] = (cols[k] as Color).lerp(tint, amount)
 					_quad(pos, cols, origin, vertices, normals, vertex_colors, uvs, w)
-	return {"vertices": vertices, "normals": normals, "colors": vertex_colors, "uvs": uvs, "edited": not off.is_empty() or not mats.is_empty()}
+	if hole_quads > 0:
+		vertices.resize(w[0])
+		normals.resize(w[0])
+		vertex_colors.resize(w[0])
+		uvs.resize(w[0])
+		_skirts(holes, per_hole, q, n, heights, colors, origin, vertices, normals, vertex_colors, uvs)
+	return {"vertices": vertices, "normals": normals, "colors": vertex_colors, "uvs": uvs,
+		"edited": not off.is_empty() or not mats.is_empty() or hole_quads > 0}
+
+
+## Saia na borda entre o chão de alturas e a área de voxels: tira de 0,4 m para baixo dos
+## dois lados (a malha dos voxels emenda na mesma linha, mas pode ficar 1-2 cm acima ou abaixo).
+func _skirts(holes: PackedByteArray, per_hole: int, q: int, n: int, heights: PackedFloat32Array, colors: PackedColorArray,
+		origin: Vector2, vertices: PackedVector3Array, normals: PackedVector3Array, vertex_colors: PackedColorArray, uvs: PackedVector2Array) -> void:
+	var cols := q / per_hole
+	var hole := func(ci: int, cj: int) -> bool:
+		return ci >= 0 and cj >= 0 and ci < cols and cj < cols and holes[cj * cols + ci] != 0
+	var w := [vertices.size()]
+	for cj in cols:
+		for ci in cols:
+			if not hole.call(ci, cj):
+				continue
+			# Bordas desta coluna de voxel que dão para chão de alturas (ou para fora do chunk).
+			for side in [Vector2i(-1, 0), Vector2i(1, 0), Vector2i(0, -1), Vector2i(0, 1)]:
+				if hole.call(ci + side.x, cj + side.y):
+					continue
+				for k in per_hole:
+					var a: Vector2i
+					var b: Vector2i
+					if side.x != 0:
+						var gx := ci * per_hole + (per_hole if side.x > 0 else 0)
+						a = Vector2i(gx, cj * per_hole + k)
+						b = Vector2i(gx, cj * per_hole + k + 1)
+					else:
+						var gz := cj * per_hole + (per_hole if side.y > 0 else 0)
+						a = Vector2i(ci * per_hole + k, gz)
+						b = Vector2i(ci * per_hole + k + 1, gz)
+					var pa := Vector3(a.x * STEP, heights[a.y * n + a.x], a.y * STEP)
+					var pb := Vector3(b.x * STEP, heights[b.y * n + b.x], b.y * STEP)
+					var down := Vector3.DOWN * 0.4
+					var cols4 := [colors[a.y * n + a.x], colors[b.y * n + b.x], colors[a.y * n + a.x], colors[b.y * n + b.x]]
+					for flip in 2:
+						var pos := [pa, pb, pa + down, pb + down] if flip == 0 else [pb, pa, pb + down, pa + down]
+						var grow: int = w[0] + 6
+						vertices.resize(grow)
+						normals.resize(grow)
+						vertex_colors.resize(grow)
+						uvs.resize(grow)
+						_quad(pos, cols4, origin, vertices, normals, vertex_colors, uvs, w)
+
+
+## Colunas de 6,4 m do chunk que viraram voxels (10 x 10; 1 = buraco no chão de alturas).
+var _holes := {} # Vector2i chunk -> PackedByteArray
+
+
+func set_voxel_holes(coord: Vector2i, holes: PackedByteArray) -> void:
+	if holes.count(1) == 0:
+		_holes.erase(coord)
+	else:
+		_holes[coord] = holes
+	_chunk_ver[coord] = int(_chunk_ver.get(coord, 0)) + 1
+	_queue_rebuild(coord)
+
+
+# Refazer o chão de um chunk em thread (buracos dos voxels mudam o tempo todo andando).
+var _rebuilds := {} # Vector2i -> id da tarefa
+var _rebuild_results := {}
+var _rebuild_again := {}
+
+
+func _queue_rebuild(coord: Vector2i) -> void:
+	if _rebuilds.has(coord):
+		_rebuild_again[coord] = true # termina a atual e refaz com o mais novo
+		return
+	var lat: Array = _lattice.get(coord, [])
+	if lat.is_empty() or not is_instance_valid(_chunks.get(coord)):
+		return
+	_rebuilds[coord] = WorkerThreadPool.add_task(_rebuild_task.bind(coord, lat[0], lat[1], _snapshot(coord)), true)
+
+
+func _rebuild_task(coord: Vector2i, heights: PackedFloat32Array, colors: PackedColorArray, snap: Dictionary) -> void:
+	var data := _surface_data(coord, heights, colors, snap)
+	_mutex.lock()
+	_rebuild_results[coord] = data
+	_mutex.unlock()
+
+
+func _collect_rebuilds() -> void:
+	for coord: Vector2i in _rebuilds.keys():
+		if not WorkerThreadPool.is_task_completed(_rebuilds[coord]):
+			continue
+		WorkerThreadPool.wait_for_task_completion(_rebuilds[coord])
+		_rebuilds.erase(coord)
+		_mutex.lock()
+		var data: Dictionary = _rebuild_results.get(coord, {})
+		_rebuild_results.erase(coord)
+		_mutex.unlock()
+		var chunk: Node3D = _chunks.get(coord)
+		var lat: Array = _lattice.get(coord, [])
+		if not data.is_empty() and is_instance_valid(chunk) and not lat.is_empty():
+			_apply_surface(chunk, data, lat[0])
+			_hide_foliage(chunk)
+		if _rebuild_again.has(coord):
+			_rebuild_again.erase(coord)
+			_queue_rebuild(coord)
 
 
 ## Quadrados de 1,6 m que usam o canto "c" (índice de canto de 0,4 m no chunk).
@@ -896,6 +1039,8 @@ func _chunks_of(col: Vector2i) -> Array:
 func _snapshot(coord: Vector2i) -> Dictionary:
 	var cols: Dictionary = _chunk_cols.get(coord, {})
 	var snap := {"ver": int(_chunk_ver.get(coord, 0))}
+	if _holes.has(coord):
+		snap.holes = _holes[coord]
 	if cols.is_empty():
 		return snap
 	var cq := _cols_q()

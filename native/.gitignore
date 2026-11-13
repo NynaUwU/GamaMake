@@ -1,4 +1,4 @@
-godot-cpp/
+godot-cpp
 .sconsign*.dblite
 *.o
 *.os

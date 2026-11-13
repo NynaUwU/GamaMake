@@ -14,7 +14,7 @@ extends Node
 ## e sai da lista. Item que cai onde o terreno ainda não tem colisão (longe de todo
 ## mundo) fica congelado até o pedaço de chão aparecer.
 
-const FLOOR_Y := -60.0 ## abaixo do fundo do mar mais fundo
+const FLOOR_Y := -66.0 ## abaixo da rocha-mãe (61 m abaixo do mar) e do fundo do mar
 const UNDER := 4.0 ## metros abaixo do terreno = atravessou o chão
 const LIFT := 1.2
 const STILL_TIME := 15.0 ## parado esse tempo: o item vira estático
@@ -93,6 +93,10 @@ static func surface_at(terrain: TerrainWorld, x: float, z: float) -> float:
 static func fell(terrain: TerrainWorld, at: Vector3) -> bool:
 	if at.y < FLOOR_Y:
 		return true
+	# Área de voxels: abaixo do chão é normal (caverna, buraco cavado); só conta se ficou
+	# dentro de bloco cheio.
+	if VoxelWorld.i and VoxelWorld.i.covers(at):
+		return VoxelWorld.i.solid_at(at + Vector3.UP * 0.5) == 1
 	return terrain != null and at.y < terrain.height_at(at.x, at.z) - UNDER
 
 

@@ -28,6 +28,8 @@ static func aim(player: Player) -> Dictionary:
 	var forward := -player.camera.global_basis.z
 	var query := PhysicsRayQueryParameters3D.create(from, from + forward * REACH, Player.MASK_AIM, [player.get_rid()])
 	var hit := player.get_world_3d().direct_space_state.intersect_ray(query)
+	if not hit.is_empty() and VoxelWorld.i and VoxelWorld.is_voxel_body(hit.collider):
+		return _aim_voxel(hit, forward)
 	if hit.is_empty() or not TerrainWorld.is_ground(hit.collider):
 		return {}
 	var body := hit.collider as CollisionObject3D
@@ -46,6 +48,30 @@ static func aim(player: Player) -> Dictionary:
 	return {"dig": dig, "place": place, "point": point, "normal": normal}
 
 
+## Mira no chão de voxel: o bloco cheio logo atrás da superfície (cavar) e o vazio logo na
+## frente dela (pôr), em 3D (dá para cavar de lado e para cima).
+static func _aim_voxel(hit: Dictionary, forward: Vector3) -> Dictionary:
+	var vw := VoxelWorld.i
+	var point: Vector3 = hit.position
+	var normal: Vector3 = hit.normal
+	var dig := VoxelWorld.NO_BLOCK
+	for depth in [0.1, 0.3, 0.5, 0.7]:
+		for dir in [-normal, forward]:
+			var b := VoxelWorld.block_of(point + (dir as Vector3) * depth)
+			if vw.material_at(b) > VoxelRef.AIR:
+				dig = b
+				break
+		if dig != VoxelWorld.NO_BLOCK:
+			break
+	var place := VoxelWorld.NO_BLOCK
+	for dist in [0.15, 0.35, 0.55]:
+		var b := VoxelWorld.block_of(point + normal * dist)
+		if vw.material_at(b) == VoxelRef.AIR:
+			place = b
+			break
+	return {"voxel": true, "dig": dig, "place": place, "point": point, "normal": normal}
+
+
 static func is_block_item(id: StringName) -> bool:
 	return TerrainWorld.ITEM_MAT.has(id)
 
@@ -60,6 +86,8 @@ static func dig(player: Player) -> bool:
 	var target := aim(player)
 	if terrain == null or target.is_empty():
 		return false
+	if target.get("voxel", false):
+		return _dig_voxel(player, target)
 	var col: Vector2i = target.dig
 	var mat := terrain.dig_result(col)
 	if mat == TerrainWorld.Mat.NATURAL:
@@ -86,6 +114,37 @@ static func dig(player: Player) -> bool:
 	return true
 
 
+## Cava um bloco de voxel: terra/areia com a pá num golpe; pedra com a pá 3 golpes e com a
+## picareta 1; minério só com a picareta. Bloco posto devolve o que custou.
+static func _dig_voxel(player: Player, target: Dictionary) -> bool:
+	var vw := VoxelWorld.i
+	var b: Vector3i = target.dig
+	var res := vw.dig_result(b) if b != VoxelWorld.NO_BLOCK else {}
+	if res.is_empty():
+		Sfx.play_at("knock", target.point, 0.0, 0.5) # rocha-mãe: não sai
+		return false
+	var shovel := player._weapon_type == Player.WeaponType.SHOVEL
+	if res.ore and shovel:
+		Sfx.play_at("knock", target.point, 0.0, 0.6) # minério: só a picareta tira
+		return true
+	var need := 1
+	if res.hard and shovel:
+		need = 3
+	elif not res.hard and not shovel:
+		need = 2
+	var done: int = int(_progress.get(b, 0)) + 1
+	if done < need:
+		_progress = {b: done}
+		Sfx.play_at("knock" if res.hard else "step_soft", target.point, 2.0, 0.7)
+		return true
+	_progress.clear()
+	vw.request_dig(b)
+	var item: StringName = res.item
+	player.pick_up(item, ItemDB.display_name(item), res.amount)
+	_dust(player, target.point, VoxelRef.COLORS.get(res.material, Color(0.4, 0.3, 0.2)))
+	return true
+
+
 ## Terra/areia/pedra na mão + clique no chão: põe um bloco. true = pôs (ou tentou:
 ## o clique não vira soco).
 static func place(player: Player) -> bool:
@@ -94,6 +153,8 @@ static func place(player: Player) -> bool:
 	var target := aim(player)
 	if terrain == null or target.is_empty() or not is_block_item(id):
 		return false
+	if target.get("voxel", false):
+		return _place_voxel(player, target, id)
 	var col: Vector2i = target.place
 	var mat: int = TerrainWorld.ITEM_MAT[id]
 	var cost: int = TerrainWorld.MAT_COST[mat]
@@ -111,6 +172,38 @@ static func place(player: Player) -> bool:
 	terrain.request_place(col, mat)
 	_dust(player, target.point, TerrainWorld.MAT_COLORS[mat])
 	return true
+
+
+static func _place_voxel(player: Player, target: Dictionary, id: StringName) -> bool:
+	var vw := VoxelWorld.i
+	var b: Vector3i = target.place
+	var mat: int = VoxelWorld.ITEM_BLOCK[id]
+	var cost: int = VoxelWorld.BLOCK_COST[mat]
+	if b == VoxelWorld.NO_BLOCK or vw.material_at(b) != VoxelRef.AIR or _blocked_3d(player, b):
+		Sfx.play("click", -6.0, 0.6)
+		return true
+	if not Builder.can_afford(player.inventory, {id: cost}):
+		Sfx.play("click", -6.0, 0.6)
+		return true
+	if not Cheats.creative:
+		var got: int = player.inventory.take(player.inventory.selected, cost).get("amount", 0)
+		if got < cost:
+			Builder.pay(player.inventory, {id: cost - got})
+	vw.request_place(b, mat)
+	_dust(player, target.point, VoxelRef.COLORS.get(mat, Color(0.4, 0.3, 0.2)))
+	return true
+
+
+## Alguém (jogador, outro jogador, zumbi) ocupa o bloco: ficaria preso dentro dele.
+static func _blocked_3d(player: Player, b: Vector3i) -> bool:
+	var c := VoxelWorld.block_center(b)
+	for body in player.get_tree().get_nodes_in_group("player") + player.get_tree().get_nodes_in_group("remote_player") \
+			+ player.get_tree().get_nodes_in_group("enemy"):
+		if body is Node3D:
+			var p: Vector3 = body.global_position
+			if Vector2(p.x - c.x, p.z - c.z).length() < 0.6 and c.y > p.y - 0.3 and c.y < p.y + 2.0:
+				return true
+	return false
 
 
 ## Jogador (ou outro jogador/zumbi) em pé na coluna: o bloco o empurraria para dentro do chão.
@@ -176,6 +269,16 @@ static func update_cursor(player: Player) -> void:
 		_cursor.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		player.get_parent().add_child(_cursor)
 	var terrain := TerrainWorld.i
+	if target.get("voxel", false):
+		var b: Vector3i = target.dig if mode == "dig" else target.place
+		if b == VoxelWorld.NO_BLOCK:
+			_cursor.visible = false
+			return
+		_cursor.global_position = VoxelWorld.block_center(b)
+		var ok_v := not VoxelWorld.i.dig_result(b).is_empty() if mode == "dig" else VoxelWorld.i.material_at(b) == VoxelRef.AIR
+		_cursor_mat.albedo_color = (Color(1.0, 0.45, 0.3, 0.9) if mode == "dig" else Color(0.5, 1.0, 0.45, 0.9)) if ok_v else Color(0.6, 0.6, 0.6, 0.5)
+		_cursor.visible = true
+		return
 	var col: Vector2i = target.dig if mode == "dig" else target.place
 	var top := terrain.column_top(col)
 	var y := top - TerrainWorld.GRID * 0.5 if mode == "dig" else top + TerrainWorld.GRID * 0.5

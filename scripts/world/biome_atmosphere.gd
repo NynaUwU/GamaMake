@@ -93,6 +93,12 @@ func _apply(t: float) -> void:
 		var deep := WaterManager.i.under_depth
 		target = {"end": lerpf(34.0, 18.0, deep), "begin": 1.0, "color": Color(0.22, 0.48, 0.48).darkened(deep * 0.25), "snow": 0.0}
 		t = 1.0
+	elif VoxelWorld.i and VoxelWorld.i.cave_factor > 0.0:
+		# Caverna: neblina escura e curta (a luz do céu não chega lá embaixo).
+		var cave := VoxelWorld.i.cave_factor
+		target = {"end": lerpf(target.end, 32.0, cave), "begin": lerpf(target.begin, 3.0, cave),
+			"color": (target.color as Color).lerp(Color(0.02, 0.02, 0.025), cave), "snow": target.snow * (1.0 - cave)}
+		t = maxf(t, 0.25)
 	_environment.fog_depth_end = lerpf(_environment.fog_depth_end, target.end, t)
 	_environment.fog_depth_begin = lerpf(_environment.fog_depth_begin, target.begin, t)
 	var tint: Color = DayNight.i.fog_tint if DayNight.i else Color.WHITE

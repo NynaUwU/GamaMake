@@ -65,6 +65,9 @@ func _ready() -> void:
 	add_child(contamination)
 	# Visual: grama densa, partículas do clima e qualidade gráfica (Look).
 	var terrain := get_node_or_null("Terrain") as TerrainWorld
+	# Terreno em voxels perto do jogador (cavernas, cavar em 3D): só com a extensão C++.
+	if terrain and VoxelWorld.available():
+		add_child(VoxelWorld.new(terrain))
 	var grass := GrassField.new()
 	grass.name = "Grass"
 	grass.terrain = terrain
