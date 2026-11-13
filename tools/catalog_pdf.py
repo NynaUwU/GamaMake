@@ -121,7 +121,7 @@ class Catalog:
     # --- Capítulos ----------------------------------------------------------------
     def cover(self, story):
         story.append(Spacer(1, 5 * cm))
-        story.append(Paragraph("Catálogo do jogo", S["title"]))
+        story.append(Paragraph("APIO — catálogo", S["title"]))
         story.append(Spacer(1, 0.4 * cm))
         story.append(Paragraph("Receitas · construções e máquinas · plantas · animais · onde achar · itens", S["sub"]))
         story.append(Spacer(1, 1.2 * cm))
@@ -369,7 +369,7 @@ def footer(canvas, doc):
     canvas.saveState()
     canvas.setFont("DejaVu", 7.5)
     canvas.setFillColor(colors.HexColor("#7a7466"))
-    canvas.drawString(1.5 * cm, 1 * cm, "Catálogo do jogo")
+    canvas.drawString(1.5 * cm, 1 * cm, "APIO — catálogo")
     canvas.drawRightString(A4[0] - 1.5 * cm, 1 * cm, "página %d" % doc.page)
     canvas.restoreState()
 
@@ -381,7 +381,7 @@ def main():
         data = json.load(f)
     cat = Catalog(data)
     doc = SimpleDocTemplate(out, pagesize=A4, leftMargin=1.5 * cm, rightMargin=1.5 * cm, topMargin=1.4 * cm, bottomMargin=1.6 * cm,
-                            title="Catálogo do jogo", author="GamaMake")
+                            title="APIO — catálogo", author="APIO")
     story = []
     cat.cover(story)
     cat.recipes(story)

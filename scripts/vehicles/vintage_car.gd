@@ -55,10 +55,11 @@ var steer_min := 0.15 ## fração do esterço que sobra em alta velocidade
 var suspension_rest := 0.32
 var suspension_travel := 0.28
 var suspension_stiffness := 38.0
-## Gravidade extra só no carro: assenta no chão e cai mais "pesado" das rampas.
+## Gravidade extra só no carro: assenta no chão e cai um pouco mais "pesado" das rampas.
 ## (Não muda a massa, então a aceleração do motor continua a mesma; a mola é
-## endurecida na mesma proporção para o carro não arriar.)
-var weight_gravity := 1.5
+## endurecida na mesma proporção para o carro não arriar.) Era 1,5: nas quedas a mola
+## chegava no fim do curso e as rodas entravam no chão.
+var weight_gravity := 1.15
 var seat_offset := Vector3(-0.22, 0.17, -0.38)
 var exit_offset := Vector3(-1.35, 0.2, -0.38)
 var wheel_center := Vector3(-0.22, 0.68, 0.07) ## centro do volante
@@ -104,6 +105,7 @@ func _ready() -> void:
 	_configure()
 	mass = car_mass
 	gravity_scale = weight_gravity
+	continuous_cd = true # queda rápida: a carroceria não atravessa o chão entre dois quadros
 	center_of_mass_mode = RigidBody3D.CENTER_OF_MASS_MODE_CUSTOM
 	center_of_mass = Vector3(0, center_of_mass_y, 0) # baixo: não capota fácil
 	collision_layer = 1
@@ -382,7 +384,10 @@ func _physics_process(delta: float) -> void:
 			brake = max_brake * -throttle
 			engine_force = 0.0
 		else:
-			engine_force = max_engine_force * 0.5 * throttle # ré
+			# Ré com a mesma força da 1ª marcha (e o mesmo limite de velocidade dela).
+			var back := absf(speed)
+			var reverse_limit := 1.0 - smoothstep(GEAR_TOP[0], GEAR_TOP[0] * 1.12, back / top_speed)
+			engine_force = max_engine_force * throttle * GEAR_FORCE[0] * _torque(_rpm_in(0, back)) * reverse_limit
 	else:
 		engine_force = 0.0
 		brake = 2.0 # freio-motor
@@ -1051,7 +1056,9 @@ func _build_wheels() -> void:
 			wheel.wheel_rest_length = suspension_rest
 			wheel.suspension_travel = suspension_travel # Monza: curso longo, fora de estrada
 			wheel.suspension_stiffness = suspension_stiffness * sqrt(weight_gravity)
-			wheel.suspension_max_force = 9000.0
+			# A mola aguenta o carro inteiro 2,5x em cada roda: não bate no fim do curso numa
+			# queda (antes 9000 N e as rodas afundavam no chão).
+			wheel.suspension_max_force = maxf(9000.0, car_mass * 9.8 * weight_gravity * 2.5)
 			wheel.damping_compression = 2.2
 			wheel.damping_relaxation = 3.0
 			wheel.wheel_friction_slip = front_grip if front else rear_grip # escorrega um pouco antes de tombar

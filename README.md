@@ -1,4 +1,4 @@
-# Zumbi FPS — protótipo (Godot 4.7.2)
+# APIO — protótipo (Godot 4.7.2)
 
 Primeira pessoa, combate corpo a corpo, zumbis com animação procedural,
 reação física a golpes e ragdoll (estilo Dying Light), visual de PC dos anos 2000 em 960x540 (16:9).

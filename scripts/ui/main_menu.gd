@@ -74,7 +74,7 @@ func _new_page(title: String, width := 320.0) -> VBoxContainer:
 
 func _show_main() -> void:
 	Net.i.stop_listening()
-	var column := _new_page("Zumbi FPS")
+	var column := _new_page("APIO")
 	var name_edit := LegacyGUI.field(column, "Nome:", _name)
 	name_edit.text_changed.connect(func(text: String): _name = text)
 	var saves := SaveGame.list()
