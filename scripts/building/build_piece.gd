@@ -35,9 +35,25 @@ const METAL_COLORS := {Kind.WALL: Color(0.42, 0.44, 0.46), Kind.FLOOR: Color(0.3
 const METAL_NAMES := {Kind.WALL: "Parede de chapa", Kind.FLOOR: "Piso de chapa", Kind.ROOF: "Telhado de chapa", Kind.PILLAR: "Viga de aço"}
 const HITS := 2 ## golpes de zumbi que cada quadrado de madeira aguenta
 const METAL_HITS := 6
+## Material da peça (vai no save e na rede como número; save antigo tinha só "metal" sim/não).
+enum Mat { WOOD, METAL, STONE, EARTH }
+const MAT_HITS := {Mat.WOOD: HITS, Mat.METAL: METAL_HITS, Mat.STONE: 5, Mat.EARTH: 3} ## golpes por quadrado
+## De pedra (pedras do chão assentadas): parede de blocos em amarração, piso de lajes,
+## pilar de pedras empilhadas. De taipa (terra socada): parede em camadas.
+const STONE_COLORS := {Kind.WALL: Color(0.53, 0.51, 0.47), Kind.FLOOR: Color(0.5, 0.48, 0.45),
+	Kind.ROOF: Color(0.5, 0.48, 0.45), Kind.PILLAR: Color(0.5, 0.48, 0.44)}
+const EARTH_COLORS := {Kind.WALL: Color(0.62, 0.5, 0.35), Kind.FLOOR: Color(0.5, 0.38, 0.26),
+	Kind.ROOF: Color(0.5, 0.38, 0.26), Kind.PILLAR: Color(0.5, 0.38, 0.26)}
+const MAT_NAMES := {Mat.WOOD: "madeira", Mat.METAL: "chapa", Mat.STONE: "pedra", Mat.EARTH: "taipa"}
 
 var kind := Kind.WALL
-var metal := false ## de chapa soldada (senão madeira)
+var material := Mat.WOOD
+## De chapa soldada? (atalho do material, como era antes)
+var metal: bool:
+	get:
+		return material == Mat.METAL
+	set(value):
+		material = Mat.METAL if value else Mat.WOOD
 var cell := Vector3i.ZERO ## origem na grade (em quadrados)
 var rot := 0 ## 0 = ao longo de +X; 1 = ao longo de +Z (teto: 2..5 = inclinado)
 var net_id := 0
@@ -53,9 +69,10 @@ static var _material: Material
 static var _metal_material: Material
 
 
-func setup(kind_: Kind, cell_: Vector3i, rot_: int, metal_ := false) -> void:
+## material_: Mat (ou bool do formato antigo: true = chapa).
+func setup(kind_: Kind, cell_: Vector3i, rot_: int, material_: Variant = Mat.WOOD) -> void:
 	kind = kind_
-	metal = metal_
+	material = to_mat(material_)
 	cell = cell_
 	rot = rot_
 	removed.resize(TRIS)
@@ -73,6 +90,19 @@ func _ready() -> void:
 	_shape = CollisionShape3D.new()
 	add_child(_shape)
 	rebuild()
+
+
+## Material de um valor salvo/recebido: número do Mat ou bool antigo (true = chapa).
+static func to_mat(value: Variant) -> int:
+	if typeof(value) == TYPE_BOOL:
+		return Mat.METAL if value else Mat.WOOD
+	var m := int(value)
+	return m if m >= Mat.WOOD and m <= Mat.EARTH else Mat.WOOD
+
+
+## Golpes de zumbi que cada quadrado aguenta.
+func hits() -> int:
+	return MAT_HITS.get(material, HITS)
 
 
 ## Teto inclinado (telhado de 45°)?
@@ -219,10 +249,15 @@ func rebuild() -> void:
 	st.generate_normals()
 	_mesh.mesh = st.commit()
 	# Pilar em pé: material com o veio da madeira na vertical (deitado/viga fica na horizontal).
-	if metal:
-		_mesh.material_override = _get_metal_material()
-	else:
-		_mesh.material_override = Look.surface(true, 1.0, 0.95, 0.0, false, 0.0, true) if kind == Kind.PILLAR and rot == 0 else _get_material()
+	match material:
+		Mat.METAL:
+			_mesh.material_override = _get_metal_material()
+		Mat.EARTH:
+			_mesh.material_override = Look.surface(true, 1.0, 0.97, 0.0, true) # grão de terra (modo do terreno), sem veio de madeira
+		Mat.STONE:
+			_mesh.material_override = _get_material()
+		_:
+			_mesh.material_override = Look.surface(true, 1.0, 0.95, 0.0, false, 0.0, true) if kind == Kind.PILLAR and rot == 0 else _get_material()
 	var shape := ConcavePolygonShape3D.new()
 	shape.backface_collision = true
 	shape.set_faces(faces)
@@ -266,6 +301,15 @@ func _panel(st: SurfaceTool, faces: PackedVector3Array) -> void:
 func _tone(i: int, j: int) -> Color:
 	var base: Color = METAL_COLORS[kind] if metal else COLORS[kind]
 	var noise := fposmod(sin(i * 3.7 + j * 12.9898 + cell.x * 3.1 + cell.z * 7.7 + cell.y * 1.3) * 43758.5453, 1.0)
+	if material == Mat.STONE:
+		# Cada quadrado é uma pedra com tom próprio (umas mais claras, outras amareladas).
+		var stone: Color = STONE_COLORS[kind]
+		var warm := fposmod(sin(i * 5.3 + j * 2.1 + cell.x * 1.7 + cell.z * 3.3) * 9631.17, 1.0)
+		return stone.darkened(noise * 0.16).lerp(Color(0.6, 0.55, 0.45), warm * 0.18)
+	if material == Mat.EARTH:
+		# Taipa: camadas de terra socada (uma faixa por fileira, tom quase igual na faixa).
+		var layer := fposmod(sin(j * 7.13 + cell.y * 2.9 + cell.x * 0.7) * 43758.5453, 1.0)
+		return (EARTH_COLORS[kind] as Color).darkened(layer * 0.12 + noise * 0.025).lerp(Color(0.62, 0.5, 0.36), 0.08 if j % 2 == 0 else 0.0)
 	if metal:
 		match kind:
 			Kind.WALL: # chapas de 1,2 m de largura, cada uma com um tom
@@ -296,6 +340,12 @@ func _square_details(st: SurfaceTool, i: int, j: int, w: Vector2) -> void:
 	var nail := Color(0.28, 0.27, 0.26)
 	if metal:
 		_metal_details(st, i, j, w)
+		return
+	if material == Mat.STONE:
+		_stone_details(st, i, j, w)
+		return
+	if material == Mat.EARTH:
+		_earth_details(st, i, j, w)
 		return
 	match kind:
 		Kind.WALL:
@@ -347,6 +397,39 @@ func _metal_details(st: SurfaceTool, i: int, j: int, w: Vector2) -> void:
 		Kind.ROOF:
 			var top := w.y + 0.012
 			_box(st, uvw(u0 + SEG * 0.5, v0 + SEG * 0.5, top), Vector3(0.03, 0.02, SEG), base.lightened(0.1)) # crista da onda
+
+
+## Pedra: argamassa nas juntas (amarração: a junta vertical anda meia pedra a cada
+## fileira) e a cara de cada pedra um pouco saltada.
+func _stone_details(st: SurfaceTool, i: int, j: int, w: Vector2) -> void:
+	var u0 := i * SEG
+	var v0 := j * SEG
+	var mortar := Color(0.66, 0.63, 0.57)
+	var faces: Array = [w.x - 0.004, w.y + 0.004] if kind == Kind.WALL else [w.y + 0.004]
+	var offset := SEG * 0.5 if j % 2 == 1 and kind == Kind.WALL else 0.0
+	for face in faces:
+		if j > 0:
+			_box(st, uvw(u0 + SEG * 0.5, v0 + 0.008, face), Vector3(SEG, 0.022, 0.008), mortar) # junta deitada
+		_box(st, uvw(u0 + 0.008 + offset, v0 + SEG * 0.5, face), Vector3(0.022, SEG, 0.008), mortar) # junta em pé
+		# Cara da pedra: um ressalto irregular no meio.
+		var bump := fposmod(sin(i * 3.1 + j * 7.7 + cell.x) * 4375.85, 1.0)
+		var side := 1.0 if face > 0.0 else -1.0
+		_box(st, uvw(u0 + SEG * (0.3 + bump * 0.4), v0 + SEG * 0.55, face + side * 0.006), Vector3(SEG * 0.42, SEG * 0.5, 0.012), _tone(i, j).lightened(0.06))
+
+
+## Taipa: risco entre as camadas, palha e pedrinhas aparecendo na terra.
+func _earth_details(st: SurfaceTool, i: int, j: int, w: Vector2) -> void:
+	var u0 := i * SEG
+	var v0 := j * SEG
+	var faces: Array = [w.x - 0.003, w.y + 0.003] if kind == Kind.WALL else [w.y + 0.003]
+	for face in faces:
+		if j > 0:
+			_box(st, uvw(u0 + SEG * 0.5, v0 + 0.004, face), Vector3(SEG, 0.012, 0.005), _tone(i, j).darkened(0.28)) # risco da camada
+		var seed := fposmod(sin(i * 12.3 + j * 4.1 + cell.z * 1.9) * 43758.5453, 1.0)
+		if seed < 0.45: # pedrinha
+			_box(st, uvw(u0 + SEG * (0.2 + seed), v0 + SEG * (0.3 + seed * 0.8), face), Vector3(0.04, 0.03, 0.012), Color(0.55, 0.53, 0.49))
+		if seed > 0.3: # fiapos de palha
+			_box(st, uvw(u0 + SEG * (0.7 - seed * 0.4), v0 + SEG * 0.7, face), Vector3(0.07, 0.008, 0.006), Color(0.72, 0.62, 0.34))
 
 
 ## Caixa de enfeite (só na malha, sem colisão), em espaço local da peça.
@@ -504,6 +587,13 @@ func _pillar(st: SurfaceTool, faces: PackedVector3Array) -> void:
 			_box(st, Vector3(x, SIZE * 0.5, 0), Vector3(0.04, SIZE, 0.36), steel.lightened(0.06))
 		for y in [0.05, SIZE - 0.05]:
 			_box(st, Vector3(0, y, 0), Vector3(0.4, 0.1, 0.4), steel.darkened(0.15)) # chapa de base/topo
+		return
+	if material == Mat.STONE or material == Mat.EARTH:
+		# Pedras empilhadas (ou blocos de terra socada) de 0,4 m, cada um com seu tom.
+		for k in N:
+			var tone := _tone(k % 2, k)
+			_box(st, Vector3(0, SEG * (k + 0.5), 0), Vector3(0.39, SEG - 0.03, 0.39), tone)
+			_box(st, Vector3(0, SEG * k + 0.012, 0), Vector3(0.37, 0.024, 0.37), Color(0.66, 0.63, 0.57) if material == Mat.STONE else tone.darkened(0.25))
 		return
 	var wood: Color = COLORS[kind]
 	_box(st, Vector3(0, SIZE * 0.5, 0), Vector3(0.34, SIZE, 0.34), wood)

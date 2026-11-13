@@ -13,7 +13,7 @@ const IDS := [&"pistola", &"espada", &"taco", &"martelo", &"talhadeira", &"pa", 
 	&"abobora", &"abobora_assada", &"bandagem", &"semente_cenoura", &"semente_batata", &"semente_abobora",
 	&"semente_trigo", &"semente_algodao", &"trigo", &"farinha", &"peixe_seco", &"peixe_defumado", &"comida_estragada",
 	&"adubo", &"tabua", &"tronco", &"graveto", &"pedra", &"minerio_ferro", &"minerio_cobre", &"carvao",
-	&"barra_ferro", &"barra_cobre", &"vidro", &"sucata", &"pano", &"argila", &"areia", &"tijolo", &"fibra",
+	&"barra_ferro", &"barra_cobre", &"vidro", &"sucata", &"pano", &"argila", &"areia", &"terra", &"tijolo", &"fibra",
 	&"fio", &"tecido", &"garrafa", &"agua", &"agua_suja", &"capuz", &"capacete", &"colete", &"peitoral",
 	&"calca", &"botas", &"casaco",
 	&"barra_aco", &"parafuso", &"engrenagem", &"eixo_aco", &"cano", &"suco", &"oleo", &"alcool", &"bandagem_esteril",
@@ -101,6 +101,7 @@ static func build(id: StringName, p: Dictionary) -> void:
 		&"pano": _cloth_stack(p)
 		&"argila": _clay(p)
 		&"areia": _sand(p)
+		&"terra": _dirt(p)
 		&"tijolo": _brick(p)
 		&"fibra": _cotton(p)
 		&"fio": _spool(p)
@@ -759,6 +760,18 @@ static func _sand(p: Dictionary) -> void:
 	for k in 6: # grãos/pedrinhas
 		var a := k * 1.05
 		_mb(p, Color(0.7, 0.6, 0.42)).box(Vector3(cos(a) * 0.05, -0.012, sin(a) * 0.05), Vector3(0.008, 0.006, 0.008))
+
+
+## Monte de terra: montinho escuro com torrões e uma pedrinha.
+static func _dirt(p: Dictionary) -> void:
+	var soil := Color(0.4, 0.29, 0.19)
+	_mb(p, soil).lathe(PackedVector2Array([Vector2(0.002, -0.035), Vector2(0.085, -0.035), Vector2(0.075, -0.012), Vector2(0.045, 0.022), Vector2(0.002, 0.04)]), 9)
+	for k in 7: # torrões
+		var a := k * 0.9 + 0.3
+		var r := 0.035 + 0.025 * float(k % 3) / 2.0
+		_mb(p, soil.darkened(0.12 + 0.05 * float(k % 2))).box(Vector3(cos(a) * r, 0.005 + 0.012 * float(k % 3), sin(a) * r), Vector3(0.022, 0.016, 0.02))
+	_mb(p, Color(0.5, 0.49, 0.46)).box(Vector3(0.05, -0.02, 0.03), Vector3(0.018, 0.012, 0.016)) # pedrinha
+	_mb(p, Color(0.33, 0.42, 0.18)).box(Vector3(-0.02, 0.04, 0.0), Vector3(0.006, 0.02, 0.003)) # brotinho
 
 
 static func _brick(p: Dictionary) -> void:

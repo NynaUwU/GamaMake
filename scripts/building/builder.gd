@@ -29,10 +29,14 @@ const ENTRIES := {
 		{"id": "floor", "name": "Piso", "kind": BuildPiece.Kind.FLOOR, "desc": "Topo na altura da grade", "cost": {&"tabua": 4}},
 		{"id": "roof", "name": "Teto", "kind": BuildPiece.Kind.ROOF, "desc": "Apoia no topo das paredes. R: telhado inclinado (45°), subindo para o seu lado: de dentro da casa, sobe da parede para o meio", "cost": {&"tabua": 4}},
 		{"id": "pillar", "name": "Pilar", "kind": BuildPiece.Kind.PILLAR, "desc": "0,4 m de lado, 2,8 m de altura. R deita (viga): em cima de uma parede cobre o topo dela", "cost": {&"tabua": 1, &"pedra": 1}},
-		{"id": "wall_metal", "name": "Parede de chapa", "kind": BuildPiece.Kind.WALL, "metal": true, "desc": "Chapas de aço soldadas (bancada de solda): zumbi precisa de 3x mais golpes para abrir buraco. R gira", "cost": {&"chapa": 2}},
-		{"id": "floor_metal", "name": "Piso de chapa", "kind": BuildPiece.Kind.FLOOR, "metal": true, "desc": "Chapa xadrez soldada", "cost": {&"chapa": 2}},
-		{"id": "roof_metal", "name": "Telhado de chapa", "kind": BuildPiece.Kind.ROOF, "metal": true, "desc": "Chapa ondulada. R: inclinado (45°)", "cost": {&"chapa": 1}},
-		{"id": "pillar_metal", "name": "Viga de aço", "kind": BuildPiece.Kind.PILLAR, "metal": true, "desc": "Viga em I de chapa soldada. R deita", "cost": {&"chapa": 1}},
+		{"id": "wall_metal", "name": "Parede de chapa", "kind": BuildPiece.Kind.WALL, "mat": BuildPiece.Mat.METAL, "desc": "Chapas de aço soldadas (bancada de solda): zumbi precisa de 3x mais golpes para abrir buraco. R gira", "cost": {&"chapa": 2}},
+		{"id": "floor_metal", "name": "Piso de chapa", "kind": BuildPiece.Kind.FLOOR, "mat": BuildPiece.Mat.METAL, "desc": "Chapa xadrez soldada", "cost": {&"chapa": 2}},
+		{"id": "roof_metal", "name": "Telhado de chapa", "kind": BuildPiece.Kind.ROOF, "mat": BuildPiece.Mat.METAL, "desc": "Chapa ondulada. R: inclinado (45°)", "cost": {&"chapa": 1}},
+		{"id": "pillar_metal", "name": "Viga de aço", "kind": BuildPiece.Kind.PILLAR, "mat": BuildPiece.Mat.METAL, "desc": "Viga em I de chapa soldada. R deita", "cost": {&"chapa": 1}},
+		{"id": "wall_stone", "name": "Parede de pedra", "kind": BuildPiece.Kind.WALL, "mat": BuildPiece.Mat.STONE, "desc": "Pedras do chão assentadas em amarração: zumbi precisa de 2,5x mais golpes que na madeira. R gira", "cost": {&"pedra": 10}},
+		{"id": "floor_stone", "name": "Piso de pedra", "kind": BuildPiece.Kind.FLOOR, "mat": BuildPiece.Mat.STONE, "desc": "Lajes de pedra", "cost": {&"pedra": 8}},
+		{"id": "pillar_stone", "name": "Pilar de pedra", "kind": BuildPiece.Kind.PILLAR, "mat": BuildPiece.Mat.STONE, "desc": "Pedras empilhadas, 0,4 m de lado. R deita", "cost": {&"pedra": 3}},
+		{"id": "wall_earth", "name": "Parede de taipa", "kind": BuildPiece.Kind.WALL, "mat": BuildPiece.Mat.EARTH, "desc": "Terra cavada do chão socada em camadas, com gravetos: mais forte que madeira (3 golpes por pedaço) e barata. R gira", "cost": {&"terra": 8, &"graveto": 2}},
 		{"id": "stairs", "name": "Escada", "place": "stairs", "desc": "Sobe um andar (2,8 m) para a frente. Segure Shift para alinhar com a grade", "cost": {&"tabua": 6, &"graveto": 2}},
 	],
 	"Aberturas": [
@@ -258,7 +262,7 @@ static func preview_model(entry: Dictionary) -> Node3D:
 		return obj
 	var piece := BuildPiece.new()
 	if entry.has("kind"):
-		piece.setup(entry.kind, Vector3i.ZERO, 0, entry.get("metal", false))
+		piece.setup(entry.kind, Vector3i.ZERO, 0, entry.get("mat", BuildPiece.Mat.WOOD))
 		return piece
 	piece.setup(BuildPiece.Kind.WALL, Vector3i.ZERO, 0)
 	var parts := PackedInt32Array()
@@ -302,13 +306,18 @@ static func cost_text(cost: Dictionary, inventory: Inventory = null) -> String:
 
 ## Consertar: 1 tábua a cada 2 quadradinhos quebrados.
 static func repair_cost(piece: BuildPiece) -> Dictionary:
-	if piece.metal:
-		return {&"chapa": maxi(1, ceili(piece.damaged.size() / 16.0))} # chapa: remenda com chapa nova
+	match piece.material:
+		BuildPiece.Mat.METAL:
+			return {&"chapa": maxi(1, ceili(piece.damaged.size() / 16.0))} # chapa: remenda com chapa nova
+		BuildPiece.Mat.STONE:
+			return {&"pedra": maxi(1, ceili(piece.damaged.size() / 5.0))} # assenta pedra nova
+		BuildPiece.Mat.EARTH:
+			return {&"terra": maxi(1, ceili(piece.damaged.size() / 6.0))} # soca terra no buraco
 	return {&"tabua": maxi(1, ceili(piece.damaged.size() / 8.0))}
 
 
 static func can_afford(inventory: Inventory, cost: Dictionary) -> bool:
-	if Cheats.free:
+	if Cheats.creative:
 		return true # admin: criativo
 	for id in cost:
 		if inventory.count(id) < cost[id]:
@@ -317,7 +326,7 @@ static func can_afford(inventory: Inventory, cost: Dictionary) -> bool:
 
 
 static func pay(inventory: Inventory, cost: Dictionary) -> void:
-	if Cheats.free:
+	if Cheats.creative:
 		return # admin: criativo
 	for id in cost:
 		var left: int = cost[id]
@@ -346,9 +355,10 @@ func _paid(entry: Dictionary) -> bool:
 	return true
 
 
-static func entry_for_kind(kind_: int, metal := false) -> Dictionary:
+static func entry_for_kind(kind_: int, material: Variant = BuildPiece.Mat.WOOD) -> Dictionary:
+	var mat := BuildPiece.to_mat(material)
 	for entry in ENTRIES["Estrutura"]:
-		if entry.get("kind", -1) == kind_ and entry.get("metal", false) == metal:
+		if entry.get("kind", -1) == kind_ and int(entry.get("mat", BuildPiece.Mat.WOOD)) == mat:
 			return entry
 	return {}
 
@@ -533,7 +543,7 @@ func use(tool: String) -> bool:
 				return true
 			return false
 		if not target.is_empty() and target.valid and _paid(selection):
-			manager.request_place(target.kind, target.cell, target.rot, selection.get("metal", false))
+			manager.request_place(target.kind, target.cell, target.rot, selection.get("mat", BuildPiece.Mat.WOOD))
 			Progress.event("place", String(selection.id))
 			return true
 	elif tool == "chisel" and not cut_target.is_empty():
@@ -602,7 +612,7 @@ func dismantle() -> bool:
 		manager.request_unfill(hit.collider.piece, hit.collider.fill_index)
 		return true
 	if hit and hit.collider is BuildPiece:
-		_refund(entry_for_kind(hit.collider.kind, hit.collider.metal).get("cost", {}))
+		_refund(entry_for_kind(hit.collider.kind, hit.collider.material).get("cost", {}))
 		manager.request_remove(hit.collider)
 		return true
 	if hit and hit.collider is PlacedObject and not hit.collider.kind in ["ground", "tree", "airdrop"]:

@@ -27,6 +27,16 @@ func _launch(dir: float) -> float:
 	return absf(v)
 
 
+func _clearance() -> float:
+	var low := 99.0
+	for w: VehicleWheel3D in car._wheels:
+		var top := w.global_position + Vector3.UP * 2.0
+		var hit := car.get_world_3d().direct_space_state.intersect_ray(PhysicsRayQueryParameters3D.create(top, top + Vector3.DOWN * 8.0, 1, [car.get_rid()]))
+		if hit:
+			low = minf(low, (w.get_child(0) as Node3D).global_position.y - car.wheel_radius - hit.position.y)
+	return low
+
+
 func _init() -> void:
 	SaveGame.start_new()
 	change_scene_to_file("res://scenes/main.tscn")
@@ -38,6 +48,7 @@ func _init() -> void:
 	for e in main.get_node("Enemies").get_children():
 		e.detect_range = 0.0
 	car.fuel = 1.0
+	var start_xform := car.global_transform
 	player.enter_vehicle(car)
 	await _flat(0.5)
 	var fwd := await _launch(1.0)
@@ -45,20 +56,30 @@ func _init() -> void:
 	print("ré / frente = %.2f" % (back / maxf(fwd, 0.01)))
 	print("gravidade do carro %.2f, mola máx %.0f N por roda" % [car.gravity_scale, car._wheels[0].suspension_max_force])
 	# Queda de 3 m: menor folga da carroceria e das rodas até o chão durante o pouso.
-	var ground: float = main.terrain.height_at(car.global_position.x, car.global_position.z) if main.get("terrain") else 0.0
-	car.global_position += Vector3.UP * 3.0
+	# Parado no chão: folga do pneu (referência; a roda pode afundar um pouco no desenho).
+	car.global_transform = start_xform
 	car.linear_velocity = Vector3.ZERO
+	for k in 90:
+		await physics_frame
+	print("parado: folga do pneu %.2f m" % _clearance())
+	# Sempre do mesmo lugar plano (onde o carro começa, no asfalto), 3 m acima.
+	car.global_transform = start_xform.translated(Vector3.UP * 3.0)
+	car.linear_velocity = Vector3.ZERO
+	car.angular_velocity = Vector3.ZERO
 	var low := 99.0
 	var sunk := 0
 	for k in 180:
 		await physics_frame
 		for w: VehicleWheel3D in car._wheels:
-			var bottom := w.global_position.y - car.wheel_radius - car.suspension_rest
-			var gy := ground
-			if main.get("terrain"):
-				gy = main.terrain.height_at(w.global_position.x, w.global_position.z)
+			# Chão de verdade debaixo da roda (raio de cima, sem o carro).
+			var top := w.global_position + Vector3.UP * 2.0
+			var q := PhysicsRayQueryParameters3D.create(top, top + Vector3.DOWN * 8.0, 1, [car.get_rid()])
+			var hit := car.get_world_3d().direct_space_state.intersect_ray(q)
+			if hit.is_empty():
+				continue
+			var gy: float = hit.position.y
 			var hub := w.get_child(0) as Node3D
-			var tire_bottom := hub.global_position.y - car.wheel_radius if hub else bottom
+			var tire_bottom := hub.global_position.y - car.wheel_radius
 			low = minf(low, tire_bottom - gy)
 			if tire_bottom - gy < -0.08:
 				sunk += 1

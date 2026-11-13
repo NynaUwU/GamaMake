@@ -1117,6 +1117,17 @@ static func is_build(collider: Object) -> bool:
 	return collider is BuildPiece or collider is BuildFill or (collider is PlacedObject and collider.kind in ["barbed", "fence", "gate"])
 
 
+## Como is_build, mas pelo ponto atingido: no chão do terreno só conta bloco que o
+## jogador pôs (terra/pedra/areia). O chão natural não é construção: não quebram.
+static func is_build_hit(hit: Dictionary, direction := Vector3.ZERO) -> bool:
+	if hit.is_empty():
+		return false
+	if is_build(hit.collider):
+		return true
+	return TerrainWorld.i != null and TerrainWorld.is_ground(hit.collider) \
+		and TerrainWorld.is_column(TerrainWorld.i.built_near(hit.position - hit.normal * 0.05, direction))
+
+
 ## O jogador está dentro de uma construção? Teto em cima, piso construído no alto
 ## debaixo dos pés, ou paredes em volta (6 de 8 direções). Fica guardado 1 s no
 ## próprio jogador (todos os zumbis perguntam a mesma coisa).
@@ -1131,11 +1142,11 @@ static func target_sheltered(t: Node3D) -> bool:
 	var base := t.global_position + Vector3.UP * 1.0
 	var inside := false
 	var up := space.intersect_ray(PhysicsRayQueryParameters3D.create(base, base + Vector3.UP * 8.0, 1, exclude))
-	if up and is_build(up.collider):
+	if up and is_build_hit(up):
 		inside = true
 	if not inside:
 		var down := space.intersect_ray(PhysicsRayQueryParameters3D.create(base, base + Vector3.DOWN * 2.5, 1, exclude))
-		if down and is_build(down.collider):
+		if down and is_build_hit(down):
 			# Piso construído: só conta se for alto (em cima da base, não um piso no chão).
 			var below: Vector3 = down.position + Vector3.DOWN * 0.3
 			var ground := space.intersect_ray(PhysicsRayQueryParameters3D.create(below, below + Vector3.DOWN * 1.2, 1, exclude))
@@ -1145,7 +1156,7 @@ static func target_sheltered(t: Node3D) -> bool:
 		for k in 8:
 			var a := TAU * k / 8.0
 			var h := space.intersect_ray(PhysicsRayQueryParameters3D.create(base, base + Vector3(cos(a), 0.0, sin(a)) * 12.0, 1, exclude))
-			if h and is_build(h.collider):
+			if h and is_build_hit(h, Vector3(cos(a), 0.0, sin(a))):
 				walls += 1
 		inside = walls >= 6
 	t.set_meta("shelter", inside)
@@ -1217,7 +1228,7 @@ func _pick_hand(direction: Vector3) -> float:
 func _build_ahead(dir: Vector3, reach: float) -> bool:
 	var from := global_position + Vector3.UP * 0.7
 	var hit := get_world_3d().direct_space_state.intersect_ray(PhysicsRayQueryParameters3D.create(from, from + dir * reach, 1, [get_rid()]))
-	return not hit.is_empty() and is_build(hit.collider)
+	return is_build_hit(hit, dir)
 
 
 # --- Nadar ---------------------------------------------------------------------------
@@ -1268,7 +1279,7 @@ func _check_wall(direction: Vector3, delta: float) -> bool:
 		var from := global_position + Vector3.UP * height
 		var query := PhysicsRayQueryParameters3D.create(from, from + direction * reach, 1, [get_rid()])
 		hit = get_world_3d().direct_space_state.intersect_ray(query)
-		if hit and is_build(hit.collider):
+		if is_build_hit(hit, direction):
 			break
 		hit = {}
 	if hit.is_empty():
@@ -1300,6 +1311,15 @@ func _damage_wall() -> void:
 			if placed:
 				placed.request("fence_hit", [hit.collider.net_id, wall_power])
 			return
+		if TerrainWorld.is_ground(hit.collider) and TerrainWorld.i:
+			# Bloco de terra/pedra que o jogador pôs: quebra um por vez (o de cima).
+			var col := TerrainWorld.i.built_near(hit.position - hit.normal * 0.05, direction)
+			if not TerrainWorld.is_column(col):
+				continue # chão natural: não cava
+			Sfx.play_at("knock", hit.position, 3.0, 0.55)
+			if TerrainWorld.i.zombie_hit(col, wall_power):
+				Sfx.play_at("crunch", hit.position, 5.0, 0.6)
+			return
 		if hit.collider is BuildFill:
 			var fill: BuildFill = hit.collider
 			var hp: int = fill.get_meta("hp", 3 if fill.type == "window" else (16 if fill.metal else 6)) - 1
@@ -1315,13 +1335,13 @@ func _damage_wall() -> void:
 			var square := piece.square_at(hit.position, normal, 1)
 			if square.is_empty():
 				continue
-			# Cada pedaço aguenta 2 golpes de madeira, 6 de chapa (uma horda passa rápido; um zumbi sozinho demora).
+			# Cada pedaço aguenta 2 golpes de madeira, 3 de taipa, 5 de pedra, 6 de chapa (uma horda passa rápido; um zumbi sozinho demora).
 			var key := square[0] / 4
 			var hits: Dictionary = piece.get_meta("hits", {})
 			hits[key] = hits.get(key, 0) + wall_power
 			piece.set_meta("hits", hits)
 			Sfx.play_at("knock", hit.position, 3.0, 0.75)
-			if hits[key] >= (BuildPiece.METAL_HITS if piece.metal else BuildPiece.HITS):
+			if hits[key] >= piece.hits():
 				Sfx.play_at("crunch", hit.position, 5.0, 0.7)
 				Net.i.build_request("break", [piece.net_id, square])
 			return

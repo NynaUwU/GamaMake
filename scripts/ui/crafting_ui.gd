@@ -214,7 +214,7 @@ static func can_craft(inventory: Inventory, recipe: Dictionary) -> bool:
 		return false # fornalha fria: segure E no fole
 	if recipe.get("power", false) and not powered(heat_source):
 		return false # torno/prensa parados: falta o eixo girando
-	if recipe.get("fuel", false) and not Cheats.free:
+	if recipe.get("fuel", false) and not Cheats.creative:
 		var fuel := fuel_for(inventory)
 		if fuel.is_empty():
 			return false
@@ -230,11 +230,11 @@ static func craft(player: Player, recipe: Dictionary, times := 1) -> int:
 	var done := 0
 	var made := 0
 	while done < times and can_craft(player.inventory, recipe):
-		if recipe.get("fuel", false) and not Cheats.free:
+		if recipe.get("fuel", false) and not Cheats.creative:
 			var fuel := fuel_for(player.inventory)
 			Builder.pay(player.inventory, {fuel[0]: fuel[1]})
 		Builder.pay(player.inventory, recipe.cost)
-		for id in (recipe.cost if not Cheats.free else {}): # água usada: a garrafa vazia volta
+		for id in (recipe.cost if not Cheats.creative else {}): # água usada: a garrafa vazia volta
 			var returns: StringName = ItemDB.def(id).get("returns", &"")
 			if returns != &"":
 				player.inventory.add(returns, recipe.cost[id])

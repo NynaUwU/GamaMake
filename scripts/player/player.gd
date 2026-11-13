@@ -375,6 +375,8 @@ var _impaled: Array = []
 
 
 func _ready() -> void:
+	add_to_group("look_quality") # campo de visão do menu de gráficos (apply_quality)
+	camera.fov = Look.fov()
 	health = max_health
 	stamina = max_stamina
 	_grapple_left = grapple_charges
@@ -479,7 +481,7 @@ func _unhandled_input(event: InputEvent) -> void:
 			Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 		return
 	if event is InputEventMouseMotion and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
-		var sens := mouse_sensitivity * camera.fov / 75.0 # mirando com zoom: mais devagar
+		var sens := mouse_sensitivity * camera.fov / Look.fov() # mirando com zoom: mais devagar
 		rotate_y(-event.relative.x * sens)
 		head.rotate_x(-event.relative.y * sens)
 		head.rotation.x = clampf(head.rotation.x, deg_to_rad(-85), deg_to_rad(85))
@@ -497,6 +499,8 @@ func _unhandled_input(event: InputEvent) -> void:
 			_refuel(_aimed_car())
 		elif event.is_action_pressed("attack") and inventory.selected_id() == &"tocha" and _place_torch():
 			pass # tocha posta no chão/parede (senão o clique segue como soco)
+		elif event.is_action_pressed("attack") and TerrainTools.is_block_item(inventory.selected_id()) and TerrainTools.place(self):
+			pass # terra/areia/pedra na mão mirando o chão: põe um bloco de 0,4 m
 		elif event.is_action_pressed("attack") and ItemDB.def(inventory.selected_id()).kind == "food":
 			_eat_selected()
 		elif event.is_action_pressed("attack") and ItemDB.def(inventory.selected_id()).kind == "book":
@@ -769,6 +773,7 @@ func _process(delta: float) -> void:
 		return
 	_update_torch(delta)
 	_update_held()
+	TerrainTools.update_cursor(self) # cubo do bloco mirado (pá/picareta ou terra/pedra na mão)
 	if vehicle:
 		head.position.y = vehicle.eye_height
 		global_transform = vehicle.seat.global_transform
@@ -1182,6 +1187,10 @@ func _update_swing(delta: float) -> void:
 				_swing_phase = SwingPhase.RECOVER
 				_swing_time = 0.0
 				_swing_start = node.transform
+				# Pá/picareta que não pegou em nada: o golpe cava o bloco mirado no chão.
+				if _swing_hits.is_empty() and TerrainTools.is_dig_tool(self) and TerrainTools.dig(self):
+					_wear_selected(0.5)
+					_shake = maxf(_shake, 0.05)
 				if _swing_queued:
 					_start_swing(_swing_index + 1)
 		SwingPhase.RECOVER:
@@ -1439,6 +1448,12 @@ func _install_gun(id: StringName) -> void:
 	_gun_id = id
 
 
+## Menu de gráficos mudou (vale mesmo com o jogo pausado no ESC).
+func apply_quality() -> void:
+	if camera and not is_puppet() and _aim <= 0.0:
+		camera.fov = Look.fov()
+
+
 func _update_pistol(delta: float) -> void:
 	_fire_timer -= delta
 	_pistol_kick = move_toward(_pistol_kick, 0.0, delta * 7.0)
@@ -1454,7 +1469,8 @@ func _update_pistol(delta: float) -> void:
 		and not ui_blocked and health > 0.0 and _reload_timer <= 0.0 and vehicle == null and not is_puppet() and _equip >= 1.0
 	_aim = move_toward(_aim, 1.0 if want_aim else 0.0, delta * 6.0)
 	if not is_puppet():
-		camera.fov = lerpf(75.0, gun.get("zoom", 75.0) if not gun.is_empty() else 75.0, ease(_aim, 0.6))
+		var base_fov := Look.fov() # campo de visão do menu de gráficos
+		camera.fov = lerpf(base_fov, gun.get("zoom", base_fov) if not gun.is_empty() else base_fov, ease(_aim, 0.6))
 	var scoped: bool = gun.get("scope", false) and _aim > 0.9
 	if scoped != _scoped:
 		_scoped = scoped

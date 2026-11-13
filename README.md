@@ -17,12 +17,66 @@ reação física a golpes e ragdoll (estilo Dying Light), visual de PC dos anos 
   próprio PC fez passa pelo firewall). Só o **host** recebe conexões, e o Windows pergunta uma
   vez "Permitir acesso?" para o jogo, como faz com o Java do Minecraft: clique em Permitir.
   Se a porta 7777 estiver ocupada (outro servidor no mesmo PC), usa a próxima livre.
-- **Só o host** usa as teclas de admin: **Z** (zumbi), **H** (100 zumbis) e **Backspace**
-  (recomeça a partida para todo mundo; também em Esc → Recomeçar). Nos outros, Backspace só
-  **renasce** quando morre.
+- **Só o host** tem o menu **Esc → Admin (trapaças)** (zumbi, horda, vida infinita...) e o
+  **Esc → Recomeçar**. Morto, **Backspace** recomeça (solo) ou **renasce** (online).
 - Online o Esc **não pausa** o jogo (o mundo é de todos) e o "congelamento" dos golpes fica desligado.
 - Os outros jogadores aparecem com o nome em cima, o item da mão, a lanterna acesa e uma bolinha
   azul no minimapa/mapa. Em cima, no meio da tela, aparece quem está online.
+
+## Terreno em grade de 0,4 m, blocos de terra/pedra e paredes de pedra/taipa (rodada de feedback)
+- **Grade do chão = quadradinho da parede** (`TerrainWorld.GRID` = `BuildPiece.SEG` = 0,4 m). O chão é feito de
+  colunas de 0,4 m; a altura natural é gerada a cada 4 colunas (1,6 m) e entre esses pontos o chão são
+  **rampas retas**: a malha, a colisão e `height_at()` usam os mesmos triângulos (diferença medida: 0,0000 m).
+- **Rampas entre blocos (estilo 7 Days to Die):** cavar tira 0,4 m de uma coluna; pôr bloco empilha 0,4 m. Os 4
+  cantos da coluna puxam os vizinhos, então o desnível vira **rampa**, não degrau. Buraco 3×3 tem fundo reto
+  e beiradas inclinadas; pilha alta vira muro/torre com laterais íngremes. A rampa pega o material de quem a
+  puxou (lado da torre de pedra = pedra, beira do buraco = terra cavada).
+- **Cavar:** golpe de **pá** ou **picareta** no chão (sem zumbi/árvore no caminho) tira o bloco mirado. Sai
+  **terra** (item novo), **areia** no deserto/praia e **pedra** nas encostas e montanhas. Pá em pedra = 3 golpes;
+  picareta em terra = 2. Até 12 blocos (4,8 m) abaixo do chão natural.
+- **Construir com o chão:** **terra, areia ou pedra na mão + clique no chão** põe um bloco de 0,4 m na coluna
+  mirada (em cima da pilha, até 6 m). Pedra gasta 2. Um **cubo de arame** mostra o bloco que vai sair (vermelho)
+  ou entrar (verde). Não deixa pôr bloco embaixo de alguém.
+- **Marca de construção para os zumbis:** cada coluna guarda `[blocos cavados, material posto de baixo, ..., do
+  topo]`. Bloco **posto pelo jogador é construção**: zumbi enxerga como parede (desvia ou quebra, como as
+  paredes de madeira) e quebra um por vez (terra 3 golpes, areia 2, pedra 8). **O chão natural ele não cava.**
+- **Paredes guardadas com material** (`BuildPiece.material`: madeira, chapa, pedra, taipa; o save antigo com
+  "metal" sim/não continua abrindo): **Parede de pedra** (10 pedras, amarração com argamassa, 5 golpes por
+  quadrado), **Piso de pedra** (lajes), **Pilar de pedra** e **Parede de taipa** (8 terra + 2 gravetos, terra
+  socada em camadas, 3 golpes). O martelo conserta com pedra/terra.
+- **Base para cavernas e escavação:** os blocos vão no save e na rede (o host decide e manda para todos); o
+  chunk com bloco mexido troca só a malha e a colisão do chão (as plantas ficam), tufos em cima de bloco somem.
+- **Desempenho:** chunk sem bloco mexido usa `HeightMapShape3D` (3,5 ms para 161×161; o antigo
+  `ConcavePolygonShape3D` levava 48 ms com o mesmo tamanho); só o quadrado de 1,6 m com bloco mexido vira 4×4
+  blocos na malha.
+- Testes: `tests/test_terrain_grid.gd` (altura = colisão, rampas, save, chunk recarregado), `tests/test_terrain_blocks.gd`
+  (pá, terra na mão, pedra, zumbi), `tests/test_wall_materials.gd`. Fotos: `tests/shot_terrain.gd`.
+
+## Menu de gráficos (Esc → Gráficos e menu principal)
+- **Predefinições:** **Clássico (como antes)** = o visual de antes da atualização gráfica (cores lavadas, sem
+  textura PS2, tom Filmic, sem brilho/SSAO/grama densa), **Baixa**, **Média** (padrão) e **Alta**. Mexer numa
+  opção vira **Personalizado**.
+- **Imagem:** sombras (desligadas/baixas/médias/altas), cantos escuros (SSAO), brilho do fogo e das luzes,
+  textura PS2, cores fortes, tom da imagem (AgX/Filmic), grama densa (sem/pouca/média/muita), partículas do clima.
+- **Tela:** resolução do 3D (retrô 540 / 720 / 1080 linhas / da janela), filtro retrô (16 bits + pontilhado),
+  vinheta, distância de visão (curta/normal/longa: neblina, câmera e terreno carregado), campo de visão
+  (65–95°), **grade do terreno** (risca os blocos de 0,4 m), VSync, tela cheia e limite de FPS.
+- Tudo vale na hora (inclusive pausado) e fica em `user://graphics.cfg`. Teste: `tests/test_quality.gd`; fotos: `tests/shot_graphics.gd`.
+
+## Carro: ré e quedas (rodada de feedback)
+- **Ré com a força da 1ª marcha** (antes metade da força do motor): mesmo torque e o mesmo limite de velocidade da 1ª.
+- **Menos gravidade extra** (1,5 → 1,15) e **amortecedor de pouso duro**: caindo rápido, a compressão do
+  amortecedor endurece (2,2 → 10) e a força máxima da suspensão sobe (8× o peso por roda; antes 9000 N). Antes a
+  mola chegava no fim do curso e a carroceria descia até a caixa de colisão dela encostar no chão, que fica
+  mais alta que o pneu. Mais detecção contínua de colisão na carroceria. Queda de 3 m no asfalto: o pneu
+  entrava **24 cm** no chão além do normal, agora **3 cm** (nenhum quadro acima de 8 cm). Andando normal a
+  suspensão é a mesma. Teste: `tests/test_car_reverse.gd`.
+
+## Correção: "Criativo" deixava tudo de graça
+- A trapaça se chamava `Cheats.free`, mas `free()` é método de todo objeto do Godot: em alguns scripts
+  `Cheats.free` virava o método (sempre "verdadeiro"). Resultado: **construir e fabricar estava saindo de
+  graça para todo mundo**, mesmo com a trapaça desligada, e fabricar no código de teste entrava em laço. Agora
+  é `Cheats.creative`: parede volta a gastar 4 tábuas, pote 2 pedras etc. (`tests/test_farming.gd`).
 
 ## Construções do martelo
 - **Parede** de tábuas deitadas (tom por fileira, frestas, pregos), **piso** de tábuas com emendas desencontradas, **teto** de telhas em fiadas com degrau. Os detalhes só aparecem nos quadrados inteiros: cortou com a talhadeira, o detalhe sai junto.

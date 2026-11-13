@@ -4,6 +4,7 @@
 uniform float wind = 0.3;
 uniform float fade_far = 0.0;
 uniform float base_dark = 0.5;
+uniform float srgb_fix = 1.0; // 0 = cores lavadas de antes (menu de gráficos)
 
 varying float tip;
 
@@ -13,7 +14,7 @@ vec3 srgb_to_linear(vec3 c) {
 #if CURRENT_RENDERER == RENDERER_COMPATIBILITY
 	return c;
 #else
-	return c * (c * (c * 0.305306011 + 0.682171111) + 0.012522878);
+	return mix(c, c * (c * (c * 0.305306011 + 0.682171111) + 0.012522878), srgb_fix);
 #endif
 }
 

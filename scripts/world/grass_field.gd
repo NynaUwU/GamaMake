@@ -3,13 +3,13 @@ extends Node3D
 ## Grama densa perto do jogador (qualidade Média/Alta; na Baixa só ficam os tufos
 ## espalhados do TerrainProps). Quadrados de 16 m com moitinhas de lâminas em
 ## MultiMesh, gerados em thread com as MESMAS alturas e cores da malha do chão
-## (grade de 2 m, mesmos triângulos): a grama assenta certinho e só nasce onde o
+## (grade de 1,6 m, mesmos triângulos): a grama assenta certinho e só nasce onde o
 ## chão é de grama (nada em rua, cidade, areia, pedra, neve, água ou encosta).
 ## Balança no vento e encolhe até sumir na borda (shaders/grass_blades.gdshader).
-## Pisos construídos e objetos colocados tiram a grama de baixo deles.
+## Pisos construídos, objetos colocados e blocos cavados/postos tiram a grama de baixo deles.
 
 const TILE := 16.0
-const STEP := 2.0 ## grade do terreno (TerrainWorld.cell)
+const STEP := TerrainWorld.STEP ## grade das alturas geradas do terreno (1,6 m)
 const MAX_TASKS := 3
 
 var terrain: TerrainWorld
@@ -32,6 +32,8 @@ var _level_rects: Array[Rect2] = [] ## chão e prédios fixos da área inicial (
 func _ready() -> void:
 	add_to_group("look_quality")
 	_mesh = _clump_mesh()
+	if terrain:
+		terrain.blocks_changed.connect(_on_blocks_changed)
 	# Área inicial: o asfalto/calçada da cena fica por cima do terreno (sem grama ali).
 	var level := get_parent().get_node_or_null("Level")
 	if level:
@@ -134,6 +136,8 @@ func _build(coord: Vector2i) -> void:
 		var world := origin + t.origin
 		if _blocked.has(Vector2i(floori(world.x), floori(world.z))):
 			continue
+		if not terrain.blocks.is_empty() and _on_edited(world):
+			continue
 		var on_level := false
 		for rect in _level_rects:
 			if rect.has_point(Vector2(world.x, world.z)):
@@ -164,6 +168,32 @@ func _build(coord: Vector2i) -> void:
 	mmi.position = origin
 	add_child(mmi)
 	_tiles[coord] = mmi
+
+
+## Bloco cavado/posto nessa coluna ou nas vizinhas (a rampa delas): sem grama.
+func _on_edited(world: Vector3) -> bool:
+	var col := TerrainWorld.column_at(world.x, world.z)
+	for dz in range(-1, 2):
+		for dx in range(-1, 2):
+			if terrain.blocks.has(col + Vector2i(dx, dz)):
+				return true
+	return false
+
+
+## Cavaram/puseram bloco: refaz a grama do quadrado (e do vizinho, na borda).
+func _on_blocks_changed(col: Vector2i) -> void:
+	if not TerrainWorld.is_column(col):
+		for coord in _raw.keys():
+			_build(coord)
+		return
+	var p := (Vector2(col) + Vector2(0.5, 0.5)) * TerrainWorld.GRID
+	var seen := {}
+	for d in [Vector2(-1, -1), Vector2(1, -1), Vector2(-1, 1), Vector2(1, 1)]:
+		var q: Vector2 = p + d * TerrainWorld.GRID * 1.5
+		var coord := Vector2i(floori(q.x / TILE), floori(q.y / TILE))
+		if not seen.has(coord) and _raw.has(coord):
+			seen[coord] = true
+			_build(coord)
 
 
 ## Pisos e objetos colocados: sem grama atravessando. Recalcula quando muda a
@@ -199,11 +229,10 @@ func _refresh_blocked(center: Vector3) -> void:
 			_build(coord)
 
 
-## Thread: alturas/cores da grade de 2 m do chão e as moitinhas sorteadas.
+## Thread: alturas/cores da grade de 1,6 m do chão e as moitinhas sorteadas.
 func _generate(coord: Vector2i, density: float, gen: int) -> void:
-	var ox := coord.x * TILE
-	var oz := coord.y * TILE
-	var n := int(TILE / STEP) + 1
+	var per := roundi(TILE / STEP) # 10 quadrados de 1,6 m por quadrado de grama
+	var n := per + 1
 	var hs := PackedFloat32Array()
 	hs.resize(n * n)
 	var cs := PackedColorArray()
@@ -212,8 +241,9 @@ func _generate(coord: Vector2i, density: float, gen: int) -> void:
 	ok.resize(n * n)
 	for j in n:
 		for i in n:
-			var x := ox + i * STEP
-			var z := oz + j * STEP
+			# Mesmo ponto da grade do terreno (índice global: alturas idênticas às do chão).
+			var x := (coord.x * per + i) * STEP
+			var z := (coord.y * per + j) * STEP
 			var biome := terrain.biome_at(x, z)
 			var h := terrain._height_from(x, z, biome)
 			var c := terrain._color_for(x, z, h, biome)

@@ -314,6 +314,7 @@ func _physics_process(delta: float) -> void:
 		return
 	var forward := global_basis.z
 	var speed := linear_velocity.dot(forward)
+	_landing_damping()
 	_air_control(delta)
 	if driver == null:
 		engine_force = 0.0
@@ -405,6 +406,17 @@ var _shift_timer := 0.0
 var _shift_lock := 0.0
 var _last_speed := 0.0
 var _accel := 0.0
+
+
+## Pouso duro: caindo rápido, o amortecedor de compressão endurece (2,2 -> 10). Sem isso a
+## mola chegava no fim do curso, a carroceria descia até a caixa de colisão encostar e o
+## pneu entrava ~20 cm no chão. Andando normal (sem queda) fica igual.
+const DAMP_COMPRESSION := 2.2
+func _landing_damping() -> void:
+	var fall := clampf((-linear_velocity.y - 2.5) / 4.0, 0.0, 1.0)
+	var damping := lerpf(DAMP_COMPRESSION, 10.0, fall)
+	for wheel: VehicleWheel3D in _wheels:
+		wheel.damping_compression = damping
 
 
 ## Giro do motor dentro da marcha (0..1): sobe até a troca e cai depois dela.
@@ -1056,10 +1068,10 @@ func _build_wheels() -> void:
 			wheel.wheel_rest_length = suspension_rest
 			wheel.suspension_travel = suspension_travel # Monza: curso longo, fora de estrada
 			wheel.suspension_stiffness = suspension_stiffness * sqrt(weight_gravity)
-			# A mola aguenta o carro inteiro 2,5x em cada roda: não bate no fim do curso numa
-			# queda (antes 9000 N e as rodas afundavam no chão).
-			wheel.suspension_max_force = maxf(9000.0, car_mass * 9.8 * weight_gravity * 2.5)
-			wheel.damping_compression = 2.2
+			# Força máxima alta (8x o peso por roda; antes 9000 N): no pouso duro o amortecedor
+			# endurece (_landing_damping) e precisa dessa força para parar o carro no curso.
+			wheel.suspension_max_force = maxf(9000.0, car_mass * 9.8 * weight_gravity * 8.0)
+			wheel.damping_compression = DAMP_COMPRESSION
 			wheel.damping_relaxation = 3.0
 			wheel.wheel_friction_slip = front_grip if front else rear_grip # escorrega um pouco antes de tombar
 			wheel.wheel_roll_influence = roll_influence
@@ -1068,8 +1080,6 @@ func _build_wheels() -> void:
 			_wheels.append(wheel)
 			if not front:
 				_rear_wheels.append(wheel)
-
-
 ## Roda no estilo da ficha, no tamanho de wheel_radius (o modelo é feito para 0,42 m).
 func _wheel_node() -> Node3D:
 	var root: Node3D

@@ -146,7 +146,7 @@ func _apply() -> void:
 		_sun.light_color = palette.sun
 		_sun.light_energy = lerpf(1.0, 0.35, wet)
 		_sun.visible = sun_factor > 0.02
-		_sun.shadow_enabled = sun_factor > 0.15 and wet < 0.6
+		_sun.shadow_enabled = sun_factor > 0.15 and wet < 0.6 and Look.shadows_on()
 	if _moon:
 		if _sky and _moon.is_inside_tree():
 			_sky.set_shader_parameter("moon_dir", _moon.global_basis.z)

@@ -81,7 +81,9 @@ func _sample() -> void:
 		end = lerpf(end, 42.0, gas)
 		begin = lerpf(begin, 2.0, gas)
 		color = color.lerp(Contamination.GAS_COLOR, gas * 0.85)
-	_target = {"end": end, "begin": begin, "color": color, "snow": snow}
+	# Distância de visão do menu de gráficos (curta/normal/longa).
+	var reach := Look.view_mult()
+	_target = {"end": end * reach, "begin": begin * reach, "color": color, "snow": snow}
 
 
 func _apply(t: float) -> void:
@@ -105,7 +107,7 @@ func _apply(t: float) -> void:
 	# Não desenha o que a neblina já escondeu (menos chamadas de desenho).
 	var camera := get_viewport().get_camera_3d()
 	if camera:
-		camera.far = clampf(_environment.fog_depth_end * 1.1 + 15.0, 60.0, 220.0)
+		camera.far = clampf(_environment.fog_depth_end * 1.1 + 15.0, 60.0, 220.0 * Look.view_mult())
 	_snow_amount = lerpf(_snow_amount, _target.snow, t)
 	_snow.emitting = _snow_amount > 0.25
 	_snow.speed_scale = 0.6 + _snow_amount * 0.6

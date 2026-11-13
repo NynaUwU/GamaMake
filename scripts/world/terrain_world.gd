@@ -15,14 +15,39 @@ extends Node3D
 ##
 ## Desempenho: alturas, cores e triângulos de cada chunk são calculados em
 ## threads (WorkerThreadPool); a thread principal só cria os nós prontos.
+##
+## Grade: o chão é feito de colunas de 0,4 m (GRID = o quadradinho da parede,
+## BuildPiece.SEG). A altura natural é gerada a cada 4 colunas (1,6 m, STEP) e o
+## chão entre esses pontos são rampas retas (os mesmos triângulos na malha, na
+## colisão e em height_at). Cavar tira um bloco de 0,4 m da coluna; pôr bloco
+## (terra, pedra, areia) empilha um. Os 4 cantos da coluna mexida puxam os
+## vizinhos, então o desnível vira rampa e não degrau (estilo 7 Days to Die).
+## Blocos postos pelo jogador ficam marcados como construção: zumbis quebram;
+## o chão natural eles não cavam. A grade e os blocos servem de base para cavernas.
 
 signal chunk_loaded(coord: Vector2i)
+signal blocks_changed(column: Vector2i) ## um bloco foi cavado/posto (grama, mapa)
+
+const GRID := 0.4 ## lado de um bloco do terreno (= BuildPiece.SEG)
+const LAT := 4 ## altura natural gerada a cada 4 blocos
+const STEP := GRID * LAT ## 1,6 m entre as alturas geradas (malha sem edição)
+const MAX_DIG := 12 ## até 4,8 m abaixo do chão natural
+const MAX_BUILD := 15 ## até 6 m acima dele
+enum Mat { DUG = -1, NATURAL = 0, DIRT = 1, STONE = 2, SAND = 3 }
+const MAT_ITEM := {Mat.DIRT: &"terra", Mat.STONE: &"pedra", Mat.SAND: &"areia"}
+const MAT_COST := {Mat.DIRT: 1, Mat.STONE: 2, Mat.SAND: 1} ## itens por bloco posto
+const MAT_HITS := {Mat.DIRT: 3, Mat.STONE: 8, Mat.SAND: 2} ## golpes de zumbi por bloco posto
+const MAT_NAMES := {Mat.DIRT: "Bloco de terra", Mat.STONE: "Bloco de pedra", Mat.SAND: "Bloco de areia"}
+const MAT_COLORS := {Mat.DUG: Color(0.37, 0.27, 0.18), Mat.DIRT: Color(0.43, 0.31, 0.2),
+	Mat.STONE: Color(0.5, 0.49, 0.46), Mat.SAND: Color(0.76, 0.65, 0.45)}
+const ITEM_MAT := {&"terra": Mat.DIRT, &"pedra": Mat.STONE, &"areia": Mat.SAND}
+
+static var i: TerrainWorld ## o terreno do mundo atual
 
 @export var seed := 1337
 @export var randomize_seed := false ## true = mapa diferente a cada partida
 @export var world_size := 3072.0 ## lado do mapa em metros
 @export var chunk_size := 64.0
-@export var cell := 2.0 ## distância entre vértices (2 m = visual low-poly)
 @export var view_distance := 220.0 ## além da neblina mais longa
 @export var chunks_per_frame := 1
 @export var town_radius := 45.0 ## área plana da cidade no centro
@@ -65,6 +90,13 @@ var _river_grid := {}
 var _avenue_grid := {} # Vector2i (células de AVENUE_CELL m) -> trechos de avenida que alcançam a célula
 const AVENUE_CELL := 64.0
 var _chunks := {} # Vector2i -> Node3D
+## Colunas mexidas: Vector2i (coluna de 0,4 m) -> PackedByteArray [blocos cavados,
+## material posto de baixo, ..., material do topo]. Altura = postos - cavados.
+var blocks := {}
+var _chunk_cols := {} # Vector2i chunk -> {coluna: true} (colunas que mexem nos cantos dele)
+var _lattice := {} # Vector2i chunk -> [alturas, cores] da grade de 1,6 m (para refazer rápido)
+var _hits := {} # coluna -> golpes de zumbi no bloco do topo (só no host)
+var _chunk_ver := {} # Vector2i chunk -> quantas vezes os blocos dele mudaram
 var _tasks := {} # Vector2i -> id da tarefa em andamento
 var _results := {} # Vector2i -> dados prontos (escrito pelas threads)
 var _mutex := Mutex.new()
@@ -74,6 +106,8 @@ var _player: Node3D
 
 
 func _ready() -> void:
+	i = self
+	add_to_group("persist")
 	if randomize_seed:
 		seed = randi()
 	if Net.i.world_seed != 0:
@@ -158,9 +192,70 @@ func biome_at(x: float, z: float) -> Dictionary:
 	}
 
 
+## Altura do chão no ponto: a mesma da malha e da colisão (rampas da grade de 1,6 m
+## e os blocos cavados/postos). Fora da thread principal, sem os blocos.
 func height_at(x: float, z: float) -> float:
-	var biome := biome_at(x, z)
-	return _height_from(x, z, biome)
+	var main := OS.get_thread_caller_id() == OS.get_main_thread_id()
+	if main and not blocks.is_empty():
+		var bx := floori(x / GRID)
+		var bz := floori(z / GRID)
+		var o00 := corner_offset(bx, bz)
+		var o10 := corner_offset(bx + 1, bz)
+		var o01 := corner_offset(bx, bz + 1)
+		var o11 := corner_offset(bx + 1, bz + 1)
+		if o00 != 0 or o10 != 0 or o01 != 0 or o11 != 0:
+			var h00 := _base_at(bx * GRID, bz * GRID, main) + o00 * GRID
+			var h10 := _base_at((bx + 1) * GRID, bz * GRID, main) + o10 * GRID
+			var h01 := _base_at(bx * GRID, (bz + 1) * GRID, main) + o01 * GRID
+			var h11 := _base_at((bx + 1) * GRID, (bz + 1) * GRID, main) + o11 * GRID
+			return tri_lerp(h00, h10, h01, h11, x / GRID - bx, z / GRID - bz)
+	return _base_at(x, z, main)
+
+
+## Altura natural no ponto: rampa reta entre os 4 pontos gerados em volta (1,6 m).
+func _base_at(x: float, z: float, main := true) -> float:
+	var gx := x / STEP
+	var gz := z / STEP
+	var gi := floori(gx)
+	var gj := floori(gz)
+	return tri_lerp(_lattice_h(gi, gj, main), _lattice_h(gi + 1, gj, main), _lattice_h(gi, gj + 1, main),
+		_lattice_h(gi + 1, gj + 1, main), gx - gi, gz - gj)
+
+
+## Altura gerada no ponto (gi, gj) da grade de 1,6 m (do chunk carregado, se der).
+func _lattice_h(gi: int, gj: int, main: bool) -> float:
+	if main:
+		var q := _lat_q()
+		var coord := Vector2i(floori(float(gi) / q), floori(float(gj) / q))
+		var lat: Array = _lattice.get(coord, [])
+		if not lat.is_empty():
+			return (lat[0] as PackedFloat32Array)[(gj - coord.y * q) * (q + 1) + gi - coord.x * q]
+	var x := gi * STEP
+	var z := gj * STEP
+	return _height_from(x, z, biome_at(x, z))
+
+
+## Triângulos da grade (diagonal do canto (1,0) ao (0,1), a mesma do HeightMapShape3D).
+static func tri_lerp(h00: float, h10: float, h01: float, h11: float, u: float, v: float) -> float:
+	if u + v <= 1.0:
+		return h00 + (h10 - h00) * u + (h01 - h00) * v
+	return h11 + (h01 - h11) * (1.0 - u) + (h10 - h11) * (1.0 - v)
+
+
+static func _tri_color(c00: Color, c10: Color, c01: Color, c11: Color, u: float, v: float) -> Color:
+	if u + v <= 1.0:
+		return c00 + (c10 - c00) * u + (c01 - c00) * v
+	return c11 + (c01 - c11) * (1.0 - u) + (c10 - c11) * (1.0 - v)
+
+
+## Quadrados de 1,6 m por lado do chunk (40).
+func _lat_q() -> int:
+	return roundi(chunk_size / STEP)
+
+
+## Blocos de 0,4 m por lado do chunk (160).
+func _cols_q() -> int:
+	return roundi(chunk_size / GRID)
 
 
 ## Quanto o ponto está "na neve": bioma de inverno ou montanha acima da linha de neve.
@@ -381,11 +476,12 @@ func _stream(wanted: Array, keep: Dictionary, budget: int) -> void:
 		elif not keep.has(coord):
 			_chunks[coord].queue_free()
 			_chunks.erase(coord)
+			_lattice.erase(coord)
 	if budget < 0:
 		# Síncrono (início do jogo): calcula e cria tudo agora.
 		for coord in wanted:
 			if not _chunks.has(coord):
-				_finish(coord, _generate_data(coord))
+				_finish(coord, _generate_data(coord, _snapshot(coord)))
 		return
 	# Recolhe o que as threads terminaram (no máximo "budget" por frame).
 	var created := 0
@@ -406,17 +502,19 @@ func _stream(wanted: Array, keep: Dictionary, budget: int) -> void:
 	for coord in wanted:
 		if not _chunks.has(coord) and not _tasks.has(coord) and _tasks.size() < 10:
 			# Alta prioridade: tarefas comuns dividem só ~30% das threads (o mapa ocupava tudo).
-			_tasks[coord] = WorkerThreadPool.add_task(_threaded_generate.bind(coord), true)
+			_tasks[coord] = WorkerThreadPool.add_task(_threaded_generate.bind(coord, _snapshot(coord)), true)
 
 
-func _threaded_generate(coord: Vector2i) -> void:
-	var data := _generate_data(coord)
+func _threaded_generate(coord: Vector2i, snap: Dictionary) -> void:
+	var data := _generate_data(coord, snap)
 	_mutex.lock()
 	_results[coord] = data
 	_mutex.unlock()
 
 
 func _exit_tree() -> void:
+	if i == self:
+		i = null
 	for coord in _tasks:
 		WorkerThreadPool.wait_for_task_completion(_tasks[coord])
 	_tasks.clear()
@@ -444,63 +542,186 @@ func _wanted_chunks(center: Vector3, distance: float) -> Array:
 
 ## Usado por testes/ferramentas: gera e cria um chunk na hora.
 func _build_chunk(coord: Vector2i) -> Node3D:
-	return _finish(coord, _generate_data(coord))
+	return _finish(coord, _generate_data(coord, _snapshot(coord)))
 
 
-## Parte pesada (roda em thread): alturas, cores e triângulos do chunk.
-func _generate_data(coord: Vector2i) -> Dictionary:
-	var origin := Vector2(coord) * chunk_size
-	var count := int(chunk_size / cell) + 1
+## Parte pesada (roda em thread): alturas e cores da grade de 1,6 m, triângulos e
+## plantas. "snap" = blocos mexidos que tocam o chunk (cópia feita na thread principal).
+func _generate_data(coord: Vector2i, snap: Dictionary = {}) -> Dictionary:
+	var q := _lat_q()
+	var n := q + 1
 	var heights := PackedFloat32Array()
-	heights.resize(count * count)
+	heights.resize(n * n)
 	var colors := PackedColorArray()
-	colors.resize(count * count)
-	for j in count:
-		for i in count:
-			var x := origin.x + i * cell
-			var z := origin.y + j * cell
+	colors.resize(n * n)
+	for j in n:
+		for i in n:
+			# Posição pelo índice global (o ponto da borda sai idêntico nos dois chunks).
+			var x := (coord.x * q + i) * STEP
+			var z := (coord.y * q + j) * STEP
 			var biome := biome_at(x, z)
 			var h := _height_from(x, z, biome)
-			heights[j * count + i] = h
-			colors[j * count + i] = _color_for(x, z, h, biome)
+			heights[j * n + i] = h
+			colors[j * n + i] = _color_for(x, z, h, biome)
+	var data := _surface_data(coord, heights, colors, snap)
+	data.ver = snap.get("ver", 0)
+	data.lat_h = heights
+	data.lat_c = colors
+	data.props = _props.plan(self, coord, Vector2(coord) * chunk_size)
+	return data
 
-	var quads := (count - 1) * (count - 1)
+
+## Malha do chão do chunk: cada quadrado de 1,6 m vira 2 triângulos; os que têm bloco
+## mexido em algum canto viram 4x4 blocos de 0,4 m (2 triângulos cada) com as rampas.
+func _surface_data(coord: Vector2i, heights: PackedFloat32Array, colors: PackedColorArray, snap: Dictionary) -> Dictionary:
+	var q := _lat_q()
+	var n := q + 1
+	var origin := Vector2(coord) * chunk_size
+	var off: Dictionary = snap.get("off", {})
+	var corner_mat: Dictionary = snap.get("cmat", {})
+	var mats: Dictionary = snap.get("mat", {})
+	var fine := PackedByteArray()
+	fine.resize(q * q)
+	var fine_count := 0
+	for c: Vector2i in off:
+		for qx in _quads_of(c.x, q):
+			for qz in _quads_of(c.y, q):
+				if fine[qz * q + qx] == 0:
+					fine[qz * q + qx] = 1
+					fine_count += 1
+	for b: Vector2i in mats:
+		if b.x >= 0 and b.y >= 0 and b.x < q * LAT and b.y < q * LAT:
+			var k := (b.y / LAT) * q + b.x / LAT
+			if fine[k] == 0:
+				fine[k] = 1
+				fine_count += 1
+	var total := ((q * q - fine_count) + fine_count * LAT * LAT) * 6
 	var vertices := PackedVector3Array()
-	vertices.resize(quads * 6)
+	vertices.resize(total)
 	var normals := PackedVector3Array()
-	normals.resize(quads * 6)
+	normals.resize(total)
 	var vertex_colors := PackedColorArray()
-	vertex_colors.resize(quads * 6)
+	vertex_colors.resize(total)
 	var uvs := PackedVector2Array()
-	uvs.resize(quads * 6)
-	var n := 0
-	for j in count - 1:
-		for i in count - 1:
-			var ids := [j * count + i, j * count + i + 1, (j + 1) * count + i, (j + 1) * count + i + 1]
-			var pos := [Vector3(i * cell, heights[ids[0]], j * cell), Vector3((i + 1) * cell, heights[ids[1]], j * cell),
-				Vector3(i * cell, heights[ids[2]], (j + 1) * cell), Vector3((i + 1) * cell, heights[ids[3]], (j + 1) * cell)]
+	uvs.resize(total)
+	var w := [0]
+	for j in q:
+		for i in q:
+			var k0 := j * n + i
+			var h00 := heights[k0]
+			var h10 := heights[k0 + 1]
+			var h01 := heights[k0 + n]
+			var h11 := heights[k0 + n + 1]
 			# Rocha nas encostas íngremes.
-			var steep := absf(heights[ids[0]] - heights[ids[3]]) / (cell * 1.41)
+			var steep := absf(h00 - h11) / (STEP * 1.41)
 			var rock := clampf((steep - 0.9) * 2.0, 0.0, 0.85) if steep > 0.9 else 0.0
-			# Sentido horário visto de cima = face da frente no Godot.
-			for tri in [[0, 1, 2], [1, 3, 2]]:
-				var a: Vector3 = pos[tri[0]]
-				var b: Vector3 = pos[tri[1]]
-				var c: Vector3 = pos[tri[2]]
-				var normal := (c - a).cross(b - a).normalized()
-				for k in tri:
-					vertices[n] = pos[k]
-					normals[n] = normal
-					vertex_colors[n] = (colors[ids[k]] as Color).lerp(COLOR_ROCK, rock)
-					uvs[n] = Vector2(origin.x + pos[k].x, origin.y + pos[k].z) * 0.25
-					n += 1
-	return {"vertices": vertices, "normals": normals, "colors": vertex_colors, "uvs": uvs,
-		"props": _props.plan(self, coord, origin)}
+			var c00 := colors[k0].lerp(COLOR_ROCK, rock)
+			var c10 := colors[k0 + 1].lerp(COLOR_ROCK, rock)
+			var c01 := colors[k0 + n].lerp(COLOR_ROCK, rock)
+			var c11 := colors[k0 + n + 1].lerp(COLOR_ROCK, rock)
+			var x0 := i * STEP
+			var z0 := j * STEP
+			if fine[j * q + i] == 0:
+				var pos := [Vector3(x0, h00, z0), Vector3(x0 + STEP, h10, z0), Vector3(x0, h01, z0 + STEP), Vector3(x0 + STEP, h11, z0 + STEP)]
+				var cols := [c00, c10, c01, c11]
+				_quad(pos, cols, origin, vertices, normals, vertex_colors, uvs, w)
+				continue
+			# Quadrado com blocos mexidos: 4x4 blocos de 0,4 m.
+			for b in LAT:
+				for a in LAT:
+					var pos := []
+					var cols := []
+					var strongest := 0
+					var ramp_mat: int = Mat.NATURAL
+					for corner in [Vector2i(0, 0), Vector2i(1, 0), Vector2i(0, 1), Vector2i(1, 1)]:
+						var u := float(a + corner.x) / LAT
+						var v := float(b + corner.y) / LAT
+						var key := Vector2i(i * LAT + a + corner.x, j * LAT + b + corner.y)
+						var o: int = off.get(key, 0)
+						if absi(o) > strongest:
+							strongest = absi(o)
+							ramp_mat = corner_mat.get(key, Mat.DUG)
+						pos.append(Vector3(x0 + u * STEP, tri_lerp(h00, h10, h01, h11, u, v) + o * GRID, z0 + v * STEP))
+						cols.append(_tri_color(c00, c10, c01, c11, u, v))
+					# Cor do bloco: o material posto/cavado dele; rampa do vizinho: o material
+					# de quem a puxou (lado da torre de pedra = pedra, beira do buraco = terra).
+					var mat: int = mats.get(Vector2i(i * LAT + a, j * LAT + b), Mat.NATURAL)
+					if mat == Mat.NATURAL and strongest > 0:
+						mat = ramp_mat
+					if mat != Mat.NATURAL:
+						var tint: Color = MAT_COLORS.get(mat, MAT_COLORS[Mat.DUG])
+						var amount := 0.85
+						for k in 4:
+							cols[k] = (cols[k] as Color).lerp(tint, amount)
+					_quad(pos, cols, origin, vertices, normals, vertex_colors, uvs, w)
+	return {"vertices": vertices, "normals": normals, "colors": vertex_colors, "uvs": uvs, "edited": not off.is_empty() or not mats.is_empty()}
+
+
+## Quadrados de 1,6 m que usam o canto "c" (índice de canto de 0,4 m no chunk).
+static func _quads_of(c: int, q: int) -> Array:
+	var list := []
+	var a := c / LAT
+	if c >= 0 and a < q:
+		list.append(a)
+	if c % LAT == 0 and a - 1 >= 0 and a - 1 < q:
+		list.append(a - 1)
+	return list
+
+
+## Dois triângulos (sentido horário visto de cima = face da frente), normal reta.
+static func _quad(pos: Array, cols: Array, origin: Vector2, vertices: PackedVector3Array, normals: PackedVector3Array,
+		vertex_colors: PackedColorArray, uvs: PackedVector2Array, w: Array) -> void:
+	var n: int = w[0]
+	for tri in [[0, 1, 2], [1, 3, 2]]:
+		var a: Vector3 = pos[tri[0]]
+		var b: Vector3 = pos[tri[1]]
+		var c: Vector3 = pos[tri[2]]
+		var normal := (c - a).cross(b - a).normalized()
+		for k in tri:
+			vertices[n] = pos[k]
+			normals[n] = normal
+			vertex_colors[n] = cols[k]
+			uvs[n] = Vector2(origin.x + pos[k].x, origin.y + pos[k].z) * 0.25
+			n += 1
+	w[0] = n
 
 
 ## Parte leve (thread principal): cria malha, colisão e enfeites.
 func _finish(coord: Vector2i, data: Dictionary) -> Node3D:
 	var origin := Vector2(coord) * chunk_size
+	var chunk := Node3D.new()
+	chunk.name = "Chunk_%d_%d" % [coord.x, coord.y]
+	chunk.position = Vector3(origin.x, 0, origin.y)
+	add_child(chunk)
+	var visual := MeshInstance3D.new()
+	visual.name = "Ground"
+	visual.material_override = _material
+	chunk.add_child(visual)
+	var body := StaticBody3D.new()
+	body.name = "Body"
+	body.collision_layer = 1
+	body.collision_mask = 0
+	var shape := CollisionShape3D.new()
+	shape.name = "GroundShape"
+	body.add_child(shape)
+	chunk.add_child(body)
+	_lattice[coord] = [data.lat_h, data.lat_c]
+	var surface := data
+	if int(data.get("ver", 0)) != int(_chunk_ver.get(coord, 0)):
+		# Cavaram/puseram bloco enquanto a thread trabalhava: refaz o chão com o atual.
+		surface = _surface_data(coord, data.lat_h, data.lat_c, _snapshot(coord))
+	_apply_surface(chunk, surface, data.lat_h)
+	_props.apply(data.props, chunk, body)
+	if _chunk_cols.has(coord):
+		_hide_foliage(chunk)
+	_chunks[coord] = chunk
+	chunk_loaded.emit(coord)
+	return chunk
+
+
+## Põe a malha e a colisão do chão no chunk. Sem blocos mexidos a colisão é um
+## HeightMapShape3D da grade de 1,6 m (leve); com blocos, os próprios triângulos.
+func _apply_surface(chunk: Node3D, data: Dictionary, heights: PackedFloat32Array) -> void:
 	var arrays := []
 	arrays.resize(Mesh.ARRAY_MAX)
 	arrays[Mesh.ARRAY_VERTEX] = data.vertices
@@ -509,28 +730,27 @@ func _finish(coord: Vector2i, data: Dictionary) -> Node3D:
 	arrays[Mesh.ARRAY_TEX_UV] = data.uvs
 	var mesh := ArrayMesh.new()
 	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
-
-	var chunk := Node3D.new()
-	chunk.name = "Chunk_%d_%d" % [coord.x, coord.y]
-	chunk.position = Vector3(origin.x, 0, origin.y)
-	add_child(chunk)
-	var visual := MeshInstance3D.new()
-	visual.mesh = mesh
-	visual.material_override = _material
-	chunk.add_child(visual)
-	var body := StaticBody3D.new()
-	body.collision_layer = 1
-	body.collision_mask = 0
-	var shape := CollisionShape3D.new()
-	var faces := ConcavePolygonShape3D.new()
-	faces.set_faces(data.vertices)
-	shape.shape = faces
-	body.add_child(shape)
-	chunk.add_child(body)
-	_props.apply(data.props, chunk, body)
-	_chunks[coord] = chunk
-	chunk_loaded.emit(coord)
-	return chunk
+	(chunk.get_node("Ground") as MeshInstance3D).mesh = mesh
+	var shape := chunk.get_node("Body/GroundShape") as CollisionShape3D
+	if data.edited:
+		var faces := ConcavePolygonShape3D.new()
+		faces.set_faces(data.vertices)
+		shape.shape = faces
+		shape.position = Vector3.ZERO
+		shape.scale = Vector3.ONE
+	else:
+		var n := _lat_q() + 1
+		var map := HeightMapShape3D.new()
+		map.map_width = n
+		map.map_depth = n
+		var scaled := PackedFloat32Array()
+		scaled.resize(n * n)
+		for k in n * n:
+			scaled[k] = heights[k] / STEP
+		map.map_data = scaled
+		shape.shape = map
+		shape.scale = Vector3.ONE * STEP
+		shape.position = Vector3(chunk_size * 0.5, 0.0, chunk_size * 0.5)
 
 
 ## Para o mapa: cor do chão e altura no ponto (seguro de chamar em thread).
@@ -591,3 +811,332 @@ func _color_for(x: float, z: float, h: float, biome: Dictionary) -> Color:
 ## pedra nas encostas, manchas que quebram o verde liso). Ver Look.surface.
 func _make_material() -> Material:
 	return Look.surface(false, 1.0, 0.95, 0.0, true)
+
+
+# --- Blocos: cavar e construir com o chão -------------------------------------------
+
+## Coluna de 0,4 m que contém o ponto.
+static func column_at(x: float, z: float) -> Vector2i:
+	return Vector2i(floori(x / GRID), floori(z / GRID))
+
+
+## Quantos blocos a coluna está acima (+) ou abaixo (-) do chão natural.
+func column_offset(col: Vector2i) -> int:
+	var b: PackedByteArray = blocks.get(col, PackedByteArray())
+	return 0 if b.is_empty() else b.size() - 1 - b[0]
+
+
+## Material do bloco de cima: posto pelo jogador (DIRT/STONE/SAND), DUG (terra
+## cavada) ou NATURAL (nunca mexido).
+func top_material(col: Vector2i) -> int:
+	var b: PackedByteArray = blocks.get(col, PackedByteArray())
+	if b.size() > 1:
+		return b[b.size() - 1]
+	return Mat.DUG if not b.is_empty() and b[0] > 0 else Mat.NATURAL
+
+
+## Blocos postos pelo jogador na coluna (construção: zumbi pode quebrar).
+func built_count(col: Vector2i) -> int:
+	var b: PackedByteArray = blocks.get(col, PackedByteArray())
+	return maxi(b.size() - 1, 0)
+
+
+## Canto (cx, cz) da grade de 0,4 m: entre as 4 colunas em volta vale o desnível
+## mais forte (subida ganha de buraco no empate). Daí as rampas entre os blocos.
+func corner_offset(cx: int, cz: int) -> int:
+	if blocks.is_empty():
+		return 0
+	return _corner_info(cx, cz).x
+
+
+## Desnível do canto e o material de quem o puxou (a rampa em volta de uma torre de
+## pedra é de pedra; em volta de um buraco, terra cavada): Vector2i(desnível, material).
+func _corner_info(cx: int, cz: int) -> Vector2i:
+	var lo := 0
+	var hi := 0
+	var lo_col := Vector2i.ZERO
+	var hi_col := Vector2i.ZERO
+	for col in [Vector2i(cx - 1, cz - 1), Vector2i(cx, cz - 1), Vector2i(cx - 1, cz), Vector2i(cx, cz)]:
+		var o := column_offset(col)
+		if o < lo:
+			lo = o
+			lo_col = col
+		if o > hi:
+			hi = o
+			hi_col = col
+	if hi == 0 and lo == 0:
+		return Vector2i.ZERO
+	if hi >= -lo:
+		return Vector2i(hi, top_material(hi_col))
+	return Vector2i(lo, Mat.DUG)
+
+
+## Chunks cujos cantos a coluna mexe (o dela e, na borda, o vizinho).
+func _chunks_of(col: Vector2i) -> Array:
+	var cq := _cols_q()
+	var xs := [floori(float(col.x) / cq)]
+	var zs := [floori(float(col.y) / cq)]
+	if posmod(col.x, cq) == 0:
+		xs.append(xs[0] - 1)
+	elif posmod(col.x, cq) == cq - 1:
+		xs.append(xs[0] + 1)
+	if posmod(col.y, cq) == 0:
+		zs.append(zs[0] - 1)
+	elif posmod(col.y, cq) == cq - 1:
+		zs.append(zs[0] + 1)
+	var list := []
+	for x in xs:
+		for z in zs:
+			list.append(Vector2i(x, z))
+	return list
+
+
+## Cópia dos blocos que tocam o chunk (para a thread): desnível de cada canto
+## mexido e material de cada coluna mexida, em índices locais do chunk.
+func _snapshot(coord: Vector2i) -> Dictionary:
+	var cols: Dictionary = _chunk_cols.get(coord, {})
+	var snap := {"ver": int(_chunk_ver.get(coord, 0))}
+	if cols.is_empty():
+		return snap
+	var cq := _cols_q()
+	var base := coord * cq
+	var off := {}
+	var corner_mat := {}
+	var mats := {}
+	for col: Vector2i in cols:
+		var local := col - base
+		var mat := top_material(col)
+		if mat != Mat.NATURAL and local.x >= 0 and local.y >= 0 and local.x < cq and local.y < cq:
+			mats[local] = mat
+		for d in [Vector2i(0, 0), Vector2i(1, 0), Vector2i(0, 1), Vector2i(1, 1)]:
+			var lc: Vector2i = local + d
+			if lc.x < 0 or lc.y < 0 or lc.x > cq or lc.y > cq or off.has(lc):
+				continue
+			var info := _corner_info(col.x + d.x, col.y + d.y)
+			if info.x != 0:
+				off[lc] = info.x
+				corner_mat[lc] = info.y
+	snap.off = off
+	snap.cmat = corner_mat
+	snap.mat = mats
+	return snap
+
+
+## Troca o conteúdo de uma coluna e refaz o chão dos chunks em volta (rebuild =
+## false: só marca; quem chamou refaz depois, ver load_data).
+func set_column(col: Vector2i, data: PackedByteArray, rebuild := true) -> Array:
+	if data.is_empty() or (data.size() == 1 and data[0] == 0):
+		blocks.erase(col)
+	else:
+		blocks[col] = data
+	_hits.erase(col)
+	for coord: Vector2i in _chunks_of(col):
+		if blocks.has(col):
+			if not _chunk_cols.has(coord):
+				_chunk_cols[coord] = {}
+			_chunk_cols[coord][col] = true
+		elif _chunk_cols.has(coord):
+			_chunk_cols[coord].erase(col)
+			if _chunk_cols[coord].is_empty():
+				_chunk_cols.erase(coord)
+		_chunk_ver[coord] = int(_chunk_ver.get(coord, 0)) + 1
+		if rebuild:
+			_rebuild_surface(coord)
+	if rebuild:
+		blocks_changed.emit(col)
+	return _chunks_of(col)
+
+
+## Refaz só o chão (malha e colisão) de um chunk carregado, com os blocos de agora.
+func _rebuild_surface(coord: Vector2i) -> void:
+	var chunk: Node3D = _chunks.get(coord)
+	var lat: Array = _lattice.get(coord, [])
+	if not is_instance_valid(chunk) or lat.is_empty():
+		return
+	_apply_surface(chunk, _surface_data(coord, lat[0], lat[1], _snapshot(coord)), lat[0])
+	_hide_foliage(chunk)
+
+
+## Tufos de grama/arbustos do cenário em cima de bloco mexido (ou da rampa dele) somem.
+func _hide_foliage(chunk: Node3D) -> void:
+	for node in chunk.get_children():
+		if not (node is MultiMeshInstance3D and node.has_meta("foliage")):
+			continue
+		var mm: MultiMesh = node.multimesh
+		var original: Array = node.get_meta("foliage")
+		for k in mini(mm.instance_count, original.size()):
+			var t: Transform3D = original[k]
+			var col := column_at(chunk.position.x + t.origin.x, chunk.position.z + t.origin.z)
+			var hide := false
+			for dz in range(-1, 2):
+				for dx in range(-1, 2):
+					if blocks.has(col + Vector2i(dx, dz)):
+						hide = true
+			mm.set_instance_transform(k, Transform3D(Basis.from_scale(Vector3.ZERO), t.origin) if hide else t)
+
+
+## Altura do topo da coluna (o meio do bloco de cima).
+func column_top(col: Vector2i) -> float:
+	return height_at((col.x + 0.5) * GRID, (col.y + 0.5) * GRID)
+
+
+## Do que é o chão natural da coluna (o que a pá tira): pedra nas encostas e
+## montanhas altas, areia no deserto e na praia, terra no resto.
+func natural_material(col: Vector2i) -> int:
+	var x := (col.x + 0.5) * GRID
+	var z := (col.y + 0.5) * GRID
+	var biome := biome_at(x, z)
+	var h := _height_from(x, z, biome)
+	var c := _color_for(x, z, h, biome)
+	var gx := x / STEP
+	var gz := z / STEP
+	var slope := absf(_lattice_h(floori(gx), floori(gz), true) - _lattice_h(floori(gx) + 1, floori(gz) + 1, true)) / (STEP * 1.41)
+	if slope > 1.0 or (absf(c.r - c.g) < 0.04 and absf(c.g - c.b) < 0.05 and c.r < 0.5):
+		return Mat.STONE
+	if c.r > 0.62 and c.g > 0.52 and c.b < c.g:
+		return Mat.SAND
+	return Mat.DIRT
+
+
+## O que sai de cavar a coluna agora (material do item), ou NATURAL se não dá.
+func dig_result(col: Vector2i) -> int:
+	var b: PackedByteArray = blocks.get(col, PackedByteArray([0]))
+	if b.size() > 1:
+		return b[b.size() - 1]
+	if b[0] >= MAX_DIG:
+		return Mat.NATURAL
+	return natural_material(col)
+
+
+## Dá para pôr um bloco na coluna? (altura máxima)
+func can_place(col: Vector2i) -> bool:
+	return column_offset(col) < MAX_BUILD
+
+
+## Coluna com bloco posto pelo jogador perto do ponto atingido (o golpe pega na
+## rampa do vizinho também): olha a coluna do ponto e até 2 adiante na direção.
+func built_near(point: Vector3, direction: Vector3) -> Vector2i:
+	if blocks.is_empty():
+		return Vector2i(-2147483647, 0)
+	var flat := Vector3(direction.x, 0.0, direction.z).normalized() * GRID
+	for k in 3:
+		var p := point + flat * k
+		for d in [Vector2i.ZERO, Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]:
+			var col: Vector2i = column_at(p.x, p.z) + d
+			if built_count(col) > 0 and column_top(col) > point.y - 0.25:
+				return col
+	return Vector2i(-2147483647, 0)
+
+
+static func is_column(col: Vector2i) -> bool:
+	return col.x != -2147483647
+
+
+## O corpo atingido é o chão de um chunk?
+static func is_ground(collider: Object) -> bool:
+	var node := collider as Node
+	return node != null and node.get_parent() != null and node.get_parent().get_parent() is TerrainWorld
+
+
+## Pedidos (vão para o host e voltam para todos; ver Net.system_request).
+func request_dig(col: Vector2i) -> void:
+	Net.i.system_request(name, "dig", [col])
+
+
+func request_place(col: Vector2i, mat: int) -> void:
+	Net.i.system_request(name, "place", [col, mat])
+
+
+## Golpe de zumbi num bloco posto (roda no host). true = quebrou.
+func zombie_hit(col: Vector2i, power: int) -> bool:
+	if built_count(col) <= 0:
+		return false
+	var mat := top_material(col)
+	_hits[col] = int(_hits.get(col, 0)) + power
+	if _hits[col] < int(MAT_HITS.get(mat, 3)):
+		return false
+	Net.i.system_request(name, "break", [col])
+	return true
+
+
+func host_apply(action: String, args: Array) -> Array:
+	var col: Vector2i = args[0]
+	var b: PackedByteArray = (blocks.get(col, PackedByteArray([0])) as PackedByteArray).duplicate()
+	match action:
+		"dig":
+			if b.size() > 1:
+				b.resize(b.size() - 1) # tira o bloco posto de cima
+			elif b[0] < MAX_DIG:
+				b[0] += 1 # cava o chão natural
+			else:
+				return []
+		"place":
+			var mat: int = args[1]
+			if not MAT_ITEM.has(mat) or column_offset(col) >= MAX_BUILD:
+				return []
+			b.append(mat)
+		"break":
+			if b.size() <= 1:
+				return []
+			b.resize(b.size() - 1)
+		"set":
+			b = args[1]
+		_:
+			return []
+	set_column(col, b)
+	_edit_sound(action, col)
+	return [col, b]
+
+
+func apply_remote(action: String, args: Array) -> void:
+	if args.size() < 2:
+		return
+	set_column(args[0], args[1])
+	_edit_sound(action, args[0])
+
+
+func _edit_sound(action: String, col: Vector2i) -> void:
+	if not is_inside_tree():
+		return
+	var at := Vector3((col.x + 0.5) * GRID, column_top(col), (col.y + 0.5) * GRID)
+	match action:
+		"dig":
+			Sfx.play_at("step_soft", at, 4.0, 0.8)
+		"place":
+			Sfx.play_at("step_soft", at, 4.0, 1.15)
+		"break":
+			Sfx.play_at("crunch", at, 4.0, 0.6)
+
+
+# --- Salvar / rede -------------------------------------------------------------------
+
+func persist_key() -> String:
+	return "terrain"
+
+
+func save_data() -> Dictionary:
+	var list := []
+	for col: Vector2i in blocks:
+		list.append([col, blocks[col]])
+	return {"blocks": list}
+
+
+func load_data(data: Dictionary) -> void:
+	var incoming := {}
+	for entry in data.get("blocks", []):
+		incoming[entry[0]] = entry[1]
+	var touched := {}
+	for col: Vector2i in blocks.keys():
+		if not incoming.has(col):
+			for coord in set_column(col, PackedByteArray(), false):
+				touched[coord] = true
+	for col: Vector2i in incoming:
+		for coord in set_column(col, incoming[col], false):
+			touched[coord] = true
+	for coord: Vector2i in touched:
+		_rebuild_surface(coord)
+	blocks_changed.emit(Vector2i(-2147483647, 0)) # tudo
+
+
+func net_sync_to(peer: int) -> void:
+	Net.i.send_system_state(peer, name, save_data())

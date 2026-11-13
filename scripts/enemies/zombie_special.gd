@@ -441,7 +441,7 @@ func _chase_brutamontes(delta: float, to_target: Vector3) -> bool:
 			var from := zombie.global_position + Vector3.UP * 1.0
 			var hit := space.intersect_ray(PhysicsRayQueryParameters3D.create(from, from + _dir * 1.1, 1, [zombie.get_rid()]))
 			if hit and hit.normal.y < 0.6:
-				if Zombie.is_build(hit.collider):
+				if Zombie.is_build_hit(hit, _dir):
 					# Arrebenta a parede: abre um buraco de uma vez.
 					var normal: Vector3 = hit.normal if hit.normal.dot(_dir) < 0.0 else -hit.normal
 					zombie._wall = {"normal": normal, "direction": _dir}
@@ -610,7 +610,7 @@ func _clear_line(builds_ok := false) -> bool:
 	if t is CollisionObject3D:
 		exclude.append(t.get_rid())
 	var hit := zombie.get_world_3d().direct_space_state.intersect_ray(PhysicsRayQueryParameters3D.create(from, to, 1, exclude))
-	return hit.is_empty() or (builds_ok and Zombie.is_build(hit.collider))
+	return hit.is_empty() or (builds_ok and Zombie.is_build_hit(hit, (to - from).normalized()))
 
 
 # --- Efeitos (host e cópias) ---------------------------------------------------------

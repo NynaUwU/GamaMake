@@ -7,7 +7,10 @@ static var god := false ## vida infinita: não toma dano e nada tira vida
 static var stamina := false ## stamina infinita
 static var needs := false ## sem fome, sede, frio, doença nem gás
 static var ammo := false ## munição infinita (a arma de fogo não gasta)
-static var free := false ## criativo: construir e fabricar sem gastar material
+## Criativo: construir e fabricar sem gastar material. (Chamava "free", mas free() é
+## método de todo Object: em alguns scripts Cheats.free virava o método, sempre
+## "verdadeiro", e tudo saía de graça.)
+static var creative := false
 static var invisible := false ## os zumbis não enxergam você
 static var fast := false ## anda e corre 2x mais rápido
 
@@ -34,7 +37,7 @@ static func get_flag(name: String) -> bool:
 		"ammo":
 			return ammo
 		"free":
-			return free
+			return creative
 		"invisible":
 			return invisible
 		"fast":
@@ -53,7 +56,7 @@ static func set_flag(name: String, on: bool) -> void:
 		"ammo":
 			ammo = on
 		"free":
-			free = on
+			creative = on
 		"invisible":
 			invisible = on
 		"fast":

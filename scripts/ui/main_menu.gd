@@ -25,6 +25,7 @@ const PREVIEW_PIXELS := 128
 
 
 func _ready() -> void:
+	Look.apply_display() # VSync, tela cheia e limite de FPS do menu de gráficos
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_name = Net.i.player_name if Net.i.player_name != "Jogador" else "Jogador%d" % (randi() % 1000)
@@ -83,12 +84,21 @@ func _show_main() -> void:
 		LegacyGUI.button(column, "Carregar mundo...", _show_saves)
 	LegacyGUI.button(column, "Novo mundo (sozinho)...", func(): _show_create(false))
 	LegacyGUI.button(column, "Multiplayer (rede local)", _show_multiplayer)
-	var graphics: Button
-	graphics = LegacyGUI.button(column, PauseMenu._graphics_text(), func():
-		Look.set_quality((Look.quality() + 1) % 3)
-		graphics.text = PauseMenu._graphics_text())
+	LegacyGUI.button(column, GraphicsPanel.button_text(), _show_graphics)
 	LegacyGUI.button(column, "Sair", func(): get_tree().quit())
 	_add_status(column)
+
+
+## Menu de gráficos (o mesmo do ESC) numa página própria.
+func _show_graphics() -> void:
+	if _page:
+		_page.queue_free()
+	var center := CenterContainer.new()
+	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_ui.add_child(center)
+	_page = center
+	var panel := GraphicsPanel.new(center, _show_main)
+	panel.box.visible = true
 
 
 func _show_multiplayer() -> void:

@@ -9,6 +9,7 @@ extends CanvasLayer
 const CONTROLS := [
 	["W A S D", "andar"], ["Shift", "correr"], ["Espaço", "pular / escalar"], ["C", "agachar (correndo: deslizar)"],
 	["Clique", "atacar / usar o item da mão"], ["Botão direito", "bloquear; armas de fogo: mirar"], ["F", "chute"],
+	["Pá / picareta no chão", "cava um bloco de 0,4 m (dá terra, areia ou pedra)"], ["Terra/pedra na mão + clique", "põe um bloco no chão"],
 	["1-9 / roda", "escolher na hotbar"], ["Q", "próximo item"], ["G", "soltar o item da mão"],
 	["Tab", "mochila (arraste para fora da janela: solta no chão)"], ["E", "pegar / interagir (segure: manivela)"],
 	["R", "recarregar / girar a peça"], ["L", "lanterna"], ["M", "mapa"], ["J", "diário (eras, receitas, manuais)"],
@@ -24,6 +25,7 @@ var _main_box: Control
 var _controls_box: Control
 var _admin_button: Button
 var _admin: AdminPanel
+var _graphics: GraphicsPanel
 var _center: CenterContainer
 
 
@@ -53,9 +55,8 @@ func _ready() -> void:
 	_save_button = LegacyGUI.button(column, "Salvar", _save)
 	_lan_button = LegacyGUI.button(column, "Abrir para LAN", _open_to_lan)
 	_restart_button = LegacyGUI.button(column, "Recomeçar", _restart)
-	# Qualidade gráfica: cada clique passa para a próxima (Baixa → Média → Alta). O texto
-	# é atualizado pelo membro (a variável local ainda era nula quando a função foi criada).
-	_graphics_button = LegacyGUI.button(column, _graphics_text(), _next_quality)
+	# Menu de gráficos: predefinições (Clássico = visual de antes) e cada opção solta.
+	_graphics_button = LegacyGUI.button(column, _graphics_text(), _open_graphics)
 	LegacyGUI.button(column, "Sair para o menu", func():
 		if Net.i.is_host():
 			_save()
@@ -67,8 +68,10 @@ func _ready() -> void:
 
 ## Mostra uma das caixas (principal, controles, admin) e esconde as outras.
 func _show(which: Control) -> void:
-	for b in [_main_box, _controls_box] + ([_admin.box, _admin.items_box] if _admin else []):
+	for b in [_main_box, _controls_box] + ([_admin.box, _admin.items_box] if _admin else []) + ([_graphics.box] if _graphics else []):
 		b.visible = b == which
+	if which == _main_box and _graphics_button:
+		_graphics_button.text = _graphics_text()
 
 
 func _build_controls(center: Control) -> void:
@@ -108,13 +111,15 @@ func _open_admin() -> void:
 	_show(_admin.box)
 
 
-func _next_quality() -> void:
-	Look.set_quality((Look.quality() + 1) % 3)
-	_graphics_button.text = _graphics_text()
+func _open_graphics() -> void:
+	if _graphics == null:
+		_graphics = GraphicsPanel.new(_center, func(): _show(_main_box))
+	_graphics.refresh()
+	_show(_graphics.box)
 
 
 static func _graphics_text() -> String:
-	return "Gráficos: %s" % Look.NAMES[Look.quality()]
+	return GraphicsPanel.button_text()
 
 
 ## Como no Minecraft: a partida solo vira servidor na hora (os outros entram pelo menu).

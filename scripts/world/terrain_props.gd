@@ -93,6 +93,8 @@ func apply(data: Dictionary, chunk: Node3D, body: StaticBody3D) -> void:
 		instance.multimesh = multimesh
 		if foliage:
 			instance.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF # grama não suja de sombra
+			# Posições originais: o terreno esconde os tufos de cima de bloco cavado/posto.
+			instance.set_meta("foliage", placed[kind].map(func(e): return e[0]))
 		chunk.add_child(instance)
 	# Árvores, rochas e veios viram ResourceNode (derrubar/minerar); o resto só colide.
 	for ci in data.collisions.size():

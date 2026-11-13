@@ -35,7 +35,7 @@ func _init() -> void:
 	var build := {}
 	for tab in Builder.ENTRIES:
 		build[tab] = _s(Builder.ENTRIES[tab].map(func(e): return {"id": e.id, "name": e.name, "desc": e.get("desc", ""), "cost": e.get("cost", {}),
-			"manual": e.get("manual", ""), "place": e.get("place", ""), "metal": e.get("metal", false)}))
+			"manual": e.get("manual", ""), "place": e.get("place", ""), "metal": e.get("metal", false) or int(e.get("mat", 0)) == BuildPiece.Mat.METAL, "mat": int(e.get("mat", 0))}))
 	data.build = build
 	data.power = {"output": Power.OUTPUT, "demand": Power.DEMAND}
 	data.electric = {"demand": Electric.DEMAND, "converters": Electric.CONVERTERS, "only_110": Electric.ONLY_110,

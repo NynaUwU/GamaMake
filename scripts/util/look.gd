@@ -20,17 +20,51 @@ const BLADES_SHADER := preload("res://shaders/grass_blades.gdshader")
 const GLOW_SHADER := preload("res://shaders/fire_glow.gdshader")
 const SKY_SHADER := preload("res://shaders/sky.gdshader")
 
-## Tudo que muda com a qualidade.
-const PRESETS := [
-	{"shadow_size": 2048, "shadow_filter": 1, "splits": 2, "shadow_dist": 45.0, "blur": 0.6, "ssao": false, "ssao_half": true,
-		"glow": false, "grass_density": 0.0, "grass_radius": 0.0, "particles": 0.0, "splashes": 0, "radiance": Sky.RADIANCE_SIZE_32},
-	{"shadow_size": 4096, "shadow_filter": 2, "splits": 4, "shadow_dist": 70.0, "blur": 1.0, "ssao": true, "ssao_half": true,
-		"glow": true, "grass_density": 1.5, "grass_radius": 26.0, "particles": 0.6, "splashes": 12, "radiance": Sky.RADIANCE_SIZE_64},
-	{"shadow_size": 4096, "shadow_filter": 3, "splits": 4, "shadow_dist": 100.0, "blur": 1.4, "ssao": true, "ssao_half": false,
-		"glow": true, "grass_density": 2.4, "grass_radius": 38.0, "particles": 1.0, "splashes": 24, "radiance": Sky.RADIANCE_SIZE_128},
+## Menu de gráficos (GraphicsPanel): cada opção [chave, nome, valores [[texto, valor], ...]
+## (vazio = liga/desliga), dica]. Ficam em user://graphics.cfg, seção "video".
+const OPTIONS := [
+	["shadows", "Sombras", [["Desligadas", 0], ["Baixas", 1], ["Médias", 2], ["Altas", 3]], "Qualidade e alcance da sombra do sol"],
+	["ssao", "Cantos escuros (SSAO)", [], "Sombra de contato no pé das paredes, cantos e embaixo das coisas"],
+	["glow", "Brilho do fogo e das luzes", [], "Fogo, tochas, lâmpadas e olhos dos zumbis brilham"],
+	["detail", "Textura PS2", [], "Grão pixelado de madeira, pedra e terra nas superfícies (desligado: cor lisa, como antes)"],
+	["color_fix", "Cores fortes", [], "Desligado: as cores lavadas de antes da atualização gráfica"],
+	["tonemap", "Tom da imagem", [["AgX (novo)", 0], ["Filmic (antes)", 1]], "Como a luz forte vira cor na tela"],
+	["grass", "Grama densa", [["Sem", 0], ["Pouca", 1], ["Média", 2], ["Muita", 3]], "Capim com vento perto de você (pesa na placa de vídeo)"],
+	["particles", "Partículas do clima", [["Sem", 0], ["Poucas", 1], ["Muitas", 2]], "Respingos da chuva, ciscos e areia soprada"],
+	["lines", "Resolução do 3D", [["Retrô (540 linhas)", 540], ["720 linhas", 720], ["1080 linhas", 1080], ["Da janela", 0]], "O 3D é desenhado nessa altura e ampliado em pixels nítidos; menus e HUD ficam na resolução da janela"],
+	["retro", "Filtro retrô", [], "Cores de 16 bits com pontilhado (como placa de vídeo antiga)"],
+	["vignette", "Vinheta", [], "Bordas da tela um pouco mais escuras"],
+	["view", "Distância de visão", [["Curta", 0], ["Normal", 1], ["Longa", 2]], "Até onde a neblina deixa ver e o terreno é carregado"],
+	["fov", "Campo de visão", [["65°", 65], ["75°", 75], ["85°", 85], ["95°", 95]], "Ângulo da câmera em primeira pessoa"],
+	["grid", "Grade do terreno", [], "Mostra os blocos de 0,4 m do chão (os mesmos dos quadradinhos da parede)"],
+	["vsync", "VSync", [], "Sincroniza com o monitor (sem rasgar a imagem)"],
+	["fullscreen", "Tela cheia", [], ""],
+	["fps", "Limite de FPS", [["Sem limite", 0], ["30", 30], ["60", 60], ["120", 120], ["144", 144]], ""],
 ]
+## Predefinições: ajustam as opções de qualidade (as de tela ficam como estão).
+const PRESET_ORDER := ["classic", "low", "medium", "high"]
+const PRESET_NAMES := {"classic": "Clássico (como antes)", "low": "Baixa", "medium": "Média", "high": "Alta", "custom": "Personalizado"}
+const PRESET_VALUES := {
+	"classic": {"shadows": 2, "ssao": false, "glow": false, "detail": false, "color_fix": false, "tonemap": 1, "grass": 0, "particles": 0},
+	"low": {"shadows": 1, "ssao": false, "glow": false, "detail": true, "color_fix": true, "tonemap": 0, "grass": 0, "particles": 0},
+	"medium": {"shadows": 2, "ssao": true, "glow": true, "detail": true, "color_fix": true, "tonemap": 0, "grass": 2, "particles": 1},
+	"high": {"shadows": 3, "ssao": true, "glow": true, "detail": true, "color_fix": true, "tonemap": 0, "grass": 3, "particles": 2},
+}
+const DEFAULTS := {"preset": "medium", "shadows": 2, "ssao": true, "glow": true, "detail": true, "color_fix": true, "tonemap": 0,
+	"grass": 2, "particles": 1, "lines": 540, "retro": true, "vignette": true, "view": 1, "fov": 75, "grid": false,
+	"vsync": true, "fullscreen": false, "fps": 0}
+const VIEW_MULT := [0.7, 1.0, 1.45]
+## Sombra por nível (0 = sem sombra do sol).
+const SHADOW_LEVELS := [
+	{"shadow_size": 1024, "shadow_filter": 0, "splits": 2, "shadow_dist": 30.0, "blur": 0.6, "radiance": Sky.RADIANCE_SIZE_32},
+	{"shadow_size": 2048, "shadow_filter": 1, "splits": 2, "shadow_dist": 45.0, "blur": 0.6, "radiance": Sky.RADIANCE_SIZE_32},
+	{"shadow_size": 4096, "shadow_filter": 2, "splits": 4, "shadow_dist": 70.0, "blur": 1.0, "radiance": Sky.RADIANCE_SIZE_64},
+	{"shadow_size": 4096, "shadow_filter": 3, "splits": 4, "shadow_dist": 100.0, "blur": 1.4, "radiance": Sky.RADIANCE_SIZE_128},
+]
+const GRASS_LEVELS := [[0.0, 0.0], [0.9, 18.0], [1.5, 26.0], [2.4, 38.0]] ## [densidade, raio]
+const PARTICLE_LEVELS := [[0.0, 0], [0.6, 12], [1.0, 24]] ## [quantidade, respingos]
 
-static var _quality := -1
+static var _settings := {}
 static var _detail: ImageTexture
 static var _clouds: Texture2D
 static var _surfaces := {} ## chave -> ShaderMaterial
@@ -39,33 +73,124 @@ static var _glow: ShaderMaterial
 static var _sky: ShaderMaterial
 
 
-# --- Qualidade ----------------------------------------------------------------------
+# --- Opções ---------------------------------------------------------------------------
 
+static func _load() -> void:
+	if not _settings.is_empty():
+		return
+	_settings = DEFAULTS.duplicate()
+	var cfg := ConfigFile.new()
+	if cfg.load(CONFIG) != OK:
+		return
+	if cfg.has_section_key("video", "preset"):
+		for key in DEFAULTS:
+			_settings[key] = cfg.get_value("video", key, DEFAULTS[key])
+	elif cfg.has_section_key("video", "quality"):
+		# Arquivo antigo: só tinha Baixa/Média/Alta.
+		_apply_preset(["low", "medium", "high"][clampi(int(cfg.get_value("video", "quality", 1)), 0, 2)])
+
+
+static func get_setting(key: String) -> Variant:
+	_load()
+	return _settings.get(key, DEFAULTS.get(key))
+
+
+## Muda uma opção (vira "Personalizado" se for de qualidade), salva e aplica.
+static func set_setting(key: String, value: Variant) -> void:
+	_load()
+	_settings[key] = value
+	if PRESET_VALUES.medium.has(key):
+		_settings.preset = "custom"
+		for name in PRESET_ORDER:
+			if PRESET_VALUES[name].keys().all(func(k): return _settings[k] == PRESET_VALUES[name][k]):
+				_settings.preset = name
+	_save_and_apply()
+
+
+static func set_preset(name: String) -> void:
+	_load()
+	_apply_preset(name)
+	_save_and_apply()
+
+
+static func _apply_preset(name: String) -> void:
+	_settings.preset = name
+	for key in PRESET_VALUES.get(name, {}):
+		_settings[key] = PRESET_VALUES[name][key]
+
+
+static func preset_name() -> String:
+	return PRESET_NAMES.get(get_setting("preset"), "Personalizado")
+
+
+static func _save_and_apply() -> void:
+	var cfg := ConfigFile.new()
+	cfg.load(CONFIG)
+	for key in _settings:
+		cfg.set_value("video", key, _settings[key])
+	cfg.save(CONFIG)
+	var tree := Engine.get_main_loop() as SceneTree
+	apply_display()
+	if tree and tree.current_scene:
+		apply(tree.current_scene)
+	if tree:
+		tree.call_group("look_screen", "apply_look")
+
+
+## Qualidade antiga (Baixa/Média/Alta) para quem ainda pergunta: Clássico e
+## Personalizado contam como Média.
 static func quality() -> int:
-	if _quality < 0:
-		_quality = Q.MEDIUM
-		var cfg := ConfigFile.new()
-		if cfg.load(CONFIG) == OK:
-			_quality = clampi(int(cfg.get_value("video", "quality", Q.MEDIUM)), 0, 2)
-	return _quality
-
-
-static func preset() -> Dictionary:
-	return PRESETS[quality()]
+	return {"low": Q.LOW, "high": Q.HIGH}.get(get_setting("preset"), Q.MEDIUM)
 
 
 static func set_quality(q: int) -> void:
-	_quality = clampi(q, 0, 2)
-	var cfg := ConfigFile.new()
-	cfg.load(CONFIG)
-	cfg.set_value("video", "quality", _quality)
-	cfg.save(CONFIG)
-	var tree := Engine.get_main_loop() as SceneTree
-	if tree and tree.current_scene:
-		apply(tree.current_scene)
+	set_preset(["low", "medium", "high"][clampi(q, 0, 2)])
 
 
-## Aplica tonemap, brilho, SSAO, sombras e céu na cena do mundo (main.tscn).
+## Números que os sistemas usam (sombra, SSAO, brilho, grama, partículas).
+static func preset() -> Dictionary:
+	var p: Dictionary = SHADOW_LEVELS[clampi(int(get_setting("shadows")), 0, 3)].duplicate()
+	p.shadows = int(get_setting("shadows")) > 0
+	p.ssao = bool(get_setting("ssao"))
+	p.ssao_half = int(get_setting("shadows")) < 3
+	p.glow = bool(get_setting("glow"))
+	var grass: Array = GRASS_LEVELS[clampi(int(get_setting("grass")), 0, 3)]
+	p.grass_density = grass[0]
+	p.grass_radius = grass[1]
+	var parts: Array = PARTICLE_LEVELS[clampi(int(get_setting("particles")), 0, 2)]
+	p.particles = parts[0]
+	p.splashes = parts[1]
+	return p
+
+
+## Sombra do sol ligada no menu?
+static func shadows_on() -> bool:
+	return int(get_setting("shadows")) > 0
+
+
+## Multiplica a neblina, o alcance da câmera e os chunks carregados.
+static func view_mult() -> float:
+	return VIEW_MULT[clampi(int(get_setting("view")), 0, 2)]
+
+
+static func fov() -> float:
+	return float(get_setting("fov"))
+
+
+## Janela: VSync, tela cheia e limite de FPS (também no menu principal).
+static func apply_display() -> void:
+	Engine.max_fps = int(get_setting("fps"))
+	if DisplayServer.get_name() == "headless":
+		return
+	DisplayServer.window_set_vsync_mode(DisplayServer.VSYNC_ENABLED if get_setting("vsync") else DisplayServer.VSYNC_DISABLED)
+	var full: bool = get_setting("fullscreen")
+	var mode := DisplayServer.window_get_mode()
+	var is_full := mode == DisplayServer.WINDOW_MODE_FULLSCREEN or mode == DisplayServer.WINDOW_MODE_EXCLUSIVE_FULLSCREEN
+	if full != is_full:
+		DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_FULLSCREEN if full else DisplayServer.WINDOW_MODE_WINDOWED)
+
+
+## Aplica tonemap, brilho, SSAO, sombras, céu, materiais e alcance na cena do mundo.
 static func apply(main: Node) -> void:
 	var p := preset()
 	RenderingServer.directional_shadow_atlas_set_size(p.shadow_size, true)
@@ -80,11 +205,30 @@ static func apply(main: Node) -> void:
 	if sun:
 		sun.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_4_SPLITS if p.splits == 4 else DirectionalLight3D.SHADOW_PARALLEL_2_SPLITS
 		sun.directional_shadow_max_distance = p.shadow_dist
-		sun.directional_shadow_blend_splits = quality() == Q.HIGH
+		sun.directional_shadow_blend_splits = int(get_setting("shadows")) >= 3
 		sun.directional_shadow_fade_start = 0.75
 		sun.shadow_blur = p.blur
+		if not p.shadows:
+			sun.shadow_enabled = false # o DayNight também confere Look.shadows_on()
+	_update_materials()
+	var terrain := main.get_node_or_null("Terrain")
+	if terrain is TerrainWorld:
+		terrain.view_distance = 220.0 * view_mult()
 	if main.get_tree():
 		main.get_tree().call_group("look_quality", "apply_quality")
+
+
+## Textura PS2, cores fortes e grade do terreno em todos os materiais de superfície.
+static func _update_materials() -> void:
+	var detail: bool = get_setting("detail")
+	var fix := 1.0 if get_setting("color_fix") else 0.0
+	for m: ShaderMaterial in _surfaces.values():
+		m.set_shader_parameter("detail_strength", float(m.get_meta("strength", 1.0)) if detail else 0.0)
+		m.set_shader_parameter("srgb_fix", fix)
+		m.set_shader_parameter("grid_lines", 1.0 if get_setting("grid") else 0.0)
+	for m in _wind_materials + ([_glow] if _glow else []):
+		if m:
+			m.set_shader_parameter("srgb_fix", fix)
 
 
 static func setup_environment(e: Environment) -> void:
@@ -92,10 +236,15 @@ static func setup_environment(e: Environment) -> void:
 	# Luz ambiente: parte do céu (azulada) e parte da cor do horizonte (DayNight),
 	# para a sombra não ficar azul demais.
 	e.ambient_light_sky_contribution = 0.65
-	e.tonemap_mode = Environment.TONE_MAPPER_AGX
-	e.tonemap_exposure = 1.15
-	e.tonemap_agx_contrast = 1.32
-	e.tonemap_agx_white = 12.0
+	if int(get_setting("tonemap")) == 1:
+		e.tonemap_mode = Environment.TONE_MAPPER_FILMIC # como era antes da atualização gráfica
+		e.tonemap_exposure = 1.0
+		e.tonemap_white = 1.0
+	else:
+		e.tonemap_mode = Environment.TONE_MAPPER_AGX
+		e.tonemap_exposure = 1.15
+		e.tonemap_agx_contrast = 1.32
+		e.tonemap_agx_white = 12.0
 	# Brilho só no que é bem claro: fogo, tocha, lâmpadas, olhos, sol.
 	e.glow_enabled = p.glow
 	e.glow_normalized = false
@@ -135,7 +284,10 @@ static func surface(two_sided := true, strength := 1.0, roughness := 0.95, sway 
 	var m := ShaderMaterial.new()
 	m.shader = SURFACE_SHADER_2S if two_sided else SURFACE_SHADER
 	m.set_shader_parameter("detail_tex", detail_texture())
-	m.set_shader_parameter("detail_strength", strength)
+	m.set_meta("strength", strength)
+	m.set_shader_parameter("detail_strength", strength if get_setting("detail") else 0.0)
+	m.set_shader_parameter("srgb_fix", 1.0 if get_setting("color_fix") else 0.0)
+	m.set_shader_parameter("grid_lines", 1.0 if terrain and get_setting("grid") else 0.0)
 	m.set_shader_parameter("roughness_value", roughness)
 	m.set_shader_parameter("metallic_value", metallic)
 	m.set_shader_parameter("sway", sway)

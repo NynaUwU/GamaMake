@@ -19,6 +19,8 @@ uniform float specular_value = 0.3;
 uniform float sway = 0.0;
 uniform float wind = 0.3;
 uniform float grain_up = 0.0; // 1 = veio da madeira na vertical (material do pilar em pé)
+uniform float srgb_fix = 1.0; // 0 = cores lavadas de antes da atualização gráfica (menu de gráficos)
+uniform float grid_lines = 0.0; // terreno: risca os blocos de 0,4 m do chão
 
 varying vec3 tri_pos;
 varying vec3 tri_nrm;
@@ -29,7 +31,7 @@ vec3 srgb_to_linear(vec3 c) {
 #if CURRENT_RENDERER == RENDERER_COMPATIBILITY
 	return c;
 #else
-	return c * (c * (c * 0.305306011 + 0.682171111) + 0.012522878);
+	return mix(c, c * (c * (c * 0.305306011 + 0.682171111) + 0.012522878), srgb_fix);
 #endif
 }
 
@@ -102,6 +104,12 @@ void fragment() {
 		// Grama: manchas puxam levemente para amarelo/verde-escuro (quebra o verde liso).
 		float g = green * (blotch - 0.5);
 		base *= vec3(1.0 + g * 0.25, 1.0 + g * 0.1, 1.0 - g * 0.2);
+	}
+	if (mode == 1 && grid_lines > 0.0) {
+		// Grade dos blocos de 0,4 m (TerrainWorld.GRID): linha fina e escura nas bordas.
+		vec2 g = fract(tri_pos.xz / 0.4);
+		vec2 e = min(g, 1.0 - g);
+		k *= 1.0 - (1.0 - smoothstep(0.0, 0.035, min(e.x, e.y))) * 0.22 * grid_lines;
 	}
 	ALBEDO = base * k;
 	ROUGHNESS = roughness_value;
