@@ -88,6 +88,7 @@ const ENTRIES := {
 		{"id": "lathe", "name": "Torno", "place": "lathe", "desc": "Com eixo girando: parafusos, engrenagens, eixo de aço e canos", "cost": {&"tabua": 6, &"barra_ferro": 4, &"sucata": 2}},
 		{"id": "wire_drawer", "name": "Trefiladora", "place": "wire_drawer", "manual": &"manual_eletricista", "desc": "Com eixo ou motor na porta de latão: 1 barra de cobre vira 8 fios de cobre (cabo e bobina rendem bem mais)", "cost": {&"tabua": 6, &"barra_ferro": 4, &"engrenagem": 1}},
 		{"id": "press", "name": "Prensa", "place": "press", "desc": "Com eixo girando: fruta = suco; sementes de algodão ou gordura = óleo", "cost": {&"tabua": 6, &"barra_ferro": 3, &"parafuso": 2}},
+		{"id": "drill", "name": "Perfuratriz", "place": "drill", "desc": "Em cima de uma JAZIDA (o veio colorido no salão do fim das cavernas): com força no eixo (carga 3) tira 1 minério a cada 5 s, sem a jazida acabar. Guarda 100; [E] pega", "cost": {&"barra_aco": 4, &"engrenagem": 2, &"eixo_aco": 1, &"parafuso": 6, &"tabua": 4}},
 		{"id": "distillery", "name": "Destilaria", "place": "distillery", "desc": "Fogo + água + trigo, fruta ou batata = álcool (combustível dos carros e antisséptico)", "cost": {&"barra_cobre": 6, &"tijolo": 6, &"cano": 2}},
 	],
 	"Elétrica": [
@@ -159,7 +160,8 @@ const PLACE_SIZE := {"pot_small": Vector3(0.46, 0.31, 0.46), "pot_wide": Vector3
 	"insulator": Vector3(0.08, 0.08, 0.08), "switch": Vector3(0.26, 1.1, 0.26), "switch_wall": Vector3(0.24, 0.26, 0.08),
 	"electric_motor": Vector3(0.7, 0.8, 0.42), "rotisserie": Vector3(1.6, 1.0, 0.9), "forge": Vector3(2.5, 2.65, 1.05), "wire_drawer": Vector3(2.0, 1.0, 0.7),
 	"foundry": Vector3(2.2, 1.7, 1.2), "weld_bench": Vector3(1.9, 1.5, 0.85), "torch_bench": Vector3(1.9, 1.3, 0.85), "chem_bench": Vector3(1.75, 1.65, 0.85),
-	"battery_bank": Vector3(1.35, 0.85, 1.0), "charger": Vector3(0.5, 0.7, 0.36), "inverter": Vector3(0.5, 0.7, 0.36)}
+	"battery_bank": Vector3(1.35, 0.85, 1.0), "charger": Vector3(0.5, 0.7, 0.36), "inverter": Vector3(0.5, 0.7, 0.36),
+	"drill": Vector3(1.6, 2.7, 1.3)}
 ## Centro da caixa (vermelha, ao desmontar) quando não é logo acima da origem.
 const PLACE_CENTER := {"bed": Vector3(1.4, 0.1, 1.4), "stairs": Vector3(0, 1.4, -1.4), "steam_engine": Vector3(0.45, 0.7, -0.3),
 	"distillery": Vector3(0.15, 0.72, 0), "boiler": Vector3(0, 1.45, 0), "pipe": Vector3(0, 0, 0.5),
@@ -174,7 +176,7 @@ const PLACE_RADIUS := {"pot_small": 0.35, "pot_wide": 0.7, "bench": 0.9, "campfi
 	"quern": 0.5, "oven": 0.7, "pump": 0.35, "filter": 0.45, "stone_furnace": 0.9, "spinning": 0.55, "loom": 0.7, "smoker": 0.5, "compost": 0.6, "sieve": 0.55,
 	"water_wheel": 0.6, "windmill": 0.9, "shaft": 0.3, "sawmill": 1.0, "ram_pump": 0.4, "stairs": 0.6,
 	"blast_furnace": 0.9, "blast_stack": 0.1, "boiler": 1.1, "steam_engine": 0.9, "water_tank": 0.6, "sprinkler": 0.25,
-	"lathe": 1.0, "press": 0.7, "distillery": 0.9, "trough": 0.8, "water_trough": 0.7, "fence": 0.15, "gate": 0.15,
+	"lathe": 1.0, "press": 0.7, "distillery": 0.9, "drill": 0.9, "trough": 0.8, "water_trough": 0.7, "fence": 0.15, "gate": 0.15,
 	"connector": 0.2, "dynamo": 0.7, "solar_panel": 0.7, "battery": 0.6, "lamp": 0.25, "electric_fence": 0.15, "fridge": 0.5, "radio": 0.45, "electric_pump": 0.4,
 	"deco_table": 0.7, "deco_chair": 0.3, "deco_stool": 0.25, "deco_rug": 0.3, "deco_vase": 0.2, "deco_plant": 0.3, "deco_barrel": 0.4, "deco_crates": 0.6,
 	"deco_painting": 0.12, "deco_shelf": 0.12, "deco_clock": 0.12, "insulator": 0.06, "switch": 0.15, "electric_motor": 0.1,
@@ -531,6 +533,9 @@ func use(tool: String) -> bool:
 				return false
 			if selection.place == "pump" and not target.is_empty() and not Farming._shore(target.xform.origin):
 				Sfx.play("click", -6.0, 0.6) # bomba só na beira do lago
+				return false
+			if selection.place == "drill" and not target.is_empty() and TerrainWorld.i and TerrainWorld.i.deposit_near(target.xform.origin) == &"":
+				Sfx.play("click", -6.0, 0.6) # perfuratriz só em cima de jazida
 				return false
 			if not target.is_empty() and target.valid and _paid(selection):
 				_placed().request("place", [target.get("kind", selection.place), target.xform])

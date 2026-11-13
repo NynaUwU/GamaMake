@@ -287,13 +287,18 @@ func host_apply(action: String, args: Array) -> Array:
 					"grindstone", "quern", "pump", "spinning", "loom", "stone_furnace", "oven", "filter", "smoker", "compost", "sieve",
 					"shaft", "water_wheel", "windmill", "sawmill", "ram_pump", "stairs",
 					"blast_furnace", "blast_stack", "boiler", "steam_engine", "water_tank", "sprinkler", "lathe", "press", "distillery",
-					"trough", "water_trough", "fence", "gate", "rotisserie"] \
+					"trough", "water_trough", "fence", "gate", "rotisserie", "drill"] \
 					and not Electric.has(kind) and not Decor.has(kind) and not PlacedTorch.has(kind) and not Smithing.has(kind):
 				return []
 			if kind in ["water_wheel", "ram_pump"] and not river_bank(xform.origin):
 				return [] # só na beira de um rio
 			if kind == "pump" and not Farming._shore(xform.origin):
 				return [] # bomba só na beira do lago
+			var ore := &""
+			if kind == "drill":
+				ore = TerrainWorld.i.deposit_near(xform.origin) if TerrainWorld.i else &""
+				if ore == &"":
+					return [] # perfuratriz só em cima de jazida
 			if kind == "bed":
 				var cell := Vector3i((xform.origin / BuildPiece.SEG).round())
 				if bed_at(cell):
@@ -313,6 +318,8 @@ func host_apply(action: String, args: Array) -> Array:
 			_next_id += 1
 			_spawn(id, kind, xform)
 			var start := {}
+			if ore != &"":
+				start.ore = String(ore)
 			if args.size() > 2 and args[2] is Dictionary and args[2].has("fuel"):
 				start.fuel_until = clock + clampf(float(args[2].fuel), 0.0, PlacedTorch.MAX) # tocha: o que ela ainda tinha
 			if not start.is_empty():
@@ -525,6 +532,11 @@ func host_apply(action: String, args: Array) -> Array:
 			if amount > put:
 				Net.i.give_to(Net.i.request_peer, Machines.PROCESS[obj.kind][0], amount - put) # não coube: volta
 			obj.extra["in"] = obj.extra.get("in", 0) + put
+			return [args[0], obj.extra]
+		"drill_take":
+			var obj: PlacedObject = objects.get(args[0])
+			if obj == null or not Drill.has(obj.kind) or not Drill.host_take(obj):
+				return []
 			return [args[0], obj.extra]
 		"machine_take":
 			var obj: PlacedObject = objects.get(args[0])
@@ -943,7 +955,7 @@ func apply_remote(action: String, args: Array) -> void:
 			if obj:
 				obj.extra[args[2]] = args[1]
 				obj.refresh(clock)
-		"machine_put", "machine_take", "crank":
+		"machine_put", "machine_take", "crank", "drill_take":
 			var obj: PlacedObject = objects.get(args[0])
 			if obj:
 				obj.extra = args[1].duplicate()

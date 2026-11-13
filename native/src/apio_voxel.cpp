@@ -49,8 +49,8 @@ void ApioVoxel::setup(int seed, float cave_amount, float ore_amount) {
 
 void ApioVoxel::set_entrances(const PackedFloat32Array &list) {
 	std::vector<apio::Entrance> out;
-	for (int64_t i = 0; i + 3 < list.size(); i += 4) {
-		out.push_back({ list[i], list[i + 1], list[i + 2], list[i + 3] });
+	for (int64_t i = 0; i + 4 < list.size(); i += 5) {
+		out.push_back({ list[i], list[i + 1], list[i + 2], list[i + 3], int(list[i + 4]) });
 	}
 	generator->set_entrances(out);
 }

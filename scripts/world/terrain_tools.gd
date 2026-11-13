@@ -128,7 +128,9 @@ static func _dig_voxel(player: Player, target: Dictionary) -> bool:
 		Sfx.play_at("knock", target.point, 0.0, 0.6) # minério: só a picareta tira
 		return true
 	var need := 1
-	if res.hard and shovel:
+	if res.deposit:
+		need = VoxelWorld.DEPOSIT_HITS # jazida: rocha dura, mas não acaba
+	elif res.hard and shovel:
 		need = 3
 	elif not res.hard and not shovel:
 		need = 2
@@ -138,6 +140,13 @@ static func _dig_voxel(player: Player, target: Dictionary) -> bool:
 		Sfx.play_at("knock" if res.hard else "step_soft", target.point, 2.0, 0.7)
 		return true
 	_progress.clear()
+	if res.deposit:
+		# Jazida infinita: sai 1 minério e o bloco fica (a perfuratriz tira sozinha).
+		player.pick_up(res.item, ItemDB.display_name(res.item), 1)
+		Progress.event("deposit", String(res.item))
+		_dust(player, target.point, VoxelRef.COLORS.get(res.material, Color(0.5, 0.5, 0.5)))
+		Sfx.play_at("knock", target.point, 2.0, 0.9)
+		return true
 	# Picareta e pá tiram uma esfera de 3x3x3 (19 blocos); cada bloco dá o seu item.
 	var drops := {}
 	for t: Vector3i in vw.sphere_targets(b, shovel):

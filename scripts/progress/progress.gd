@@ -48,6 +48,8 @@ const ACHIEVEMENTS := {
 	"fundido": {"era": 2, "title": "Fundidor", "how": "Despeje uma peça na fundição", "on": ["cast:*"]},
 	"aco": {"era": 2, "title": "Aço", "how": "Faça aço no alto-forno", "on": ["get:barra_aco"]},
 	"vapor": {"era": 2, "title": "Vapor", "how": "Monte um motor a vapor", "on": ["place:steam_engine"]},
+	"caverna": {"era": 2, "title": "Espeleólogo", "how": "Ache uma jazida (veio colorido no salão do fim das cavernas)", "on": ["deposit:*"]},
+	"perfuratriz": {"era": 2, "title": "Mina sem fim", "how": "Ponha uma perfuratriz em cima de uma jazida", "on": ["place:drill"]},
 	"gerador": {"era": 3, "key": true, "title": "Gerador", "how": "Ponha um dínamo ou um painel solar", "on": ["place:dynamo", "place:solar_panel"]},
 	"bateria": {"era": 3, "key": true, "title": "Reserva", "how": "Monte uma bateria", "on": ["place:battery"]},
 	"luz": {"era": 3, "title": "Luz elétrica", "how": "Ponha uma lâmpada", "on": ["place:lamp"]},

@@ -12,7 +12,7 @@ func _init() -> void:
 	var ref := VoxelRef.new()
 	ref.setup(1337, 1.0, 1.0)
 	# Uma entrada de caverna passando pelas seções (3,1,2) .. (7,-2,2): vala, túnel e salão.
-	var entrances := PackedFloat32Array([14.0, 16.0, 1.0, 0.0, -40.0, 60.0, 0.6, 0.8])
+	var entrances := PackedFloat32Array([14.0, 16.0, 1.0, 0.0, 2.0, -40.0, 60.0, 0.6, 0.8, 0.0]) # a 1ª com jazida de ferro
 	native.set_entrances(entrances)
 	ref.set_entrances(entrances)
 	var P := VoxelRef.P
@@ -22,7 +22,7 @@ func _init() -> void:
 	var tris := [0, 0]
 	var air_in_entrance := 0
 	for sec in [Vector3i(3, -1, 2), Vector3i(3, 1, 2), Vector3i(-7, -6, 11), Vector3i(2, -9, 1), Vector3i(0, 0, 0), Vector3i(12, 3, -4),
-			Vector3i(2, 1, 2), Vector3i(4, 0, 2), Vector3i(6, -1, 2), Vector3i(6, -2, 2), Vector3i(7, -2, 2)]:
+			Vector3i(2, 1, 2), Vector3i(4, 0, 2), Vector3i(6, -1, 2), Vector3i(6, -2, 2), Vector3i(7, -2, 2), Vector3i(7, -3, 2), Vector3i(8, -2, 2)]:
 		var heights := PackedFloat32Array()
 		heights.resize(P * P)
 		var soil := PackedByteArray()
@@ -50,10 +50,13 @@ func _init() -> void:
 			if (VoxelRef.density(a, i) > 0) != (VoxelRef.density(b, i) > 0) or a[VoxelRef.P3 + i] != b[VoxelRef.P3 + i]:
 				diff += 1
 		total_diff += diff
+		for i in VoxelRef.P3:
+			air_in_entrance += 1 if a[VoxelRef.P3 + i] == VoxelRef.DEPOSIT_IRON else 0
 		tris[0] += (ma[0] as PackedVector3Array).size() / 3
 		tris[1] += (mb[0] as PackedVector3Array).size() / 3
 		print("seção %s: cheios C++ %d / GDScript %d, blocos diferentes %d, triângulos %d / %d" % [sec, native.solid_count(a), VoxelRef.solid_count(b), diff,
 			(ma[0] as PackedVector3Array).size() / 3, (mb[0] as PackedVector3Array).size() / 3])
+	print("blocos de jazida de ferro (C++): %d" % air_in_entrance)
 	print("total: blocos diferentes %d, triângulos C++ %d / GDScript %d" % [total_diff, tris[0], tris[1]])
 	print("tempo (encher + malha, 6 seções): C++ %.1f ms, GDScript %.1f ms (%.0fx)" % [native_ms, ref_ms, ref_ms / maxf(native_ms, 0.001)])
 	quit()

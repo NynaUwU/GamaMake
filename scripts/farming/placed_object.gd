@@ -276,6 +276,8 @@ func refresh(clock: float) -> void:
 	if Decor.has(kind):
 		Decor.refresh(self)
 		return
+	if Drill.has(kind):
+		Drill.refresh(self)
 	if kind in SteamModels.KINDS:
 		SteamModels.refresh(self)
 		return
@@ -335,6 +337,8 @@ func get_interact_text() -> String:
 			return Cooking.text(self, clock)
 		"grindstone", "quern", "pump", "spinning", "loom", "stone_furnace", "oven", "sieve", "sawmill", "water_wheel", "windmill", "shaft", "ram_pump":
 			return Machines.text(self)
+	if Drill.has(kind):
+		return Drill.text(self)
 	if kind in SteamModels.KINDS:
 		return SteamModels.text(self)
 	if Smithing.has(kind):
@@ -399,6 +403,9 @@ func interact(player: Node) -> void:
 		return
 	if Machines.is_crank(kind) or kind in ["oven", "sawmill"]:
 		Machines.tap(player, self)
+		return
+	if Drill.has(kind):
+		Drill.tap(player, self)
 		return
 	if kind in SteamModels.KINDS:
 		SteamModels.interact(player, self)
@@ -466,6 +473,9 @@ func interact(player: Node) -> void:
 func _build() -> void:
 	if kind == "tree":
 		return # desenho e colisão vêm do crescimento (_refresh_tree)
+	if Drill.has(kind):
+		Drill.build(self) # perfuratriz (jazida infinita)
+		return
 	if kind in SteamModels.KINDS:
 		SteamModels.build(kind, self)
 		if kind in LIT_KINDS:

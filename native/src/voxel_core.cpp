@@ -133,6 +133,22 @@ float Generator::entrance_field(const Entrance *const *list, int n, float x, flo
 	return best;
 }
 
+uint8_t Generator::deposit_at(const Entrance *const *list, int n, float x, float y, float z, float h) {
+	for (int k = 0; k < n; k++) {
+		const Entrance &e = *list[k];
+		if (e.kind <= 0 || e.kind > 5) {
+			continue;
+		}
+		const float cx = x - (e.x + e.dx * (ENTRANCE_LEN + DEPOSIT_AHEAD));
+		const float cz = z - (e.z + e.dz * (ENTRANCE_LEN + DEPOSIT_AHEAD));
+		const float cy = (y - (h - (1.4f + ENTRANCE_LEN * ENTRANCE_SLOPE) - DEPOSIT_DROP)) / 0.8f;
+		if (cx * cx + cz * cz + cy * cy < DEPOSIT_R * DEPOSIT_R) {
+			return uint8_t(DEPOSIT_COAL + e.kind - 1);
+		}
+	}
+	return 0;
+}
+
 // Minério a partir dos ruídos já calculados (grade grossa interpolada).
 static uint8_t ore_from(float blob, float vein, float kind, float depth, float amount) {
 	if (amount <= 0.0f || depth < 2.0f) {
@@ -178,7 +194,7 @@ void Generator::fill(Section &out, int sx, int sy, int sz, const Columns &cols) 
 	if (underground && params.cave_amount > 0.0f) {
 		const float x0 = float(sx * N - 1) * GRID, x1 = float(sx * N + P - 1) * GRID;
 		const float z0 = float(sz * N - 1) * GRID, z1 = float(sz * N + P - 1) * GRID;
-		const float m = ENTRANCE_ROOM + 2.0f;
+		const float m = DEPOSIT_AHEAD + DEPOSIT_R + 1.0f; // salão e jazida no fim
 		for (const Entrance &e : entrances) {
 			const float ex = e.x + e.dx * ENTRANCE_LEN, ez = e.z + e.dz * ENTRANCE_LEN;
 			if (std::max(e.x, ex) + m < x0 || std::min(e.x, ex) - m > x1 || std::max(e.z, ez) + m < z0 || std::min(e.z, ez) - m > z1) {
@@ -254,6 +270,15 @@ void Generator::fill(Section &out, int sx, int sy, int sz, const Columns &cols) 
 				}
 				solid++;
 				const uint8_t soil = cols.soil ? cols.soil[col] : 0;
+				if (n_near > 0 && depth >= 1.0f) {
+					const float bx = (float(sx * N + px - 1) + 0.5f) * GRID;
+					const float bz = (float(sz * N + pz - 1) + 0.5f) * GRID;
+					const uint8_t dep = deposit_at(near, n_near, bx, y, bz, h);
+					if (dep) {
+						out.material[i] = dep;
+						continue;
+					}
+				}
 				if (depth < 1.0f) {
 					out.material[i] = TOPSOIL;
 				} else if (depth < 3.2f) {
@@ -294,6 +319,11 @@ Palette::Palette() {
 	set(BUILT_DIRT, 0.43f, 0.31f, 0.2f);
 	set(BUILT_STONE, 0.5f, 0.49f, 0.46f);
 	set(BUILT_SAND, 0.76f, 0.65f, 0.45f);
+	set(DEPOSIT_COAL, 0.06f, 0.06f, 0.08f);
+	set(DEPOSIT_IRON, 0.78f, 0.34f, 0.18f);
+	set(DEPOSIT_COPPER, 0.16f, 0.7f, 0.58f);
+	set(DEPOSIT_TIN, 0.86f, 0.88f, 0.95f);
+	set(DEPOSIT_SULFUR, 0.98f, 0.88f, 0.1f);
 }
 
 namespace {

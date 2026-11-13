@@ -36,10 +36,15 @@ const BOTTOM_SECTION := -10 ## y -64 m: abaixo da rocha-mãe
 const DROPS := {VoxelRef.TOPSOIL: &"terra", VoxelRef.DIRT: &"terra", VoxelRef.SAND: &"areia", VoxelRef.STONE: &"pedra",
 	VoxelRef.GRAVEL: &"pedra", VoxelRef.COAL: &"carvao", VoxelRef.IRON: &"minerio_ferro", VoxelRef.COPPER: &"minerio_cobre",
 	VoxelRef.TIN: &"minerio_estanho", VoxelRef.SULFUR: &"enxofre", VoxelRef.BUILT_DIRT: &"terra",
-	VoxelRef.BUILT_STONE: &"pedra", VoxelRef.BUILT_SAND: &"areia"}
+	VoxelRef.BUILT_STONE: &"pedra", VoxelRef.BUILT_SAND: &"areia",
+	VoxelRef.DEPOSIT_COAL: &"carvao", VoxelRef.DEPOSIT_IRON: &"minerio_ferro", VoxelRef.DEPOSIT_COPPER: &"minerio_cobre",
+	VoxelRef.DEPOSIT_TIN: &"minerio_estanho", VoxelRef.DEPOSIT_SULFUR: &"enxofre"}
 const HARD := [VoxelRef.STONE, VoxelRef.GRAVEL, VoxelRef.COAL, VoxelRef.IRON, VoxelRef.COPPER, VoxelRef.TIN, VoxelRef.SULFUR,
-	VoxelRef.BUILT_STONE] ## precisa de picareta (pá: 3 golpes; minério: só picareta)
-const ORES := [VoxelRef.COAL, VoxelRef.IRON, VoxelRef.COPPER, VoxelRef.TIN, VoxelRef.SULFUR]
+	VoxelRef.BUILT_STONE, VoxelRef.DEPOSIT_COAL, VoxelRef.DEPOSIT_IRON, VoxelRef.DEPOSIT_COPPER, VoxelRef.DEPOSIT_TIN,
+	VoxelRef.DEPOSIT_SULFUR] ## precisa de picareta (pá: 3 golpes; minério: só picareta)
+const ORES := [VoxelRef.COAL, VoxelRef.IRON, VoxelRef.COPPER, VoxelRef.TIN, VoxelRef.SULFUR,
+	VoxelRef.DEPOSIT_COAL, VoxelRef.DEPOSIT_IRON, VoxelRef.DEPOSIT_COPPER, VoxelRef.DEPOSIT_TIN, VoxelRef.DEPOSIT_SULFUR]
+const DEPOSIT_HITS := 4 ## golpes de picareta por minério numa jazida (ela não acaba)
 ## Item na mão -> material do bloco posto.
 const ITEM_BLOCK := {&"terra": VoxelRef.BUILT_DIRT, &"pedra": VoxelRef.BUILT_STONE, &"areia": VoxelRef.BUILT_SAND}
 const BLOCK_COST := {VoxelRef.BUILT_DIRT: 1, VoxelRef.BUILT_STONE: 2, VoxelRef.BUILT_SAND: 1}
@@ -157,7 +162,11 @@ func covers(p: Vector3) -> bool:
 
 
 static func is_built(m: int) -> bool:
-	return m >= VoxelRef.BUILT_DIRT
+	return m >= VoxelRef.BUILT_DIRT and m < VoxelRef.DEPOSIT_COAL
+
+
+static func is_deposit(m: int) -> bool:
+	return m >= VoxelRef.DEPOSIT_COAL and m <= VoxelRef.DEPOSIT_SULFUR
 
 
 ## Ponto dentro de caverna (abaixo do chão natural e em seção carregada): sem água de
@@ -793,12 +802,14 @@ func sphere_targets(center: Vector3i, shovel: bool) -> Array:
 	var cm := material_at(center)
 	if is_built(cm):
 		return [center]
+	if is_deposit(cm):
+		return []
 	var out := []
 	for off: Vector3i in sphere_offsets():
 		var b: Vector3i = center + off
 		var m := material_at(b)
-		if m <= VoxelRef.AIR or m == VoxelRef.BEDROCK or is_built(m) or not DROPS.has(m):
-			continue
+		if m <= VoxelRef.AIR or m == VoxelRef.BEDROCK or is_built(m) or is_deposit(m) or not DROPS.has(m):
+			continue # jazida não sai (é infinita: dá minério a cada golpe)
 		if shovel and m in ORES:
 			continue
 		out.append(b)
@@ -841,7 +852,8 @@ func dig_result(b: Vector3i) -> Dictionary:
 			var l := b - Vector3i(floori(b.x / float(N)), 0, floori(b.z / float(N))) * N + Vector3i.ONE
 			var soil: int = (cols.cols[1] as PackedByteArray)[l.z * P + l.x]
 			item = &"areia" if soil == 1 else (&"pedra" if soil == 2 else &"terra")
-	return {"item": item, "amount": int(BLOCK_COST.get(m, 1)), "hard": m in HARD, "ore": m in ORES, "material": m}
+	return {"item": item, "amount": int(BLOCK_COST.get(m, 1)), "hard": m in HARD, "ore": m in ORES, "material": m,
+		"deposit": is_deposit(m)}
 
 
 ## Bloco posto pelo jogador perto do ponto atingido (o golpe pega na rampa do lado).
@@ -894,7 +906,7 @@ func host_apply(action: String, args: Array) -> Array:
 		return [b, flat]
 	match action:
 		"dig":
-			if m <= VoxelRef.AIR or m == VoxelRef.BEDROCK:
+			if m <= VoxelRef.AIR or m == VoxelRef.BEDROCK or is_deposit(m):
 				return []
 			set_block(b, VoxelRef.AIR)
 		"break":

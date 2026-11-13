@@ -14,13 +14,13 @@ func _init() -> void:
 	for e in main.get_node("Enemies").get_children():
 		e.queue_free()
 	var list := terrain.cave_entrances
-	print("entradas de caverna na ilha: %d" % (list.size() / 4))
+	print("entradas de caverna na ilha: %d, com jazida: %d" % [list.size() / VoxelRef.STRIDE, terrain.deposits().size()])
 	if vw == null or list.is_empty():
 		quit()
 		return
 	# A mais perto do começo.
 	var best := 0
-	for k in range(0, list.size(), 4):
+	for k in range(0, list.size(), VoxelRef.STRIDE):
 		if Vector2(list[k], list[k + 1]).length() < Vector2(list[best], list[best + 1]).length():
 			best = k
 	var start := Vector2(list[best], list[best + 1])

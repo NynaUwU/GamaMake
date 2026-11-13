@@ -140,8 +140,13 @@ func _ready() -> void:
 
 ## Rampas abertas que descem até um salão a ~16 m (o gerador de voxels cava; medidas em
 ## VoxelRef/voxel_core.h). Uma chance por quadrado de ENTRANCE_CELL m, fora do mar, de
-## lagos, rios, ruas, cidades e da pista. [x, z, dx, dz] por entrada.
+## lagos, rios, ruas, cidades e da pista. [x, z, dx, dz, jazida] por entrada (VoxelRef.STRIDE).
+## Jazida (infinita) na parede do salão do fim em ~45% delas: 1 carvão, 2 ferro, 3 cobre,
+## 4 estanho, 5 enxofre.
 const ENTRANCE_CELL := 150.0
+const DEPOSIT_CHANCE := 0.45
+const DEPOSIT_WEIGHTS := [0.2, 0.3, 0.22, 0.15, 0.13] ## carvão, ferro, cobre, estanho, enxofre
+const DEPOSIT_ITEMS := [&"carvao", &"minerio_ferro", &"minerio_cobre", &"minerio_estanho", &"enxofre"]
 var cave_entrances := PackedFloat32Array()
 var _entrance_grid := {} ## chunk -> [índices em cave_entrances] da boca (sem plantas em cima)
 
@@ -163,9 +168,19 @@ func _place_entrances() -> void:
 				var a := rng.randf() * TAU
 				var dir := Vector2(cos(a), sin(a))
 				if _entrance_ok(Vector2(x, z), dir):
-					cave_entrances.append_array([x, z, dir.x, dir.y])
+					var kind := 0
+					if rng.randf() < DEPOSIT_CHANCE:
+						var r := rng.randf()
+						kind = 1
+						for w in DEPOSIT_WEIGHTS:
+							r -= w
+							if r <= 0.0:
+								break
+							kind += 1
+						kind = mini(kind, 5)
+					cave_entrances.append_array([x, z, dir.x, dir.y, kind])
 					break
-	for k in range(0, cave_entrances.size(), 4):
+	for k in range(0, cave_entrances.size(), VoxelRef.STRIDE):
 		var start := Vector2(cave_entrances[k], cave_entrances[k + 1])
 		var mouth := start + Vector2(cave_entrances[k + 2], cave_entrances[k + 3]) * (VoxelRef.ENTRANCE_OPEN + 1.0)
 		for p in [start, mouth]:
@@ -198,6 +213,39 @@ func _entrance_ok(start: Vector2, dir: Vector2) -> bool:
 			if not track.is_empty() and RaceTrack.flatten_weight(track, q) > 0.0:
 				return false
 	return true
+
+
+## Jazida (infinita) perto do ponto: o item de minério dela (perfuratriz) ou &"". Conta
+## igual à do gerador (VoxelRef.deposit_at), com "folga" metros a mais em volta.
+func deposit_near(p: Vector3, slack := 2.0) -> StringName:
+	for k in range(0, cave_entrances.size(), VoxelRef.STRIDE):
+		var kind := int(cave_entrances[k + 4])
+		if kind <= 0:
+			continue
+		var cx := cave_entrances[k] + cave_entrances[k + 2] * (VoxelRef.ENTRANCE_LEN + VoxelRef.DEPOSIT_AHEAD)
+		var cz := cave_entrances[k + 1] + cave_entrances[k + 3] * (VoxelRef.ENTRANCE_LEN + VoxelRef.DEPOSIT_AHEAD)
+		if Vector2(p.x - cx, p.z - cz).length() > VoxelRef.DEPOSIT_R + slack + 1.0:
+			continue
+		var h := _base_at(p.x, p.z)
+		var cy := h - (1.4 + VoxelRef.ENTRANCE_LEN * VoxelRef.ENTRANCE_SLOPE) - VoxelRef.DEPOSIT_DROP
+		var d := Vector3(p.x - cx, (p.y - cy) / 0.8, p.z - cz).length()
+		if d < VoxelRef.DEPOSIT_R + slack:
+			return DEPOSIT_ITEMS[kind - 1]
+	return &""
+
+
+## Centros das jazidas (mapa, testes): [[posição aproximada, item], ...].
+func deposits() -> Array:
+	var out := []
+	for k in range(0, cave_entrances.size(), VoxelRef.STRIDE):
+		var kind := int(cave_entrances[k + 4])
+		if kind <= 0:
+			continue
+		var cx := cave_entrances[k] + cave_entrances[k + 2] * (VoxelRef.ENTRANCE_LEN + VoxelRef.DEPOSIT_AHEAD)
+		var cz := cave_entrances[k + 1] + cave_entrances[k + 3] * (VoxelRef.ENTRANCE_LEN + VoxelRef.DEPOSIT_AHEAD)
+		var cy := _base_at(cx, cz) - (1.4 + VoxelRef.ENTRANCE_LEN * VoxelRef.ENTRANCE_SLOPE) - VoxelRef.DEPOSIT_DROP
+		out.append([Vector3(cx, cy, cz), DEPOSIT_ITEMS[kind - 1], k])
+	return out
 
 
 ## Ponto em cima da boca de uma entrada de caverna (vala aberta)? Sem árvore/grama ali.

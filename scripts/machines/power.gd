@@ -26,7 +26,8 @@ const OUTPUT := {"water_wheel": 4.0, "windmill": 6.0, "steam_engine": 10.0, "ele
 ## Consumidores: carga quando têm trabalho.
 const DEMAND := {"sawmill": 3.0, "quern": 1.0, "spinning": 1.0, "loom": 1.5, "blast_furnace": 2.0, "lathe": 2.0, "press": 1.5,
 	"dynamo": 2.0, # = Electric.DYNAMO_LOAD
-	"sieve": 1.0, "stone_furnace": 1.5, "grindstone": 1.0, "pump": 1.0, "rotisserie": 0.5, "wire_drawer": 1.5}
+	"sieve": 1.0, "stone_furnace": 1.5, "grindstone": 1.0, "pump": 1.0, "rotisserie": 0.5, "wire_drawer": 1.5,
+	"drill": 3.0} # perfuratriz (Drill.DEMAND)
 ## Bancadas com energia (torno, prensa): giram sempre que a rede tem força, mas só
 ## pedem carga nos segundos depois de fabricar algo (extra.used).
 const STATIONS := ["lathe", "press"]
@@ -52,6 +53,7 @@ const PORTS := {
 	"pump": [[Vector3(-0.4, 0.6, 0), Vector3.LEFT]],
 	"rotisserie": [[Vector3(-0.86, 0.6, 0), Vector3.LEFT]],
 	"wire_drawer": [[Vector3(-1.0, 0.6, 0), Vector3.LEFT]], # trefiladora: eixo até o tambor
+	"drill": [[Vector3(-0.74, 0.6, 0), Vector3.LEFT]], # perfuratriz: polia de latão do lado da torre
 }
 const PARTS := ["axle", "tripod", "cog", "pulley"]
 const COG_RADIUS := {"cog": 0.3}
@@ -186,6 +188,8 @@ static func busy(obj: PlacedObject) -> bool:
 		var manager := obj.get_parent() as PlacedManager
 		return manager != null and obj.extra.get("used", 0.0) > manager.clock
 	match obj.kind:
+		"drill":
+			return Drill.busy(obj)
 		"dynamo":
 			return obj.extra.get("draw", false) # gerando para a rede elétrica (Electric.tick)
 		"stone_furnace":
@@ -421,6 +425,8 @@ static func tick(objects: Dictionary, clock: float) -> Dictionary:
 				else:
 					AutoMachines.host_grind(obj)
 				changed[obj.net_id] = obj.extra.duplicate()
+			if state == "ok" and obj.kind == "drill" and Drill.host_step(obj):
+				changed[obj.net_id] = obj.extra.duplicate() # a broca avançou (e talvez saiu minério)
 			if state == "ok" and Machines.PROCESS.has(obj.kind) and busy(obj):
 				var before := [obj.extra.get("in", 0), obj.extra.get("out", 0)]
 				Machines.host_crank(obj, 1.0, clock)

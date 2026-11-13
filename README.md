@@ -58,8 +58,13 @@ reação física a golpes e ragdoll (estilo Dying Light), visual de PC dos anos 
   desligam, e as threads de streaming deixam sempre um núcleo livre. A 72 km/h: 0-1 quadro acima de 33 ms em 10 s.
 - Mobs não caem do mundo: sem chão carregado (longe de todos) zumbis e bichos esperam parados; a colisão das
   colunas de voxel só sai depois que o chão de alturas fecha o buraco (`test_mob_ground`).
-- **Próximo (depois dos bugfixes)**: fase 3 — jazidas infinitas + perfuratriz; depois, água de 0,4 m escorrendo
-  (mar fixo em volta da ilha).
+- **Jazidas infinitas (fase 3)**: ~45% das entradas de caverna têm no fundo do salão uma jazida grande de carvão,
+  ferro, cobre, estanho ou enxofre (blocos coloridos no chão e no pé da parede; ~68 na ilha). Picareta: 1 minério a
+  cada 4 golpes e o bloco fica (não acaba; a esfera não come jazida).
+- **Perfuratriz** (martelo, aba Vapor: 4 aço, 2 engrenagens, 1 eixo torneado, 6 parafusos, 4 tábuas): só em cima de
+  uma jazida. Com força no eixo pela porta de latão (roda d'água, moinho, motor a vapor ou motor elétrico; carga 3)
+  tira 1 minério a cada 5 s, guarda até 100; [E] pega tudo. Rede e save. Conquistas "Espeleólogo" e "Mina sem fim".
+- **Próximo**: água de 0,4 m escorrendo (mar fixo em volta da ilha).
 
 ## Terreno em grade de 0,4 m, blocos de terra/pedra e paredes de pedra/taipa (rodada de feedback)
 - **Grade do chão = quadradinho da parede** (`TerrainWorld.GRID` = `BuildPiece.SEG` = 0,4 m). O chão é feito de

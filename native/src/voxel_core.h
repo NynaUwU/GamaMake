@@ -39,9 +39,17 @@ enum Material : uint8_t {
 	BUILT_DIRT = 16, // >= 16: posto pelo jogador (construção: zumbi quebra)
 	BUILT_STONE = 17,
 	BUILT_SAND = 18,
+	// Jazidas (infinitas): no salão do fim de algumas entradas de caverna. A picareta tira
+	// minério sem acabar; a perfuratriz em cima tira sozinha.
+	DEPOSIT_COAL = 20,
+	DEPOSIT_IRON = 21,
+	DEPOSIT_COPPER = 22,
+	DEPOSIT_TIN = 23,
+	DEPOSIT_SULFUR = 24,
 };
 
-inline bool is_built(uint8_t m) { return m >= BUILT_DIRT; }
+inline bool is_built(uint8_t m) { return m >= BUILT_DIRT && m < DEPOSIT_COAL; }
+inline bool is_deposit(uint8_t m) { return m >= DEPOSIT_COAL && m <= DEPOSIT_SULFUR; }
 
 inline int idx(int x, int y, int z) { return (y * P + z) * P + x; }
 
@@ -71,8 +79,12 @@ constexpr float ENTRANCE_RW = 1.7f; // meia largura do túnel
 constexpr float ENTRANCE_RH = 1.4f; // meia altura do túnel
 constexpr float ENTRANCE_OPEN = 7.0f; // primeiros metros: vala aberta em cima (a boca)
 constexpr float ENTRANCE_ROOM = 4.5f; // raio do salão no fim
+constexpr float DEPOSIT_R = 2.6f; // jazida: bola na parede do salão, além do centro dele
+constexpr float DEPOSIT_AHEAD = 3.8f;
+constexpr float DEPOSIT_DROP = 2.6f; // abaixo do centro do salão: vira o chão e o pé da parede
 struct Entrance {
 	float x, z, dx, dz;
+	int kind; // 0 = sem jazida; 1..5 = carvão, ferro, cobre, estanho, enxofre
 };
 
 struct GenParams {
@@ -98,6 +110,8 @@ public:
 	void set_entrances(const std::vector<Entrance> &list) { entrances = list; }
 	// > 0 = dentro de alguma entrada (ar), em blocos; h = chão natural da coluna.
 	static float entrance_field(const Entrance *const *list, int n, float x, float y, float z, float h);
+	// Material de jazida no ponto (0 = nenhuma).
+	static uint8_t deposit_at(const Entrance *const *list, int n, float x, float y, float z, float h);
 	// Densidade natural de um ponto (útil para testes e para saber se há caverna).
 	float cave_field(float x, float y, float z, float depth) const;
 

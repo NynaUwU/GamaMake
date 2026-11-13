@@ -25,13 +25,20 @@ const ENTRANCE_OPEN := 7.0
 const ENTRANCE_ROOM := 4.5
 
 enum { AIR, TOPSOIL, DIRT, SAND, STONE, BEDROCK, COAL, IRON, COPPER, TIN, SULFUR, GRAVEL,
-	BUILT_DIRT = 16, BUILT_STONE, BUILT_SAND }
+	BUILT_DIRT = 16, BUILT_STONE, BUILT_SAND,
+	DEPOSIT_COAL = 20, DEPOSIT_IRON, DEPOSIT_COPPER, DEPOSIT_TIN, DEPOSIT_SULFUR }
+const STRIDE := 5 ## entradas: [x, z, dx, dz, jazida (0 nenhuma, 1..5)]
+const DEPOSIT_R := 2.6
+const DEPOSIT_AHEAD := 3.8
+const DEPOSIT_DROP := 2.6
 
 const COLORS := {TOPSOIL: Color(0.32, 0.42, 0.2), DIRT: Color(0.4, 0.29, 0.19), SAND: Color(0.76, 0.65, 0.45),
 	STONE: Color(0.45, 0.44, 0.42), BEDROCK: Color(0.18, 0.17, 0.17), COAL: Color(0.13, 0.12, 0.12),
 	IRON: Color(0.6, 0.38, 0.28), COPPER: Color(0.3, 0.55, 0.48), TIN: Color(0.72, 0.73, 0.76),
 	SULFUR: Color(0.86, 0.78, 0.22), GRAVEL: Color(0.52, 0.5, 0.47), BUILT_DIRT: Color(0.43, 0.31, 0.2),
-	BUILT_STONE: Color(0.5, 0.49, 0.46), BUILT_SAND: Color(0.76, 0.65, 0.45)}
+	BUILT_STONE: Color(0.5, 0.49, 0.46), BUILT_SAND: Color(0.76, 0.65, 0.45),
+	DEPOSIT_COAL: Color(0.06, 0.06, 0.08), DEPOSIT_IRON: Color(0.78, 0.34, 0.18), DEPOSIT_COPPER: Color(0.16, 0.7, 0.58),
+	DEPOSIT_TIN: Color(0.86, 0.88, 0.95), DEPOSIT_SULFUR: Color(0.98, 0.88, 0.1)}
 
 
 ## Ruído gradiente 3D (Perlin melhorado) com a permutação embaralhada por xorshift32.
@@ -116,7 +123,7 @@ var _cavern: Noise3
 var _entrance: Noise3
 var _ore_shape: Noise3
 var _ore_kind: Noise3
-var entrances := PackedFloat32Array() ## [x, z, dx, dz] por entrada
+var entrances := PackedFloat32Array() ## [x, z, dx, dz, jazida] por entrada
 
 
 func set_entrances(list: PackedFloat32Array) -> void:
@@ -190,6 +197,20 @@ func entrance_field(near: Array, x: float, y: float, z: float, h: float) -> floa
 	return best
 
 
+## Material de jazida no ponto (0 = nenhuma).
+func deposit_at(near: Array, x: float, y: float, z: float, h: float) -> int:
+	for k: int in near:
+		var kind := int(entrances[k + 4])
+		if kind <= 0 or kind > 5:
+			continue
+		var cx := x - (entrances[k] + entrances[k + 2] * (ENTRANCE_LEN + DEPOSIT_AHEAD))
+		var cz := z - (entrances[k + 1] + entrances[k + 3] * (ENTRANCE_LEN + DEPOSIT_AHEAD))
+		var cy := (y - (h - (1.4 + ENTRANCE_LEN * ENTRANCE_SLOPE) - DEPOSIT_DROP)) / 0.8
+		if cx * cx + cz * cz + cy * cy < DEPOSIT_R * DEPOSIT_R:
+			return DEPOSIT_COAL + kind - 1
+	return 0
+
+
 static func ore_from(blob: float, vein: float, kind: float, depth: float, amount: float) -> int:
 	if amount <= 0.0 or depth < 2.0:
 		return STONE
@@ -229,8 +250,8 @@ func fill(section: Vector3i, heights: PackedFloat32Array, soil: PackedByteArray)
 		var x1 := float(sx * N + P - 1) * GRID
 		var z0 := float(sz * N - 1) * GRID
 		var z1 := float(sz * N + P - 1) * GRID
-		var m := ENTRANCE_ROOM + 2.0
-		for k in range(0, entrances.size() - 3, 4):
+		var m := DEPOSIT_AHEAD + DEPOSIT_R + 1.0
+		for k in range(0, entrances.size() - STRIDE + 1, STRIDE):
 			var ex := entrances[k] + entrances[k + 2] * ENTRANCE_LEN
 			var ez := entrances[k + 1] + entrances[k + 3] * ENTRANCE_LEN
 			if maxf(entrances[k], ex) + m < x0 or minf(entrances[k], ex) - m > x1 \
@@ -287,6 +308,13 @@ func fill(section: Vector3i, heights: PackedFloat32Array, soil: PackedByteArray)
 					continue
 				solid += 1
 				var s := soil[col] if soil.size() >= P * P else 0
+				if not near.is_empty() and depth >= 1.0:
+					var bx := (float(sx * N + px - 1) + 0.5) * GRID
+					var bz := (float(sz * N + pz - 1) + 0.5) * GRID
+					var dep := deposit_at(near, bx, y, bz, h)
+					if dep != 0:
+						out[P3 + i] = dep
+						continue
 				if depth < 1.0:
 					out[P3 + i] = TOPSOIL
 				elif depth < 3.2:
