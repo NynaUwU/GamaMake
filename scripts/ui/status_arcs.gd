@@ -7,7 +7,8 @@ extends Control
 ## Cada arco esvazia da ponta de cima para a de baixo (a parte cheia fica
 ## encostada na borda de baixo da tela).
 
-const RADII := [74.0, 61.0, 48.0, 37.0] ## stamina, vida, fome, sede
+## O de dentro (sede) passa por fora do termômetro do canto (que vai até ~50 px do canto).
+const RADII := [100.0, 86.0, 72.0, 60.0] ## stamina, vida, fome, sede
 const WIDTHS := [6.0, 9.0, 6.0, 5.0]
 const COLORS := [Color(0.95, 0.82, 0.25), Color(0.85, 0.16, 0.12), Color(0.9, 0.52, 0.15), Color(0.3, 0.6, 0.95)]
 const SICK := Color(0.45, 0.7, 0.2) ## vida esverdeada enquanto doente

@@ -37,7 +37,7 @@ const ENTRIES := {
 		{"id": "floor_stone", "name": "Piso de pedra", "kind": BuildPiece.Kind.FLOOR, "mat": BuildPiece.Mat.STONE, "desc": "Lajes de pedra", "cost": {&"pedra": 8}},
 		{"id": "pillar_stone", "name": "Pilar de pedra", "kind": BuildPiece.Kind.PILLAR, "mat": BuildPiece.Mat.STONE, "desc": "Pedras empilhadas, 0,4 m de lado. R deita", "cost": {&"pedra": 3}},
 		{"id": "wall_earth", "name": "Parede de taipa", "kind": BuildPiece.Kind.WALL, "mat": BuildPiece.Mat.EARTH, "desc": "Terra cavada do chão socada em camadas, com gravetos: mais forte que madeira (3 golpes por pedaço) e barata. R gira", "cost": {&"terra": 8, &"graveto": 2}},
-		{"id": "stairs", "name": "Escada", "place": "stairs", "desc": "Sobe um andar (2,8 m) para a frente. Segure Shift para alinhar com a grade", "cost": {&"tabua": 6, &"graveto": 2}},
+		{"id": "stairs", "name": "Escada", "place": "stairs", "desc": "Sobe um andar (2,8 m) para a frente", "cost": {&"tabua": 6, &"graveto": 2}},
 	],
 	"Aberturas": [
 		{"id": "window", "name": "Janela", "fill": "window", "desc": "Preenche um buraco feito pela talhadeira", "cost": {&"graveto": 2, &"vidro": 1}},
@@ -88,10 +88,10 @@ const ENTRIES := {
 		{"id": "lathe", "name": "Torno", "place": "lathe", "desc": "Com eixo girando: parafusos, engrenagens, eixo de aço e canos", "cost": {&"tabua": 6, &"barra_ferro": 4, &"sucata": 2}},
 		{"id": "wire_drawer", "name": "Trefiladora", "place": "wire_drawer", "manual": &"manual_eletricista", "desc": "Com eixo ou motor na porta de latão: 1 barra de cobre vira 8 fios de cobre (cabo e bobina rendem bem mais)", "cost": {&"tabua": 6, &"barra_ferro": 4, &"engrenagem": 1}},
 		{"id": "press", "name": "Prensa", "place": "press", "desc": "Com eixo girando: fruta = suco; sementes de algodão ou gordura = óleo", "cost": {&"tabua": 6, &"barra_ferro": 3, &"parafuso": 2}},
-		{"id": "drill", "name": "Perfuratriz", "place": "drill", "desc": "Em cima de uma JAZIDA (o veio colorido no salão do fim das cavernas): com força no eixo (carga 3) tira 1 minério a cada 5 s, sem a jazida acabar. Guarda 100; [E] pega", "cost": {&"barra_aco": 4, &"engrenagem": 2, &"eixo_aco": 1, &"parafuso": 6, &"tabua": 4}},
 		{"id": "distillery", "name": "Destilaria", "place": "distillery", "desc": "Fogo + água + trigo, fruta ou batata = álcool (combustível dos carros e antisséptico)", "cost": {&"barra_cobre": 6, &"tijolo": 6, &"cano": 2}},
 	],
 	"Elétrica": [
+		{"id": "drill", "name": "Perfuratriz", "place": "drill", "desc": "Só elétrica (400 W, cabo no borne em cima): em cima de uma JAZIDA (o veio colorido no salão do fim das cavernas) tira 1 minério a cada 5 s, sem a jazida acabar. Guarda 100; [E] pega", "cost": {&"barra_aco": 4, &"engrenagem": 2, &"bobina": 2, &"parafuso": 6}},
 		{"id": "connector", "name": "Conector", "place": "connector", "desc": "Poste com isolador para emendar cabos. Mirando uma parede, vai na parede", "cost": {&"tabua": 2, &"argila": 1}},
 		{"id": "insulator", "name": "Isolador", "place": "insulator", "desc": "Isolador de cerâmica: vai na parede, no teto ou no chão e leva o cabo esticado, rente à superfície (organiza a fiação)", "cost": {&"argila": 1}},
 		{"id": "switch", "name": "Interruptor", "place": "switch", "desc": "No chão (pedestal) ou na parede. Dois bornes: um cabo na entrada e outro na saída; desligado, a energia não passa. [E] liga/desliga", "cost": {&"barra_cobre": 1, &"tabua": 1}},
@@ -103,7 +103,7 @@ const ENTRIES := {
 		{"id": "charger", "name": "Carregador", "place": "charger", "desc": "Carregador de baterias: 110 V na entrada (borne da esquerda) vira 12 V na saída (direita), até 400 W (90%). Consumo maior na saída esquenta e queima ([E] com bobina conserta)", "cost": {&"bobina": 2, &"cabo": 2, &"barra_ferro": 2}},
 		{"id": "inverter", "name": "Inversor", "place": "inverter", "desc": "12 V na entrada (esquerda) vira 110 V na saída (direita), até 600 W (85%): bancada de solda no painel solar e nas baterias de 12 V. Sobrecarga esquenta e queima", "cost": {&"bobina": 3, &"cabo": 2, &"barra_cobre": 2, &"barra_ferro": 1}},
 		{"id": "lamp", "name": "Lâmpada", "place": "lamp", "desc": "Luz elétrica (50 W). No chão vira lampadário; mirando uma parede, arandela. Para apagar, ponha um interruptor no cabo", "cost": {&"lampada": 1, &"barra_ferro": 1, &"barra_cobre": 1}},
-		{"id": "electric_fence", "name": "Cerca elétrica", "place": "electric_fence", "desc": "2,4 m de fios: com energia (100 W) dá choque em quem encosta (dano e tontura). Shift alinha na grade", "cost": {&"tabua": 3, &"barra_cobre": 2, &"cabo": 2, &"argila": 2}},
+		{"id": "electric_fence", "name": "Cerca elétrica", "place": "electric_fence", "desc": "2,4 m de fios: com energia (100 W) dá choque em quem encosta (dano e tontura)", "cost": {&"tabua": 3, &"barra_cobre": 2, &"cabo": 2, &"argila": 2}},
 		{"id": "fridge", "name": "Geladeira", "place": "fridge", "desc": "Guarda 21 itens; ligada (150 W) a comida quase não estraga. Desligada estraga como num baú", "cost": {&"tabua": 8, &"barra_ferro": 4, &"cano": 2, &"bobina": 1, &"barra_cobre": 2}},
 		{"id": "radio", "name": "Rádio", "place": "radio", "desc": "Ligado (50 W) pega transmissões: direção da horda, airdrops no mapa e pedidos de sobreviventes (com recompensa)", "cost": {&"tabua": 4, &"vidro": 2, &"barra_cobre": 3, &"bobina": 1, &"lampada": 2}},
 		{"id": "electric_pump", "name": "Bomba elétrica", "place": "electric_pump", "desc": "Poço: com energia (200 W) põe 1,5 de água por segundo no cano, em qualquer lugar", "cost": {&"barra_ferro": 4, &"bobina": 1, &"cano": 2, &"parafuso": 2}},
@@ -125,7 +125,7 @@ const ENTRIES := {
 	"Fazenda": [
 		{"id": "trough", "name": "Cocho", "place": "trough", "desc": "Ponha a comida dos bichos mansos: sementes (galinha), trigo (ovelha, vaca, porco) ou legumes (porco). [E] abre", "cost": {&"tabua": 4, &"graveto": 2}},
 		{"id": "water_trough", "name": "Bebedouro", "place": "water_trough", "desc": "Água para os bichos (até 12). Encha com garrafa, chuva ou cano. Comida + água = filhotes", "cost": {&"tabua": 4, &"barra_ferro": 1}},
-		{"id": "fence", "name": "Cerca", "place": "fence", "desc": "Cerca de madeira de 2,4 m: segura os bichos. Shift alinha na grade (encaixa ponta com ponta)", "cost": {&"tabua": 2, &"graveto": 2}},
+		{"id": "fence", "name": "Cerca", "place": "fence", "desc": "Cerca de madeira de 2,4 m: segura os bichos (na grade: encaixa ponta com ponta)", "cost": {&"tabua": 2, &"graveto": 2}},
 		{"id": "gate", "name": "Porteira", "place": "gate", "desc": "Cerca que abre e fecha com [E]", "cost": {&"tabua": 3, &"graveto": 2, &"sucata": 1}},
 	],
 	"Armadilhas": [
@@ -148,7 +148,7 @@ const PLACE_SIZE := {"pot_small": Vector3(0.46, 0.31, 0.46), "pot_wide": Vector3
 	"sawmill": Vector3(2.1, 0.9, 0.75), "ram_pump": Vector3(0.6, 1.8, 2.0), "stairs": Vector3(1.2, 2.8, 2.8),
 	"blast_furnace": Vector3(1.6, 1.3, 1.6), "blast_stack": Vector3(1.4, 1.05, 1.4), "boiler": Vector3(2.3, 2.9, 1.15),
 	"steam_engine": Vector3(1.6, 1.4, 1.4), "water_tank": Vector3(1.1, 1.45, 1.1), "sprinkler": Vector3(0.36, 0.8, 0.36),
-	"lathe": Vector3(2.0, 1.1, 0.6), "press": Vector3(1.3, 1.7, 0.8), "distillery": Vector3(1.7, 1.45, 0.9), "pipe": Vector3(0.18, 0.18, 1.0),
+	"lathe": Vector3(2.0, 1.1, 0.6), "press": Vector3(1.3, 1.7, 0.8), "distillery": Vector3(1.7, 1.45, 0.9), "pipe": Vector3(0.18, 0.18, 1.0), "pipe_stand": Vector3(0.5, 0.5, 0.5),
 	"trough": Vector3(1.5, 0.6, 0.5), "water_trough": Vector3(1.32, 0.5, 0.55), "fence": Vector3(2.4, 1.15, 0.14), "gate": Vector3(2.4, 1.15, 0.14),
 	"connector": Vector3(0.24, 1.3, 0.24), "connector_wall": Vector3(0.14, 0.22, 0.2), "dynamo": Vector3(1.0, 0.9, 0.6), "solar_panel": Vector3(1.3, 1.25, 0.9),
 	"battery": Vector3(0.9, 0.8, 0.55), "lamp": Vector3(0.36, 1.7, 0.36), "lamp_wall": Vector3(0.2, 0.3, 0.32), "electric_fence": Vector3(2.5, 1.35, 0.16),
@@ -169,7 +169,7 @@ const PLACE_CENTER := {"bed": Vector3(1.4, 0.1, 1.4), "stairs": Vector3(0, 1.4, 
 	"deco_clock": Vector3(0, 0, 0.04), "torch_wall": Vector3(0, -0.05, 0.1), "insulator": Vector3(0, 0, 0.04),
 	"switch_wall": Vector3(0, 0, 0.04), "electric_motor": Vector3(0.38, -0.2, 0), "forge": Vector3(-0.2, 1.32, 0), "wire_drawer": Vector3(-0.05, 0.5, 0),
 	"foundry": Vector3(0.1, 0.85, 0), "weld_bench": Vector3(-0.05, 0.75, 0), "torch_bench": Vector3(0.05, 0.65, 0), "chem_bench": Vector3(-0.05, 0.8, 0)}
-## Shift: deslocamento da origem na grade (a escada tem 3 quadrados de largura: borda na linha da grade).
+## Deslocamento da origem na grade (a escada tem 3 quadrados de largura: borda na linha da grade).
 const GRID_OFFSET := {"stairs": Vector3(0.2, 0, 0)}
 const PLACE_RADIUS := {"pot_small": 0.35, "pot_wide": 0.7, "bench": 0.9, "campfire": 0.6, "furnace": 0.8, "workbench": 1.0,
 	"spikes": 0.7, "beartrap": 0.35, "barbed": 0.9, "mine": 0.3, "drawboard": 0.6, "chest": 0.6, "rain_collector": 0.5, "dryer": 0.8, "grindstone": 0.5,
@@ -629,8 +629,8 @@ func dismantle() -> bool:
 			player.inventory.add(PowerParts.ITEMS[hit.collider.kind], 1)
 			if hit.collider.extra.get("belts", []).size() > 0:
 				player.inventory.add(&"correia", hit.collider.extra.belts.size()) # esteiras voltam junto
-		elif hit.collider.kind == "tripod":
-			pass # tripé vem junto com o eixo
+		elif hit.collider.kind in ["tripod", "pipe_stand"]:
+			pass # tripé vem junto com o eixo/cano
 		elif hit.collider.kind == "shaft":
 			player.inventory.add(PowerParts.AXLE_ITEM, 1) # eixo antigo vira eixo novo
 		elif PlacedTorch.has(hit.collider.kind):
@@ -741,22 +741,21 @@ func _compute_place() -> Dictionary:
 		# Isolador/interruptor: em qualquer superfície (chão, parede, teto), virado para fora.
 		var n: Vector3 = hit.normal
 		var up := Vector3.UP if absf(n.y) < 0.9 else Vector3.FORWARD
-		var surf := Transform3D(Basis.looking_at(-n, up), hit.position + n * 0.004)
+		var surf := Transform3D(Basis.looking_at(-n, up), GridSnap.on_surface(hit.position, n) + n * 0.004) # na grade da superfície
 		return {"xform": surf, "valid": not placed.occupied(surf.origin, 0.06), "kind": selection.place}
 	# Conector, lâmpada e enfeites de parede: mirando uma parede, vão na parede.
 	var wall := wall_kind(selection.place)
 	if wall != "" and not hit.is_empty() and absf(hit.normal.y) < 0.35:
 		var flat := Vector3(hit.normal.x, 0, hit.normal.z).normalized()
-		var on_wall := Transform3D(Basis.looking_at(-flat, Vector3.UP), hit.position + flat * 0.005)
+		var on_wall := Transform3D(Basis.looking_at(-flat, Vector3.UP), GridSnap.on_surface(hit.position, flat) + flat * 0.005) # na grade da parede
 		var ok := not placed.occupied(on_wall.origin, 0.12) and player.global_position.distance_to(on_wall.origin) > 0.4
 		return {"xform": on_wall, "valid": ok, "kind": wall}
 	if selection.place in Decor.WALL_KINDS:
 		return {} # quadro, prateleira e relógio: só na parede
 	if hit.is_empty() or hit.normal.y < 0.7 or hit.collider is PlacedObject and hit.collider.kind != "bed":
 		return {}
-	var xform := Transform3D(Basis(Vector3.UP, player.rotation.y), hit.position)
-	if Input.is_key_pressed(KEY_SHIFT):
-		xform = grid_snap(selection.place, xform)
+	# Sempre na grade de 0,4 m e virado em passos de 90° (nada mais solto/torto).
+	var xform := grid_snap(selection.place, Transform3D(Basis(Vector3.UP, player.rotation.y), hit.position))
 	if selection.place == "shaft":
 		var snapped := _snap_shaft(placed, hit.position)
 		if snapped != Transform3D():
@@ -814,8 +813,8 @@ func _compute_stack(placed: PlacedManager, hit: Dictionary) -> Dictionary:
 	return {"xform": xform, "valid": placed.stack_spot_free(xform.origin)}
 
 
-## Shift: gira em passos de 90° e prende na grade das peças (0,4 m), igual ao
-## piso construído (a grade começa em 0,0 do mundo).
+## Gira em passos de 90° e prende na grade das peças (0,4 m), igual ao piso construído
+## (a grade começa em 0,0 do mundo). Vale para tudo o que se põe com o martelo.
 static func grid_snap(place: String, xform: Transform3D) -> Transform3D:
 	var yaw := snappedf(xform.basis.get_euler().y, PI / 2.0)
 	var basis := Basis(Vector3.UP, yaw)

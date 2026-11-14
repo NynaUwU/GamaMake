@@ -5,7 +5,7 @@ extends RefCounted
 ##                 (galinha: sementes; ovelha e vaca: trigo; porco: trigo ou legumes)
 ##   water_trough  bebedouro: até 12 de água. Enche com garrafa (clique com água na mão),
 ##                 com a chuva ou por cano (porta de latão no lado)
-##   fence         cerca de madeira, 2,4 m (encaixa na grade com Shift); segura os bichos
+##   fence         cerca de madeira, 2,4 m (encaixa na grade); segura os bichos
 ##   gate          porteira: cerca que abre e fecha com [E]
 ## Bicho manso alimentado E com água, perto de outro igual: nasce filhote (a água é o que
 ## destrava a cria). Zumbis tratam a cerca como construção (contornam ou quebram).

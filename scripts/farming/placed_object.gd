@@ -267,6 +267,9 @@ func refresh(clock: float) -> void:
 		return
 	if PlacedTorch.has(kind):
 		return
+	if Drill.has(kind):
+		Drill.refresh(self) # perfuratriz (elétrica, mas modelo próprio)
+		return
 	if Electric.has(kind):
 		if kind == "radio":
 			Radio.refresh(self)
@@ -276,8 +279,6 @@ func refresh(clock: float) -> void:
 	if Decor.has(kind):
 		Decor.refresh(self)
 		return
-	if Drill.has(kind):
-		Drill.refresh(self)
 	if kind in SteamModels.KINDS:
 		SteamModels.refresh(self)
 		return

@@ -2,8 +2,8 @@ extends SceneTree
 ## Fase 3 do terreno: jazidas infinitas e perfuratriz.
 ##  - a jazida existe no salão do fim de uma entrada (blocos de jazida nos voxels);
 ##  - picareta: 1 minério a cada 4 golpes e o bloco fica (não acaba);
-##  - perfuratriz: recusada longe da jazida; em cima dela, com força no eixo, 1 minério a cada
-##    5 s; [E] entrega tudo; save guarda.
+##  - perfuratriz (só elétrica): recusada longe da jazida; em cima dela, com cabo de uma bateria,
+##    1 minério a cada 5 s; sem energia não anda; [E] entrega tudo; save guarda.
 
 var placed: PlacedManager
 
@@ -12,6 +12,7 @@ func _tick(seconds: int) -> void:
 	for k in seconds:
 		placed.clock += 1.0
 		placed._power()
+		placed._electric()
 
 
 func _init() -> void:
@@ -80,16 +81,20 @@ func _init() -> void:
 		return
 	var drill: PlacedObject = placed.objects[r[0]]
 	print("jazida da perfuratriz: %s | %s" % [drill.extra.get("ore", ""), Drill.text(drill)])
-	# Força: motor a vapor encostado na porta de latão (vapor ligado na mão).
-	var port: Vector3 = Power.world_ports(drill)[0][0]
-	var engine_at := port - Vector3(1.08, 0.6, 0)
-	var re := placed.host_apply("place", ["steam_engine", Transform3D(Basis(), engine_at)])
-	var engine: PlacedObject = placed.objects[re[0]] if not re.is_empty() else null
-	if engine:
-		engine.extra.steam = 1.0
-	Power.dirty = true
+	# Sem energia: parada.
+	_tick(10)
+	print("10 s sem energia: prontos %d (esperado 0) | %s" % [drill.extra.get("out", 0), Drill.text(drill)])
+	print("porta de eixo na perfuratriz? %s (esperado false: só elétrica)" % Power.PORTS.has("drill"))
+	# Bateria carregada a 3 m, cabo até o borne.
+	var rb := placed.host_apply("place", ["battery", Transform3D(Basis(), drill.global_position + Vector3(3.0, 0, 0))])
+	var battery: PlacedObject = placed.objects[rb[0]]
+	battery.extra.merge({"cells": 6, "charge": 1500.0, "health": 1.0}, true)
+	var rc := placed.host_apply("cable", [battery.net_id, drill.net_id])
+	print("cabo bateria -> perfuratriz: %s" % (not rc.is_empty()))
+	Electric.dirty = true
 	_tick(30)
-	print("30 s com força: %s, prontos %d (esperado 6), broca girando %s" % [Power.status(drill), drill.extra.get("out", 0), drill.extra.get("speed", 0.0) > 0.0])
+	print("30 s com energia: %s, prontos %d (esperado 6), broca girando %s, bateria %.0f Wh" % [Drill.text(drill), drill.extra.get("out", 0),
+		drill.extra.get("speed", 0.0) > 0.0, battery.extra.get("charge", 0.0)])
 	var have := player.inventory.count(ore)
 	Net.i.request_peer = Net.i.my_id()
 	placed.host_apply("drill_take", [drill.net_id])

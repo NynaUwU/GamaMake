@@ -61,9 +61,14 @@ reação física a golpes e ragdoll (estilo Dying Light), visual de PC dos anos 
 - **Jazidas infinitas (fase 3)**: ~45% das entradas de caverna têm no fundo do salão uma jazida grande de carvão,
   ferro, cobre, estanho ou enxofre (blocos coloridos no chão e no pé da parede; ~68 na ilha). Picareta: 1 minério a
   cada 4 golpes e o bloco fica (não acaba; a esfera não come jazida).
-- **Perfuratriz** (martelo, aba Vapor: 4 aço, 2 engrenagens, 1 eixo torneado, 6 parafusos, 4 tábuas): só em cima de
-  uma jazida. Com força no eixo pela porta de latão (roda d'água, moinho, motor a vapor ou motor elétrico; carga 3)
-  tira 1 minério a cada 5 s, guarda até 100; [E] pega tudo. Rede e save. Conquistas "Espeleólogo" e "Mina sem fim".
+- **Perfuratriz** (martelo, aba Elétrica: 4 aço, 2 engrenagens, 2 bobinas, 6 parafusos): só em cima de uma jazida
+  e **só elétrica**: cabo no borne em cima do motor, 400 W (só puxa com trabalho). Tira 1 minério a cada 5 s, guarda
+  até 100; [E] pega tudo. Rede e save. Conquistas "Espeleólogo" e "Mina sem fim".
+- **Tudo na grade**: o que se põe com o martelo encaixa sempre na grade de 0,4 m e gira em 90° (chão, parede, teto);
+  não precisa mais de Shift. **Canos e eixos** só andam nas 6 direções da grade (±X, ±Y, ±Z) em passos de 0,4 m:
+  curvas só de 90° (outro trecho saindo da ponta). Ponta solta no ar de cano deitado ganha **tripé** (como o eixo);
+  em pé não. Desmontando o cano/eixo, o tripé solto sai junto (`test_grid_snap`).
+- **HUD**: os arcos das necessidades ficaram maiores; o termômetro não fica mais por cima deles.
 - **Água que escorre (blocos de 0,4 m, `scripts/world/voxel_water.gd`)**: lagos, rios e o mar continuam como
   antes (o mar fica fixo em volta da ilha) e viram fonte sem fim. Cavando perto, a água sai deles: cai reto em
   buraco, se espalha para os lados perdendo nível (até ~4,8 m no plano; descendo, vai longe), e um canal abaixo

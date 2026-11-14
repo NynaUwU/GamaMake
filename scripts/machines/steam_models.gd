@@ -13,10 +13,10 @@ extends RefCounted
 ##   lathe, press  torno e prensa (bancadas que precisam do eixo girando)
 ##   distillery    alambique de cobre com serpentina na tina d'água
 
-const KINDS := ["pipe", "blast_furnace", "blast_stack", "boiler", "steam_engine", "water_tank", "sprinkler", "lathe", "press", "distillery"]
+const KINDS := ["pipe", "pipe_stand", "blast_furnace", "blast_stack", "boiler", "steam_engine", "water_tank", "sprinkler", "lathe", "press", "distillery"]
 const NAMES := {"pipe": "Cano", "blast_furnace": "Alto-forno", "blast_stack": "Anel do alto-forno", "boiler": "Caldeira",
 	"steam_engine": "Motor a vapor", "water_tank": "Caixa d'água", "sprinkler": "Aspersor", "lathe": "Torno", "press": "Prensa",
-	"distillery": "Destilaria"}
+	"distillery": "Destilaria", "pipe_stand": "Tripé do cano"}
 
 const BRICK := Color(0.6, 0.3, 0.2)
 const BRICK_DARK := Color(0.45, 0.22, 0.15)
@@ -126,6 +126,9 @@ static func refresh(obj: PlacedObject) -> void:
 			if obj.get_meta("built_len", -1.0) != obj.extra.get("len", 1.0):
 				_build_pipe(obj)
 			_update_flow(obj)
+		"pipe_stand":
+			if obj.get_meta("built_h", -1.0) != obj.extra.get("h", 0.6):
+				_pipe_stand(obj)
 		"sprinkler":
 			var wet: bool = obj.extra.get("wet", false)
 			obj.extra.speed = 1.0 if wet else 0.0 # cabeça girando (só visual)
@@ -178,6 +181,9 @@ static func build(kind: String, obj: PlacedObject) -> void:
 	match kind:
 		"pipe":
 			_build_pipe(obj)
+			return
+		"pipe_stand":
+			_pipe_stand(obj)
 			return
 		"blast_furnace":
 			_blast_base(mb, obj)
@@ -343,6 +349,35 @@ static func _update_flow(obj: PlacedObject) -> void:
 	flow.set_instance_shader_parameter("flow_dir", float(obj.extra.get("fdir", 1)))
 	flow.set_instance_shader_parameter("flow_speed", 1.2 if steam else 0.6)
 	flow.set_instance_shader_parameter("flow_color", Color(1, 1, 1, 0.55) if steam else Color(0.45, 0.7, 1.0, 0.5))
+
+
+## Tripé na ponta solta de um cano no ar (igual ao do eixo, com braçadeira de cobre em
+## vez do mancal). extra.h = altura até o chão. Refeito se a altura mudar.
+static func _pipe_stand(obj: PlacedObject) -> void:
+	var h: float = obj.extra.get("h", 0.6)
+	obj.set_meta("built_h", h)
+	for child in obj.get_children():
+		if child.name in ["StandMesh", "StandShape"]:
+			obj.remove_child(child)
+			child.queue_free()
+	var mb := MeshBuilder.new()
+	PowerParts.tripod_legs(mb, h)
+	mb.color(IRON)
+	mb.box(Vector3(0, -0.1, 0), Vector3(0.18, 0.05, 0.18)) # chapa
+	mb.color(COPPER.darkened(0.25))
+	mb.lathe(PackedVector2Array([Vector2(0.065, -0.07), Vector2(0.075, -0.07), Vector2(0.075, 0.07), Vector2(0.065, 0.07)]), 10,
+		Basis(Vector3.BACK, PI / 2)) # braçadeira
+	var mesh := MeshInstance3D.new()
+	mesh.name = "StandMesh"
+	mesh.mesh = mb.finish(PlacedObject._mat(), false)
+	obj.add_child(mesh)
+	var shape := CollisionShape3D.new()
+	shape.name = "StandShape"
+	var box := BoxShape3D.new()
+	box.size = Vector3(0.22, 0.2, 0.22)
+	shape.shape = box
+	shape.position = Vector3(0, -0.06, 0)
+	obj.add_child(shape)
 
 
 # --- Alto-forno --------------------------------------------------------------------------

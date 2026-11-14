@@ -1,17 +1,19 @@
 class_name Drill
 extends RefCounted
 ## Perfuratriz (fase 3 do terreno em voxels): posta em cima de uma JAZIDA (o salão no fim de
-## algumas entradas de caverna, TerrainWorld.deposit_near), com força no eixo (roda d'água,
-## moinho de vento, motor a vapor ou motor elétrico na porta de latão), tira minério sozinha
-## sem a jazida acabar: 1 a cada RATE segundos, até CAP guardados. [E] pega tudo.
+## algumas entradas de caverna, TerrainWorld.deposit_near), SÓ ELÉTRICA: com um cabo no borne
+## (Electric, 400 W, só pede energia com trabalho) tira minério sozinha sem a jazida acabar:
+## 1 a cada RATE segundos, até CAP guardados. [E] pega tudo.
 ## Guarda em PlacedObject.extra: "ore" (item da jazida, decidido pelo host ao pôr), "out"
-## (prontos) e "prog" (segundos de broca girando).
+## (prontos), "prog" (segundos de broca girando), "speed" (broca girando, para o desenho) e
+## "ep" (com energia, Electric).
 
 const KIND := "drill"
 const RATE := 5.0 ## segundos de força por minério
 const CAP := 100
-const DEMAND := 3.0 ## carga no eixo (= Power.DEMAND.drill)
+const WATTS := 400.0 ## = Electric.DEMAND.drill
 const NAME := "Perfuratriz"
+const TERMINAL := Vector3(0.0, 1.12, 0.0) ## borne do cabo (em cima do motor) = Electric.TERMINAL.drill
 
 const STEEL := Color(0.5, 0.51, 0.53)
 const IRON := Color(0.22, 0.21, 0.21)
@@ -29,10 +31,13 @@ static func busy(obj: PlacedObject) -> bool:
 	return String(obj.extra.get("ore", "")) != "" and int(obj.extra.get("out", 0)) < CAP
 
 
-## Host, 1x por segundo com força: a broca avança. true = mudou.
+## Host, 1x por segundo (depois da elétrica): com energia a broca gira e avança. true = mudou.
 static func host_step(obj: PlacedObject) -> bool:
-	if not busy(obj):
-		return false
+	var spin := 1.0 if Electric.powered(obj) and busy(obj) else 0.0
+	var changed := absf(float(obj.extra.get("speed", 0.0)) - spin) > 0.01
+	obj.extra.speed = spin
+	if spin <= 0.0:
+		return changed
 	var prog: float = float(obj.extra.get("prog", 0.0)) + 1.0
 	var out := int(obj.extra.get("out", 0))
 	while prog >= RATE and out < CAP:
@@ -51,7 +56,10 @@ static func text(obj: PlacedObject) -> String:
 	var parts := "%s (jazida de %s): %d pronto%s" % [NAME, ItemDB.display_name(ore).to_lower(), out, "" if out == 1 else "s"]
 	if out >= CAP:
 		parts += " (cheia)"
-	parts += " · " + Power.status(obj)
+	if Electric.powered(obj):
+		parts += " · ligada (%d W)" % int(WATTS) if out < CAP else " · parada (cheia)"
+	else:
+		parts += " · sem energia (cabo no borne em cima do motor; %d W)" % int(WATTS)
 	return parts + ("  [E] pegar" if out > 0 else "")
 
 
@@ -121,18 +129,23 @@ static func build(obj: PlacedObject) -> void:
 	mb.color(STEEL)
 	mb.lathe(PackedVector2Array([Vector2(0.02, -0.04), Vector2(0.15, -0.04), Vector2(0.15, 0.04), Vector2(0.02, 0.04)]), 10,
 		Basis(Vector3.RIGHT, PI / 2), top + Vector3(0, 0.2, 0)) # roldana
-	# Caixa de engrenagem no meio da torre, com o eixo até a porta de latão (Power.PORTS).
+	# Caixa de engrenagem no meio da torre e o motor elétrico em cima dela (aletas e o borne
+	# de cobre com isolador, onde o cabo prende: Electric.TERMINAL.drill).
 	mb.color(IRON)
 	mb.box(Vector3(0, 0.62, 0), Vector3(0.5, 0.4, 0.46))
 	mb.color(IRON.lightened(0.1))
 	mb.box(Vector3(0, 0.84, 0), Vector3(0.54, 0.04, 0.5))
-	mb.color(STEEL)
-	mb.tube(PackedVector3Array([Vector3(-0.25, 0.6, 0), Vector3(-0.72, 0.6, 0)]), 0.03, 6)
-	mb.color(BRASS)
-	mb.lathe(PackedVector2Array([Vector2(0.02, -0.03), Vector2(0.11, -0.03), Vector2(0.12, 0.0), Vector2(0.11, 0.03), Vector2(0.02, 0.03)]), 12,
-		Basis(Vector3.BACK, PI / 2), Vector3(-0.74, 0.6, 0)) # polia de latão (a porta)
-	mb.color(IRON)
-	mb.box(Vector3(-0.66, 0.36, 0), Vector3(0.08, 0.44, 0.08)) # pé da porta
+	mb.color(Color(0.2, 0.32, 0.26)) # carcaça verde do motor
+	mb.lathe(PackedVector2Array([Vector2(0.002, -0.2), Vector2(0.15, -0.2), Vector2(0.15, 0.2), Vector2(0.002, 0.2)]), 12,
+		Basis(Vector3.BACK, PI / 2), Vector3(0, 0.9, 0))
+	mb.color(Color(0.16, 0.26, 0.21))
+	for k in 5:
+		mb.box(Vector3(-0.16 + k * 0.08, 0.9, 0), Vector3(0.025, 0.33, 0.33)) # aletas
+	mb.color(Color(0.85, 0.82, 0.74)) # isolador de porcelana
+	mb.lathe(PackedVector2Array([Vector2(0.002, 0.0), Vector2(0.035, 0.0), Vector2(0.03, 0.05), Vector2(0.04, 0.06), Vector2(0.002, 0.07)]), 8,
+		Basis.IDENTITY, TERMINAL - Vector3(0, 0.07, 0))
+	mb.color(Color(0.72, 0.42, 0.25))
+	mb.box(TERMINAL, Vector3(0.03, 0.03, 0.03)) # borne de cobre
 	# Caçamba do lado (+X), com rampa saindo da caixa.
 	mb.color(WOOD.darkened(0.1))
 	mb.box(Vector3(1.05, 0.2, 0), Vector3(0.5, 0.06, 0.6))

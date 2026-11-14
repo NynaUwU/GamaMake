@@ -1,9 +1,10 @@
 class_name PipeTool
 extends Node3D
 ## Cano na mão: segure o clique numa saída de latão (ou na ponta de um cano, ou
-## em qualquer superfície), arraste até onde o cano termina e solte. Clicar na
-## ponta de um cano continua a linha. Shift: cano reto (no mesmo nível e em
-## ângulos de 45°). Cada 2 m gasta 1 cano; o trecho vai até 6 m.
+## em qualquer superfície: o começo cai na grade de 0,4 m), arraste e solte. O cano só
+## anda nas direções da grade (±X, ±Y, ±Z), em passos de 0,4 m: curvas só de 90° (outro
+## trecho saindo da ponta). Mirando uma porta alinhada, termina nela. Cada 2 m gasta 1 cano;
+## o trecho vai até 6 m. Ponta solta no ar ganha um tripé (o host põe).
 ## Fantasma: verde = cabe, vermelho = curto/longo/sem cano; bolinha amarela =
 ## a ponta encaixou numa porta ou noutro cano.
 
@@ -114,6 +115,8 @@ func _aim(placed: PlacedManager, from: Vector3) -> Dictionary:
 	var snap := Fluids.snap_point(placed.objects, point, 0.5)
 	if snap != Vector3.INF and snap.distance_to(from) > 0.1:
 		return {"point": snap, "snapped": true}
+	if from == Vector3.INF and not hit.is_empty():
+		point = GridSnap.on_surface(point, hit.normal) # começo solto: na grade
 	return {"point": point, "snapped": false}
 
 
@@ -123,24 +126,18 @@ func _plan(placed: PlacedManager) -> Dictionary:
 	if aim.is_empty():
 		return {}
 	var end: Vector3 = aim.point
-	var snapped: bool = aim.snapped
-	if Input.is_key_pressed(KEY_SHIFT):
-		# Reto: mesmo nível da partida (ou vertical) e direção em passos de 45°.
-		var flat := Vector3(end.x - _start.x, 0.0, end.z - _start.z)
-		if absf(end.y - _start.y) > flat.length() * 1.5:
-			end = Vector3(_start.x, end.y, _start.z) # subida reta
-		else:
-			var angle := snappedf(atan2(flat.x, flat.z), PI / 4.0)
-			end = _start + Vector3(sin(angle), 0.0, cos(angle)) * flat.length()
+	var snapped: bool = aim.snapped and GridSnap.on_axis(_start, end) and _start.distance_to(end) <= Fluids.MAX_PIPE
+	if not snapped:
+		# Na direção da grade mais perto da mira, em passos de 0,4 m.
+		var seg := GridSnap.segment(_start, player.camera.global_position, -player.camera.global_basis.z, Fluids.MAX_PIPE)
+		if seg.is_empty():
+			return {}
+		end = seg.end
 		var snap := Fluids.snap_point(placed.objects, end, 0.3)
-		snapped = snap != Vector3.INF and snap.distance_to(_start) > 0.1
-		if snapped:
-			end = snap
+		if snap != Vector3.INF and snap.distance_to(_start) > 0.1 and GridSnap.on_axis(_start, snap):
+			end = snap # porta/ponta logo ali na mesma linha
+			snapped = true
 	var length := _start.distance_to(end)
-	if length > Fluids.MAX_PIPE:
-		end = _start + (end - _start).normalized() * Fluids.MAX_PIPE
-		length = Fluids.MAX_PIPE
-		snapped = false
 	var valid := length >= 0.25 and player.inventory.count(&"cano") >= Fluids.pipe_cost(length)
 	return {"a": _start, "b": end, "len": length, "valid": valid, "snapped": snapped}
 

@@ -80,6 +80,10 @@ func _electric() -> void:
 	if not Net.i.is_host():
 		return
 	var changed := Electric.tick(objects, clock)
+	# Perfuratriz: com energia (Electric marcou "ep") a broca gira e tira minério.
+	for obj: PlacedObject in objects.values():
+		if Drill.has(obj.kind) and Drill.host_step(obj):
+			changed[obj.net_id] = changed.get(obj.net_id, {}).merged(obj.extra, true)
 	for id in changed:
 		request("extra", [id, changed[id]])
 	Radio.host_tick(self)
@@ -165,6 +169,34 @@ func _ground_below(p: Vector3) -> float:
 		return clampf(p.y - hit.position.y, 0.15, 6.0)
 	var terrain := world.get_node_or_null("Terrain") as TerrainWorld
 	return clampf(p.y - terrain.height_at(p.x, p.z), 0.15, 6.0) if terrain else 0.6
+
+
+## Tem tripé (de cano ou de eixo) nesse ponto?
+func _support_at(p: Vector3, kind: String) -> bool:
+	for obj: PlacedObject in objects.values():
+		if obj.kind == kind and obj.global_position.distance_to(p) < 0.15:
+			return true
+	return false
+
+
+## O tripé ainda segura outro cano/eixo (ou uma engrenagem/polia montada nele)?
+func _held_by_other(support: PlacedObject, leaving: PlacedObject) -> bool:
+	var p := support.global_position
+	for obj: PlacedObject in objects.values():
+		if obj == leaving or obj == support:
+			continue
+		if support.kind == "pipe_stand" and obj.kind == "pipe":
+			for e: Vector3 in Fluids.pipe_ends(obj):
+				if e.distance_to(p) < 0.15:
+					return true
+		elif support.kind == "tripod":
+			if obj.kind == "axle":
+				for e: Vector3 in Power.axle_ends(obj):
+					if e.distance_to(p) < 0.15:
+						return true
+			elif obj.kind in PowerParts.ITEMS and obj.global_position.distance_to(p) < 0.2:
+				return true
+	return false
 
 
 ## Na margem de um rio (para a roda d'água e o carneiro).
@@ -451,8 +483,9 @@ func host_apply(action: String, args: Array) -> Array:
 				return []
 			var ends: Array[Vector3] = [xform.origin, xform * Vector3(0, 0, length)]
 			var tripods := []
+			var vertical := absf(xform.basis.z.normalized().y) > 0.7 # eixo em pé: sem tripé
 			for p in ends:
-				if Power.snap_point(objects, p, Power.SNAP) == Vector3.INF:
+				if not vertical and Power.snap_point(objects, p, Power.SNAP) == Vector3.INF:
 					tripods.append([_next_id + 1 + tripods.size(), p, _ground_below(p)])
 			var id := _next_id
 			_next_id += 1 + tripods.size()
@@ -487,13 +520,24 @@ func host_apply(action: String, args: Array) -> Array:
 			if length < 0.25 or length > Fluids.MAX_PIPE + 0.01:
 				Net.i.give_to(Net.i.request_peer, &"cano", Fluids.pipe_cost(clampf(length, 0.25, Fluids.MAX_PIPE)))
 				return []
+			# Ponta solta no ar (cano deitado) ganha tripé, igual ao eixo.
+			var stands := []
+			if absf(xform.basis.z.normalized().y) < 0.7:
+				for p: Vector3 in [xform.origin, xform * Vector3(0, 0, length)]:
+					var h := _ground_below(p)
+					if h > 0.3 and Fluids.snap_point(objects, p, Fluids.PIPE_SNAP) == Vector3.INF and not _support_at(p, "pipe_stand"):
+						stands.append([_next_id + 1 + stands.size(), p, h])
 			var id := _next_id
-			_next_id += 1
+			_next_id += 1 + stands.size()
 			_spawn(id, "pipe", xform, true)
 			objects[id].extra.len = length
 			objects[id].refresh(clock)
+			for t in stands:
+				_spawn(t[0], "pipe_stand", Transform3D(Basis(), t[1]), true)
+				objects[t[0]].extra.h = t[2]
+				objects[t[0]].refresh(clock)
 			Sfx.play_at("knock", xform.origin, -2.0, 1.4)
-			return [id, xform, length]
+			return [id, xform, length, stands]
 		"pour":
 			# Garrafa de água despejada na caldeira/destilaria/caixa d'água (a garrafa vazia já voltou).
 			var obj: PlacedObject = objects.get(args[0])
@@ -592,8 +636,22 @@ func host_apply(action: String, args: Array) -> Array:
 				ContainerManager.i.dump("placed_%d" % obj.net_id, obj.global_position) # o que tinha dentro cai
 			if obj.kind in Smelting.SLOT_KINDS and ContainerManager.i:
 				ContainerManager.i.dump(Smelting.key_of(obj), obj.global_position)
-			_remove(args[0])
-			return args
+			# Cano/eixo: o tripé da ponta que ficou solta sai junto.
+			var removed := [args[0]]
+			if obj.kind in ["pipe", "axle"]:
+				var ends: Array = Fluids.pipe_ends(obj) if obj.kind == "pipe" else Power.axle_ends(obj)
+				var support := "pipe_stand" if obj.kind == "pipe" else "tripod"
+				for other_id in objects.keys():
+					var other: PlacedObject = objects[other_id]
+					if other.kind != support:
+						continue
+					for p: Vector3 in ends:
+						if other.global_position.distance_to(p) < 0.15 and not _held_by_other(other, obj):
+							removed.append(other_id)
+							break
+			for id in removed:
+				_remove(id)
+			return removed
 		"plant":
 			var obj: PlacedObject = objects.get(args[0])
 			var slot: int = args[1]
@@ -912,6 +970,10 @@ func apply_remote(action: String, args: Array) -> void:
 				_spawn(args[0], "pipe", args[1], true)
 				objects[args[0]].extra.len = args[2]
 				objects[args[0]].refresh(clock)
+				for t in (args[3] if args.size() > 3 else []):
+					_spawn(t[0], "pipe_stand", Transform3D(Basis(), t[1]), true)
+					objects[t[0]].extra.h = t[2]
+					objects[t[0]].refresh(clock)
 		"pour":
 			var obj: PlacedObject = objects.get(args[0])
 			if obj:
@@ -974,7 +1036,9 @@ func apply_remote(action: String, args: Array) -> void:
 					objects[args[0]].extra.merge(args[3], true)
 					objects[args[0]].refresh(clock)
 		"remove":
-			_remove(args[0])
+			for id in args: # o objeto e os tripés que saíram junto
+				if objects.has(id):
+					_remove(id)
 		"plant":
 			var obj: PlacedObject = objects.get(args[0])
 			if obj:

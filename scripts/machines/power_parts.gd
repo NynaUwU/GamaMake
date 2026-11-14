@@ -78,21 +78,7 @@ static func build(obj: PlacedObject) -> void:
 			shape_center = Vector3(0, 0, length * 0.5)
 		"tripod":
 			var h: float = obj.extra.get("h", 0.6)
-			for k in 3:
-				var a := TAU * k / 3.0 + PI / 6.0
-				var foot := Vector3(cos(a) * (0.22 + h * 0.25), -h, sin(a) * (0.22 + h * 0.25))
-				mb.color(WOOD_DARK.lightened(0.04 * k))
-				mb.tube(PackedVector3Array([Vector3(cos(a) * 0.05, -0.08, sin(a) * 0.05), foot]), 0.03, 5)
-				mb.color(IRON)
-				mb.box(foot + Vector3(0, 0.02, 0), Vector3(0.08, 0.04, 0.08)) # sapata
-			if h > 0.45:
-				mb.color(WOOD_DARK.darkened(0.1))
-				var y := -h * 0.55
-				for k in 3:
-					var a0 := TAU * k / 3.0 + PI / 6.0
-					var a1 := TAU * (k + 1) / 3.0 + PI / 6.0
-					var r := 0.05 + (0.22 + h * 0.25 - 0.05) * 0.55
-					mb.tube(PackedVector3Array([Vector3(cos(a0) * r, y, sin(a0) * r), Vector3(cos(a1) * r, y, sin(a1) * r)]), 0.018, 4) # travessa
+			tripod_legs(mb, h)
 			mb.color(IRON)
 			mb.box(Vector3(0, -0.04, 0), Vector3(0.2, 0.12, 0.2)) # mancal
 			mb.box(Vector3(0, 0.05, 0), Vector3(0.16, 0.06, 0.16)) # tampa
@@ -155,6 +141,26 @@ static func build(obj: PlacedObject) -> void:
 	shape.position = shape_center
 	obj.add_child(shape)
 	obj.set_meta("part_built", [obj.extra.get("len", 0.0), obj.extra.get("h", 0.0)])
+
+
+## Três pernas de madeira (com travessas se for alto) do topo (0, -0,08) até o chão a "h"
+## metros. Usado no tripé do eixo e no do cano (SteamModels).
+static func tripod_legs(mb: MeshBuilder, h: float) -> void:
+	for k in 3:
+		var a := TAU * k / 3.0 + PI / 6.0
+		var foot := Vector3(cos(a) * (0.22 + h * 0.25), -h, sin(a) * (0.22 + h * 0.25))
+		mb.color(WOOD_DARK.lightened(0.04 * k))
+		mb.tube(PackedVector3Array([Vector3(cos(a) * 0.05, -0.08, sin(a) * 0.05), foot]), 0.03, 5)
+		mb.color(IRON)
+		mb.box(foot + Vector3(0, 0.02, 0), Vector3(0.08, 0.04, 0.08)) # sapata
+	if h > 0.45:
+		mb.color(WOOD_DARK.darkened(0.1))
+		var y := -h * 0.55
+		for k in 3:
+			var a0 := TAU * k / 3.0 + PI / 6.0
+			var a1 := TAU * (k + 1) / 3.0 + PI / 6.0
+			var r := 0.05 + (0.22 + h * 0.25 - 0.05) * 0.55
+			mb.tube(PackedVector3Array([Vector3(cos(a0) * r, y, sin(a0) * r), Vector3(cos(a1) * r, y, sin(a1) * r)]), 0.018, 4) # travessa
 
 
 ## Refaz o modelo se o tamanho mudou (eixo/tripé chegam do host depois do spawn).

@@ -13,7 +13,8 @@ extends RefCounted
 ##   Convertem: carregador (110 -> 12 V, 400 W) e inversor (12 -> 110 V, 600 W), dois
 ##             bornes; sobrecarga na saída esquenta e queima
 ##   Gastam:   lâmpada 50 W · rádio 50 W · cerca elétrica 100 W · geladeira 150 W ·
-##             bomba elétrica 200 W · motor elétrico 300 W (só com a máquina trabalhando)
+##             bomba elétrica 200 W · motor elétrico 300 W (só com a máquina trabalhando) ·
+##             perfuratriz 400 W (só elétrica; só com jazida embaixo e espaço para guardar)
 ##   Passam:   conector (poste ou parede), isolador de cerâmica (organiza os cabos)
 ##   Cortam:   interruptor (no chão ou na parede) com 2 bornes, entrada e saída: cada
 ##             lado recebe um cabo; desligado, a energia não passa de um lado para o outro
@@ -58,12 +59,12 @@ const CYCLE_WEAR := 0.004
 const DEEP_WEAR := 0.003
 const MIN_HEALTH := 0.3
 ## Quem liga primeiro quando falta energia.
-const PRIORITY := ["lamp", "lamp_wall", "radio", "fridge", "electric_fence", "electric_pump", "electric_motor", "weld_bench"]
+const PRIORITY := ["lamp", "lamp_wall", "radio", "fridge", "electric_fence", "electric_pump", "electric_motor", "drill", "weld_bench"]
 ## Consumo em W.
 const DEMAND := {"lamp": 50.0, "lamp_wall": 50.0, "radio": 50.0, "electric_fence": 100.0, "fridge": 150.0, "electric_pump": 200.0, "weld_bench": 300.0,
-	"electric_motor": 300.0}
+	"electric_motor": 300.0, "drill": 400.0}
 const KINDS := ["connector", "connector_wall", "insulator", "switch", "switch_wall", "dynamo", "solar_panel", "battery",
-	"lamp", "lamp_wall", "radio", "electric_fence", "fridge", "electric_pump", "electric_motor", "weld_bench", "battery_bank", "charger", "inverter"]
+	"lamp", "lamp_wall", "radio", "electric_fence", "fridge", "electric_pump", "electric_motor", "weld_bench", "battery_bank", "charger", "inverter", "drill"]
 const SWITCHES := ["switch", "switch_wall"]
 ## Peças com 2 bornes (um cabo em cada): interruptores e conversores.
 const TWO_TERMINALS := ["switch", "switch_wall", "charger", "inverter"]
@@ -84,12 +85,13 @@ const TERMINAL := {
 	"radio": Vector3(0.28, 0.62, -0.16), "electric_fence": Vector3(-1.2, 1.36, 0),
 	"fridge": Vector3(0, 1.72, -0.2), "electric_pump": Vector3(0, 0.92, 0), "electric_motor": Vector3(0.36, 0.22, 0), "weld_bench": Vector3(-0.66, 1.19, -0.2),
 	"battery_bank": Vector3(0.62, 0.86, 0), "charger": Vector3(0, 0.62, 0), "inverter": Vector3(0, 0.62, 0),
+	"drill": Drill.TERMINAL,
 }
 const NAMES := {"connector": "Conector", "connector_wall": "Conector", "insulator": "Isolador de cerâmica",
 	"switch": "Interruptor", "switch_wall": "Interruptor", "dynamo": "Dínamo", "solar_panel": "Painel solar",
 	"battery": "Bateria", "lamp": "Lâmpada", "lamp_wall": "Lâmpada", "radio": "Rádio", "electric_fence": "Cerca elétrica",
 	"fridge": "Geladeira", "electric_pump": "Bomba elétrica", "electric_motor": "Motor elétrico", "weld_bench": "Bancada de solda",
-	"battery_bank": "Banco de baterias", "charger": "Carregador de baterias", "inverter": "Inversor"}
+	"battery_bank": "Banco de baterias", "charger": "Carregador de baterias", "inverter": "Inversor", "drill": "Perfuratriz"}
 
 static var dirty := true
 static var _groups: Array = [] # [[net_id, ...], ...]
@@ -279,6 +281,8 @@ static func output(obj: PlacedObject) -> float:
 static func wants(objects: Dictionary, obj: PlacedObject) -> bool:
 	if not is_consumer(obj.kind):
 		return false
+	if obj.kind == "drill":
+		return Drill.busy(obj) # só com jazida embaixo e espaço para guardar
 	if obj.kind == "electric_motor":
 		for id in Power.group_of(obj.net_id):
 			var other: PlacedObject = objects.get(id)

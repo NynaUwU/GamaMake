@@ -2,9 +2,10 @@ class_name PowerTool
 extends Node3D
 ## Peças de força na mão (filho do jogador):
 ##   eixo         segure o clique no começo (porta de latão, tripé, ponta de eixo ou o
-##                chão) e solte no fim. Fica no nível de onde começou; mirando uma
-##                porta/tripé/ponta, termina nela. Shift: reto em passos de 45°.
-##                Cada 2 m gasta 1 eixo (até 8 m). Ponta solta vira tripé (o host põe).
+##                chão: na grade de 0,4 m) e solte no fim. Só anda nas direções da grade
+##                (±X, ±Y, ±Z) em passos de 0,4 m: curvas só de 90°. Mirando uma porta,
+##                tripé ou ponta alinhada, termina nela. Cada 2 m gasta 1 eixo (até 8 m).
+##                Ponta solta no ar vira tripé (o host põe).
 ##   engrenagem / engrenagem grande / polia: clique num eixo (monta no ponto mirado,
 ##                de 0,2 em 0,2 m), num tripé ou numa porta de máquina.
 ##   esteira      clique numa polia (ou máquina) e depois na outra ponta.
@@ -179,8 +180,8 @@ func _aim(placed: PlacedManager, from: Vector3) -> Dictionary:
 			return {}
 		var p: Vector3 = hit.position
 		if hit.normal.y > 0.6:
-			return {"point": p + Vector3.UP * AXLE_HEIGHT, "snapped": false} # no chão: na altura das portas
-		return {"point": p + hit.normal * 0.15, "snapped": false}
+			return {"point": GridSnap.flat(p) + Vector3.UP * AXLE_HEIGHT, "snapped": false} # no chão: na altura das portas
+		return {"point": GridSnap.on_surface(p, hit.normal) + hit.normal * 0.15, "snapped": false}
 	# Arrastando: cruza o raio da mira com o plano do nível do começo.
 	var point: Vector3
 	if absf(forward.y) > 0.02:
@@ -200,20 +201,18 @@ func _plan(placed: PlacedManager) -> Dictionary:
 	if aim.is_empty():
 		return {}
 	var end: Vector3 = aim.point
-	var snapped: bool = aim.snapped
-	if Input.is_key_pressed(KEY_SHIFT) and not snapped:
-		var flat := Vector3(end.x - _start.x, 0.0, end.z - _start.z)
-		var angle := snappedf(atan2(flat.x, flat.z), PI / 4.0)
-		end = _start + Vector3(sin(angle), 0.0, cos(angle)) * flat.length()
+	var snapped: bool = aim.snapped and GridSnap.on_axis(_start, end) and _start.distance_to(end) <= PowerParts.MAX_AXLE
+	if not snapped:
+		# Na direção da grade mais perto da mira, em passos de 0,4 m.
+		var seg := GridSnap.segment(_start, player.camera.global_position, -player.camera.global_basis.z, PowerParts.MAX_AXLE)
+		if seg.is_empty():
+			return {}
+		end = seg.end
 		var snap := Power.snap_point(placed.objects, end, 0.3)
-		snapped = snap != Vector3.INF and snap.distance_to(_start) > 0.1
-		if snapped:
-			end = snap
+		if snap != Vector3.INF and snap.distance_to(_start) > 0.1 and GridSnap.on_axis(_start, snap):
+			end = snap # porta/tripé/ponta logo ali na mesma linha
+			snapped = true
 	var length := _start.distance_to(end)
-	if length > PowerParts.MAX_AXLE:
-		end = _start + (end - _start).normalized() * PowerParts.MAX_AXLE
-		length = PowerParts.MAX_AXLE
-		snapped = false
 	var valid := length >= 0.3 and player.inventory.count(PowerParts.AXLE_ITEM) >= PowerParts.axle_cost(length)
 	return {"a": _start, "b": end, "len": length, "valid": valid, "snapped": snapped}
 
