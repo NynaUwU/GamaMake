@@ -319,7 +319,7 @@ func host_apply(action: String, args: Array) -> Array:
 					"grindstone", "quern", "pump", "spinning", "loom", "stone_furnace", "oven", "filter", "smoker", "compost", "sieve",
 					"shaft", "water_wheel", "windmill", "sawmill", "ram_pump", "stairs",
 					"blast_furnace", "blast_stack", "boiler", "steam_engine", "water_tank", "sprinkler", "lathe", "press", "distillery",
-					"trough", "water_trough", "fence", "gate", "rotisserie", "drill"] \
+					"trough", "water_trough", "fence", "gate", "rotisserie", "drill", "pipe_pump"] \
 					and not Electric.has(kind) and not Decor.has(kind) and not PlacedTorch.has(kind) and not Smithing.has(kind):
 				return []
 			if kind in ["water_wheel", "ram_pump"] and not river_bank(xform.origin):

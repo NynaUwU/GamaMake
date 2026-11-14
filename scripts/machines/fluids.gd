@@ -6,6 +6,10 @@ extends RefCounted
 ## O host recalcula 1x por segundo, por rede ligada e por fluido:
 ##   - fontes: carneiro hidráulico (rio), coletor de chuva, caixa d'água (estoque),
 ##     caldeira (vapor da pressão);
+##   - GRAVIDADE: caixa d'água e coletor de chuva só mandam água para baixo (para quem tem a
+##     entrada abaixo da superfície da água deles). Bombas (carneiro, bomba da beira do lago,
+##     bomba elétrica do poço) empurram para qualquer altura; a BOMBA DE RECALQUE no meio do
+##     cano (com eixo ou motor elétrico na porta de latão) faz a rede toda subir;
 ##   - consumidores: caldeira e destilaria (enchem o tanque), aspersor, motor a vapor;
 ##   - sobrou água: as caixas d'água guardam; faltou: as caixas soltam.
 ## Água em "garrafas" (1 unidade = 1 garrafa); vapor em "segundos de motor a 100%".
@@ -30,7 +34,9 @@ const PORTS := {
 	"water_trough": [[Vector3(0.68, 0.3, 0.0), "water", "in"]],
 	"electric_pump": [[Vector3(0.45, 0.25, 0.0), "water", "out"]],
 	"pump": [[Vector3(0.36, 0.25, 0.0), "water", "out"]], # bomba manual com força no eixo
+	"pipe_pump": [[Vector3(0.0, 0.32, 0.42), "water", "both"], [Vector3(0.0, 0.32, -0.42), "water", "both"]], # recalque
 }
+const PIPE_PUMP_RATE := 2.0 ## água por segundo que a bomba de recalque aguenta empurrar (só pressuriza)
 ## Água que cada fonte consegue mandar por segundo.
 const SOURCE_RATE := {"ram_pump": 1.0, "rain_collector": 0.5, "water_tank": 2.0, "electric_pump": 1.5}
 
@@ -194,72 +200,106 @@ static func _differs(a: Dictionary, b: Dictionary) -> bool:
 
 
 ## Água numa rede: divide o que as fontes mandam entre quem precisa. Devolve o fluxo (unid/s).
+## Bombas empurram para qualquer altura; caixa d'água e coletor só descem (gravidade), a não
+## ser que a rede tenha uma bomba de recalque ligada.
 static func _water(group: Array) -> float:
-	var supply := 0.0
+	var lift := false
+	for obj: PlacedObject in group:
+		if obj.kind == "pipe_pump" and obj.extra.get("pstate", "") == "ok":
+			lift = true
+	var pumped := 0.0 # bombas: sem limite de altura
+	var passive := [] # [obj, quanto pode soltar, altura da superfície] (coletor, caixa)
 	var tanks := []
-	var sources := []
-	var wants := {} # obj -> quanto quer
+	var wants := {} # obj -> [quanto quer, altura da entrada]
 	for obj: PlacedObject in group:
 		match obj.kind:
 			"ram_pump":
-				supply += SOURCE_RATE.ram_pump
+				pumped += SOURCE_RATE.ram_pump
 			"electric_pump":
 				if Electric.powered(obj):
-					supply += SOURCE_RATE.electric_pump # poço: sem fim, com energia
+					pumped += SOURCE_RATE.electric_pump # poço: sem fim, com energia
 			"pump":
 				if obj.extra.get("pstate", "") == "ok":
-					supply += 1.0 # bomba da beira do lago movida pelo eixo
+					pumped += 1.0 # bomba da beira do lago movida pelo eixo
 			"rain_collector":
 				var give: float = minf(obj.extra.get("water", 0.0), SOURCE_RATE.rain_collector)
 				if give > 0.0:
-					sources.append([obj, give])
-					supply += give
+					passive.append([obj, give, head(obj)])
 			"water_tank":
 				tanks.append(obj)
 			"boiler":
-				wants[obj] = clampf(BOILER_WATER - obj.extra.get("water", 0.0), 0.0, 0.6)
+				wants[obj] = [clampf(BOILER_WATER - obj.extra.get("water", 0.0), 0.0, 0.6), inlet_y(obj)]
 			"distillery":
-				wants[obj] = clampf(STILL_WATER - obj.extra.get("water", 0.0), 0.0, 0.4)
+				wants[obj] = [clampf(STILL_WATER - obj.extra.get("water", 0.0), 0.0, 0.4), inlet_y(obj)]
 			"sprinkler":
-				wants[obj] = 0.1
+				wants[obj] = [0.1, inlet_y(obj)]
 			"water_trough":
-				wants[obj] = clampf(Ranch.WATER_CAP - obj.extra.get("water", 0.0), 0.0, 0.5)
-	var demand := 0.0
-	for obj in wants:
-		demand += wants[obj]
-	# Faltou: as caixas d'água completam.
-	var from_tanks := 0.0
-	if demand > supply:
-		for tank: PlacedObject in tanks:
-			var give: float = minf(tank.extra.get("water", 0.0), SOURCE_RATE.water_tank)
-			give = minf(give, demand - supply - from_tanks)
-			if give > 0.0:
-				tank.extra.water = tank.extra.get("water", 0.0) - give
-				from_tanks += give
-	var total := supply + from_tanks
-	var fraction := 1.0 if demand <= 0.0 else minf(1.0, total / demand)
+				wants[obj] = [clampf(Ranch.WATER_CAP - obj.extra.get("water", 0.0), 0.0, 0.5), inlet_y(obj)]
+	# As caixas d'água soltam para quem precisa (por gravidade, ou empurradas pela bomba).
+	for tank: PlacedObject in tanks:
+		var give: float = minf(tank.extra.get("water", 0.0), SOURCE_RATE.water_tank)
+		if give > 0.0:
+			passive.append([tank, give, head(tank)])
+	var pumped_left := pumped
+	var flow := 0.0
 	for obj: PlacedObject in wants:
-		var got: float = wants[obj] * fraction
+		var need: float = wants[obj][0]
+		var y: float = wants[obj][1]
+		var got := minf(need, pumped_left)
+		pumped_left -= got
+		for src in passive:
+			if got >= need - 0.0001:
+				break
+			if src[0] == obj or not (lift or src[2] > y + 0.05):
+				continue # mais baixo que a entrada: sem bomba a água não sobe
+			var take: float = minf(src[1], need - got)
+			if take <= 0.0:
+				continue
+			src[1] -= take
+			src[0].extra.water = maxf(src[0].extra.get("water", 0.0) - take, 0.0)
+			got += take
 		if obj.kind == "sprinkler":
 			obj.extra.wet = got >= 0.05
 		else:
 			obj.extra.water = obj.extra.get("water", 0.0) + got
-	# Sobrou água das fontes: as caixas d'água guardam.
-	var used := minf(demand, total)
-	var surplus := maxf(supply - used, 0.0)
-	var to_tanks := 0.0
+		flow += got
+	# Sobrou água das bombas (ou dos coletores acima delas): as caixas d'água guardam.
 	for tank: PlacedObject in tanks:
 		var room: float = clampf(TANK_CAP - tank.extra.get("water", 0.0), 0.0, SOURCE_RATE.water_tank)
-		var put := minf(room, surplus - to_tanks)
+		var put := minf(room, pumped_left)
+		pumped_left -= put
+		for src in passive:
+			if put >= room - 0.0001:
+				break
+			if src[0].kind != "rain_collector" or not (lift or src[2] > inlet_y(tank) + 0.05):
+				continue
+			var take: float = minf(src[1], room - put)
+			src[1] -= take
+			src[0].extra.water = maxf(src[0].extra.get("water", 0.0) - take, 0.0)
+			put += take
 		if put > 0.0:
 			tank.extra.water = tank.extra.get("water", 0.0) + put
-			to_tanks += put
-	# Coletores de chuva pagam a parte deles do que saiu das fontes (o carneiro é sem fim).
-	var drawn := minf(used, supply) + to_tanks
-	if supply > 0.0:
-		for entry in sources:
-			entry[0].extra.water = maxf(entry[0].extra.get("water", 0.0) - entry[1] / supply * drawn, 0.0)
-	return used + to_tanks
+			flow += put
+	return flow
+
+
+## Altura da superfície da água guardada (caixa d'água: sobe com o nível; coletor: a bacia).
+static func head(obj: PlacedObject) -> float:
+	match obj.kind:
+		"water_tank":
+			return obj.global_position.y + 0.4 + clampf(obj.extra.get("water", 0.0) / TANK_CAP, 0.0, 1.0) * 0.95
+		"rain_collector":
+			return obj.global_position.y + 0.8
+	return obj.global_position.y + 0.5
+
+
+## Altura da entrada de água (a porta de água mais baixa).
+static func inlet_y(obj: PlacedObject) -> float:
+	var best := INF
+	for port in world_ports(obj):
+		if port[1] == "water":
+			best = minf(best, port[0].y)
+	return best if best < INF else obj.global_position.y
 
 
 ## Vapor: as caldeiras (pressão guardada) alimentam os motores. Devolve o fluxo.

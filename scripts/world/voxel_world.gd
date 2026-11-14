@@ -36,7 +36,7 @@ const BOTTOM_SECTION := -10 ## y -64 m: abaixo da rocha-mãe
 const DROPS := {VoxelRef.TOPSOIL: &"terra", VoxelRef.DIRT: &"terra", VoxelRef.SAND: &"areia", VoxelRef.STONE: &"pedra",
 	VoxelRef.GRAVEL: &"pedra", VoxelRef.COAL: &"carvao", VoxelRef.IRON: &"minerio_ferro", VoxelRef.COPPER: &"minerio_cobre",
 	VoxelRef.TIN: &"minerio_estanho", VoxelRef.SULFUR: &"enxofre", VoxelRef.BUILT_DIRT: &"terra",
-	VoxelRef.BUILT_STONE: &"pedra", VoxelRef.BUILT_SAND: &"areia",
+	VoxelRef.BUILT_STONE: &"pedra", VoxelRef.BUILT_SAND: &"areia", VoxelRef.BUILT_WOOD: &"tabua",
 	VoxelRef.DEPOSIT_COAL: &"carvao", VoxelRef.DEPOSIT_IRON: &"minerio_ferro", VoxelRef.DEPOSIT_COPPER: &"minerio_cobre",
 	VoxelRef.DEPOSIT_TIN: &"minerio_estanho", VoxelRef.DEPOSIT_SULFUR: &"enxofre"}
 const HARD := [VoxelRef.STONE, VoxelRef.GRAVEL, VoxelRef.COAL, VoxelRef.IRON, VoxelRef.COPPER, VoxelRef.TIN, VoxelRef.SULFUR,
@@ -46,9 +46,12 @@ const ORES := [VoxelRef.COAL, VoxelRef.IRON, VoxelRef.COPPER, VoxelRef.TIN, Voxe
 	VoxelRef.DEPOSIT_COAL, VoxelRef.DEPOSIT_IRON, VoxelRef.DEPOSIT_COPPER, VoxelRef.DEPOSIT_TIN, VoxelRef.DEPOSIT_SULFUR]
 const DEPOSIT_HITS := 4 ## golpes de picareta por minério numa jazida (ela não acaba)
 ## Item na mão -> material do bloco posto.
-const ITEM_BLOCK := {&"terra": VoxelRef.BUILT_DIRT, &"pedra": VoxelRef.BUILT_STONE, &"areia": VoxelRef.BUILT_SAND}
-const BLOCK_COST := {VoxelRef.BUILT_DIRT: 1, VoxelRef.BUILT_STONE: 2, VoxelRef.BUILT_SAND: 1}
-const BLOCK_HITS := {VoxelRef.BUILT_DIRT: 3, VoxelRef.BUILT_STONE: 8, VoxelRef.BUILT_SAND: 2}
+const ITEM_BLOCK := {&"terra": VoxelRef.BUILT_DIRT, &"pedra": VoxelRef.BUILT_STONE, &"areia": VoxelRef.BUILT_SAND,
+	&"tabua": VoxelRef.BUILT_WOOD}
+const BLOCK_COST := {VoxelRef.BUILT_DIRT: 1, VoxelRef.BUILT_STONE: 2, VoxelRef.BUILT_SAND: 1, VoxelRef.BUILT_WOOD: 1}
+const BLOCK_HITS := {VoxelRef.BUILT_DIRT: 3, VoxelRef.BUILT_STONE: 8, VoxelRef.BUILT_SAND: 2, VoxelRef.BUILT_WOOD: 5}
+const MASS_MAX_SIDE := 12 ## arrastando: no máximo 12 blocos por lado
+const MASS_MAX := 256 ## e 256 de uma vez
 
 static var i: VoxelWorld
 static var enabled := true ## false: o mundo fica só com o chão de alturas (testes do sistema antigo)
@@ -831,6 +834,10 @@ func sphere_targets(center: Vector3i, shovel: bool) -> Array:
 	return out
 
 
+func request_place_many(first: Vector3i, mat: int, blocks: Array) -> void:
+	Net.i.system_request(name, "place_many", [first, mat, blocks])
+
+
 func request_dig_sphere(center: Vector3i, shovel: bool) -> void:
 	Net.i.system_request(name, "dig_sphere", [center, shovel])
 
@@ -907,6 +914,27 @@ func zombie_hit(b: Vector3i, power: int) -> bool:
 
 
 func host_apply(action: String, args: Array) -> Array:
+	if action == "place_many":
+		# [primeiro bloco, material, [blocos...]] (quem pôs já pagou; o que não coube volta).
+		var mat: int = args[1]
+		if not is_built(mat):
+			return []
+		var list := []
+		var flat := []
+		var refused := 0
+		for nb: Vector3i in args[2]:
+			if material_at(nb) == VoxelRef.AIR and list.size() < MASS_MAX:
+				list.append([nb, mat])
+				flat.append_array([nb, mat])
+			else:
+				refused += 1
+		if refused > 0:
+			Net.i.give_to(Net.i.request_peer, DROPS[mat], refused * int(BLOCK_COST.get(mat, 1)))
+		if list.is_empty():
+			return []
+		set_blocks(list)
+		_edit_sound("place", args[0])
+		return [args[0], flat]
 	if action == "water_sync":
 		# Só o próprio host manda (a simulação da água é dele): repassa para todos.
 		return args if Net.i.request_peer == Net.i.my_id() else []
@@ -950,13 +978,13 @@ func apply_remote(action: String, args: Array) -> void:
 	if action == "water_sync":
 		water.apply_changes(args[1])
 		return
-	if action == "dig_sphere":
+	if action == "dig_sphere" or action == "place_many":
 		var flat: Array = args[1]
 		var list := []
 		for k in range(0, flat.size(), 2):
 			list.append([flat[k], flat[k + 1]])
 		set_blocks(list)
-		_edit_sound("dig", args[0])
+		_edit_sound("dig" if action == "dig_sphere" else "place", args[0])
 		return
 	set_block(args[0], args[1])
 	_edit_sound(action, args[0])

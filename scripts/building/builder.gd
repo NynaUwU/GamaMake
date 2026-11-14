@@ -83,6 +83,7 @@ const ENTRIES := {
 		{"id": "blast_stack", "name": "Anel alto-forno", "place": "blast_stack", "desc": "Mire no topo da base do alto-forno (ou de outro anel) para empilhar. Precisa de 2", "cost": {&"tijolo": 10}},
 		{"id": "boiler", "name": "Caldeira", "place": "boiler", "desc": "Fogo + água = vapor para o motor. Água pelo cano (latão à esquerda) ou despejada com garrafa. SECA E QUENTE, EXPLODE", "cost": {&"barra_aco": 4, &"tijolo": 6, &"barra_cobre": 2, &"parafuso": 4}},
 		{"id": "steam_engine", "name": "Motor a vapor", "place": "steam_engine", "desc": "Vapor da caldeira (cano no alto do cilindro) vira força 10 nos eixos (porta à direita)", "cost": {&"barra_aco": 3, &"engrenagem": 2, &"parafuso": 6, &"eixo_aco": 1, &"oleo": 1}},
+		{"id": "pipe_pump", "name": "Bomba de recalque", "place": "pipe_pump", "desc": "No meio do cano (flanges na frente e atrás): com eixo ou motor elétrico na porta de latão (carga 1), a água da rede SOBE. Sem ela, caixa d'água e coletor só mandam água para baixo", "cost": {&"barra_ferro": 4, &"engrenagem": 1, &"barra_cobre": 2, &"parafuso": 2}},
 		{"id": "water_tank", "name": "Caixa d'água", "place": "water_tank", "desc": "Guarda 60 de água (4 portas). Guarda o que sobra e solta quando falta. [E] enche garrafa", "cost": {&"tabua": 8, &"barra_ferro": 2}},
 		{"id": "sprinkler", "name": "Aspersor", "place": "sprinkler", "desc": "Com água no cano, molha as plantações a 8 m: crescem 50% mais rápido", "cost": {&"barra_cobre": 2, &"parafuso": 1}},
 		{"id": "lathe", "name": "Torno", "place": "lathe", "desc": "Com eixo girando: parafusos, engrenagens, eixo de aço e canos", "cost": {&"tabua": 6, &"barra_ferro": 4, &"sucata": 2}},
@@ -148,7 +149,7 @@ const PLACE_SIZE := {"pot_small": Vector3(0.46, 0.31, 0.46), "pot_wide": Vector3
 	"sawmill": Vector3(2.1, 0.9, 0.75), "ram_pump": Vector3(0.6, 1.8, 2.0), "stairs": Vector3(1.2, 2.8, 2.8),
 	"blast_furnace": Vector3(1.6, 1.3, 1.6), "blast_stack": Vector3(1.4, 1.05, 1.4), "boiler": Vector3(2.3, 2.9, 1.15),
 	"steam_engine": Vector3(1.6, 1.4, 1.4), "water_tank": Vector3(1.1, 1.45, 1.1), "sprinkler": Vector3(0.36, 0.8, 0.36),
-	"lathe": Vector3(2.0, 1.1, 0.6), "press": Vector3(1.3, 1.7, 0.8), "distillery": Vector3(1.7, 1.45, 0.9), "pipe": Vector3(0.18, 0.18, 1.0), "pipe_stand": Vector3(0.5, 0.5, 0.5),
+	"lathe": Vector3(2.0, 1.1, 0.6), "press": Vector3(1.3, 1.7, 0.8), "distillery": Vector3(1.7, 1.45, 0.9), "pipe": Vector3(0.18, 0.18, 1.0), "pipe_stand": Vector3(0.5, 0.5, 0.5), "pipe_pump": Vector3(0.75, 0.55, 0.9),
 	"trough": Vector3(1.5, 0.6, 0.5), "water_trough": Vector3(1.32, 0.5, 0.55), "fence": Vector3(2.4, 1.15, 0.14), "gate": Vector3(2.4, 1.15, 0.14),
 	"connector": Vector3(0.24, 1.3, 0.24), "connector_wall": Vector3(0.14, 0.22, 0.2), "dynamo": Vector3(1.0, 0.9, 0.6), "solar_panel": Vector3(1.3, 1.25, 0.9),
 	"battery": Vector3(0.9, 0.8, 0.55), "lamp": Vector3(0.36, 1.7, 0.36), "lamp_wall": Vector3(0.2, 0.3, 0.32), "electric_fence": Vector3(2.5, 1.35, 0.16),
@@ -176,7 +177,7 @@ const PLACE_RADIUS := {"pot_small": 0.35, "pot_wide": 0.7, "bench": 0.9, "campfi
 	"quern": 0.5, "oven": 0.7, "pump": 0.35, "filter": 0.45, "stone_furnace": 0.9, "spinning": 0.55, "loom": 0.7, "smoker": 0.5, "compost": 0.6, "sieve": 0.55,
 	"water_wheel": 0.6, "windmill": 0.9, "shaft": 0.3, "sawmill": 1.0, "ram_pump": 0.4, "stairs": 0.6,
 	"blast_furnace": 0.9, "blast_stack": 0.1, "boiler": 1.1, "steam_engine": 0.9, "water_tank": 0.6, "sprinkler": 0.25,
-	"lathe": 1.0, "press": 0.7, "distillery": 0.9, "drill": 0.9, "trough": 0.8, "water_trough": 0.7, "fence": 0.15, "gate": 0.15,
+	"lathe": 1.0, "press": 0.7, "distillery": 0.9, "drill": 0.9, "pipe_pump": 0.45, "trough": 0.8, "water_trough": 0.7, "fence": 0.15, "gate": 0.15,
 	"connector": 0.2, "dynamo": 0.7, "solar_panel": 0.7, "battery": 0.6, "lamp": 0.25, "electric_fence": 0.15, "fridge": 0.5, "radio": 0.45, "electric_pump": 0.4,
 	"deco_table": 0.7, "deco_chair": 0.3, "deco_stool": 0.25, "deco_rug": 0.3, "deco_vase": 0.2, "deco_plant": 0.3, "deco_barrel": 0.4, "deco_crates": 0.6,
 	"deco_painting": 0.12, "deco_shelf": 0.12, "deco_clock": 0.12, "insulator": 0.06, "switch": 0.15, "electric_motor": 0.1,
@@ -204,6 +205,13 @@ var _highlight: MeshInstance3D
 var _highlight_mesh := ImmediateMesh.new()
 var _mark: StandardMaterial3D
 var _drag := {} # talhadeira arrastando: {piece, square, triangle}
+## Martelo arrastando (pôr em massa): {"kind", "rot", "start", "end": célula}. Parede: fileira
+## (e andares, subindo); piso/teto: área; pilar: linha. Até ROW_MAX peças.
+var _row := {}
+var _row_ghosts: Array[MeshInstance3D] = []
+var _row_ok: StandardMaterial3D
+var _row_bad: StandardMaterial3D
+const ROW_MAX := 24
 var _menu: BuildMenu
 
 
@@ -465,9 +473,15 @@ func update(tool: String) -> void:
 	_remove_mesh.visible = false
 	if tool != "chisel":
 		_drag = {}
+	if tool != "hammer" and not _row.is_empty():
+		_row = {}
+		_hide_row()
 	if _manager() == null or player.vehicle != null or _menu.visible:
 		return
 	if tool == "hammer":
+		if not _row.is_empty():
+			_update_row()
+			return
 		if Input.is_key_pressed(KEY_SHIFT):
 			_mark_removal() # o que o Shift + clique direito desmontaria fica vermelho
 		# Mirando uma peça quebrada por zumbi: o clique conserta (mostra o dano).
@@ -547,6 +561,10 @@ func use(tool: String) -> bool:
 				manager.request_fill(fill_target.piece, selection.fill, fill_target.tris, selection.get("metal", false))
 				return true
 			return false
+		if not target.is_empty() and Input.is_action_pressed("attack"):
+			# Segurando: arrasta para pôr uma fileira/área (solta para construir).
+			_row = {"kind": target.kind, "rot": target.rot, "start": target.cell, "end": target.cell}
+			return true
 		if not target.is_empty() and target.valid and _paid(selection):
 			manager.request_place(target.kind, target.cell, target.rot, selection.get("mat", BuildPiece.Mat.WOOD))
 			Progress.event("place", String(selection.id))
@@ -558,6 +576,104 @@ func use(tool: String) -> bool:
 		cut_selection = cut_target.quarters
 		return true
 	return false
+
+
+# --- Martelo em massa ----------------------------------------------------------------
+
+## Células da fileira/área entre o começo e o fim (passos de uma peça).
+func _row_cells() -> Array:
+	var a: Vector3i = _row.start
+	var e: Vector3i = _row.end
+	var n := BuildPiece.N
+	var steps := func(from: int, to: int) -> Array:
+		var out := []
+		var dir := 1 if to >= from else -1
+		var count := absi(to - from) / n
+		for k in count + 1:
+			out.append(from + dir * k * n)
+		return out
+	var cells := []
+	match int(_row.kind):
+		BuildPiece.Kind.WALL:
+			for y in steps.call(a.y, e.y):
+				if int(_row.rot) == 0:
+					for x in steps.call(a.x, e.x):
+						cells.append(Vector3i(x, y, a.z))
+				else:
+					for z in steps.call(a.z, e.z):
+						cells.append(Vector3i(a.x, y, z))
+		BuildPiece.Kind.FLOOR, BuildPiece.Kind.ROOF:
+			if BuildPiece.is_slope(_row.kind, _row.rot):
+				cells.append(a) # telhado inclinado: um de cada vez
+			else:
+				for z in steps.call(a.z, e.z):
+					for x in steps.call(a.x, e.x):
+						cells.append(Vector3i(x, a.y, z))
+		_:
+			# Pilar: linha no sentido em que mais andou.
+			if absi(e.x - a.x) >= absi(e.z - a.z):
+				for x in steps.call(a.x, e.x):
+					cells.append(Vector3i(x, a.y, a.z))
+			else:
+				for z in steps.call(a.z, e.z):
+					cells.append(Vector3i(a.x, a.y, z))
+	return cells.slice(0, ROW_MAX)
+
+
+func _update_row() -> void:
+	if Input.is_action_pressed("attack"):
+		var t := _compute_target()
+		if not t.is_empty() and t.kind == _row.kind:
+			_row.end = t.cell
+		_show_row()
+		return
+	# Soltou: constrói o que couber e der para pagar.
+	var manager := _manager()
+	var built := 0
+	if manager:
+		for cell: Vector3i in _row_cells():
+			if not manager.can_place(_row.kind, cell, _row.rot):
+				continue
+			if not _paid(selection):
+				break
+			manager.request_place(_row.kind, cell, _row.rot, selection.get("mat", BuildPiece.Mat.WOOD))
+			built += 1
+	if built > 0:
+		Progress.event("place", String(selection.id))
+	else:
+		Sfx.play("click", -6.0, 0.6)
+	_row = {}
+	_hide_row()
+
+
+func _show_row() -> void:
+	if _row_ok == null:
+		_row_ok = _ghost_material.duplicate()
+		_row_ok.albedo_color = Color(0.3, 1.0, 0.4, 0.35)
+		_row_bad = _ghost_material.duplicate()
+		_row_bad.albedo_color = Color(1.0, 0.25, 0.2, 0.35)
+	var cells := _row_cells()
+	var manager := _manager()
+	while _row_ghosts.size() < cells.size():
+		var g := MeshInstance3D.new()
+		g.top_level = true
+		g.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		add_child(g)
+		_row_ghosts.append(g)
+	for k in _row_ghosts.size():
+		var g := _row_ghosts[k]
+		g.visible = k < cells.size()
+		if not g.visible:
+			continue
+		g.mesh = _ghost_mesh.mesh
+		g.global_transform = BuildPiece.piece_transform(_row.kind, cells[k], _row.rot) * _ghost_mesh.transform
+		var ok: bool = manager != null and manager.can_place(_row.kind, cells[k], _row.rot)
+		g.material_override = _row_ok if ok else _row_bad
+
+
+func _hide_row() -> void:
+	for g in _row_ghosts:
+		g.visible = false
 
 
 ## Shift + botão direito (ao soltar): desmonta a peça, janela/porta ou objeto

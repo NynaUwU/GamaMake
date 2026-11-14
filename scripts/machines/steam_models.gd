@@ -13,10 +13,10 @@ extends RefCounted
 ##   lathe, press  torno e prensa (bancadas que precisam do eixo girando)
 ##   distillery    alambique de cobre com serpentina na tina d'água
 
-const KINDS := ["pipe", "pipe_stand", "blast_furnace", "blast_stack", "boiler", "steam_engine", "water_tank", "sprinkler", "lathe", "press", "distillery"]
+const KINDS := ["pipe", "pipe_stand", "pipe_pump", "blast_furnace", "blast_stack", "boiler", "steam_engine", "water_tank", "sprinkler", "lathe", "press", "distillery"]
 const NAMES := {"pipe": "Cano", "blast_furnace": "Alto-forno", "blast_stack": "Anel do alto-forno", "boiler": "Caldeira",
 	"steam_engine": "Motor a vapor", "water_tank": "Caixa d'água", "sprinkler": "Aspersor", "lathe": "Torno", "press": "Prensa",
-	"distillery": "Destilaria", "pipe_stand": "Tripé do cano"}
+	"distillery": "Destilaria", "pipe_stand": "Tripé do cano", "pipe_pump": "Bomba de recalque"}
 
 const BRICK := Color(0.6, 0.3, 0.2)
 const BRICK_DARK := Color(0.45, 0.22, 0.15)
@@ -36,6 +36,9 @@ static func text(obj: PlacedObject) -> String:
 	var pour := _holding_water() and PlacedManager.POUR_CAP.has(obj.kind)
 	var hint := "  · clique: despeja a garrafa" if pour else ""
 	match obj.kind:
+		"pipe_pump":
+			var on: bool = obj.extra.get("pstate", "") == "ok"
+			return "%s: %s · %s" % [name, "empurrando: a água do cano sobe" if on else "parada (sem força, a água só desce)", Power.status(obj)]
 		"pipe":
 			var flow: float = obj.extra.get("flow", 0.0)
 			var vapor: float = obj.extra.get("vapor", 0.0)
@@ -185,6 +188,9 @@ static func build(kind: String, obj: PlacedObject) -> void:
 		"pipe_stand":
 			_pipe_stand(obj)
 			return
+		"pipe_pump":
+			_pipe_pump(mb, spin, obj)
+			spin_at = Vector3(-0.42, 0.32, 0)
 		"blast_furnace":
 			_blast_base(mb, obj)
 			spin_at = Vector3(-1.0, 0.6, 0)
@@ -349,6 +355,28 @@ static func _update_flow(obj: PlacedObject) -> void:
 	flow.set_instance_shader_parameter("flow_dir", float(obj.extra.get("fdir", 1)))
 	flow.set_instance_shader_parameter("flow_speed", 1.2 if steam else 0.6)
 	flow.set_instance_shader_parameter("flow_color", Color(1, 1, 1, 0.55) if steam else Color(0.45, 0.7, 1.0, 0.5))
+
+
+## Bomba de recalque: corpo de ferro fundido em caracol entre os dois flanges de cano (±Z),
+## mancal e a polia de latão do eixo do lado (−X: eixo ou motor elétrico). O rotor gira.
+static func _pipe_pump(mb: MeshBuilder, spin: MeshBuilder, obj: PlacedObject) -> void:
+	mb.color(IRON.darkened(0.2))
+	mb.box(Vector3(0, 0.04, 0), Vector3(0.7, 0.08, 0.6)) # base
+	mb.color(Color(0.25, 0.32, 0.38)) # ferro fundido pintado
+	mb.lathe(PackedVector2Array([Vector2(0.002, -0.12), Vector2(0.2, -0.12), Vector2(0.24, -0.06), Vector2(0.24, 0.06), Vector2(0.2, 0.12), Vector2(0.002, 0.12)]), 14,
+		Basis(Vector3.BACK, PI / 2), Vector3(-0.02, 0.32, 0)) # caracol
+	mb.box(Vector3(0, 0.18, 0), Vector3(0.3, 0.22, 0.3)) # pé
+	for side in [-1.0, 1.0]:
+		mb.lathe(PackedVector2Array([Vector2(0.06, 0.0), Vector2(0.06, 0.2)]), 8, Basis(Vector3.RIGHT, side * PI / 2), Vector3(0, 0.32, side * 0.2)) # bocal
+	mb.color(IRON)
+	mb.box(Vector3(-0.3, 0.32, 0), Vector3(0.14, 0.14, 0.14)) # mancal
+	mb.box(Vector3(-0.3, 0.16, 0), Vector3(0.1, 0.24, 0.1))
+	spin.color(BRASS)
+	spin.lathe(PackedVector2Array([Vector2(0.02, -0.03), Vector2(0.11, -0.03), Vector2(0.12, 0.0), Vector2(0.11, 0.03), Vector2(0.02, 0.03)]), 12,
+		Basis(Vector3.BACK, PI / 2), Vector3(-0.08, 0, 0)) # polia (a porta de latão)
+	spin.color(STEEL)
+	spin.tube(PackedVector3Array([Vector3(-0.1, 0, 0), Vector3(0.36, 0, 0)]), 0.025, 6)
+	obj._shape(Vector3(0, 0.25, 0), Vector3(0.75, 0.5, 0.6))
 
 
 ## Tripé na ponta solta de um cano no ar (igual ao do eixo, com braçadeira de cobre em

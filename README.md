@@ -69,6 +69,18 @@ reação física a golpes e ragdoll (estilo Dying Light), visual de PC dos anos 
   curvas só de 90° (outro trecho saindo da ponta). Ponta solta no ar de cano deitado ganha **tripé** (como o eixo);
   em pé não. Desmontando o cano/eixo, o tripé solto sai junto (`test_grid_snap`).
 - **HUD**: os arcos das necessidades ficaram maiores; o termômetro não fica mais por cima deles.
+- **Pôr em massa** (como a talhadeira): com terra, pedra, areia ou **tábua** na mão (tábua agora vira bloco de
+  construção, zumbi quebra com 5 golpes), segure o clique num bloco e arraste: a caixa cresce até o bloco mirado
+  (até 12 por lado / 256 blocos); soltando, põe os vazios e cobra só o que pôs (amarelo = falta material).
+  **Martelo**: segurar e arrastar põe uma fileira de paredes (e andares, subindo), uma área de pisos/tetos ou uma
+  linha de pilares, até 24 peças (`test_mass_build`).
+- **Ferramentas** (picareta, pá, machado): segurando o clique, batem sem parar.
+- **Armas de fogo acertam longe**: o recuo subia a mira antes de a bala sair (de ~30 m em diante o tiro passava por
+  cima). Revólver 90 m, espingarda 40 m, rifle 190 m (`test_gun_range`). Corpo a corpo: alcance = 1,9 m + tamanho
+  da arma.
+- **Água por gravidade**: caixa d'água e coletor de chuva só mandam água para baixo (entrada abaixo da superfície da
+  água deles). **Bomba de recalque** (aba Vapor: no meio do cano, com eixo ou motor elétrico na porta de latão,
+  carga 1): ligada, a água da rede sobe. Carneiro e bombas da beira do lago/poço já empurram (`test_water_gravity`).
 - **Água que escorre (blocos de 0,4 m, `scripts/world/voxel_water.gd`)**: lagos, rios e o mar continuam como
   antes (o mar fica fixo em volta da ilha) e viram fonte sem fim. Cavando perto, a água sai deles: cai reto em
   buraco, se espalha para os lados perdendo nível (até ~4,8 m no plano; descendo, vai longe), e um canal abaixo

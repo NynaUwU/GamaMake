@@ -319,6 +319,7 @@ Palette::Palette() {
 	set(BUILT_DIRT, 0.43f, 0.31f, 0.2f);
 	set(BUILT_STONE, 0.5f, 0.49f, 0.46f);
 	set(BUILT_SAND, 0.76f, 0.65f, 0.45f);
+	set(BUILT_WOOD, 0.56f, 0.39f, 0.22f);
 	set(DEPOSIT_COAL, 0.06f, 0.06f, 0.08f);
 	set(DEPOSIT_IRON, 0.78f, 0.34f, 0.18f);
 	set(DEPOSIT_COPPER, 0.16f, 0.7f, 0.58f);

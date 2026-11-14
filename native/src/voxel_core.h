@@ -39,6 +39,7 @@ enum Material : uint8_t {
 	BUILT_DIRT = 16, // >= 16: posto pelo jogador (construção: zumbi quebra)
 	BUILT_STONE = 17,
 	BUILT_SAND = 18,
+	BUILT_WOOD = 19, // tábuas postas (parede livre de madeira)
 	// Jazidas (infinitas): no salão do fim de algumas entradas de caverna. A picareta tira
 	// minério sem acabar; a perfuratriz em cima tira sozinha.
 	DEPOSIT_COAL = 20,

@@ -73,6 +73,8 @@ static func _aim_voxel(hit: Dictionary, forward: Vector3) -> Dictionary:
 
 
 static func is_block_item(id: StringName) -> bool:
+	if VoxelWorld.i and VoxelWorld.ITEM_BLOCK.has(id):
+		return true # terra, pedra, areia e tábua viram blocos (voxels)
 	return TerrainWorld.ITEM_MAT.has(id)
 
 
@@ -171,7 +173,9 @@ static func place(player: Player) -> bool:
 	if terrain == null or target.is_empty() or not is_block_item(id):
 		return false
 	if target.get("voxel", false):
-		return _place_voxel(player, target, id)
+		return _start_mass(player, target, id)
+	if not TerrainWorld.ITEM_MAT.has(id):
+		return false # tábua só vira bloco no chão de voxels
 	var col: Vector2i = target.place
 	var mat: int = TerrainWorld.ITEM_MAT[id]
 	var cost: int = TerrainWorld.MAT_COST[mat]
@@ -189,6 +193,66 @@ static func place(player: Player) -> bool:
 	terrain.request_place(col, mat)
 	_dust(player, target.point, TerrainWorld.MAT_COLORS[mat])
 	return true
+
+
+# --- Pôr em massa (como a talhadeira): segura o clique num bloco, arrasta e solta ---------
+
+static var _mass := {} ## {"start", "end": Vector3i, "id": item na mão}
+
+
+## Clique com bloco na mão: marca o primeiro bloco; o resto vem arrastando (update_cursor).
+static func _start_mass(player: Player, target: Dictionary, id: StringName) -> bool:
+	var b: Vector3i = target.place
+	if b == VoxelWorld.NO_BLOCK:
+		Sfx.play("click", -6.0, 0.6)
+		return true
+	_mass = {"start": b, "end": b, "id": id}
+	if not Input.is_action_pressed("attack"):
+		_finish_mass(player) # chamado sem o botão (script/teste): põe já
+	return true
+
+
+## Caixa entre o começo e o fim, no máximo MASS_MAX_SIDE por lado.
+static func _mass_box() -> Array:
+	var a: Vector3i = _mass.start
+	var e: Vector3i = _mass.end
+	var lim := VoxelWorld.MASS_MAX_SIDE - 1
+	e = Vector3i(clampi(e.x, a.x - lim, a.x + lim), clampi(e.y, a.y - lim, a.y + lim), clampi(e.z, a.z - lim, a.z + lim))
+	return [Vector3i(mini(a.x, e.x), mini(a.y, e.y), mini(a.z, e.z)), Vector3i(maxi(a.x, e.x), maxi(a.y, e.y), maxi(a.z, e.z))]
+
+
+## Soltou o clique: põe os blocos vazios da caixa (os mais perto do começo primeiro), até
+## acabar o material ou MASS_MAX.
+static func _finish_mass(player: Player) -> void:
+	var vw := VoxelWorld.i
+	var id: StringName = _mass.id
+	var start: Vector3i = _mass.start
+	var box := _mass_box()
+	_mass = {}
+	if vw == null or player.inventory.selected_id() != id:
+		return
+	var mat: int = VoxelWorld.ITEM_BLOCK[id]
+	var cost: int = VoxelWorld.BLOCK_COST[mat]
+	var list := []
+	for y in range(box[0].y, box[1].y + 1):
+		for z in range(box[0].z, box[1].z + 1):
+			for x in range(box[0].x, box[1].x + 1):
+				var b := Vector3i(x, y, z)
+				if vw.material_at(b) == VoxelRef.AIR and not _blocked_3d(player, b):
+					list.append(b)
+	list.sort_custom(func(p, q): return (p - start).length_squared() < (q - start).length_squared())
+	var can := VoxelWorld.MASS_MAX if Cheats.creative else mini(player.inventory.count(id) / cost, VoxelWorld.MASS_MAX)
+	list = list.slice(0, can)
+	if list.is_empty():
+		Sfx.play("click", -6.0, 0.6)
+		return
+	if not Cheats.creative:
+		var need: int = list.size() * cost
+		var got: int = player.inventory.take(player.inventory.selected, need).get("amount", 0)
+		if got < need:
+			Builder.pay(player.inventory, {id: need - got})
+	vw.request_place_many(list[0], mat, list)
+	_dust(player, VoxelWorld.block_center(list[0]), VoxelRef.COLORS.get(mat, Color(0.4, 0.3, 0.2)))
 
 
 static func _place_voxel(player: Player, target: Dictionary, id: StringName) -> bool:
@@ -270,6 +334,17 @@ static func update_cursor(player: Player) -> void:
 	elif is_block_item(id):
 		mode = "place"
 	var target := aim(player) if mode != "" and not player.ui_blocked and player.vehicle == null else {}
+	if not _mass.is_empty():
+		# Arrastando com bloco na mão: a caixa vai do começo até o bloco mirado.
+		if id != _mass.id or player.ui_blocked:
+			_mass = {}
+		elif Input.is_action_pressed("attack"):
+			if target.get("voxel", false) and target.place != VoxelWorld.NO_BLOCK:
+				_mass.end = target.place
+			_show_mass(player)
+			return
+		else:
+			_finish_mass(player)
 	if target.is_empty():
 		if is_instance_valid(_cursor):
 			_cursor.visible = false
@@ -306,6 +381,21 @@ static func update_cursor(player: Player) -> void:
 	_cursor.global_position = Vector3((col.x + 0.5) * TerrainWorld.GRID, y, (col.y + 0.5) * TerrainWorld.GRID)
 	var ok := terrain.dig_result(col) != TerrainWorld.Mat.NATURAL if mode == "dig" else terrain.can_place(col)
 	_cursor_mat.albedo_color = (Color(1.0, 0.45, 0.3, 0.9) if mode == "dig" else Color(0.5, 1.0, 0.45, 0.9)) if ok else Color(0.6, 0.6, 0.6, 0.5)
+	_cursor.visible = true
+
+
+static func _show_mass(player: Player) -> void:
+	if not is_instance_valid(_cursor):
+		return
+	var box := _mass_box()
+	var lo := VoxelWorld.block_center(box[0])
+	var hi := VoxelWorld.block_center(box[1])
+	_cursor.global_position = (lo + hi) * 0.5
+	_cursor.scale = Vector3(box[1] - box[0]) + Vector3.ONE
+	var count: int = (box[1].x - box[0].x + 1) * (box[1].y - box[0].y + 1) * (box[1].z - box[0].z + 1)
+	var cost: int = VoxelWorld.BLOCK_COST[VoxelWorld.ITEM_BLOCK[_mass.id]]
+	var enough := Cheats.creative or player.inventory.count(_mass.id) >= count * cost
+	_cursor_mat.albedo_color = Color(0.5, 1.0, 0.45, 0.9) if enough else Color(1.0, 0.8, 0.3, 0.9) # amarelo: falta material
 	_cursor.visible = true
 
 
