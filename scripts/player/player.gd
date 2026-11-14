@@ -46,7 +46,7 @@ const WEAPON_FROM_ITEM := {"sword": WeaponType.SWORD, "bat": WeaponType.BAT,
 ##   rest/ads      posição na mão / mirando (a linha da mira no centro da tela)
 ##   muzzle        boca do cano no modelo      pitch/volume  som do tiro
 const GUNS := {
-	&"pistola": {"ammo": &"cartucho", "mag": 6, "damage": 40.0, "force": 20.0, "rate": 0.3, "reload": 1.9, "range": 70.0,
+	&"pistola": {"ammo": &"cartucho", "mag": 6, "damage": 40.0, "force": 20.0, "rate": 0.3, "reload": 1.9, "range": 90.0,
 		"spread": 0.014, "aim": 0.004, "pellets": 1, "pierce": 1, "kick": 0.014, "zoom": 62.0,
 		"rest": Vector3(0.2, -0.21, -0.42), "ads": Vector3(0.0, -0.072, -0.46), "muzzle": Vector3(0, 0.035, -0.17), "pitch": 1.0, "volume": 0.0},
 	&"rifle": {"ammo": &"bala_rifle", "mag": 1, "damage": 115.0, "force": 45.0, "rate": 0.5, "reload": 1.6, "range": 190.0,
@@ -55,8 +55,8 @@ const GUNS := {
 	&"rifle_luneta": {"ammo": &"bala_rifle", "mag": 1, "damage": 115.0, "force": 45.0, "rate": 0.5, "reload": 1.6, "range": 220.0,
 		"spread": 0.02, "aim": 0.0002, "pellets": 1, "pierce": 3, "kick": 0.04, "zoom": 16.0, "scope": true,
 		"rest": Vector3(0.17, -0.2, -0.36), "ads": Vector3(0.0, -0.069, -0.2), "muzzle": Vector3(0, 0.017, -0.74), "fore": Vector3(0, -0.03, -0.36), "pitch": 0.72, "volume": 3.0},
-	&"espingarda": {"ammo": &"cartucho_espingarda", "mag": 2, "damage": 18.0, "force": 16.0, "rate": 0.32, "reload": 2.3, "range": 30.0,
-		"spread": 0.055, "aim": 0.04, "pellets": 8, "pierce": 1, "kick": 0.06, "zoom": 64.0, "falloff": 7.0,
+	&"espingarda": {"ammo": &"cartucho_espingarda", "mag": 2, "damage": 18.0, "force": 16.0, "rate": 0.32, "reload": 2.3, "range": 40.0,
+		"spread": 0.055, "aim": 0.04, "pellets": 8, "pierce": 1, "kick": 0.06, "zoom": 64.0, "falloff": 10.0,
 		"rest": Vector3(0.17, -0.21, -0.36), "ads": Vector3(0.0, -0.035, -0.32), "muzzle": Vector3(0, 0.013, -0.62), "fore": Vector3(0, -0.03, -0.3), "pitch": 0.55, "volume": 5.0},
 }
 const GUN_IDS := [&"pistola", &"rifle", &"rifle_luneta", &"espingarda"] ## índice que vai pela rede no "shoot"
@@ -119,7 +119,7 @@ enum SwingPhase { NONE, WINDUP, SLASH, RECOVER }
 @export_group("Espada")
 @export var melee_damage := 34.0
 @export var melee_force := 30.0
-@export var melee_range := 2.4
+@export var melee_range := 1.9 ## alcance do golpe = isto + o comprimento da arma (_melee[].length)
 @export var windup_time := 0.12 ## preparação: a arma vai para trás
 @export var slash_time := 0.13 ## o golpe em si (é quando acerta)
 @export var recover_time := 0.22 ## volta para a guarda
@@ -161,13 +161,13 @@ enum SwingPhase { NONE, WINDUP, SLASH, RECOVER }
 @export_group("Chute")
 @export var kick_damage := 6.0
 @export var kick_force := 140.0
-@export var kick_range := 2.4 ## alcance do chute (pega todos no cone à frente)
+@export var kick_range := 2.7 ## alcance do chute (pega todos no cone à frente)
 @export var kick_cone := 0.35 ## dot mínimo: 0.35 ≈ 70° para cada lado
 
 @export_group("Soco")
 @export var punch_damage := 12.0
 @export var punch_force := 26.0
-@export var punch_range := 1.7
+@export var punch_range := 2.1
 @export var punch_rate := 0.32
 
 @export_group("Bloqueio")
@@ -1149,11 +1149,18 @@ func _start_swing(index: int) -> void:
 	_trail_color = stats.trail
 
 
+## Ferramentas (não são de combate): segurando o clique, batem sem parar.
+const AUTO_SWING := [WeaponType.PICKAXE, WeaponType.SHOVEL, WeaponType.AXE]
+
+
 func _update_swing(delta: float) -> void:
 	_since_swing += delta
 	_update_trail(delta)
 	if not _is_melee():
 		return
+	if _swing_phase == SwingPhase.NONE and _weapon_type in AUTO_SWING and Input.is_action_pressed("attack") \
+			and not ui_blocked and vehicle == null and not _busy and _equip >= 1.0 and health > 0.0 and not is_puppet():
+		_melee_attack() # o golpe seguinte começa assim que o anterior acaba
 	var stats: Dictionary = _melee[_weapon_type]
 	var node: Node3D = stats.node
 	if _swing_phase == SwingPhase.NONE and _blocking:
@@ -1285,7 +1292,8 @@ func _sweep_blade() -> void:
 		var dir := Basis(axis, angle) * Vector3.FORWARD
 		var through: Vector3 = swing.pivot + dir * (ARM_LENGTH + 0.6) # meio da arma
 		var ray_dir := (cam_basis * through).normalized()
-		var reach := melee_range * (1.6 if _weapon_type == WeaponType.SPEAR else 1.0) # lança alcança longe
+		# Do olho até a ponta: base + comprimento da arma (espada ~2,9 m, pá 3 m, lança ~4,1 m).
+		var reach: float = (melee_range + float(_melee[_weapon_type].length)) * (1.15 if _weapon_type == WeaponType.SPEAR else 1.0)
 		var query := PhysicsRayQueryParameters3D.create(origin, origin + ray_dir * reach, MASK_HIT, [get_rid()])
 		query.collide_with_areas = true
 		var hit := space.intersect_ray(query)
@@ -1519,20 +1527,24 @@ func _fire_pistol() -> void:
 	Sfx.play_at("shot", muzzle.global_position, gun.volume, gun.pitch)
 	_fire_timer = gun.rate
 	_pistol_kick = 1.0
-	var kick: float = gun.kick * (1.0 - 0.4 * _aim)
-	head.rotation.x = minf(head.rotation.x + kick, deg_to_rad(85)) # recuo sobe a mira
-	rotate_y(randf_range(-1.0, 1.0) * kick * 0.25)
-	_shake = maxf(_shake, gun.kick * 2.5)
 	_flash_muzzle()
 	var moving := clampf(Vector2(velocity.x, velocity.z).length() / walk_speed, 0.0, 1.5)
 	var spread: float = lerpf(gun.spread, gun.aim, _aim) * (1.0 + moving * 0.8)
 	last_shot_bones.clear()
+	# A bala sai para onde está mirando; o recuo vem DEPOIS (antes ele subia a mira primeiro e o
+	# tiro passava por cima de quem estava a mais de ~30 m).
+	var aim_basis := camera.global_basis
+	var eye := camera.global_position
 	for k in int(gun.pellets):
 		var offset := Vector3(randf_range(-1, 1), randf_range(-1, 1), 0)
 		if offset.length() > 1.0:
 			offset = offset.normalized() # cone redondo
-		var direction := (camera.global_basis * (Vector3.FORWARD + offset * spread)).normalized()
-		_gun_ray(camera.global_position, direction, gun, k < 3)
+		var direction := (aim_basis * (Vector3.FORWARD + offset * spread)).normalized()
+		_gun_ray(eye, direction, gun, k < 3)
+	var kick: float = gun.kick * (1.0 - 0.4 * _aim)
+	head.rotation.x = minf(head.rotation.x + kick, deg_to_rad(85)) # recuo sobe a mira
+	rotate_y(randf_range(-1.0, 1.0) * kick * 0.25)
+	_shake = maxf(_shake, gun.kick * 2.5)
 	_emit_weapon_text()
 	if _ammo == 0:
 		_start_reload()
